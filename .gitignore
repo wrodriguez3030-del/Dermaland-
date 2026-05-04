@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.next/
+.turbo/
+out/
+.cache/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.vscode/
+!.vscode/settings.example.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Tests / coverage
+coverage/
+playwright-report/
+test-results/
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# Imports / data sensible
+data/import/*.xlsx
+data/import/*.xls
+!data/import/.gitkeep
+!data/import/productos-inicial.csv
+!data/import/README.md
+
+# Certificados — NUNCA commitear
+*.p12
+*.pfx
+*.key
+*.pem
+certificates/
+
+# Drive sync (recomendado excluir también desde Drive Desktop)
+# node_modules, .next, .turbo, dist, build, .cache
