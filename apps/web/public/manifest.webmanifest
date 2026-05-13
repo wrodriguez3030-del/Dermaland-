@@ -1,0 +1,32 @@
+{
+  "name": "DermaLand",
+  "short_name": "DermaLand",
+  "description": "Plataforma SaaS dermatológica multiempresa",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F7FBFB",
+  "theme_color": "#2DB4A8",
+  "icons": [
+    {
+      "src": "/brand/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Conteo físico",
+      "url": "/conteo-fisico"
+    },
+    {
+      "name": "POS",
+      "url": "/pos"
+    }
+  ]
+}

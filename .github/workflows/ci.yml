@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancela runs anteriores del mismo branch para ahorrar minutos
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint · Typecheck · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter web typecheck
+
+      - name: Unit tests (vitest)
+        run: pnpm --filter web test
+
+      - name: Build
+        run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_APP_URL: http://localhost:3031
+          DATA_SOURCE: mock
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate
+    # Permitir que el job E2E falle sin bloquear merge mientras se afina;
+    # quitar continue-on-error en Fase 11 cuando los E2E sean estables.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_APP_URL: http://localhost:3031
+          DATA_SOURCE: mock
+
+      - name: Run E2E
+        run: pnpm --filter web test:e2e
+        env:
+          NEXT_PUBLIC_APP_URL: http://localhost:3031
+          DATA_SOURCE: mock
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14

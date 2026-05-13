@@ -1,0 +1,260 @@
+/**
+ * Interfaces de repositorios.
+ *
+ * Cada implementación (mock o Supabase) cumple este contrato.
+ * Las páginas reciben datos vía `getRepositories()` (factory en `index.ts`)
+ * y nunca importan implementaciones concretas — facilita el switch
+ * mock ↔ Supabase con solo cambiar `DATA_SOURCE` en `.env`.
+ *
+ * Toda query debe filtrar por `businessId` en su firma. Ese parámetro
+ * NUNCA viene del cliente — siempre del JWT verificado server-side
+ * (ver `src/server/auth/`). Esto es la primera línea contra fugas
+ * cross-tenant (riesgo R-SEC-01).
+ */
+
+import type {
+  AIActionLog,
+  AIAgent,
+  ApiKey,
+  AuditLog,
+  Branch,
+  Brand,
+  Business,
+  CashRegisterSession,
+  Category,
+  Customer,
+  CustomerNote,
+  DgiiSequence,
+  ElectronicInvoice,
+  ID,
+  InventoryCount,
+  InventoryCountItem,
+  InventoryCountScan,
+  InventoryMovement,
+  Laboratory,
+  Plan,
+  Product,
+  ProductLot,
+  Proforma,
+  Recommendation,
+  RoutineTemplate,
+  SkinCondition,
+  SkinType,
+  Subscription,
+  UsageCounter,
+  User,
+  Warehouse,
+  Webhook,
+  WhatsappConversation,
+  WhatsappMessage,
+  WhatsappTemplate,
+} from "@/types";
+
+// ─── Read context ────────────────────────────────────────────────────────────
+//
+// Pasa por toda query: identifica el tenant del usuario actual.
+// Se obtiene del JWT en server-side (Server Component / Server Action).
+//
+export interface RepoContext {
+  businessId: ID;
+  branchId?: ID;
+  userId?: ID;
+}
+
+// ─── Tenancy ────────────────────────────────────────────────────────────────
+
+export interface BusinessRepository {
+  current(ctx: RepoContext): Promise<Business | null>;
+  update(ctx: RepoContext, patch: Partial<Business>): Promise<Business>;
+}
+
+export interface BranchRepository {
+  list(ctx: RepoContext): Promise<Branch[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Branch | null>;
+  create(ctx: RepoContext, branch: Omit<Branch, "id" | "createdAt" | "updatedAt">): Promise<Branch>;
+}
+
+export interface WarehouseRepository {
+  list(ctx: RepoContext, branchId?: ID): Promise<Warehouse[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Warehouse | null>;
+}
+
+// ─── Users / Roles / Audit ──────────────────────────────────────────────────
+
+export interface UserRepository {
+  list(ctx: RepoContext): Promise<User[]>;
+  byId(ctx: RepoContext, id: ID): Promise<User | null>;
+  current(): Promise<User | null>;
+}
+
+export interface AuditRepository {
+  list(ctx: RepoContext, limit?: number): Promise<AuditLog[]>;
+  log(ctx: RepoContext, entry: Omit<AuditLog, "id" | "createdAt">): Promise<void>;
+}
+
+// ─── Catalog ────────────────────────────────────────────────────────────────
+
+export interface BrandRepository {
+  list(ctx: RepoContext): Promise<Brand[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Brand | null>;
+}
+
+export interface CategoryRepository {
+  list(ctx: RepoContext): Promise<Category[]>;
+}
+
+export interface LaboratoryRepository {
+  list(ctx: RepoContext): Promise<Laboratory[]>;
+}
+
+export interface ProductRepository {
+  list(ctx: RepoContext, opts?: {
+    search?: string;
+    brandId?: ID;
+    categoryId?: ID;
+    activeOnly?: boolean;
+    limit?: number;
+  }): Promise<Product[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Product | null>;
+  byBarcode(ctx: RepoContext, barcode: string): Promise<Product | null>;
+  totalStock(ctx: RepoContext, productId: ID): Promise<number>;
+}
+
+export interface ProductLotRepository {
+  list(ctx: RepoContext, opts?: {
+    productId?: ID;
+    status?: ProductLot["status"];
+    expiringWithinDays?: number;
+  }): Promise<ProductLot[]>;
+  byId(ctx: RepoContext, id: ID): Promise<ProductLot | null>;
+  /** FEFO: lote más próximo a vencer disponible para el producto. */
+  selectFefo(ctx: RepoContext, productId: ID): Promise<ProductLot | null>;
+  quarantine(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
+  release(ctx: RepoContext, lotId: ID): Promise<void>;
+  recall(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
+}
+
+export interface InventoryMovementRepository {
+  list(ctx: RepoContext, opts?: { productId?: ID; lotId?: ID; limit?: number }): Promise<InventoryMovement[]>;
+  create(ctx: RepoContext, movement: Omit<InventoryMovement, "id" | "createdAt">): Promise<InventoryMovement>;
+}
+
+// ─── Inventory counts (Phase 2.1) ───────────────────────────────────────────
+
+export interface InventoryCountRepository {
+  list(ctx: RepoContext): Promise<InventoryCount[]>;
+  byId(ctx: RepoContext, id: ID): Promise<InventoryCount | null>;
+  scans(ctx: RepoContext, countId: ID): Promise<InventoryCountScan[]>;
+  items(ctx: RepoContext, countId: ID): Promise<InventoryCountItem[]>;
+  /**
+   * Registra un scan idempotentemente. Duplicados detectados por
+   * (offline_scan_id, device_id) y rechazados sin error — evita doble conteo
+   * cuando un dispositivo reintenta el sync.
+   */
+  recordScan(ctx: RepoContext, scan: Omit<InventoryCountScan, "id">): Promise<{ inserted: boolean }>;
+  submit(ctx: RepoContext, countId: ID): Promise<void>;
+  approve(ctx: RepoContext, countId: ID): Promise<void>;
+  reject(ctx: RepoContext, countId: ID, reason: string): Promise<void>;
+}
+
+// ─── Customers ──────────────────────────────────────────────────────────────
+
+export interface CustomerRepository {
+  list(ctx: RepoContext, opts?: { search?: string; tag?: string }): Promise<Customer[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Customer | null>;
+  notes(ctx: RepoContext, customerId: ID): Promise<CustomerNote[]>;
+  create(ctx: RepoContext, customer: Omit<Customer, "id" | "createdAt" | "updatedAt">): Promise<Customer>;
+}
+
+// ─── POS / Sales ────────────────────────────────────────────────────────────
+
+export interface ProformaRepository {
+  list(ctx: RepoContext): Promise<Proforma[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Proforma | null>;
+  create(ctx: RepoContext, proforma: Omit<Proforma, "id" | "createdAt" | "updatedAt">): Promise<Proforma>;
+  cancel(ctx: RepoContext, id: ID, reason: string): Promise<void>;
+  convertToEcf(ctx: RepoContext, id: ID): Promise<{ ecfNumber: string; trackId: string }>;
+}
+
+export interface CashRegisterRepository {
+  current(ctx: RepoContext): Promise<CashRegisterSession | null>;
+  history(ctx: RepoContext, limit?: number): Promise<CashRegisterSession[]>;
+  open(ctx: RepoContext, openingAmount: number): Promise<CashRegisterSession>;
+  close(ctx: RepoContext, sessionId: ID, countedCash: number): Promise<CashRegisterSession>;
+}
+
+// ─── Recommendations ────────────────────────────────────────────────────────
+
+export interface RecommendationRepository {
+  list(ctx: RepoContext, customerId?: ID): Promise<Recommendation[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Recommendation | null>;
+  create(ctx: RepoContext, rec: Omit<Recommendation, "id" | "createdAt" | "updatedAt">): Promise<Recommendation>;
+}
+
+export interface DermatologyRefRepository {
+  skinTypes(): Promise<SkinType[]>;
+  conditions(): Promise<SkinCondition[]>;
+  routineTemplates(): Promise<RoutineTemplate[]>;
+}
+
+// ─── SaaS / Platform ────────────────────────────────────────────────────────
+
+export interface SubscriptionRepository {
+  current(ctx: RepoContext): Promise<Subscription | null>;
+  usage(ctx: RepoContext): Promise<UsageCounter[]>;
+}
+
+export interface PlanRepository {
+  list(): Promise<Plan[]>;
+}
+
+// ─── Integrations (WA, IA, API, DGII) ───────────────────────────────────────
+
+export interface WhatsappRepository {
+  templates(ctx: RepoContext): Promise<WhatsappTemplate[]>;
+  conversations(ctx: RepoContext): Promise<WhatsappConversation[]>;
+  messages(ctx: RepoContext, conversationId: ID): Promise<WhatsappMessage[]>;
+}
+
+export interface AIRepository {
+  agents(ctx: RepoContext): Promise<AIAgent[]>;
+  logs(ctx: RepoContext, limit?: number): Promise<AIActionLog[]>;
+}
+
+export interface ApiV3Repository {
+  keys(ctx: RepoContext): Promise<ApiKey[]>;
+  webhooks(ctx: RepoContext): Promise<Webhook[]>;
+}
+
+export interface DgiiRepository {
+  sequences(ctx: RepoContext): Promise<DgiiSequence[]>;
+  invoices(ctx: RepoContext): Promise<ElectronicInvoice[]>;
+}
+
+// ─── Aggregate ──────────────────────────────────────────────────────────────
+
+export interface Repositories {
+  business: BusinessRepository;
+  branch: BranchRepository;
+  warehouse: WarehouseRepository;
+  user: UserRepository;
+  audit: AuditRepository;
+  brand: BrandRepository;
+  category: CategoryRepository;
+  laboratory: LaboratoryRepository;
+  product: ProductRepository;
+  productLot: ProductLotRepository;
+  inventoryMovement: InventoryMovementRepository;
+  inventoryCount: InventoryCountRepository;
+  customer: CustomerRepository;
+  proforma: ProformaRepository;
+  cashRegister: CashRegisterRepository;
+  recommendation: RecommendationRepository;
+  dermatologyRef: DermatologyRefRepository;
+  subscription: SubscriptionRepository;
+  plan: PlanRepository;
+  whatsapp: WhatsappRepository;
+  ai: AIRepository;
+  apiV3: ApiV3Repository;
+  dgii: DgiiRepository;
+}

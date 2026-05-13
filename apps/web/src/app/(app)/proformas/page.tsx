@@ -1,0 +1,208 @@
+"use client";
+
+import Link from "next/link";
+import { PageHeader } from "@/components/layout/page-header";
+import { RowActions } from "@/components/ui/row-actions";
+import { useToast } from "@/components/ui/toast";
+import { Ban, Printer, Send } from "lucide-react";
+import {
+  SortableTH,
+  useTableSort,
+} from "@/components/ui/sortable-table-header";
+import type { Proforma } from "@/types";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Table,
+  THead,
+  TBody,
+  TR,
+  TH,
+  TD,
+} from "@/components/ui";
+import { Plus } from "lucide-react";
+import { SearchInput } from "@/components/ui/search-input";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { useProformas } from "@/features/sales/proforma-store";
+import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+
+const statusMeta: Record<
+  string,
+  { label: string; tone: "success" | "warning" | "info" | "neutral" | "danger" | "purple" }
+> = {
+  paid: { label: "Pagada", tone: "success" },
+  partially_paid: { label: "Pago parcial", tone: "warning" },
+  issued: { label: "Emitida", tone: "info" },
+  pending_ecf: { label: "Pendiente e-CF", tone: "warning" },
+  converted_to_ecf: { label: "Convertida e-CF", tone: "success" },
+  draft: { label: "Borrador", tone: "neutral" },
+  cancelled: { label: "Cancelada", tone: "danger" },
+  expired: { label: "Vencida", tone: "neutral" },
+};
+
+const comparators = {
+  date: (a: Proforma, b: Proforma) =>
+    +new Date(a.createdAt) - +new Date(b.createdAt),
+  number: (a: Proforma, b: Proforma) => a.number.localeCompare(b.number),
+  customer: (a: Proforma, b: Proforma) =>
+    a.customerName.localeCompare(b.customerName),
+  total: (a: Proforma, b: Proforma) => a.total - b.total,
+  status: (a: Proforma, b: Proforma) => a.status.localeCompare(b.status),
+};
+
+export default function ProformasPage() {
+  const toast = useToast();
+  const proformas = useProformas();
+  const { sort, sorted, toggle } = useTableSort(
+    proformas,
+    "date",
+    "desc",
+    comparators,
+  );
+  return (
+    <>
+      <PageHeader
+        title="Proformas"
+        description="Toda venta nace como proforma. Convertibles a e-CF en cierre de caja."
+        breadcrumbs={[{ label: "Ventas" }, { label: "Proformas" }]}
+        actions={
+          <Link href="/pos">
+            <Button size="sm">
+              <Plus className="h-4 w-4" />
+              Nueva venta
+            </Button>
+          </Link>
+        }
+      />
+
+      <FilterBar className="mb-4">
+        <SearchInput placeholder="Buscar por número, cliente o cajero…" containerClassName="flex-1 min-w-[260px]" />
+        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
+          <option>Todos los estados</option>
+          <option>Pagadas</option>
+          <option>Pago parcial</option>
+          <option>Pendientes e-CF</option>
+          <option>Canceladas</option>
+        </select>
+        <input type="date" className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm" />
+      </FilterBar>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <THead>
+              <TR>
+                <SortableTH sortKey="date" state={sort} onClick={toggle}>
+                  Fecha
+                </SortableTH>
+                <SortableTH sortKey="number" state={sort} onClick={toggle}>
+                  Proforma
+                </SortableTH>
+                <SortableTH sortKey="customer" state={sort} onClick={toggle}>
+                  Cliente
+                </SortableTH>
+                <TH>Cajero</TH>
+                <TH className="text-right">Items</TH>
+                <SortableTH
+                  sortKey="total"
+                  state={sort}
+                  onClick={toggle}
+                  align="right"
+                >
+                  Total
+                </SortableTH>
+                <TH className="text-right">Pagado</TH>
+                <SortableTH sortKey="status" state={sort} onClick={toggle}>
+                  Estado
+                </SortableTH>
+                <TH className="text-right pr-4">Acciones</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {sorted.map((p) => {
+                const meta = statusMeta[p.status] ?? statusMeta.draft;
+                return (
+                  <TR key={p.id}>
+                    <TD className="text-xs opacity-70 whitespace-nowrap">
+                      {formatDateTime(p.createdAt)}
+                    </TD>
+                    <TD>
+                      <Link
+                        href={`/proformas/${p.id}`}
+                        className="font-medium font-mono text-xs hover:text-[color:var(--brand-accent)]"
+                      >
+                        {p.number}
+                      </Link>
+                    </TD>
+                    <TD className="text-sm">{p.customerName}</TD>
+                    <TD className="text-sm opacity-70">{p.cashierName}</TD>
+                    <TD className="text-right tabular-nums">{p.items.length}</TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      {formatCurrency(p.total)}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {formatCurrency(p.paid)}
+                    </TD>
+                    <TD>
+                      <Badge tone={meta!.tone}>{meta!.label}</Badge>
+                    </TD>
+                    <TD className="pr-4">
+                      <RowActions
+                        viewHref={`/proformas/${p.id}`}
+                        editHref={`/proformas/${p.id}/editar`}
+                        canEdit={p.status === "draft" || p.status === "issued"}
+                        canDelete={false}
+                        customActions={[
+                          {
+                            label: "Imprimir",
+                            icon: Printer,
+                            onClick: () => {
+                              if (typeof window !== "undefined") {
+                                window.open(
+                                  `/proformas/${p.id}/print`,
+                                  "_blank",
+                                );
+                              }
+                            },
+                          },
+                          ...(p.status === "issued" || p.status === "partially_paid"
+                            ? [
+                                {
+                                  label: "Reenviar",
+                                  icon: Send,
+                                  onClick: () =>
+                                    toast.success(
+                                      `Proforma ${p.number} reenviada.`,
+                                    ),
+                                },
+                                {
+                                  label: "Anular",
+                                  icon: Ban,
+                                  destructive: true,
+                                  onClick: () =>
+                                    toast.success(
+                                      `Proforma ${p.number} anulada.`,
+                                    ),
+                                  confirm: {
+                                    title: "Anular proforma",
+                                    message: `¿Anular ${p.number}? Generará nota de crédito si está pagada.`,
+                                  },
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <toast.Toast />
+    </>
+  );
+}

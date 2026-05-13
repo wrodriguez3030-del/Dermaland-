@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+:root {
+  --brand-primary: #2db4a8;
+  --brand-accent: #1a7f8e;
+  --brand-fg: #0f2933;
+  --brand-bg: #f7fbfb;
+  --brand-success: #16a34a;
+  --brand-warn: #f59e0b;
+  --brand-danger: #dc2626;
+}
+
+html,
+body {
+  background: var(--brand-bg);
+  color: var(--brand-fg);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  font-feature-settings:
+    "ss01" on,
+    "cv11" on;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--brand-primary);
+  color: white;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  border: 2px solid var(--brand-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* Print — impresora térmica 80mm                                           */
+/* ──────────────────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Oculta UI no-imprimible: sidebar, header, toolbars del shell */
+  aside,
+  header,
+  .no-print,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* En la página de impresión solo queremos el recibo */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .receipt-wrapper {
+    background: white !important;
+    padding: 0 !important;
+  }
+
+  .receipt-80mm {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    box-shadow: none !important;
+    color: black !important;
+    background: white !important;
+    page-break-inside: avoid;
+  }
+
+  /* Evitar que sombras / ring de Tailwind ensucien la impresión */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}

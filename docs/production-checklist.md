@@ -1,0 +1,115 @@
+# DermaLand · Production checklist
+
+Revisión obligatoria antes de cada release a producción.
+
+## Backend (P1)
+
+- [ ] Proyecto Supabase creado (no reusar el de `csl-app`).
+- [ ] `DATABASE_URL` y claves añadidas a Vercel / proveedor.
+- [ ] Migraciones SQL aplicadas (`supabase/migrations/0001_*.sql`, `0002_*.sql`).
+- [ ] `DATA_SOURCE=supabase` en producción.
+- [ ] Tipos generados con `supabase gen types` y commiteados.
+- [ ] Trigger de claims JWT (`set_business_claim`) instalado.
+- [ ] PITR de 7 días activado (Supabase Pro).
+- [ ] Backup semanal del bucket `certificates` programado.
+
+## Auth (P2)
+
+- [ ] Supabase Auth configurada con providers email + Google opcional.
+- [ ] Política de contraseña: mín 12, mayúsc/minúsc/número/símbolo.
+- [ ] MFA TOTP **obligatorio** para `role IN ('admin','super_admin')`.
+- [ ] Sesión 8h para súper admin · 7 días para usuarios normales.
+- [ ] Reauthentication para acciones destructivas (impersonar, eliminar negocio).
+- [ ] Middleware activo y `/super-admin` protegido por `is_platform_admin`.
+
+## RLS y multi-tenant (P3)
+
+- [ ] RLS habilitado en TODAS las tablas operativas.
+- [ ] `auth_business_id()` y `auth_is_platform_admin()` instalados.
+- [ ] Test de cross-tenant pasa (matriz de tablas → 0 rows leakage).
+- [ ] Lint custom en CI: prohibido importar `@/lib/mock-data/*` desde `src/app/**`.
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` solo en server actions con verificación explícita.
+
+## Conteo móvil + Offline (P4, P5)
+
+- [ ] PWA installable (manifest + sw + icons 192/512).
+- [ ] BarcodeDetector probado en Chrome móvil real.
+- [ ] @zxing/browser fallback probado en iOS Safari + desktop.
+- [ ] Lector Bluetooth (Honeywell, Symbol) probado físicamente.
+- [ ] IndexedDB funcionando offline 50+ scans sin pérdida.
+- [ ] Reconexión sincroniza con idempotencia confirmada (índice único en `(device_id, offline_scan_id)`).
+- [ ] Background Sync registrado y funcional.
+
+## DGII e-CF (P6)
+
+- [ ] Certificado `.p12` recibido del cliente y subido cifrado.
+- [ ] Contraseña cifrada con KMS / Supabase Vault.
+- [ ] Ambiente `cert` validado con DGII antes de pasar a `prod`.
+- [ ] Todos los tipos e-CF (31, 32, 33, 34, 41, 43, 44, 45) probados.
+- [ ] Modo contingencia activable si DGII está caído > 1h.
+- [ ] Alertas configuradas: certificado < 30 días, secuencia < 100.
+
+## WhatsApp Cloud API (P7)
+
+- [ ] App Business + WABA configurados en Meta Business Manager.
+- [ ] Plantillas críticas aprobadas (`envio_proforma`, `envio_factura_ecf`, `aviso_recall_lote`).
+- [ ] Webhook URL registrada con verify token rotado.
+- [ ] Validación de firma SHA-256 con app secret en POST.
+- [ ] Counter de uso conectado a `business_usage_counters`.
+
+## OpenAI / IA (P8)
+
+- [ ] API key con scope mínimo (solo `chat.completions`).
+- [ ] Tools registry validado — `validateToolName()` rechaza agendamiento.
+- [ ] Test E2E: agente recibe "agéndame cita" → responde "no realizamos agendamientos".
+- [ ] Counter de costos por business activo.
+- [ ] Rate limit por agente (Upstash Redis) activado.
+
+## Tests (P9)
+
+- [ ] `pnpm test` pasa todos los unit tests.
+- [ ] `pnpm test:e2e` pasa el smoke test.
+- [ ] CI bloquea merge si typecheck/test/build falla.
+- [ ] Cross-tenant E2E con dos businesses reales en CI.
+
+## CI/CD (P10)
+
+- [ ] `.github/workflows/ci.yml` activo.
+- [ ] Branch `main` protegido: requiere PR + tests verdes + 1 review.
+- [ ] Deploy preview por PR a Vercel.
+- [ ] Deploy production solo desde `main` con manual approval.
+- [ ] Sentry conectado (frontend + backend).
+
+## Seguridad
+
+- [ ] Secrets rotation: cada 90 días para tokens externos.
+- [ ] CORS configurado: solo orígenes permitidos.
+- [ ] CSP headers en `next.config.ts`.
+- [ ] Rate limit en API V3 con Upstash Redis.
+- [ ] Logs estructurados con `pino` — sin PII en logs.
+- [ ] Auditoría completa para acciones sensibles.
+
+## Performance
+
+- [ ] Lighthouse mobile ≥ 85 en `/conteo-fisico/[id]/movil`.
+- [ ] Lighthouse desktop ≥ 90 en `/`.
+- [ ] First Load JS < 200KB en rutas críticas.
+- [ ] k6: 100 usuarios concurrentes en POS sin degradación > 500ms p95.
+- [ ] 10 dispositivos sincronizando conteos sin colisiones.
+
+## Operación
+
+- [ ] Runbook DGII en `docs/dgii-setup.md`.
+- [ ] Runbook WhatsApp en `docs/whatsapp-setup.md`.
+- [ ] Runbook backup/restore en `docs/runbook-backup.md`.
+- [ ] Plan de DRP documentado.
+- [ ] Lista de contactos de emergencia.
+- [ ] Checklist de go-live firmada por cliente y equipo técnico.
+
+## Cliente DermaLand específico
+
+- [ ] Logo PNG/SVG entregados → en `apps/web/public/brand/`.
+- [ ] Favicon 32×32, 64×64, 192×192, 512×512.
+- [ ] Catálogo `data/import/productos-inicial.csv` con `precio_venta` y `barcode` completos.
+- [ ] Datos del business confirmados en `decisiones.md` aplicados al seed real.
+- [ ] Capacitación del equipo de la sucursal piloto Santiago.
