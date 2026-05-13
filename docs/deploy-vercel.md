@@ -1,5 +1,10 @@
 # Despliegue de DermaLand en Vercel
 
+> **Despliegue cerrado el 2026-05-13 — Fase 0 OK.** Producción pública en
+> <https://dermaland.vercel.app>, previews gated, GitHub conectado al
+> proyecto Vercel, repo limpio de secretos, incidente de token cerrado.
+> Próximos pendientes son para Fase 1 (ver final del archivo).
+
 Origen oficial: `C:\dev\dermaland` (jamás OneDrive).
 Repo: <https://github.com/wrodriguez3030-del/Dermaland->
 Puerto dev local: `3031` → <http://localhost:3031>

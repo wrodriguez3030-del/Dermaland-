@@ -2,6 +2,14 @@
 
 Notas operativas que no se deducen del código. Última edición: 2026-05-13.
 
+> **Estado del despliegue (2026-05-13): cerrado y verde.**
+> - Producción pública: <https://dermaland.vercel.app>
+> - Preview: gated por Deployment Protection (decisión de cuenta).
+> - GitHub conectado al proyecto Vercel (auto-deploy por push a `main`).
+> - Repo limpio de secretos (verificado por forense en todas las ramas).
+> - Incidente de token cerrado (usuario revisó tokens y ninguno sospechoso).
+> Pendientes ahora son para Fase 1.
+
 ## Ubicación canónica
 
 - **Repo local:** `C:\dev\dermaland` (NO usar OneDrive ni rutas anteriores).
