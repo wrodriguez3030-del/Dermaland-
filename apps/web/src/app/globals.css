@@ -1,0 +1,51 @@
+/* DermaLand — estilos base mínimos.
+   Tailwind 4 se agregará cuando se implemente el primer módulo Fase 1.
+   Paleta placeholder según decisiones.md §E. */
+
+:root {
+  --brand-primary: #2db4a8;
+  --brand-accent: #1a7f8e;
+  --brand-fg: #0f2933;
+  --brand-bg: #f7fbfb;
+  --brand-success: #16a34a;
+  --brand-warn: #f59e0b;
+  --brand-danger: #dc2626;
+  --brand-muted: #5b7480;
+  --brand-card: #ffffff;
+  --brand-border: rgba(15, 41, 51, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--brand-bg);
+  color: var(--brand-fg);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 13px;
+}

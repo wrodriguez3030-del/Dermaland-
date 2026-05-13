@@ -14,6 +14,8 @@ out/
 # Env
 .env
 .env.local
+.env.production
+.env.development
 .env.*.local
 !.env.example
 
@@ -53,7 +55,15 @@ data/import/*.xls
 *.pfx
 *.key
 *.pem
+*.crt
+*.cer
+*.der
 certificates/
 
 # Drive sync (recomendado excluir también desde Drive Desktop)
 # node_modules, .next, .turbo, dist, build, .cache
+.vercel
+
+# Scripts temporales / scratch (pueden contener tokens locales)
+.scratch-*
+

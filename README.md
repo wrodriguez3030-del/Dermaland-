@@ -3,6 +3,12 @@
 > SaaS multiempresa/multisucursal para farmacia y dermocosmética en República Dominicana.
 > **Marca:** DermaLand (siempre con `L` mayúscula).
 
+[![Producción](https://img.shields.io/badge/prod-dermaland.vercel.app-000?logo=vercel)](https://dermaland.vercel.app)
+
+- **Producción:** <https://dermaland.vercel.app>
+- **Dev local:** <http://localhost:3031> (`pnpm --filter @dermaland/web dev`)
+- **Guía de despliegue:** [`docs/deploy-vercel.md`](docs/deploy-vercel.md)
+
 ## Estructura del proyecto en disco
 
 | Ubicación | Contenido |
@@ -78,10 +84,10 @@ copy .env.example .env.local
 pnpm db:migrate
 
 # Arrancar el web
-pnpm dev:web                # http://localhost:3000
+pnpm --filter @dermaland/web dev   # http://localhost:3031
 
-# Arrancar la PWA móvil (en otra terminal)
-pnpm dev:mobile             # http://localhost:3001
+# Arrancar la PWA móvil (en otra terminal, cuando exista)
+pnpm dev:mobile                    # http://localhost:3001
 ```
 
 ## Reglas duras del proyecto
