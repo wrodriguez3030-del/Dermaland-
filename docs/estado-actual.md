@@ -3,7 +3,24 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-05-07
+**Última actualización:** 2026-05-13
+
+## 2026-05-13 · Restauración a versión completa + deploy prod
+
+- Versión completa copiada de `C:\Users\Admin\OneDrive\Escritorio\dermaland\`
+  hacia ruta canónica `C:\dev\dermaland\` (228 archivos, 0 secretos).
+  Origen intacto.
+- Next.js bump 15.1.6 → **15.5.18** (Vercel bloqueaba 15.1.6 por CVE).
+- Rama `feature/restore-complete-project` creada y pushada a
+  `https://github.com/wrodriguez3030-del/Dermaland-`.
+- `main` fast-forward (no `--force`) usando merge `-s ours
+  --allow-unrelated-histories` para preservar la Fase 0 como segundo padre.
+- Deploy producción en Vercel ✅: `https://dermaland.vercel.app` —
+  13/13 rutas devuelven 200, `/` ya no es la landing de Fase 0.
+- Detalle del proceso: `docs/deploy-vercel.md`,
+  `docs/comparacion-versiones.md`.
+
+**Anterior última actualización:** 2026-05-07
 
 ## Fases completadas
 

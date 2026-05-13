@@ -3,7 +3,57 @@
 > Archivo vivo. Actualizar al cerrar cualquier cambio importante.
 > Léelo después de `CLAUDE.md` antes de empezar a trabajar.
 
-**Última actualización:** 2026-05-07
+**Última actualización:** 2026-05-13
+
+---
+
+## 0 · Sesión 2026-05-13 — Restauración a versión completa + prod
+
+**Resultado:** `https://dermaland.vercel.app` sirve la versión completa
+(no la Fase 0). 13/13 rutas críticas devuelven 200.
+
+**Qué se hizo:**
+
+1. Se encontraron dos carpetas con nombre "dermaland" en la PC. La completa
+   estaba en `C:\Users\Admin\OneDrive\Escritorio\dermaland\` (228 archivos
+   sin `node_modules`, 78 rutas en build). La de Drive
+   (`H:\Mi unidad\PROYECTO DERMALAND\`) sólo tenía docs/SPEC/CSV.
+2. `robocopy` de OneDrive → `C:\dev\dermaland\` con exclusiones
+   (`node_modules`, `.next`, `.turbo`, `.git`, `.vercel`, `.scratch-*`,
+   `.env*`, `*.p12`, `*.pfx`, `*.key`, `*.pem`, `*.crt`). 228 archivos
+   copiados, **0 secretos**. Origen intacto (no movido, no borrado).
+3. `.gitignore` endurecido (`.env.production`, `.vercel`, `.scratch-*`,
+   certificados).
+4. `pnpm install` ✓ (182 paquetes).
+5. `pnpm --filter web typecheck` ✓.
+6. `pnpm --filter web build` ✓ (78+ rutas).
+7. `git init` en `C:\dev\dermaland`, remote `https://github.com/wrodriguez3030-del/Dermaland-`,
+   rama `feature/restore-complete-project`, commit `0061779`.
+8. Push de la rama feature ✓ (sin `--force`).
+9. `vercel link --yes --project dermaland` ✓.
+10. `vercel pull --yes --environment=preview` + `vercel deploy --yes` →
+    **rechazado** por Vercel: `Vulnerable version of Next.js detected`
+    (CVE en 15.1.6). Bump `next` a **15.5.18`, commit `e7c4915`,
+    reinstall, typecheck, build, push, redeploy preview ✓.
+11. Smoke en preview con `vercel curl -sI` (autenticado, deployment
+    protection on): 13/13 rutas → 200.
+12. Merge `origin/main` (Fase 0) en feature con `--strategy=ours
+    --allow-unrelated-histories` → preserva Fase 0 como 2º padre del
+    merge commit `ef94e18`, árbol = feature.
+13. `git push origin HEAD:main` ✓ — **fast-forward**, no `--force`.
+14. `vercel deploy --prod --yes` ✓ → `https://dermaland.vercel.app` READY.
+15. Smoke anónimo en prod: 13/13 rutas → 200. `/` ya no es Fase 0.
+
+**Detalle:** `docs/comparacion-versiones.md` + `docs/deploy-vercel.md`.
+
+**Pendientes inmediatos para próxima sesión:**
+
+- Conectar Supabase real (`DATA_SOURCE=supabase`), variables ya en el
+  dashboard de Vercel.
+- Probar producción desde un navegador real (no sólo HEAD).
+- Revisar si Vercel Deployment Protection debería seguir en previews.
+- Cuando esté Supabase Auth, validar que las rutas detrás de `/login`
+  realmente exigen sesión (hoy en mock se sirven públicamente).
 
 ---
 

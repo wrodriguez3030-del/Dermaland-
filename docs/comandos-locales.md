@@ -190,6 +190,40 @@ node apps/web/tests/hydration-proforma-print.mjs # si tocaste cliente / impresi�
 
 Y revisar el [checklist completo](agents/checklist-validacion-rapida.md).
 
+## Deploy en Vercel (preview y producción)
+
+```powershell
+cd C:\dev\dermaland
+
+# Asegurar que el repo local esté linkeado al proyecto en Vercel
+vercel link --yes --project dermaland
+
+# Tirar las env vars del entorno deseado (genera .vercel/.env.*.local — secreto, gitignorado)
+vercel pull --yes --environment=preview
+vercel pull --yes --environment=production
+
+# Deploy de preview (URL ephemeral, protegida por Vercel Auth)
+vercel deploy --yes
+
+# Probar rutas de preview (autenticado)
+vercel curl https://<preview-url>/api/health
+vercel curl -sI https://<preview-url>/clientes
+
+# Deploy de producción → https://dermaland.vercel.app
+vercel deploy --prod --yes
+
+# Smoke anónimo en producción (es pública)
+$urls = @("/", "/clientes", "/clientes/nuevo", "/productos", "/productos/nuevo",
+          "/inventario", "/conteo-fisico", "/pos", "/proformas", "/ventas",
+          "/dgii", "/super-admin", "/api/health")
+foreach ($u in $urls) {
+  $code = (Invoke-WebRequest -UseBasicParsing -Uri "https://dermaland.vercel.app$u" -SkipHttpErrorCheck).StatusCode
+  "$code  $u"
+}
+```
+
+Detalle: [`deploy-vercel.md`](deploy-vercel.md).
+
 ---
 
-**Última revisión:** 2026-05-07
+**Última revisión:** 2026-05-13

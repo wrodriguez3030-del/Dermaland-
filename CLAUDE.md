@@ -18,8 +18,10 @@
 | Ruta local | `C:\dev\dermaland` |
 | App web | `C:\dev\dermaland\apps\web` |
 | Puerto local | `3031` |
-| Repo | monorepo pnpm |
-| Stack | Next.js 15 (App Router) · React 19 · TypeScript estricto · Tailwind 4 · pnpm · (Supabase Postgres + Auth + Storage + RLS para producción) |
+| Repo GitHub | `https://github.com/wrodriguez3030-del/Dermaland-` (rama de prod: `main`) |
+| Proyecto Vercel | `dermaland` (scope `wrodriguez3030-4801s-projects`) |
+| Producción | `https://dermaland.vercel.app` |
+| Stack | Next.js **15.5.18** (App Router) · React 19 · TypeScript estricto · Tailwind 4 · pnpm · (Supabase Postgres + Auth + Storage + RLS para producción) |
 
 ## Reglas duras (no negociables)
 
