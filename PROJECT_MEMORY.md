@@ -45,25 +45,30 @@ Notas operativas que no se deducen del código. Última edición: 2026-05-13.
 - Certificados (`*.p12`, `*.pfx`, `*.key`, `*.pem`, `*.crt`, `*.cer`, `*.der`,
   `certificates/`) excluidos en `.gitignore`.
 
-## Token expuesto en archivos scratch (incidente y mitigación)
+## Token expuesto en archivos scratch (incidente y cierre)
 
-Token Vercel expuesto en archivos scratch temporales. Los archivos fueron
-eliminados y están ignorados por git. **El usuario debe revocar manualmente
-cualquier token relacionado en <https://vercel.com/account/tokens>.**
+Estado del incidente: **cerrado** (2026-05-13).
 
-Detalle:
+- **Archivos afectados:** `.scratch-update-project.ps1`,
+  `.scratch-verify-project.ps1`, `.scratch-find-vercel-auth.ps1`.
+- **Estado del filesystem:** archivos eliminados el 2026-05-13.
+- **Estado del repo (forensic):** `git log --all -S 'vca_'` no devuelve
+  ningún commit en ninguna rama; `git log --diff-filter=A` no muestra que
+  ningún `.scratch-*` haya sido staged ni pusheado jamás. El historial
+  remoto está limpio.
+- **Estado del token:** respondió `invalidToken` al PATCH antes de borrar
+  los scratch — ya no funcional.
+- **Revisión manual por el usuario (2026-05-13):** revisó
+  <https://vercel.com/account/tokens>; todos los tokens activos son
+  legítimos, no había token sospechoso para revocar.
 
-- Archivos afectados: `.scratch-update-project.ps1`, `.scratch-verify-project.ps1`, `.scratch-find-vercel-auth.ps1`.
-- Estado de los archivos: eliminados del filesystem el 2026-05-13.
-- Estado del repo: nunca fueron staged ni pusheados (estaban en `.gitignore`
-  desde la edición previa al primer deploy).
-- Estado del token: respondió `invalidToken` al PATCH antes de borrar — ya no
-  es funcional para la API. Aun así, revocar formalmente es buena higiene.
+> Higiene futura: cualquier script auxiliar va con prefijo `.scratch-*`
+> (gitignored). Si alguna vez se necesita un token de API para automatizar,
+> usar variable de entorno `VERCEL_TOKEN=… vercel …` en una sola sesión,
+> nunca embebido en archivos.
 
 ## Pendientes
 
-- **Revocar manualmente** el token Vercel expuesto (acción del usuario,
-  requiere login en navegador).
 - **Variables reales de Supabase y otras** (DGII, WhatsApp, OpenAI, Resend,
   Upstash, PayPal, Cardnet, Sentry) — lista completa en
   `docs/deploy-vercel.md`. Hoy el deploy corre sin ellas porque la fase 0 solo

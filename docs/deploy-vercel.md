@@ -149,23 +149,30 @@ Cuando arranque la **fase con datos** hay que cargar en Vercel
 - Certificados (`*.p12`, `*.pfx`, `*.key`, `*.pem`, `*.crt`, `*.cer`, `*.der`, `certificates/`) en `.gitignore`.
 - Nunca commitear `auth.json` ni tokens de la CLI.
 
-## Token expuesto en archivos scratch — acción manual pendiente
+## Token expuesto en archivos scratch — incidente cerrado
 
-Los archivos `.scratch-update-project.ps1` y `.scratch-verify-project.ps1`
-contenían un token personal de la API de Vercel. Estado actual:
+Estado: **cerrado** (2026-05-13).
+
+Los archivos `.scratch-update-project.ps1`,
+`.scratch-verify-project.ps1` y `.scratch-find-vercel-auth.ps1` contenían
+un token personal de la API de Vercel. Mitigación completa:
 
 - **Archivos eliminados** del filesystem el 2026-05-13.
 - **`.scratch-*` está en `.gitignore`** — los archivos nunca fueron staged ni
   pusheados.
-- **Token ya inválido** según la API (`{"error":{"code":"forbidden","invalidToken":true}}`),
-  probablemente expirado o revocado por uso indebido.
+- **Verificación forensic** del historial pusheado (`git log --all`,
+  `--diff-filter=A`, búsqueda `-S 'vca_'`): cero ocurrencias del token o
+  de cualquier `.scratch-*` en cualquier rama.
+- **Token ya inválido** según la API
+  (`{"error":{"code":"forbidden","invalidToken":true}}`).
+- **Revisión manual por el usuario el 2026-05-13** en
+  <https://vercel.com/account/tokens>: todos los tokens activos en la
+  cuenta son legítimos, no había token sospechoso que revocar.
 
-> **Acción manual pendiente del usuario:** entrar a
-> <https://vercel.com/account/tokens>, identificar cualquier token personal que
-> hubiera sido creado para automatizar el proyecto DermaLand, y eliminarlo
-> formalmente para cerrar el ciclo de exposición.
-
-Esta tarea **requiere autenticación en navegador y no puede ejecutarla Claude**.
+> Higiene futura: cualquier script auxiliar va con prefijo `.scratch-*`
+> (ya gitignored). Para automatizaciones con la API de Vercel, usar
+> `VERCEL_TOKEN=… vercel …` en una sola sesión, nunca embebido en un
+> archivo.
 
 ## Pendientes que requieren decisión humana
 
@@ -175,5 +182,3 @@ Esta tarea **requiere autenticación en navegador y no puede ejecutarla Claude**
   aliased es pública.
 - **Variables reales** de Supabase / DGII / WhatsApp / OpenAI / etc. listadas
   arriba — pendientes hasta que arranque la fase con datos reales.
-- **Revocación formal del token** en `vercel.com/account/tokens` (ver sección
-  anterior).

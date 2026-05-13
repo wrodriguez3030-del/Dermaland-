@@ -36,14 +36,26 @@ Snapshot a 2026-05-13.
 
 ## Pendientes — requieren decisión humana o credenciales
 
-1. **Revocar formalmente** el token Vercel personal en
-   <https://vercel.com/account/tokens>. Requiere navegador.
-2. **Cargar variables reales** (Supabase, DGII, WhatsApp, OpenAI, Resend,
+1. **Cargar variables reales** (Supabase, DGII, WhatsApp, OpenAI, Resend,
    Upstash, PayPal, Cardnet, Sentry) en Vercel — ver lista completa en
    `docs/deploy-vercel.md`. Hoy el deploy corre sin ellas porque fase 0 no
    las consume.
-3. **Dominio final** y DNS — decisión de marca/negocio.
-4. **Protección de previews** — decidir si la demo será pública o protegida
+2. **Dominio final** y DNS — decisión de marca/negocio.
+3. **Protección de previews** — decidir si la demo será pública o protegida
    por SSO/password.
-5. **Implementar fase 1** (POS, customers, productos, conteo móvil, etc.)
+4. **Implementar fase 1** (POS, customers, productos, conteo móvil, etc.)
    según spec en Drive.
+
+## Incidente de token (cerrado 2026-05-13)
+
+Token Vercel expuesto en archivos `.scratch-*.ps1` durante el bootstrap del
+deploy. Mitigación cerrada:
+
+- Archivos eliminados y `.scratch-*` ya en `.gitignore`.
+- Forense de historial pusheado: cero ocurrencias del token o de
+  `.scratch-*` en cualquier rama (`git log --all -S 'vca_'` vacío).
+- Token respondió `invalidToken` desde antes de borrar.
+- Usuario revisó tokens activos en <https://vercel.com/account/tokens> y
+  confirmó que ninguno es sospechoso. No había nada que revocar.
+
+Ver detalle en `docs/deploy-vercel.md` § Token expuesto.
