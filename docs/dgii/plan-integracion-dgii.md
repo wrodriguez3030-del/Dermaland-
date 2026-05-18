@@ -98,10 +98,16 @@ invoca en este PR.
   tablas DGII/POS + RLS + función `reserve_ecf_sequence_number`. El archivo
   queda en el repo pero **no se aplica** a ninguna DB hasta autorización
   explícita del usuario (`supabase db push` queda como acción manual). ✅
-  Archivo entregado en este PR.
-- **Fase C+** — Cada brecha P0/P1 entra como PR propio sobre esta rama o
-  ramas hijas, con tests y preview. Aplicar la migración 0003 es prerrequisito
-  para cualquier fase que persista (C en adelante).
+  Archivo entregado en commit `76d07a0`.
+- **Fase D** — `DgiiXmlBuilder` XSD-compliant en
+  `apps/web/src/server/services/dgii/{types,builder}.ts` con 31 tests verdes.
+  Reemplaza el builder buggy de `service.ts` (el bug `<DetallesItems>` doblado
+  ya no existe). `service.generateXml` queda como orquestador que lanzará
+  `DgiiNotConfigured` hasta que Fase C provea settings + secuencias. ✅
+  Implementación entregada en este PR.
+- **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
+  rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
+  persista (C en adelante).
 
 ## 5. Brechas y prioridades
 
@@ -125,7 +131,7 @@ Detalle completo en `matriz-requisitos-dgii.md`. Top P0:
 | A    | Docs + gitignore refuerzo + advertencias                                                                                       | Mínimo                                      | No      | No             | —                                |
 | B    | Schema DB: 19 tablas DGII/POS en `supabase/migrations/0003_dgii_pos.sql` (escrito, **NO aplicado**) + función `reserve_ecf_sequence_number` | Sólo SQL                                   | Sólo archivo  | No             | **Aplicar requiere autorización del usuario** y `DATA_SOURCE=supabase` |
 | C    | Ampliar `env.ts` con tres ambientes + `dgii_settings.base_url_*`; persistir `/dgii/configuracion`                              | env + page + service                        | Sí      | No             | Fase B                            |
-| D    | Reescribir `DgiiXmlBuilder` (e-CF 31) con `xmlbuilder2` siguiendo XSD. Tests offline con fixture válida.                       | `service.ts` o nuevo `builder.ts` + tests   | No      | No             | Fase C parcial (settings)         |
+| D    | ✅ Reescrito `DgiiXmlBuilder` (e-CF 31) en `builder.ts` con `xmlbuilder2`. 31 tests offline pasando. Bug `<DetallesItems>` doblado del builder anterior eliminado. `service.generateXml` lanza `DgiiNotConfigured` hasta Fase C. | `types.ts` + `builder.ts` + `builder.test.ts` + `service.ts` | No      | No             | —                                |
 | E    | Implementar `DgiiXmlValidator` con XSD local                                                                                   | nuevo `validator.ts`                        | No      | No             | Fase D                            |
 | F    | Implementar `DgiiXmlSigner` con dummy cert local                                                                               | nuevo `signer.ts`                           | No      | No             | Fase D                            |
 | G    | `DgiiAuthService` contra `testecf` **sólo** con dummy cert o cert real + autorización del usuario                              | nuevo `auth.ts`                             | No      | testecf only   | Fase F + cert dummy o autorización|

@@ -1,35 +1,46 @@
 import "server-only";
 import { env, isDgiiConfigured } from "@/lib/env";
 import type { ElectronicInvoice, Proforma } from "@/types";
+import { buildEcfXml, EcfBuilderUnsupported } from "./builder";
 
 /**
  * DGII e-CF Service.
  *
- * Capa de abstracción sobre la API DGII (RD). Implementación XAdES-BES con
- * `node-forge` (sin SDK oficial). Por ahora todos los métodos son stubs que
- * lanzan `DgiiNotConfigured` si falta el certificado o `DgiiNotImplemented`
- * si la lógica real aún no está escrita.
+ * Capa de abstracción sobre la API DGII (RD). Por ahora la mayoría de
+ * métodos lanzan `DgiiNotConfigured` (si falta certificado / settings) o
+ * `DgiiNotImplemented` (si la lógica real está pendiente de fases siguientes).
  *
- * Activación:
- *  1. Súper admin sube `.p12` desde /super-admin → branding/dgii.
- *  2. Cliente confirma RNC, secuencias, ambiente.
- *  3. `dgii_enabled = true` en la fila del business.
- *  4. POS empieza a llamar `convertProformaToEcf()`.
+ * Estado por método:
+ *  - `generateXml` → delega al builder XSD-compliant (`./builder.ts`) cuando
+ *    los datos de Proforma se pueden mapear; mientras tanto rechaza con
+ *    `DgiiNotConfigured` porque el mapeo necesita `dgii_settings` y
+ *    `ecf_sequences` (Fase B/C aplicadas).
+ *  - `signXml` → pendiente Fase F (`signer.ts`).
+ *  - `submitToDgii` → pendiente Fase H (`reception.ts`).
+ *  - `getTrackStatus` → pendiente Fase H (`status.ts`).
+ *  - `cancelInvoice` / `createCreditNote` → pendientes.
  *
- * Documentado en `H:\Mi unidad\PROYECTO DERMALAND\plan-maestro.md` Fase 5.
- * Riesgos asociados: R-DGII-01 a R-DGII-04.
+ * Activación real:
+ *  1. Aplicar migración `0003_dgii_pos.sql` (Fase B).
+ *  2. Persistir settings + cert + secuencias (Fase C).
+ *  3. Implementar signer + auth + reception + status (Fases F-H).
+ *  4. `dgii_enabled = true` en `businesses` con autorización explícita.
+ *
+ * Riesgos asociados: R-DGII-01 a R-DGII-04 (`docs/riesgos.md`).
  */
 
 export class DgiiNotConfigured extends Error {
   constructor(reason: string) {
-    super(`DGII no configurada: ${reason}. dgii_enabled=false hasta cargar .p12.`);
+    super(
+      `DGII no configurada: ${reason}. dgii_enabled=false hasta cargar .p12 + persistir settings.`,
+    );
     this.name = "DgiiNotConfigured";
   }
 }
 
 export class DgiiNotImplemented extends Error {
   constructor(method: string) {
-    super(`DgiiService.${method}() no implementado. Pendiente Fase 5.`);
+    super(`DgiiService.${method}() no implementado. Pendiente fase futura.`);
     this.name = "DgiiNotImplemented";
   }
 }
@@ -50,7 +61,19 @@ export interface DgiiSubmitResult {
 }
 
 export interface DgiiService {
-  /** Genera el XML sin firmar para una proforma + tipo e-CF. */
+  /**
+   * Genera el XML sin firmar para una proforma + tipo e-CF.
+   *
+   * El builder XSD-compliant vive en `./builder.ts` y se invoca con un input
+   * estricto (`EcfBuilderInput`). Esta función orquesta el mapeo desde
+   * `Proforma` (modelo interno) hacia ese input — mapeo que requiere
+   * `dgii_settings` (emisor) y `ecf_sequences` (eNCF). Mientras esos no
+   * persistan en DB, esta función lanza `DgiiNotConfigured`.
+   *
+   * El consumidor que quiera generar un XML directamente (e.g. para tests
+   * de pre-certificación) puede importar `buildEcfXml` de `./builder` con
+   * el input completo.
+   */
   generateXml(proforma: Proforma, ecfType: EcfType): Promise<string>;
 
   /** Firma el XML con XAdES-BES usando el certificado del business. */
@@ -80,55 +103,30 @@ class DgiiServiceImpl implements DgiiService {
       : "https://ecf.dgii.gov.do/testecf";
   }
 
-  async generateXml(proforma: Proforma, ecfType: EcfType): Promise<string> {
-    // Estructura real ~150 líneas siguiendo XSD oficial DGII.
-    // Por ahora un placeholder que muestra el shape esperado.
-    const lines = proforma.items
-      .map(
-        (it, ix) => `
-    <DetallesItems>
-      <NumeroLinea>${ix + 1}</NumeroLinea>
-      <NombreItem>${escapeXml(it.productName)}</NombreItem>
-      <CantidadItem>${it.quantity}</CantidadItem>
-      <PrecioUnitarioItem>${(it.unitPrice).toFixed(2)}</PrecioUnitarioItem>
-      <MontoItem>${it.total.toFixed(2)}</MontoItem>
-    </DetallesItems>`,
-      )
-      .join("");
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<ECF>
-  <Encabezado>
-    <Version>1.0</Version>
-    <IdDoc>
-      <TipoeCF>${ecfType}</TipoeCF>
-      <eNCF>__PENDING__</eNCF>
-      <FechaVencimientoSecuencia>__PENDING__</FechaVencimientoSecuencia>
-    </IdDoc>
-    <Emisor>
-      <RNCEmisor>__PENDING__</RNCEmisor>
-      <RazonSocialEmisor>__PENDING__</RazonSocialEmisor>
-    </Emisor>
-    <Comprador>
-      <RNCComprador>__PENDING__</RNCComprador>
-      <RazonSocialComprador>${escapeXml(proforma.customerName)}</RazonSocialComprador>
-    </Comprador>
-    <Totales>
-      <MontoTotal>${proforma.total.toFixed(2)}</MontoTotal>
-      <TotalITBIS>${proforma.itbis.toFixed(2)}</TotalITBIS>
-    </Totales>
-  </Encabezado>
-  <DetallesItems>${lines}
-  </DetallesItems>
-</ECF>`;
+  async generateXml(_proforma: Proforma, ecfType: EcfType): Promise<string> {
+    if (ecfType !== "31") {
+      throw new EcfBuilderUnsupported(
+        `Tipo e-CF ${ecfType} aún no soportado en Fase D (solo 31). ` +
+          `32/33/34 llegan en Fase L del plan.`,
+      );
+    }
+    // Mapeo proforma → EcfBuilderInput requiere:
+    //   - dgii_settings (rncEmisor, razonSocial, dirección, fechas, etc.)
+    //   - ecf_sequences (eNcf reservado atómicamente, fechaVencimientoSecuencia)
+    //   - resolver client → RNCComprador
+    // Estas piezas viven en Fase C (settings persistidos) + sequenceService.
+    // Mientras tanto el caller que quiera generar XML real debe llamar
+    // `buildEcfXml` directamente con todos los datos.
+    throw new DgiiNotConfigured(
+      "dgii_settings y ecf_sequences no disponibles todavía (Fase C pendiente). " +
+        "Usa `buildEcfXml` de './builder' con un EcfBuilderInput completo para tests.",
+    );
   }
 
-  async signXml(unsignedXml: string, _businessId: string): Promise<SignedXmlResult> {
+  async signXml(_unsignedXml: string, _businessId: string): Promise<SignedXmlResult> {
     if (!isDgiiConfigured()) {
       throw new DgiiNotConfigured("certificado .p12 no cargado");
     }
-    // Implementación real: cargar .p12 desde Supabase Storage cifrado,
-    // descifrar contraseña con KMS, firmar con node-forge XAdES-BES.
     throw new DgiiNotImplemented("signXml");
   }
 
@@ -136,7 +134,6 @@ class DgiiServiceImpl implements DgiiService {
     if (!isDgiiConfigured()) {
       throw new DgiiNotConfigured("ambiente no inicializado");
     }
-    // POST multipart al `${this.baseUrl}/Recepcion/...`
     throw new DgiiNotImplemented(`submitToDgii (base ${this.baseUrl})`);
   }
 
@@ -158,13 +155,9 @@ class DgiiServiceImpl implements DgiiService {
   }
 }
 
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
 export const dgiiService: DgiiService = new DgiiServiceImpl();
+
+// Re-export del builder para callers que ya tengan el input listo (tests,
+// scripts de pre-certificación). NO se re-exporta el certificado ni la firma.
+export { buildEcfXml, buildEcfXmlPretty } from "./builder";
+export type { EcfBuilderInput } from "./types";
