@@ -29,3 +29,7 @@ next-env.d.ts
 *.key
 *.pem
 *.crt
+*.cer
+*.der
+*.cert
+certificates/
