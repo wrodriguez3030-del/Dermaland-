@@ -150,16 +150,17 @@
 
 | ID    | Permiso                                       | Existe | Acción                              | Prio |
 |-------|-----------------------------------------------|--------|-------------------------------------|------|
-| R-01  | `dgii:configure`                              | No     | Seed                                | P1   |
-| R-02  | `dgii:certificate:upload`                     | No     | Seed                                | P0   |
-| R-03  | `dgii:sequences:import`                       | No     | Seed                                | P1   |
-| R-04  | `dgii:invoices:generate`                      | No     | Seed                                | P1   |
-| R-05  | `dgii:invoices:send`                          | No     | Seed                                | P1   |
-| R-06  | `dgii:invoices:cancel`                        | No     | Seed                                | P1   |
-| R-07  | `cash:open` / `cash:close`                    | Parcial| Confirmar en permissions table       | P2   |
-| R-08  | `cash:change_closing_percentage`              | No     | Seed                                | P1   |
-| R-09  | `cash:authorize_below_100_percent`            | No     | Seed                                | P1   |
-| R-10  | `cash:reverse_closing`                        | No     | Seed                                | P1   |
+| R-01  | `dgii:configure`                              | Sí (mock) | seed en `allPermissions`, badge mock; RLS activo en Fase C | P1   |
+| R-02  | `dgii:certificate:upload`                     | Sí (mock) | seed en `allPermissions`, marcado "alto riesgo"             | P0   |
+| R-03  | `dgii:sequences:manage`                       | Sí (mock) | seed (renombrado de `dgii:sequences:import` a `:manage`)    | P1   |
+| R-04  | `dgii:invoices:generate_xml` + `validate_xml` + `sign` + `send` + `check_status` + `download_xml` + `download_pdf` | Sí (mock) | 7 seeds en categoría "Facturas electrónicas" | P1   |
+| R-05  | `dgii:credit_notes:create`                    | Sí (mock) | seed                                  | P1   |
+| R-06  | `dgii:reports:view`                           | Sí (mock) | seed                                  | P2   |
+| R-07  | `dgii:certification:run_tests`                | Sí (mock) | seed                                  | P1   |
+| R-08  | `cash:open` / `cash:close`                    | Sí (mock) | seeds nuevos; legacy `cash_register:open|close` se conservan | P2   |
+| R-09  | `cash:change_closing_percentage`              | Sí (mock) | seed                                  | P1   |
+| R-10  | `cash:authorize_below_100_percent`            | Sí (mock) | seed, marcado "alto riesgo"           | P1   |
+| R-11  | `cash:reverse_closing`                        | Sí (mock) | seed, marcado "alto riesgo"           | P1   |
 
 ## 12. Reportes y auditoría
 

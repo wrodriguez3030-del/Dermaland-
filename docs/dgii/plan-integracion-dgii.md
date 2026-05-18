@@ -174,7 +174,18 @@ invoca en este PR.
   PDF en base64. Persistencia local en `dermaland.dgii-credit-notes`
   (`credit-note-store.ts`). Advertencia: si ya existe NC para la factura,
   confirm dialog antes de duplicar. Bloquea NC sobre comprobantes tipo
-  33/34. ✅ Entregado en este PR.
+  33/34. ✅ Entregado en commit `d48d1fc`.
+- **Permisos DGII mock** — 18 permisos granulares añadidos a
+  `allPermissions` (`apps/web/src/lib/mock-data/users.ts`) en 8 categorías:
+  Configuración DGII, Certificado, Secuencias, Facturas electrónicas,
+  Notas de crédito, Reportes, Pre-certificación, Caja/cierre. Set
+  `DGII_RBAC_PENDING_KEYS` marca los keys como "pendientes RLS". UI en
+  `/admin/permisos` con banner amber, badge "MOCK · Fase C" por categoría,
+  badge `mock`/`activo` por permiso, y sección "Obligatorios cuando
+  Supabase / RLS estén activos" con bloques de responsabilidad (2 marcados
+  "alto riesgo": configuración/cert + caja/cierre). Test `users.test.ts`
+  verifica que los 18 keys existen, no duplicados, módulos cubiertos en
+  el orden. ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).

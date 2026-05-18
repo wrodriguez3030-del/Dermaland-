@@ -237,13 +237,90 @@ export const allPermissions: Permission[] = [
   { key: "cash_register:open", module: "Caja", description: "Abrir caja" },
   { key: "cash_register:close", module: "Caja", description: "Cerrar caja" },
 
-  // DGII
+  // DGII — legacy (se mantienen para compatibilidad)
   { key: "dgii:read", module: "DGII", description: "Ver e-CF y secuencias" },
   { key: "dgii:write", module: "DGII", description: "Configurar fiscal y secuencias" },
+
+  // DGII — granulares (Fase C activará RLS sobre estos)
+  { key: "dgii:configure", module: "Configuración DGII", description: "Editar configuración fiscal del business (RNC, ambiente, URLs)" },
+
+  { key: "dgii:certificate:upload", module: "Certificado", description: "Subir/reemplazar certificado digital .p12 del business" },
+
+  { key: "dgii:sequences:manage", module: "Secuencias", description: "Importar y gestionar secuencias e-NCF por tipo" },
+
+  { key: "dgii:invoices:generate_xml", module: "Facturas electrónicas", description: "Generar XML e-CF a partir de una venta/proforma" },
+  { key: "dgii:invoices:validate_xml", module: "Facturas electrónicas", description: "Ejecutar validación contra XSD oficial DGII" },
+  { key: "dgii:invoices:sign", module: "Facturas electrónicas", description: "Firmar el XML con el certificado digital del business" },
+  { key: "dgii:invoices:send", module: "Facturas electrónicas", description: "Enviar el XML firmado al endpoint DGII (ambiente actual)" },
+  { key: "dgii:invoices:check_status", module: "Facturas electrónicas", description: "Consultar estado/TrackId del comprobante en DGII" },
+  { key: "dgii:invoices:download_xml", module: "Facturas electrónicas", description: "Descargar el XML (firmado o sin firmar) del comprobante" },
+  { key: "dgii:invoices:download_pdf", module: "Facturas electrónicas", description: "Descargar la representación impresa (PDF) del comprobante" },
+
+  { key: "dgii:credit_notes:create", module: "Notas de crédito", description: "Crear Nota de Crédito (e-CF 34) desde un comprobante origen" },
+
+  { key: "dgii:reports:view", module: "Reportes", description: "Ver reportes fiscales DGII (por tipo, estado, secuencias)" },
+
+  { key: "dgii:certification:run_tests", module: "Pre-certificación", description: "Ejecutar el set de pruebas internas contra ambiente testecf" },
+
+  // Caja / cierre — granulares (las legacy `cash_register:open|close` quedan
+  // como aliases hasta migración Fase C). El cierre con porcentaje editable
+  // y autorización admin son los más sensibles fiscalmente.
+  { key: "cash:open", module: "Caja/cierre", description: "Abrir sesión de caja" },
+  { key: "cash:close", module: "Caja/cierre", description: "Cerrar sesión de caja" },
+  { key: "cash:change_closing_percentage", module: "Caja/cierre", description: "Cambiar el % de proformas a convertir en e-CF durante el cierre" },
+  { key: "cash:authorize_below_100_percent", module: "Caja/cierre", description: "Autorizar cierres con % < 100 (requiere comentario)" },
+  { key: "cash:reverse_closing", module: "Caja/cierre", description: "Reversar un cierre confirmado (proceso especial con auditoría)" },
 
   // Audit & reports
   { key: "audit:read", module: "Auditoría", description: "Ver auditoría" },
   { key: "reports:read", module: "Reportes", description: "Ver reportes" },
+];
+
+/**
+ * Permisos preparados como MOCK / PENDIENTE.
+ *
+ * Estos permisos están definidos en el catálogo pero todavía NO se
+ * enforcean en runtime — `DATA_SOURCE=mock` permite cualquier acción a
+ * cualquier usuario para iteración local. Cuando se autorice Fase C
+ * (Supabase + RLS), estos pasan a ser obligatorios:
+ *  - Las server actions verifican el permiso antes de ejecutar.
+ *  - Las RLS policies de Supabase rechazan operaciones sin el permiso.
+ *  - El UI oculta acciones cuando el usuario no tiene el permiso.
+ *
+ * Mantener este set sincronizado con los seeds de la tabla `permissions`
+ * que se inserten en la migración Fase C.
+ */
+export const DGII_RBAC_PENDING_KEYS: ReadonlySet<string> = new Set([
+  "dgii:configure",
+  "dgii:certificate:upload",
+  "dgii:sequences:manage",
+  "dgii:invoices:generate_xml",
+  "dgii:invoices:validate_xml",
+  "dgii:invoices:sign",
+  "dgii:invoices:send",
+  "dgii:invoices:check_status",
+  "dgii:invoices:download_xml",
+  "dgii:invoices:download_pdf",
+  "dgii:credit_notes:create",
+  "dgii:reports:view",
+  "dgii:certification:run_tests",
+  "cash:open",
+  "cash:close",
+  "cash:change_closing_percentage",
+  "cash:authorize_below_100_percent",
+  "cash:reverse_closing",
+]);
+
+/** Orden de presentación de las categorías DGII en `/admin/permisos`. */
+export const DGII_PERMISSION_MODULES_ORDER: ReadonlyArray<string> = [
+  "Configuración DGII",
+  "Certificado",
+  "Secuencias",
+  "Facturas electrónicas",
+  "Notas de crédito",
+  "Reportes",
+  "Pre-certificación",
+  "Caja/cierre",
 ];
 
 export const mockAuditLogs: AuditLog[] = [
