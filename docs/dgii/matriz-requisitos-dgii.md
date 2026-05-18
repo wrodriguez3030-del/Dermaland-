@@ -47,8 +47,8 @@
 |-------|--------------------------------------------|--------|------------------------------------|-----------------------|----------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|----------|--------------|------------------------|------|
 | X-01  | Generación XML con orden exacto del XSD    | Sí     | `builder.ts` + `types.ts`          | implementado          | XSD order enforzado, opcionales omitidos, 31 tests cubren orden y formatos              | — | Sí       | No           | —                      | —    |
 | X-02  | Fechas, decimales, sin separador miles     | Sí     | `builder.ts` (`formatDgiiDate`, `formatDgiiAmount`, `formatDgiiPrice`, `formatDgiiDateTime`) | implementado | Helpers centralizados con tests. TODO: TZ-aware (forzar America/Santo_Domingo) — D-03      | Hacer TZ-aware en una iteración menor                                                  | Sí       | No           | —                      | P2   |
-| X-03  | Validación XSD                              | No     | —                                  | pendiente             | No existe validator                                                                      | `libxmljs2` (o equivalente) cargando `docs/dgii/xsd/e-CF-31-v1.0.xsd`                  | Sí       | No           | —                      | P0   |
-| X-04  | Firma XMLDSig enveloped RSA-SHA256          | Sí     | `signer.ts` + tests                | implementado (estructura) | xml-crypto v6 emite `URI="#_0"` por defecto; DGII pide `URI=""` estricto — duda D-11        | Si certificación rechaza, post-procesar para forzar `URI=""` y remover `Id` auto-generado | Sí       | No           | —                      | P1   |
+| X-03  | Validación XSD                              | Sí     | `validator.ts` + tests             | implementado          | `xmllint-wasm` (libxml2/WASM, sin native deps). 12 tests + roundtrip builder→signer→validator. Patch en memoria del typo XSD oficial. | — | Sí       | No           | —                      | —    |
+| X-04  | Firma XMLDSig enveloped RSA-SHA256          | Sí     | `signer.ts` + tests                | implementado          | `isEmptyUri: true` fuerza `URI=""` sin añadir `Id` al ECF; XSD oficial valida el output (verificado con `validator.ts`) — D-11 resuelta | — | Sí       | No           | —                      | —    |
 | X-05  | KeyInfo con X509 del cert                   | Sí     | `signer.ts`                        | implementado          | `getKeyInfoContent` emite `<X509Data><X509Certificate>...</X509Certificate></X509Data>` con base64 sin headers | — | Sí       | No           | —                      | —    |
 | X-06  | Canonicalización antes de firmar            | Sí     | `signer.ts`                        | implementado          | C14N 20010315 vía xml-crypto                                                              | — | Sí       | No           | —                      | —    |
 | X-07  | No firmar en frontend                       | OK     | `service.ts` con `"server-only"`   | implementado          | —                                                                                         | Mantener                                                                                | Sí       | No           | —                      | —    |
@@ -195,14 +195,19 @@
 - D-08: Set de pruebas oficial para certificación.
 - D-09: Reuso o no de secuencias rechazadas.
 - D-10: Retención mínima de XML.
-- D-11: ¿DGII acepta `URI="#_0"` (XMLDSig spec-compliant default que emite
-  xml-crypto al hacer enveloped) o exige `URI=""` estricto en la Reference?
-  Si exige `URI=""`, hay que post-procesar el XML firmado: forzar `URI=""`
-  y remover el `Id` auto-generado por xml-crypto. Además, `dgii-setup.md`
-  menciona "XAdES-BES" pero el documento adjunto de requisitos pide
-  "XMLDSig enveloped". Si DGII exige XAdES-BES propiamente dicho, añadir
-  `SignedProperties` (SigningTime, SigningCertificate). Implementación
-  actual: XMLDSig enveloped.
+- D-11: **RESUELTA** — `URI=""` estricto + ECF sin `Id` auto-generado, vía
+  opción `isEmptyUri: true` de xml-crypto v6. El XML firmado pasa el XSD
+  oficial DGII (verificado por `validator.ts`). Pendiente todavía la
+  pregunta XAdES-BES vs XMLDSig puro: `dgii-setup.md` menciona "XAdES-BES",
+  el documento adjunto pide "XMLDSig enveloped". Implementación actual:
+  XMLDSig enveloped. Si DGII exige XAdES-BES propiamente dicho, añadir
+  `SignedProperties` (SigningTime, SigningCertificate) sin tocar la firma
+  ya existente.
+- D-12: El XSD oficial DGII publicado (`e-CF-31-v1.0.xsd`) tiene un typo en
+  línea 476: `<xs:simpleType name=" IndicadorServicioTodoIncluidoType">`
+  (espacio inicial). `xmllint` rechaza compilar el schema. Aplicamos parche
+  en memoria en `validator.patchOfficialDgiiXsd()`. Pendiente reportar a
+  DGII y rastrear actualización del XSD oficial.
 
 ## 15. Dudas para el contador
 

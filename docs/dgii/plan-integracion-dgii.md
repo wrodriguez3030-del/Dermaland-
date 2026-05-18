@@ -106,13 +106,20 @@ invoca en este PR.
   `DgiiNotConfigured` hasta que Fase C provea settings + secuencias. ✅
   Implementación entregada en commit `46c70db`.
 - **Fase F** — `DgiiXmlSigner` (XMLDSig enveloped + RSA-SHA256 + SHA256) en
-  `apps/web/src/server/services/dgii/signer.ts` con 19 tests verdes que cubren
-  estructura (Signature dentro de ECF, después de FechaHoraFirma), algoritmos,
-  KeyInfo X509, DigestValue/SignatureValue no vacíos, verificación roundtrip,
-  detección de tampering y cert distinto, y validaciones de input.
+  `apps/web/src/server/services/dgii/signer.ts` con 19 tests verdes. Usa
+  `isEmptyUri: true` para producir `URI=""` sin añadir atributo `Id` al ECF.
   `service.signXml` queda como orquestador que lanzará `DgiiNotConfigured`
   hasta que Fase C provea el `DgiiCertificateService` (carga + descifrado del
-  `.p12` con la password en Vault). ✅ Implementación entregada en este PR.
+  `.p12` con la password en Vault). ✅ Entregado en commit `3e2ab5b`.
+- **Fase E** — `DgiiXmlValidator` (XSD oficial vía `xmllint-wasm`, libxml2 a
+  WASM, sin native deps) en `apps/web/src/server/services/dgii/validator.ts`
+  con 12 tests verdes. Cubre roundtrip `buildEcfXml → signEcfXml → validateEcfXml`
+  contra el XSD `e-CF-31-v1.0.xsd` y detección de defectos comunes (campos
+  faltantes, valores fuera de enum, RNCs / eNCFs mal formados, XML
+  sintácticamente roto). Parche en memoria del typo del XSD oficial
+  (`name=" IndicadorServicioTodoIncluidoType"` → sin espacio). Duda D-11
+  **RESUELTA**: con `isEmptyUri: true` del signer, el XML firmado pasa
+  XSD oficial. ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).
@@ -140,7 +147,7 @@ Detalle completo en `matriz-requisitos-dgii.md`. Top P0:
 | B    | Schema DB: 19 tablas DGII/POS en `supabase/migrations/0003_dgii_pos.sql` (escrito, **NO aplicado**) + función `reserve_ecf_sequence_number` | Sólo SQL                                   | Sólo archivo  | No             | **Aplicar requiere autorización del usuario** y `DATA_SOURCE=supabase` |
 | C    | Ampliar `env.ts` con tres ambientes + `dgii_settings.base_url_*`; persistir `/dgii/configuracion`                              | env + page + service                        | Sí      | No             | Fase B                            |
 | D    | ✅ Reescrito `DgiiXmlBuilder` (e-CF 31) en `builder.ts` con `xmlbuilder2`. 31 tests offline pasando. Bug `<DetallesItems>` doblado del builder anterior eliminado. `service.generateXml` lanza `DgiiNotConfigured` hasta Fase C. | `types.ts` + `builder.ts` + `builder.test.ts` + `service.ts` | No      | No             | —                                |
-| E    | Implementar `DgiiXmlValidator` con XSD local                                                                                   | nuevo `validator.ts`                        | No      | No             | Fase D                            |
+| E    | ✅ `DgiiXmlValidator` con `xmllint-wasm` (libxml2/WASM, sin native deps). XSD oficial leído de `docs/dgii/xsd/e-CF-31-v1.0.xsd` (typo parcheado en memoria). 12 tests verdes incluyendo roundtrip builder→signer→validator. Resuelve D-11 (signer ahora pasa XSD oficial). | `validator.ts` + `validator.test.ts` + `service.ts` | No      | No             | —                                |
 | F    | ✅ `DgiiXmlSigner` XMLDSig enveloped (RSA-SHA256, SHA256, Reference, KeyInfo X509). Cert dummy generado por node-forge en runtime, jamás persistido. 19 tests + roundtrip verify. `service.signXml` lanza `DgiiNotConfigured` hasta `DgiiCertificateService`. | `signer.ts` + `signer.test.ts` + `service.ts` | No      | No             | —                                 |
 | G    | `DgiiAuthService` contra `testecf` **sólo** con dummy cert o cert real + autorización del usuario                              | nuevo `auth.ts`                             | No      | testecf only   | Fase F + cert dummy o autorización|
 | H    | `DgiiReceptionService` + `DgiiStatusService` contra `testecf`                                                                  | nuevos                                       | Sí      | testecf only   | Fase G                            |

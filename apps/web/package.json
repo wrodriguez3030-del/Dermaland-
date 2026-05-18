@@ -27,6 +27,7 @@
     "tailwind-merge": "^3.5.0",
     "xml-crypto": "^6.1.2",
     "xmlbuilder2": "^4.0.3",
+    "xmllint-wasm": "^5.2.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

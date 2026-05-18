@@ -41,6 +41,12 @@ import { SignedXml } from "xml-crypto";
  *  - Lanza `DgiiSignerError` con mensaje genérico si algo falla, sin
  *    incluir contenido sensible (no se imprime la key, ni el cert, ni el
  *    XML completo en el mensaje).
+ *
+ * Compatibilidad XSD: usa `isEmptyUri: true` en la Reference. Sin este
+ * flag, xml-crypto añade un atributo `Id` al elemento ECF (no permitido
+ * por el XSD oficial DGII) para poder referenciarlo con `URI="#id"`.
+ * Con `isEmptyUri: true` el output es `URI=""` y el ECF queda intacto —
+ * el XML resultante pasa validación contra el XSD oficial.
  */
 
 export class DgiiSignerError extends Error {
@@ -131,8 +137,13 @@ export function signEcfXml(input: SignEcfXmlInput): SignEcfXmlResult {
       xpath: ECF_XPATH,
       digestAlgorithm: DIGEST_ALGORITHM,
       transforms: [ENVELOPED_TRANSFORM, CANONICALIZATION_ALGORITHM],
-      // Reference URI explícitamente vacío (DGII requiere `URI=""`).
+      // `isEmptyUri: true` fuerza `URI=""` y evita que xml-crypto añada un
+      // `Id` automático al elemento ECF. El XSD oficial DGII NO permite
+      // `Id` en ECF — sin este flag la validación XSD rechaza el XML.
+      // Documentado en `apps/web/src/server/services/dgii/validator.ts`
+      // y en duda D-11 (resuelta con esta opción).
       uri: "",
+      isEmptyUri: true,
     });
 
     sig.computeSignature(input.xml, {
