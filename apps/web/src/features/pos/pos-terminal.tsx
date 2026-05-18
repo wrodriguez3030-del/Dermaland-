@@ -512,6 +512,12 @@ export function PosTerminal() {
                     Generar PDF
                   </Button>
                 </Link>
+                <Link href={`/dgii/preview/${issued.id}`} target="_blank">
+                  <Button size="sm" variant="outline">
+                    <FileText className="h-4 w-4" />
+                    Vista previa e-CF DEMO
+                  </Button>
+                </Link>
                 <Button size="sm" variant="outline">
                   Enviar WhatsApp
                 </Button>
@@ -522,6 +528,10 @@ export function PosTerminal() {
                   Nueva venta
                 </button>
               </div>
+              <p className="mt-2 text-[10px] opacity-60">
+                Vista previa DGII en modo mock. No es comprobante fiscal
+                válido.
+              </p>
             </div>
           )}
           <ul className="divide-y divide-black/5">

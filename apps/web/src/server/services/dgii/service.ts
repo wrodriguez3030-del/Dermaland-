@@ -183,6 +183,8 @@ export {
 } from "./qr";
 export { computeSecurityCode, DgiiSecurityCodeError } from "./security-code";
 export { generateEcfPdf, DgiiPdfError } from "./pdf";
+export { mapProformaToEcfInput } from "./proforma-to-input";
+export type { MapProformaOptions } from "./proforma-to-input";
 export type { EcfBuilderInput } from "./types";
 export type { SignEcfXmlInput, SignEcfXmlResult } from "./signer";
 export type {
