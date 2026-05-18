@@ -90,12 +90,18 @@ invoca en este PR.
 
 ## 4. Estrategia
 
-- **Fase A (este PR)** — Auditoría documentada, matriz de brechas, ajustes
-  cosméticos seguros (gitignore reforzado, comentarios y advertencias
-  fiscales donde toca, copia de XSD y requisitos al repo). **Sin cambios
-  funcionales en servicios DGII.**
-- **Fase B+** — Cada brecha P0/P1 entra como PR propio sobre esta rama o
-  ramas hijas, con tests y preview.
+- **Fase A** — Auditoría documentada, matriz de brechas, ajustes cosméticos
+  seguros (gitignore reforzado, comentarios y advertencias fiscales donde
+  toca, copia de XSD y requisitos al repo). **Sin cambios funcionales en
+  servicios DGII.** ✅ Completada (commit `0f50c5f`).
+- **Fase B** — Schema DB: `supabase/migrations/0003_dgii_pos.sql` con 19
+  tablas DGII/POS + RLS + función `reserve_ecf_sequence_number`. El archivo
+  queda en el repo pero **no se aplica** a ninguna DB hasta autorización
+  explícita del usuario (`supabase db push` queda como acción manual). ✅
+  Archivo entregado en este PR.
+- **Fase C+** — Cada brecha P0/P1 entra como PR propio sobre esta rama o
+  ramas hijas, con tests y preview. Aplicar la migración 0003 es prerrequisito
+  para cualquier fase que persista (C en adelante).
 
 ## 5. Brechas y prioridades
 
@@ -116,8 +122,8 @@ Detalle completo en `matriz-requisitos-dgii.md`. Top P0:
 
 | Fase | Contenido sobre el módulo existente                                                                                          | Toca código                                | Toca DB | Toca DGII real | Bloqueo                          |
 |------|-------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------|---------|----------------|----------------------------------|
-| A    | Este PR: docs + gitignore refuerzo + advertencias                                                                              | Mínimo                                      | No      | No             | —                                |
-| B    | Schema DB: `dgii_settings`, `dgii_certificates`, `dgii_sequences`, `electronic_invoices(+items)`, `proformas(+items)`, `sales(+items)`, `cash_*` + RLS | `supabase/migrations/0003_dgii_pos.sql`     | **Sí**  | No             | Autorización del usuario          |
+| A    | Docs + gitignore refuerzo + advertencias                                                                                       | Mínimo                                      | No      | No             | —                                |
+| B    | Schema DB: 19 tablas DGII/POS en `supabase/migrations/0003_dgii_pos.sql` (escrito, **NO aplicado**) + función `reserve_ecf_sequence_number` | Sólo SQL                                   | Sólo archivo  | No             | **Aplicar requiere autorización del usuario** y `DATA_SOURCE=supabase` |
 | C    | Ampliar `env.ts` con tres ambientes + `dgii_settings.base_url_*`; persistir `/dgii/configuracion`                              | env + page + service                        | Sí      | No             | Fase B                            |
 | D    | Reescribir `DgiiXmlBuilder` (e-CF 31) con `xmlbuilder2` siguiendo XSD. Tests offline con fixture válida.                       | `service.ts` o nuevo `builder.ts` + tests   | No      | No             | Fase C parcial (settings)         |
 | E    | Implementar `DgiiXmlValidator` con XSD local                                                                                   | nuevo `validator.ts`                        | No      | No             | Fase D                            |
@@ -169,23 +175,33 @@ mantenibilidad. **No se ejecuta el refactor en este PR.**
 
 ## 9. Migraciones propuestas
 
-Detalladas en la matriz. Resumen para futura `0003_dgii_pos.sql`:
+`supabase/migrations/0003_dgii_pos.sql` ya **existe** en este PR (escrito, NO
+aplicado). Contiene 19 tablas:
 
-- `dgii_settings`
-- `dgii_certificates` (sin password — referencia a Vault)
-- `dgii_sequences`
-- `payment_methods` / `taxes`
-- `sales` / `sale_items`
-- `proformas` / `proforma_items`
-- `cash_registers` / `cash_register_sessions` / `cash_closings` /
-  `cash_closing_sales` / `cash_closing_percentage_logs` /
-  `proforma_to_ecf_logs`
-- `electronic_invoices` / `electronic_invoice_items`
-- `dgii_submissions` / `dgii_status_logs`
-- `dgii_received_ecf` / `dgii_commercial_approvals`
+- **Config y secretos** — `dgii_settings`, `dgii_certificates` (sólo metadata
+  + referencia simbólica al secreto de password, nunca el password en sí).
+- **Secuencias** — `ecf_sequences` + función `reserve_ecf_sequence_number()`
+  con `SELECT ... FOR UPDATE` atómico para evitar duplicados.
+- **Catálogo y proformas** — `payment_methods`, `proformas`, `proforma_items`,
+  `proforma_payments`.
+- **Caja** — `cash_registers`, `cash_register_sessions`, `cash_closings`,
+  `cash_closing_sales`, `cash_closing_percentage_logs`, `proforma_to_ecf_logs`.
+- **e-CF** — `electronic_invoices`, `electronic_invoice_items`.
+- **DGII I/O** — `dgii_submissions`, `dgii_status_logs`, `dgii_received_ecf`,
+  `dgii_commercial_approvals`.
 
-Todas con `business_id`, RLS por tenant, `created_at/updated_at`, soft-delete
-donde aplique. Submissions y status_logs son **immutables** (no `deleted_at`).
+Todas con `business_id`, RLS por tenant usando `auth_business_id()`,
+timestamps `timestamptz`. FKs circulares (`proformas.electronic_invoice_id`,
+`cash_closing_sales.electronic_invoice_id`, `proforma_to_ecf_logs.electronic_invoice_id`)
+son `DEFERRABLE INITIALLY DEFERRED` para permitir crear ambos lados en una
+sola transacción. Tablas immutables (sin `deleted_at`): `dgii_submissions`,
+`dgii_status_logs`, `cash_closing_percentage_logs`, `proforma_to_ecf_logs`.
+
+**`sales/sale_items` no se incluyó como tabla separada** — el documento del
+usuario lista `sales` aparte pero los tipos TS (`Proforma` con
+`documentKind: 'proforma' | 'invoice'`) ya unifican proforma + venta. La
+tabla `proformas` con `document_kind` cumple ambos roles. Si más adelante se
+prefiere separar, se hace en una migración posterior.
 
 ## 10. Librerías recomendadas
 
@@ -217,11 +233,12 @@ Ya instaladas que sirven: `zod`, `pino`, `@supabase/ssr`, `@supabase/supabase-js
 - ✅ Cifrar `.p12` at-rest con AES-256-GCM (clave en Vercel Env Secret).
 - ✅ Password del cert vía Vercel Env Secret o Supabase Vault, referenciada por `dgii_certificates.password_secret_ref`.
 
-## 12. Qué NO se hace en este PR
+## 12. Qué NO se hace en esta rama (hasta Fase B inclusive)
 
 - ❌ Cambios al servicio DGII (`service.ts`) excepto comentarios documentales.
 - ❌ Instalación de librerías nuevas.
-- ❌ Migraciones de DB.
+- ❌ **Aplicar** la migración `0003_dgii_pos.sql` a Supabase (sólo el archivo
+  queda en el repo; aplicar requiere `supabase db push` con autorización).
 - ❌ Llamadas reales a cualquier ambiente DGII (incluso testecf).
 - ❌ Subida de certificado.
 - ❌ Activación de `dgii_enabled = true`.
