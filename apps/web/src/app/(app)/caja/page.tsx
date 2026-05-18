@@ -64,10 +64,12 @@ export default function CajaPage() {
                 Historial
               </Button>
             </Link>
-            <Button size="sm" variant="danger">
-              <Lock className="h-4 w-4" />
-              Cerrar caja
-            </Button>
+            <Link href="/caja/cierre">
+              <Button size="sm" variant="danger">
+                <Lock className="h-4 w-4" />
+                Cerrar caja
+              </Button>
+            </Link>
           </>
         }
       />
