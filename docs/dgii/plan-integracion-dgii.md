@@ -163,7 +163,18 @@ invoca en este PR.
   firmar + PDF base64. 3 banners explícitos (mock / no fiscal / cert
   dummy). Stats: evidencias listas / con PDF / pendientes. Tabla "Lo que
   este panel verifica" (checks de tests) + tabla "Pre-requisitos para
-  certificación real" (Fases C/G/H + D-08). ✅ Entregado en este PR.
+  certificación real" (Fases C/G/H + D-08). ✅ Entregado en commit `f3c9b07`.
+- **NC desde factura mock** — `/dgii/facturas/[id]` con sección "Nota de
+  Crédito (e-CF 34) — DEMO". Modal pide motivo (obligatorio) y código de
+  modificación (1=Anulación, 2=Cambios, 3=Devolución, 4=Pronto pago,
+  5=Corrección). Helper `mapSourceInvoiceToNcInput` calcula
+  `indicadorNotaCredito` automático (0 si ≤30 días, 1 si >30) y arma el
+  `informacionReferencia` con el eNcf origen. Endpoint
+  `POST /api/dgii/notas-credito/create` firma con cert dummy y devuelve
+  PDF en base64. Persistencia local en `dermaland.dgii-credit-notes`
+  (`credit-note-store.ts`). Advertencia: si ya existe NC para la factura,
+  confirm dialog antes de duplicar. Bloquea NC sobre comprobantes tipo
+  33/34. ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).

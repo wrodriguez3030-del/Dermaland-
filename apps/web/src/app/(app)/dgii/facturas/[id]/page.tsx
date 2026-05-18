@@ -12,6 +12,7 @@ import {
 import { AlertTriangle, Download, FileText } from "lucide-react";
 import { mockElectronicInvoices } from "@/lib/mock-data/integrations";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import { CreditNoteSection } from "@/components/dgii/credit-note-section";
 
 const statusTone: Record<
   string,
@@ -163,6 +164,8 @@ export default async function FacturaDetailPage({
               />
             </CardContent>
           </Card>
+
+          <CreditNoteSection invoice={invoice} />
         </div>
       </div>
     </>
