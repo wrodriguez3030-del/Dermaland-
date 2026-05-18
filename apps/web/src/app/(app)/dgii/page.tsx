@@ -28,9 +28,16 @@ export default function DgiiOverview() {
         description="Facturación electrónica RD. Implementación propia con XAdES-BES + cliente HTTPS al endpoint de la DGII."
         breadcrumbs={[{ label: "DGII" }]}
         actions={
-          <Link href="/dgii/configuracion">
-            <Button size="sm">Configuración fiscal</Button>
-          </Link>
+          <>
+            <Link href="/dgii/reportes">
+              <Button variant="outline" size="sm">
+                Reportes fiscales
+              </Button>
+            </Link>
+            <Link href="/dgii/configuracion">
+              <Button size="sm">Configuración fiscal</Button>
+            </Link>
+          </>
         }
       />
 

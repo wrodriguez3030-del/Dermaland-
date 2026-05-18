@@ -1,3 +1,5 @@
+"use client";
+
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -9,6 +11,7 @@ import {
   Select,
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
+import { DgiiLocationSelect } from "@/components/dgii/location-select";
 
 export default function ConfigDgiiPage() {
   return (
@@ -43,6 +46,15 @@ export default function ConfigDgiiPage() {
             <div>
               <Label>Dirección fiscal</Label>
               <Input defaultValue="Calle E. León Jiménez No. 47, Esq. Mayagüez, Reparto del Este, Santiago" />
+            </div>
+            <div className="mt-3 rounded-lg border border-black/5 bg-black/[0.02] p-3">
+              <DgiiLocationSelect
+                label="Provincia / Municipio (códigos oficiales DGII)"
+                onChange={() => {
+                  /* MOCK: no persiste todavía — Fase C añadirá persistencia
+                     en dgii_settings. */
+                }}
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
