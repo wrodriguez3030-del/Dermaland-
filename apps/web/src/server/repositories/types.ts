@@ -226,9 +226,62 @@ export interface ApiV3Repository {
   webhooks(ctx: RepoContext): Promise<Webhook[]>;
 }
 
+/**
+ * Configuración fiscal DGII por business — refleja la tabla
+ * `dgii_settings` de la migración 0003. En modo mock se guarda en memoria
+ * del proceso (se pierde al reiniciar). En Supabase se persiste con RLS
+ * por tenant.
+ */
+export interface DgiiSettings {
+  rncEmisor: string;
+  razonSocialEmisor: string;
+  nombreComercial: string | null;
+  direccionEmisor: string;
+  /** Código DGII 6 dígitos (formato `PPRRDD`). Ver `lib/dgii/dr-locations.ts`. */
+  municipio: string | null;
+  provincia: string | null;
+  actividadEconomica: string | null;
+  telefonoEmisor: string | null;
+  correoEmisor: string | null;
+  website: string | null;
+  ambiente: "testecf" | "certecf" | "ecf";
+  /**
+   * Si false, el envío real a DGII está deshabilitado incluso si
+   * `ambiente === "ecf"`. Sirve como guard adicional para evitar envíos
+   * accidentales en producción.
+   */
+  dgiiEnabledRealSend: boolean;
+  baseUrlTestecf: string;
+  baseUrlCertecf: string;
+  baseUrlEcf: string;
+  defaultCashClosingEcfPercentage: number;
+  allowUserChangeClosingPercentage: boolean;
+  minimumClosingEcfPercentage: number;
+  maximumClosingEcfPercentage: number;
+  requireAdminAuthorizationBelow100Percent: boolean;
+  autoGenerateEcfOnCashClosing: boolean;
+  /** Métodos de pago a los que se aplica la conversión de cierre. */
+  appliesToPaymentMethods: ReadonlyArray<string>;
+  updatedAt: string;
+}
+
+export type DgiiSettingsPatch = Partial<
+  Omit<DgiiSettings, "updatedAt">
+>;
+
 export interface DgiiRepository {
   sequences(ctx: RepoContext): Promise<DgiiSequence[]>;
   invoices(ctx: RepoContext): Promise<ElectronicInvoice[]>;
+  /** Lee la configuración DGII del business. Devuelve null si no existe. */
+  settings(ctx: RepoContext): Promise<DgiiSettings | null>;
+  /**
+   * Crea o actualiza la configuración DGII (upsert por business). El
+   * caller debe haber verificado el permiso `dgii:configure`.
+   */
+  saveSettings(
+    ctx: RepoContext,
+    patch: DgiiSettingsPatch,
+  ): Promise<DgiiSettings>;
 }
 
 // ─── Aggregate ──────────────────────────────────────────────────────────────

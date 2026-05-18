@@ -185,7 +185,37 @@ invoca en este PR.
   Supabase / RLS estén activos" con bloques de responsabilidad (2 marcados
   "alto riesgo": configuración/cert + caja/cierre). Test `users.test.ts`
   verifica que los 18 keys existen, no duplicados, módulos cubiertos en
-  el orden. ✅ Entregado en este PR.
+  el orden. ✅ Entregado en commit `fd3e968`.
+- **Fase C (preparación)** — Capa de persistencia DGII conectada
+  end-to-end, lista para activar cuando apliques las migraciones:
+    * **`supabase/migrations/0004_dgii_permissions_seed.sql`** — 18 INSERTs
+      idempotentes (`ON CONFLICT DO NOTHING`) en la tabla `permissions`
+      (creada en 0001). No-destructivo, re-ejecutable.
+    * **`server/repositories/types.ts`** — `DgiiSettings` interface
+      reflejando columnas de `dgii_settings`; `DgiiRepository` extendido
+      con `settings(ctx)` y `saveSettings(ctx, patch)`.
+    * **`server/repositories/mock/index.ts`** — Map en memoria por
+      `businessId` con defaults conservadores
+      (`dgiiEnabledRealSend=false`, `requireAdminAuthorizationBelow100Percent=true`).
+    * **`server/repositories/supabase/dgii.ts`** — implementación real con
+      `createServer()` lazy; mapeo snake_case↔camelCase inline; upsert por
+      `business_id`. Cast localizado de `Database` types hasta que
+      regeneres con `supabase gen types`.
+    * **`app/(app)/dgii/configuracion/actions.ts`** — server action
+      `saveDgiiSettings` que ruta al repositorio activo.
+    * **`/dgii/configuracion`** — form controlado con state, mapeo a
+      `DgiiSettingsPatch`, feedback de "guardado / error", banner amber
+      explicando que con DATA_SOURCE=mock vive en memoria, advertencia
+      adicional cuando se selecciona `ecf` (producción).
+    * **`mock/dgii-settings.test.ts`** — 8 tests del repositorio mock.
+    * **NO se ejecutó** `supabase db push` (CLI no instalado en este
+      entorno y no leí credenciales). Migraciones quedan en el repo
+      listas para aplicar manualmente vía Dashboard SQL Editor o
+      `supabase db push` desde una máquina con CLI + acceso al proyecto.
+    * **DATA_SOURCE=mock intacto.** El form funciona contra el mock; al
+      cambiar la flag y aplicar migraciones, la persistencia salta
+      automáticamente a Supabase sin cambios de código UI.
+  ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).

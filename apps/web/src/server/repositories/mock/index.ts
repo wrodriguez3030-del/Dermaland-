@@ -438,6 +438,45 @@ const apiV3: ApiV3Repository = {
   },
 };
 
+const DEFAULT_DGII_SETTINGS: import("../types").DgiiSettings = {
+  rncEmisor: "13259077503",
+  razonSocialEmisor: "DermaLand SRL",
+  nombreComercial: "DermaLand",
+  direccionEmisor:
+    "Calle E. León Jiménez No. 47, Esq. Mayagüez, Reparto del Este, Santiago",
+  municipio: null,
+  provincia: null,
+  actividadEconomica: "Venta de productos dermatológicos",
+  telefonoEmisor: "809-226-5252",
+  correoEmisor: "fiscal@dermaland.do",
+  website: null,
+  ambiente: "testecf",
+  dgiiEnabledRealSend: false,
+  baseUrlTestecf: "https://ecf.dgii.gov.do/testecf",
+  baseUrlCertecf: "https://ecf.dgii.gov.do/certecf",
+  baseUrlEcf: "https://ecf.dgii.gov.do/ecf",
+  defaultCashClosingEcfPercentage: 0,
+  allowUserChangeClosingPercentage: false,
+  minimumClosingEcfPercentage: 0,
+  maximumClosingEcfPercentage: 100,
+  requireAdminAuthorizationBelow100Percent: true,
+  autoGenerateEcfOnCashClosing: false,
+  appliesToPaymentMethods: ["cash", "transfer"] as const,
+  updatedAt: new Date().toISOString(),
+};
+
+/**
+ * Estado en memoria del proceso para `dgii_settings` (mock). Se pierde al
+ * reiniciar. En Supabase real es la tabla `dgii_settings` con RLS.
+ *
+ * Map<businessId, DgiiSettings>
+ */
+const mockDgiiSettingsByBusiness = new Map<
+  string,
+  import("../types").DgiiSettings
+>();
+mockDgiiSettingsByBusiness.set("biz_dermaland", DEFAULT_DGII_SETTINGS);
+
 const dgii: DgiiRepository = {
   async sequences(ctx) {
     guard(ctx);
@@ -446,6 +485,22 @@ const dgii: DgiiRepository = {
   async invoices(ctx) {
     guard(ctx);
     return mockElectronicInvoices;
+  },
+  async settings(ctx) {
+    guard(ctx);
+    return mockDgiiSettingsByBusiness.get(ctx.businessId) ?? null;
+  },
+  async saveSettings(ctx, patch) {
+    guard(ctx);
+    const current =
+      mockDgiiSettingsByBusiness.get(ctx.businessId) ?? DEFAULT_DGII_SETTINGS;
+    const updated = {
+      ...current,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    mockDgiiSettingsByBusiness.set(ctx.businessId, updated);
+    return updated;
   },
 };
 

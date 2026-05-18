@@ -24,6 +24,7 @@
  */
 
 import type { Repositories } from "../types";
+import { dgiiRepository } from "./dgii";
 
 class NotImplementedError extends Error {
   constructor(method: string) {
@@ -132,5 +133,8 @@ export const supabaseRepositories: Repositories = {
   },
   ai: { agents: stub("ai.agents"), logs: stub("ai.logs") },
   apiV3: { keys: stub("apiV3.keys"), webhooks: stub("apiV3.webhooks") },
-  dgii: { sequences: stub("dgii.sequences"), invoices: stub("dgii.invoices") },
+  // El módulo DGII tiene implementación real Supabase en `./dgii.ts` (lazy
+  // client). Las demás secciones siguen como stub hasta que se necesiten
+  // en producción real.
+  dgii: dgiiRepository,
 };
