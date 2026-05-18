@@ -21,16 +21,20 @@ import type { EcfBuilderInput } from "./types";
  */
 
 // process.cwd() durante `pnpm --filter web test` apunta a apps/web.
-const XSD_PATH = path.resolve(
-  process.cwd(),
-  "../..",
-  "docs",
-  "dgii",
-  "xsd",
-  "e-CF-31-v1.0.xsd",
-);
+const xsdPath = (tipo: "31" | "32" | "33" | "34") =>
+  path.resolve(
+    process.cwd(),
+    "../..",
+    "docs",
+    "dgii",
+    "xsd",
+    `e-CF-${tipo}-v1.0.xsd`,
+  );
+
+const XSD_PATH = xsdPath("31");
 
 let XSD: string;
+let XSD_BY_TYPE: Record<"31" | "32" | "33" | "34", string>;
 let dummyCertPem: string;
 let dummyPrivateKeyPem: string;
 
@@ -101,6 +105,12 @@ function makeDummyKeyPair() {
 
 beforeAll(() => {
   XSD = fs.readFileSync(XSD_PATH, "utf8");
+  XSD_BY_TYPE = {
+    "31": fs.readFileSync(xsdPath("31"), "utf8"),
+    "32": fs.readFileSync(xsdPath("32"), "utf8"),
+    "33": fs.readFileSync(xsdPath("33"), "utf8"),
+    "34": fs.readFileSync(xsdPath("34"), "utf8"),
+  };
   const dummy = makeDummyKeyPair();
   dummyCertPem = dummy.certificatePem;
   dummyPrivateKeyPem = dummy.privateKeyPem;
@@ -217,6 +227,97 @@ describe("validateEcfXml — detección de defectos comunes", () => {
       "<RNCEmisor>1234</RNCEmisor>",
     );
     const result = await validateEcfXml({ xml: tampered, xsd: XSD });
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe("validateEcfXml — XSDs oficiales 32/33/34 (Fase L completa)", () => {
+  const baseInfoRef = {
+    ncfModificado: "E310000000100",
+    rncOtroContribuyente: "131234567",
+    fechaNCFModificado: new Date(2026, 3, 10),
+    codigoModificacion: 3 as const,
+  };
+
+  async function buildSignAndValidate(
+    overrides: Parameters<typeof makeValidInput>[0],
+    tipo: "31" | "32" | "33" | "34",
+  ) {
+    const unsigned = buildEcfXml(makeValidInput(overrides));
+    const { xml: signed } = signEcfXml({
+      xml: unsigned,
+      certificatePem: dummyCertPem,
+      privateKeyPem: dummyPrivateKeyPem,
+    });
+    return validateEcfXml({ xml: signed, xsd: XSD_BY_TYPE[tipo] });
+  }
+
+  it("XSD 32 se carga sin errores (sin typo, con BOM)", () => {
+    expect(XSD_BY_TYPE["32"].length).toBeGreaterThan(1000);
+    expect(XSD_BY_TYPE["32"]).toContain('name="ECF"');
+  });
+
+  it("XSD 33 se carga sin errores", () => {
+    expect(XSD_BY_TYPE["33"].length).toBeGreaterThan(1000);
+    expect(XSD_BY_TYPE["33"]).toContain('name="ECF"');
+  });
+
+  it("XSD 34 se carga sin errores", () => {
+    expect(XSD_BY_TYPE["34"].length).toBeGreaterThan(1000);
+    expect(XSD_BY_TYPE["34"]).toContain('name="ECF"');
+  });
+
+  it("e-CF 32 con consumidor final (sin RNC) valida contra XSD 32 oficial", async () => {
+    const result = await buildSignAndValidate(
+      {
+        tipoEcf: "32",
+        eNcf: "E320000000001",
+        comprador: { razonSocialComprador: "Consumidor Final" },
+      },
+      "32",
+    );
+    if (!result.valid) console.error("XSD 32 errores:", result.errors);
+    expect(result.valid).toBe(true);
+  });
+
+  it("e-CF 32 con RNCComprador también valida contra XSD 32", async () => {
+    const result = await buildSignAndValidate(
+      { tipoEcf: "32", eNcf: "E320000000001" },
+      "32",
+    );
+    if (!result.valid) console.error("XSD 32 errores:", result.errors);
+    expect(result.valid).toBe(true);
+  });
+
+  it("e-CF 33 con informacionReferencia valida contra XSD 33 oficial", async () => {
+    const result = await buildSignAndValidate(
+      {
+        tipoEcf: "33",
+        eNcf: "E330000000001",
+        informacionReferencia: baseInfoRef,
+      },
+      "33",
+    );
+    if (!result.valid) console.error("XSD 33 errores:", result.errors);
+    expect(result.valid).toBe(true);
+  });
+
+  it("e-CF 34 con informacionReferencia + indicadorNotaCredito valida contra XSD 34", async () => {
+    const result = await buildSignAndValidate(
+      {
+        tipoEcf: "34",
+        eNcf: "E340000000001",
+        indicadorNotaCredito: 0,
+        informacionReferencia: { ...baseInfoRef, codigoModificacion: 1 },
+      },
+      "34",
+    );
+    if (!result.valid) console.error("XSD 34 errores:", result.errors);
+    expect(result.valid).toBe(true);
+  });
+
+  it("e-CF 31 contra XSD 32 falla (validación de tipo cruzado)", async () => {
+    const result = await buildSignAndValidate({ tipoEcf: "31" }, "32");
     expect(result.valid).toBe(false);
   });
 });

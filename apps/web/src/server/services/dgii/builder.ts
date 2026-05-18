@@ -158,9 +158,27 @@ function buildIdDoc(
   const idDoc = parent.ele("IdDoc");
   idDoc.ele("TipoeCF").txt(input.tipoEcf);
   idDoc.ele("eNCF").txt(input.eNcf);
-  idDoc.ele("FechaVencimientoSecuencia").txt(
-    formatDgiiDate(input.fechaVencimientoSecuencia),
-  );
+
+  // Orden por tipo (basado en XSDs oficiales DGII):
+  //   e-CF 31/33: FechaVencimientoSecuencia → [indicadores opcionales] → TipoIngresos
+  //   e-CF 32:    [indicadores opcionales] → TipoIngresos (NO emite FechaVencimientoSecuencia)
+  //   e-CF 34:    IndicadorNotaCredito → [indicadores opcionales] → TipoIngresos
+  //               (NO emite FechaVencimientoSecuencia; el slot lo ocupa IndicadorNotaCredito)
+  if (input.tipoEcf === "31" || input.tipoEcf === "33") {
+    idDoc
+      .ele("FechaVencimientoSecuencia")
+      .txt(formatDgiiDate(input.fechaVencimientoSecuencia));
+  } else if (input.tipoEcf === "34") {
+    if (input.indicadorNotaCredito === undefined) {
+      throw new EcfBuilderInvalidInput(
+        "indicadorNotaCredito",
+        "e-CF 34 requiere indicadorNotaCredito (0 si <=30 días del original, 1 si >30 días)",
+      );
+    }
+    idDoc.ele("IndicadorNotaCredito").txt(String(input.indicadorNotaCredito));
+  }
+  // (e-CF 32 no emite ninguno de los dos)
+
   if (input.indicadorMontoGravado !== undefined) {
     idDoc.ele("IndicadorMontoGravado").txt(String(input.indicadorMontoGravado));
   }

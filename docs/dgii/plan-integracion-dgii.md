@@ -144,7 +144,16 @@ invoca en este PR.
   embebido, descargas de XML firmado / sin firmar / PDF, banner de
   "DEMOSTRACIÓN — no fiscal". `next.config.ts` con `serverExternalPackages`
   para pdfkit/xmllint-wasm/node-forge/xml-crypto. 10 tests nuevos
-  (225 totales). ✅ Entregado en este PR.
+  (225 totales). ✅ Entregado en commit `c0d8007`.
+- **Fase L completa** — XSDs oficiales DGII 32/33/34 descargados directamente
+  del portal DGII a `docs/dgii/xsd/`. Builder ajustado a las diferencias
+  estructurales reales: e-CF 32 NO emite `<FechaVencimientoSecuencia>`;
+  e-CF 34 emite `<IndicadorNotaCredito>` (obligatorio, 0/1) en su lugar.
+  Validator extendido con tests por tipo: el output del builder pasa el
+  XSD oficial correspondiente para 31, 32, 33, **y 34**. `patchOfficialDgiiXsd`
+  ahora strippea UTF-8 BOM además del typo del XSD 31. Demo-renderer y
+  3 tests previos actualizados con `indicadorNotaCredito: 0` para tipo 34.
+  Duda D-13 **RESUELTA**. ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).

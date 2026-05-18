@@ -75,6 +75,15 @@ export type IndicadorBienoServicio = 1 | 2;
  */
 export type IndicadorMontoGravado = 0 | 1;
 
+/**
+ * IndicadorNotaCreditoType del XSD e-CF 34 (Nota de Crédito):
+ *  0 = fecha de emisión <= 30 días calendario desde el e-CF original
+ *  1 = fecha de emisión > 30 días calendario desde el e-CF original
+ *
+ * Obligatorio en e-CF 34 según el XSD oficial. El builder enforza.
+ */
+export type IndicadorNotaCredito = 0 | 1;
+
 /** Forma de pago en la `TablaFormasPago` (1..7 items por XSD). */
 export interface FormaPagoLinea {
   formaPago: FormaPago;
@@ -208,7 +217,25 @@ export interface EcfBuilderInput {
   tipoEcf: TipoEcf;
   /** e-NCF de 13 caracteres alfanuméricos (XSD pattern `[a-z0-9A-Z]{13}`). */
   eNcf: string;
+  /**
+   * Fecha de vencimiento de la secuencia e-NCF.
+   *  - e-CF 31/33: OBLIGATORIO (XSD `minOccurs="1"`).
+   *  - e-CF 32: NO se emite (el XSD oficial lo OMITE de IdDoc).
+   *  - e-CF 34: NO se emite (el XSD oficial lo OMITE; usa `indicadorNotaCredito` en su lugar).
+   *
+   * El builder ignora este valor para 32 y 34. Lo mantenemos en el shape
+   * para evitar romper callers existentes; opcional sería más limpio pero
+   * requeriría cambio breaking.
+   */
   fechaVencimientoSecuencia: Date;
+  /**
+   * Indicador específico de e-CF 34 (Nota de Crédito):
+   *  - 0 = fecha de emisión <= 30 días calendario del e-CF original.
+   *  - 1 = fecha de emisión > 30 días.
+   *
+   * OBLIGATORIO para e-CF 34. Ignorado en 31/32/33.
+   */
+  indicadorNotaCredito?: IndicadorNotaCredito;
   /** Tipo de ingreso del emisor (XSD obligatorio). */
   tipoIngresos: TipoIngresos;
   tipoPago: TipoPago;

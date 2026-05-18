@@ -54,23 +54,39 @@ export interface ValidateEcfXmlResult {
 }
 
 /**
- * El XSD oficial publicado por DGII (`e-CF-31-v1.0.xsd`) tiene un typo:
- * `<xs:simpleType name=" IndicadorServicioTodoIncluidoType">` (espacio
- * inicial). xmllint rechaza el schema porque el tipo declarado con espacio
- * no coincide con la referencia `type="IndicadorServicioTodoIncluidoType"`.
+ * Normaliza un XSD oficial DGII antes de pasarlo a xmllint:
  *
- * Normalizamos en memoria — el archivo de docs/dgii/xsd/ se deja intacto
- * para preservar la versión original. Si DGII publica un XSD corregido,
- * este parche queda sin efecto.
+ * 1. Strip UTF-8 BOM (los XSDs e-CF 32/33/34 traen `﻿` al inicio;
+ *    xmllint a veces se queja).
+ * 2. Corrige el typo del XSD e-CF 31:
+ *    `<xs:simpleType name=" IndicadorServicioTodoIncluidoType">` (espacio
+ *    inicial) — xmllint rechaza compilar el schema porque el tipo
+ *    declarado con espacio no coincide con la referencia
+ *    `type="IndicadorServicioTodoIncluidoType"`. Los XSDs e-CF 32/33/34
+ *    NO tienen este typo (DGII lo corrigió allí pero NO en 31).
  *
- * Pendiente reportar a DGII y rastrear actualización del XSD oficial
- * (matriz D-12).
+ * El archivo de `docs/dgii/xsd/` se deja intacto — solo se normaliza en
+ * memoria. Si DGII publica un XSD 31 corregido, los reemplazos quedan sin
+ * efecto.
+ *
+ * Estado del typo (matriz D-12):
+ *  - e-CF 31: typo presente — parche activo.
+ *  - e-CF 32: limpio.
+ *  - e-CF 33: limpio.
+ *  - e-CF 34: limpio.
  */
 export function patchOfficialDgiiXsd(xsd: string): string {
-  return xsd.replace(
+  let out = xsd;
+  // 1. Strip BOM si está presente.
+  if (out.charCodeAt(0) === 0xfeff) {
+    out = out.slice(1);
+  }
+  // 2. Typo conocido del XSD 31. No-op si no aparece (32/33/34).
+  out = out.replace(
     '<xs:simpleType name=" IndicadorServicioTodoIncluidoType">',
     '<xs:simpleType name="IndicadorServicioTodoIncluidoType">',
   );
+  return out;
 }
 
 /**

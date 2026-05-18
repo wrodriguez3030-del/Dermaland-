@@ -113,10 +113,15 @@ export function mapMockInvoiceToEcfInput(
     };
   }
 
+  // e-CF 34 requiere IndicadorNotaCredito (0 si <=30 días del original, 1 si >30).
+  // Demo: asumimos 0 (dentro de la ventana).
+  const indicadorNotaCredito = invoice.ecfType === "34" ? 0 : undefined;
+
   return {
     tipoEcf: invoice.ecfType,
     eNcf: invoice.ecfNumber,
     fechaVencimientoSecuencia: new Date(2027, 11, 31),
+    indicadorNotaCredito,
     tipoIngresos: "01",
     tipoPago: 1,
     emisor: {

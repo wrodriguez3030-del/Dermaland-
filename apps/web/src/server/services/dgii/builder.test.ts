@@ -454,15 +454,35 @@ describe("buildEcfXml — e-CF 33 (Nota de Débito) y 34 (Nota de Crédito)", ()
     expect(xml).toContain("<CodigoModificacion>3</CodigoModificacion>");
   });
 
-  it("acepta tipo 34 con informacionReferencia", () => {
+  it("acepta tipo 34 con informacionReferencia + indicadorNotaCredito", () => {
     const xml = buildEcfXml(
       makeValidInput({
         tipoEcf: "34",
+        indicadorNotaCredito: 0,
         informacionReferencia: { ...baseInfoRef, codigoModificacion: 1 },
       }),
     );
     expect(xml).toContain("<TipoeCF>34</TipoeCF>");
+    expect(xml).toContain("<IndicadorNotaCredito>0</IndicadorNotaCredito>");
+    expect(xml).not.toContain("<FechaVencimientoSecuencia>");
     expect(xml).toContain("<CodigoModificacion>1</CodigoModificacion>");
+  });
+
+  it("e-CF 34 sin indicadorNotaCredito lanza EcfBuilderInvalidInput", () => {
+    expect(() =>
+      buildEcfXml(
+        makeValidInput({
+          tipoEcf: "34",
+          informacionReferencia: baseInfoRef,
+        }),
+      ),
+    ).toThrow(EcfBuilderInvalidInput);
+  });
+
+  it("e-CF 32 NO emite FechaVencimientoSecuencia ni IndicadorNotaCredito", () => {
+    const xml = buildEcfXml(makeValidInput({ tipoEcf: "32" }));
+    expect(xml).not.toContain("<FechaVencimientoSecuencia>");
+    expect(xml).not.toContain("<IndicadorNotaCredito>");
   });
 
   it("rechaza tipo 33 SIN informacionReferencia", () => {
@@ -481,6 +501,7 @@ describe("buildEcfXml — e-CF 33 (Nota de Débito) y 34 (Nota de Crédito)", ()
     const xml = buildEcfXml(
       makeValidInput({
         tipoEcf: "34",
+        indicadorNotaCredito: 0,
         informacionReferencia: {
           ...baseInfoRef,
           ncfModificado: "B0100000001",

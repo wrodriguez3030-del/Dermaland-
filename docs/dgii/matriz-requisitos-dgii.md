@@ -34,9 +34,9 @@
 | ID    | Requisito                          | Existe | Ubicación                              | Estado                       | Brecha                                                                  | Acción                                                                                | Req DGII | Req contador | Bloqueo               | Prio |
 |-------|------------------------------------|--------|----------------------------------------|------------------------------|-------------------------------------------------------------------------|----------------------------------------------------------------------------------------|----------|--------------|------------------------|------|
 | T-01  | e-CF 31 Crédito Fiscal             | Sí     | `apps/web/src/server/services/dgii/builder.ts` + tests | implementado (estructura)    | Builder XSD-compliant, 31 tests verdes. Falta mapper proforma→input (Fase C) y validador XSD (Fase E) | — | Sí       | Sí           | —                      | —    |
-| T-02  | e-CF 32 Consumo                    | Sí (parcial) | `builder.ts` + tests                   | implementado (builder)       | Builder permite consumidor final (RNC y razón social opcionales). Falta XSD oficial 32 + reglas RFCE + UI flow | Validar contra XSD 32 cuando esté + implementar lógica RFCE para < umbral             | Sí       | Sí           | —                      | P1   |
-| T-03  | e-CF 33 Nota de Débito             | Sí (parcial) | `builder.ts` + tests                   | implementado (builder)       | Builder exige `informacionReferencia`. Falta XSD oficial 33 + workflow de derivación desde e-CF original | Validar contra XSD 33 cuando esté + UI flow                                            | Sí       | Sí           | —                      | P2   |
-| T-04  | e-CF 34 Nota de Crédito            | Sí (parcial) | `builder.ts` + tests                   | implementado (builder)       | Builder exige `informacionReferencia`. Falta XSD oficial 34 + workflow de anulación/devolución | Validar contra XSD 34 cuando esté + UI flow ("Anular factura")                       | Sí       | Sí           | —                      | P1   |
+| T-02  | e-CF 32 Consumo                    | Sí     | `builder.ts` + tests + XSD oficial         | implementado (builder + XSD)       | Builder permite consumidor final; emite SIN `FechaVencimientoSecuencia` (XSD 32 lo omite). Validación XSD oficial pasa. Falta reglas RFCE + UI flow | Implementar lógica RFCE para < umbral (D-04) + UI                                    | Sí       | Sí           | —                      | P1   |
+| T-03  | e-CF 33 Nota de Débito             | Sí     | `builder.ts` + tests + XSD oficial         | implementado (builder + XSD)       | Builder exige `informacionReferencia`. Validación XSD oficial pasa. Falta workflow de derivación desde e-CF original | UI flow                                                                                | Sí       | Sí           | —                      | P2   |
+| T-04  | e-CF 34 Nota de Crédito            | Sí     | `builder.ts` + tests + XSD oficial         | implementado (builder + XSD)       | Builder exige `informacionReferencia` + `indicadorNotaCredito` (0/1, según ventana 30 días). Validación XSD oficial pasa. Falta workflow de anulación/devolución | UI flow ("Anular factura")                                                            | Sí       | Sí           | —                      | P1   |
 | T-05  | e-CF 41 Compras                    | Parcial| Badge en UI                            | no_aplica                    | Fuera de scope inicial                                                  | Preparar enum y dejar planning                                                         | Sí       | Sí           | —                      | P3   |
 | T-06  | e-CF 43 Gastos Menores             | Parcial| Badge en UI                            | no_aplica                    | Idem                                                                     | Idem                                                                                    | Sí       | Sí           | —                      | P3   |
 | T-07  | e-CF 44/45/46/47                   | Parcial| Badges                                  | no_aplica                    | Idem                                                                     | Idem                                                                                    | Sí       | Sí           | —                      | P3   |
@@ -203,17 +203,20 @@
   XMLDSig enveloped. Si DGII exige XAdES-BES propiamente dicho, añadir
   `SignedProperties` (SigningTime, SigningCertificate) sin tocar la firma
   ya existente.
-- D-12: El XSD oficial DGII publicado (`e-CF-31-v1.0.xsd`) tiene un typo en
-  línea 476: `<xs:simpleType name=" IndicadorServicioTodoIncluidoType">`
-  (espacio inicial). `xmllint` rechaza compilar el schema. Aplicamos parche
-  en memoria en `validator.patchOfficialDgiiXsd()`. Pendiente reportar a
-  DGII y rastrear actualización del XSD oficial.
-- D-13: Los XSDs oficiales DGII para e-CF 32 (Consumo), 33 (Nota de Débito)
-  y 34 (Nota de Crédito) NO están en el repo. La estructura del builder se
-  basa en el XSD de 31 + el documento adjunto. Pendiente: descargar XSDs
-  oficiales de DGII, agregarlos a `docs/dgii/xsd/`, validar el output del
-  builder contra cada uno y ajustar diferencias (RNCComprador opcional en
-  32, InformacionReferencia obligatorio en 33/34, posibles campos extra).
+- D-12: El XSD oficial DGII de e-CF 31 tiene un typo en línea 476:
+  `<xs:simpleType name=" IndicadorServicioTodoIncluidoType">` (espacio
+  inicial). `xmllint` rechaza compilar el schema. Aplicamos parche en
+  memoria en `validator.patchOfficialDgiiXsd()`. Los XSDs 32/33/34 NO
+  tienen este typo (DGII lo corrigió allí pero NO en 31). Los 32/33/34
+  traen UTF-8 BOM al inicio que `patchOfficialDgiiXsd` también strippea.
+  Pendiente reportar a DGII y rastrear actualización del XSD 31 oficial.
+- D-13: **RESUELTA** — XSDs oficiales 32/33/34 descargados del portal DGII
+  a `docs/dgii/xsd/`. Diferencias confirmadas y reflejadas en el builder:
+    * e-CF 32 omite `<FechaVencimientoSecuencia>` del IdDoc.
+    * e-CF 34 reemplaza `<FechaVencimientoSecuencia>` por
+      `<IndicadorNotaCredito>` (0/1, obligatorio).
+    * e-CF 33 estructura idéntica a 31.
+  Builder + validator pasan los XSDs oficiales para los 4 tipos.
 - D-14: `CodigoModificacion` (1..5) usado en `<InformacionReferencia>` para
   e-CF 33/34 — los significados exactos por valor (Anulación / Cambios /
   Devolución / Pronto pago / Corrección) son una interpretación común;
