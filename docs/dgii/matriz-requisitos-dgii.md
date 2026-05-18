@@ -69,10 +69,10 @@
 
 | ID    | Requisito                       | Existe | Ubicación        | Estado     | Brecha                              | Acción                                                       | Req DGII | Req contador | Bloqueo | Prio |
 |-------|--------------------------------|--------|------------------|------------|-------------------------------------|---------------------------------------------------------------|----------|--------------|---------|------|
-| P-01  | PDF representación impresa     | No     | —                | pendiente  | Sin servicio                         | `@react-pdf/renderer` server-side                            | Sí       | No           | —       | P1   |
-| P-02  | QR consulta DGII                | No     | —                | pendiente  | Falta URL exacta del QR              | `qrcode` + URL DGII confirmada                                | Sí       | No           | —       | P1   |
-| P-03  | Código de seguridad             | No     | —                | requiere_validacion_dgii | Algoritmo no claro en doc       | Validar fórmula contra documentación oficial DGII             | Sí       | No           | —       | P0   |
-| P-04  | Estado DGII visible en PDF      | No     | —                | pendiente  | —                                    | Inyectar status                                               | No       | No           | —       | P2   |
+| P-01  | PDF representación impresa     | Sí     | `pdf.ts` + tests | implementado | Layout minimalista con encabezado, comprador, items, totales, footer + QR. Estilo final UI sigue pendiente | — | Sí       | No           | —       | —    |
+| P-02  | QR consulta DGII                | Sí     | `qr.ts` + tests  | implementado | URL/path configurables por ambiente. Formato exacto sujeto a D-06 | Validar formato contra DGII oficial cuando llegue certificación | Sí       | No           | —       | P2   |
+| P-03  | Código de seguridad             | Sí (parcial) | `security-code.ts` + tests | implementado (heurística) | Default: 8 chars alfanum del SignatureValue. Algoritmo oficial DGII pendiente validar | Validar fórmula contra documentación oficial DGII (D-06) | Sí       | No           | —       | P1   |
+| P-04  | Estado DGII visible en PDF      | Sí     | `pdf.ts`         | implementado | Footer del PDF muestra estado + ambiente + TrackId si lo hay | — | No       | No           | —       | —    |
 
 ## 6. Ventas, proformas, formas de pago
 

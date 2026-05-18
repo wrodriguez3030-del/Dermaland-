@@ -127,7 +127,14 @@ invoca en este PR.
   acepta consumidor final (RNCComprador y RazonSocialComprador opcionales).
   Validador XSD (Fase E) sigue usando solo `e-CF-31-v1.0.xsd` — los XSDs
   oficiales 32/33/34 no están en el repo (matriz D-13). ✅ Entregado en
-  este PR.
+  commit `4ec7ce2`.
+- **Fase I** — Representación impresa offline: `qr.ts` (URL DGII
+  consultaTimbre + QR PNG/SVG/data URL), `security-code.ts` (derivación
+  desde SignatureValue del XML firmado), `pdf.ts` (PDF generado con
+  `pdfkit` — encabezado emisor + comprador + items + totales + estado
+  DGII + código de seguridad + QR). 24 tests nuevos (102 en services/dgii).
+  Formato exacto del QR y código de seguridad sujeto a validación oficial
+  (D-06). ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).
@@ -159,7 +166,7 @@ Detalle completo en `matriz-requisitos-dgii.md`. Top P0:
 | F    | ✅ `DgiiXmlSigner` XMLDSig enveloped (RSA-SHA256, SHA256, Reference, KeyInfo X509). Cert dummy generado por node-forge en runtime, jamás persistido. 19 tests + roundtrip verify. `service.signXml` lanza `DgiiNotConfigured` hasta `DgiiCertificateService`. | `signer.ts` + `signer.test.ts` + `service.ts` | No      | No             | —                                 |
 | G    | `DgiiAuthService` contra `testecf` **sólo** con dummy cert o cert real + autorización del usuario                              | nuevo `auth.ts`                             | No      | testecf only   | Fase F + cert dummy o autorización|
 | H    | `DgiiReceptionService` + `DgiiStatusService` contra `testecf`                                                                  | nuevos                                       | Sí      | testecf only   | Fase G                            |
-| I    | PDF + QR                                                                                                                       | nuevo `pdf.ts` + `qr.ts` + páginas         | No      | No             | Fase D-H                          |
+| I    | ✅ `qr.ts` (URL DGII + QR PNG/SVG/dataURL) + `security-code.ts` (derivado del SignatureValue) + `pdf.ts` (pdfkit, layout DGII-compliant). 24 tests. Páginas UI llegan cuando se cablee al flujo POS. | `qr.ts` + `security-code.ts` + `pdf.ts` + tests + `service.ts` | No      | No             | —                                |
 | J    | Cierre de caja: % configurable + FIFO + autorización + auditoría                                                               | `caja/page.tsx` + `CashClosingEcfService`   | Sí      | No             | Fase B                            |
 | K    | Pre-certificación: panel + set de pruebas + evidencias                                                                          | nueva pantalla + servicio                   | Sí      | testecf only   | Fase G-I + autorización           |
 | L    | ✅ Builder extendido a 32/33/34. Validator sigue con XSD 31 (XSDs 32/33/34 oficiales pendientes — matriz D-13). UI por tipo y validators específicos llegan cuando estén los XSDs. | `types.ts` + `builder.ts` + `builder.test.ts` | No      | No             | XSDs oficiales 32/33/34 (parcial) |

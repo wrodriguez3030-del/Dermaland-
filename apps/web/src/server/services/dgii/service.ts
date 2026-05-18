@@ -167,14 +167,22 @@ class DgiiServiceImpl implements DgiiService {
 
 export const dgiiService: DgiiService = new DgiiServiceImpl();
 
-// Re-export del builder, firmador y validador para callers que ya tengan el
-// input listo (tests, scripts de pre-certificación, futuro
-// `CertificateService`). Se exporta el firmador pero NO se exponen passwords
-// ni paths a certs. El XSD se entrega como string al validador (caller lo
-// carga desde bundle o filesystem según su contexto).
+// Re-export del builder, firmador, validador, QR, security-code y PDF para
+// callers que ya tengan el input listo (tests, scripts de pre-certificación,
+// futuro `CertificateService`). Se exporta el firmador pero NO se exponen
+// passwords ni paths a certs. El XSD se entrega como string al validador
+// (caller lo carga desde bundle o filesystem según su contexto).
 export { buildEcfXml, buildEcfXmlPretty } from "./builder";
 export { signEcfXml, verifyEcfSignature } from "./signer";
 export { validateEcfXml, DgiiValidatorError } from "./validator";
+export {
+  buildDgiiConsultaUrl,
+  generateQrCodePng,
+  generateQrCodeSvg,
+  generateQrCodeDataUrl,
+} from "./qr";
+export { computeSecurityCode, DgiiSecurityCodeError } from "./security-code";
+export { generateEcfPdf, DgiiPdfError } from "./pdf";
 export type { EcfBuilderInput } from "./types";
 export type { SignEcfXmlInput, SignEcfXmlResult } from "./signer";
 export type {
@@ -182,6 +190,9 @@ export type {
   ValidateEcfXmlResult,
   ValidationError,
 } from "./validator";
+export type { Ambiente, DgiiConsultaUrlInput, QrOptions } from "./qr";
+export type { SecurityCodeOptions } from "./security-code";
+export type { GenerateEcfPdfInput, EstadoDgii } from "./pdf";
 
 // `signEcfXmlImpl` se importa arriba para que `service.signXml` pueda
 // cablearlo cuando llegue Fase C. Re-export con el nombre `signEcfXml`
