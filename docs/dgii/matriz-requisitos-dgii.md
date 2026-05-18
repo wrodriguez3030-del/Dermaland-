@@ -162,6 +162,7 @@
 | R-10  | `cash:authorize_below_100_percent`            | Sí (mock) | seed, marcado "alto riesgo"           | P1   |
 | R-11  | `cash:reverse_closing`                        | Sí (mock) | seed, marcado "alto riesgo"           | P1   |
 | R-12  | Asignación rol → permisos DGII/cash            | Sí (mock) | `roleDefinitions` cubre los 7 roles con segregación de funciones (super_admin/admin: `dgii:*` + `cash:*`; manager: operación; cashier: cobro mínimo; inventory: sin DGII; supervisor: aprobador; auditor: solo-lectura). Matriz visual en `/admin/permisos`. Tests cubren cada asignación. | P1   |
+| R-13  | Seed SQL `role_permissions`                    | Sí (SQL, NO aplicado) | `supabase/migrations/0005_dgii_role_permissions_seed.sql` crea `roles` + `role_permissions` + 59 INSERTs idempotentes. Test `role-permissions-sync.test.ts` verifica sync con `roleDefinitions`. **Depende de 0003 + 0004.** Se aplica con Fase C autorizada. | P1   |
 
 ## 12. Reportes y auditoría
 

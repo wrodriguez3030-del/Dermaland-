@@ -236,7 +236,24 @@ invoca en este PR.
   Helpers nuevos `permissionMatchesPattern` (soporta wildcards `:*` y OR
   `a|b|c`) + `roleHasPermission`. Matriz visual en `/admin/permisos` con
   18 filas × 7 columnas mostrando ✓ por celda. `users.test.ts` ampliado
-  a 29 tests (helpers + assignments por rol). ✅ Entregado en este PR.
+  a 29 tests (helpers + assignments por rol). ✅ Entregado en commit `069a699`.
+- **Migración 0005 — seed SQL de role_permissions** —
+  `supabase/migrations/0005_dgii_role_permissions_seed.sql` declara
+  tablas `roles` + `role_permissions` (`CREATE TABLE IF NOT EXISTS`),
+  inserta los 7 roles del sistema, y siembra las **59 filas** de
+  asignación rol → permiso DGII/cash derivadas EXACTAMENTE de
+  `roleDefinitions` en TS:
+    * super_admin: 18 · admin: 18 · manager: 12 · cashier: 4
+    * inventory: 0 · supervisor: 3 · auditor: 4
+  Idempotente (`ON CONFLICT DO NOTHING`), no destructiva. Adicionalmente
+  se actualizó 0004 para crear la tabla `permissions` defensivamente
+  (`CREATE TABLE IF NOT EXISTS` antes de los INSERTs — necesario porque
+  0001_phase1_core.sql NO crea esa tabla). El test nuevo
+  `role-permissions-sync.test.ts` parsea el SQL y compara cada par
+  `(role, permission)` contra `roleHasPermission(roleDefinitions, key)`
+  — si TS y SQL divergen, el test falla con diff explícito de qué pares
+  están solo en uno. **NO aplicada todavía** a Supabase; depende de
+  0003 + 0004 antes. ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).
