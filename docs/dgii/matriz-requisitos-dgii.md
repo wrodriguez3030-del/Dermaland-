@@ -140,10 +140,10 @@
 
 | ID    | Requisito                                  | Existe | Estado     | Acción                                                              | Bloqueo            | Prio |
 |-------|--------------------------------------------|--------|------------|---------------------------------------------------------------------|--------------------|------|
-| Z-01  | Verificación prerrequisitos                 | No     | pendiente  | Pantalla `/dgii/certificacion`                                       | bloqueado_secreto  | P1   |
-| Z-02  | Set de pruebas DGII                         | No     | pendiente  | Orquestador de tests por tipo                                        | bloqueado_secreto  | P1   |
-| Z-03  | Panel de avance                             | No     | pendiente  | Tabla por tipo con status DGII                                       | —                  | P2   |
-| Z-04  | Evidencias (XML, firmado, PDF, TrackId)     | No     | pendiente  | Storage privado + listing                                            | bloqueado_supabase | P2   |
+| Z-01  | Verificación prerrequisitos                 | Sí (parcial) | implementado (UI) | Pantalla `/dgii/certificacion` con sección "Pre-requisitos" lista bloqueos por fase | bloqueado_secreto  | P1   |
+| Z-02  | Set de pruebas DGII                         | Sí (mock)   | implementado (fixtures internos) | `certification-fixtures.ts` con 4 inputs representativos; reemplazar por set oficial (D-08) | bloqueado_secreto  | P1   |
+| Z-03  | Panel de avance                             | Sí          | implementado | Tabla por tipo en `/dgii/certificacion` con estado, eNCF, código seguridad, última ejecución | —                  | —    |
+| Z-04  | Evidencias (XML, firmado, PDF, TrackId)     | Sí (mock localStorage) | implementado | `certification-store.ts`. TrackId queda en blanco hasta autorización Fases G/H | bloqueado_supabase (persistencia real) | P2   |
 | Z-05  | Bloqueo paso a `ecf` (producción)           | No     | pendiente  | Guard que requiere autorización admin + pruebas verdes              | —                  | P0   |
 
 ## 11. Roles y permisos

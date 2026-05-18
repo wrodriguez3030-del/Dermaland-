@@ -29,6 +29,11 @@ export default function DgiiOverview() {
         breadcrumbs={[{ label: "DGII" }]}
         actions={
           <>
+            <Link href="/dgii/certificacion">
+              <Button variant="outline" size="sm">
+                Pre-certificación
+              </Button>
+            </Link>
             <Link href="/dgii/reportes">
               <Button variant="outline" size="sm">
                 Reportes fiscales

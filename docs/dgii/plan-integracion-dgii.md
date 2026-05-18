@@ -153,7 +153,17 @@ invoca en este PR.
   XSD oficial correspondiente para 31, 32, 33, **y 34**. `patchOfficialDgiiXsd`
   ahora strippea UTF-8 BOM además del typo del XSD 31. Demo-renderer y
   3 tests previos actualizados con `indicadorNotaCredito: 0` para tipo 34.
-  Duda D-13 **RESUELTA**. ✅ Entregado en este PR.
+  Duda D-13 **RESUELTA**. ✅ Entregado en commit `87a2c3c`.
+- **Pre-certificación panel mock** (Fase K parcial) — `/dgii/certificacion`
+  con tabla por tipo (31/32/33/34), ejecución del pipeline completo
+  (build → sign con cert dummy → security code → QR → PDF) por click,
+  evidencias persistidas en localStorage (`certification-store.ts`),
+  fixtures internos en `certification-fixtures.ts`, endpoint
+  `POST /api/dgii/certificacion/run-test` que devuelve XML firmado + sin
+  firmar + PDF base64. 3 banners explícitos (mock / no fiscal / cert
+  dummy). Stats: evidencias listas / con PDF / pendientes. Tabla "Lo que
+  este panel verifica" (checks de tests) + tabla "Pre-requisitos para
+  certificación real" (Fases C/G/H + D-08). ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).
