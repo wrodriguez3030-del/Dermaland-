@@ -161,6 +161,7 @@
 | R-09  | `cash:change_closing_percentage`              | Sí (mock) | seed                                  | P1   |
 | R-10  | `cash:authorize_below_100_percent`            | Sí (mock) | seed, marcado "alto riesgo"           | P1   |
 | R-11  | `cash:reverse_closing`                        | Sí (mock) | seed, marcado "alto riesgo"           | P1   |
+| R-12  | Asignación rol → permisos DGII/cash            | Sí (mock) | `roleDefinitions` cubre los 7 roles con segregación de funciones (super_admin/admin: `dgii:*` + `cash:*`; manager: operación; cashier: cobro mínimo; inventory: sin DGII; supervisor: aprobador; auditor: solo-lectura). Matriz visual en `/admin/permisos`. Tests cubren cada asignación. | P1   |
 
 ## 12. Reportes y auditoría
 

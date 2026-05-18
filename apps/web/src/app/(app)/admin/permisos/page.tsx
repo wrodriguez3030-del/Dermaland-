@@ -12,11 +12,13 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Check, ShieldCheck } from "lucide-react";
 import {
   allPermissions,
   DGII_RBAC_PENDING_KEYS,
   DGII_PERMISSION_MODULES_ORDER,
+  roleDefinitions,
+  roleHasPermission,
 } from "@/lib/mock-data/users";
 
 export default function PermisosPage() {
@@ -176,6 +178,71 @@ export default function PermisosPage() {
             code="dgii:invoices:sign"
             desc="Solo firmar XML — quien firma no necesariamente quien envía."
           />
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Asignación inicial por rol (mock)</CardTitle>
+          <p className="mt-1 text-sm opacity-60">
+            Mapeo declarado en <code className="rounded bg-black/5 px-1 font-mono text-xs">roleDefinitions</code> de{" "}
+            <code className="rounded bg-black/5 px-1 font-mono text-xs">apps/web/src/lib/mock-data/users.ts</code>.
+            Sigue un patrón de <strong>segregación de funciones</strong>:
+            quien firma no necesariamente envía; quien cambia el % de
+            cierre no autoriza el % &lt; 100; el auditor solo lee.
+            Validar con contador / admin antes de Fase C.
+          </p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0">
+          <Table>
+            <THead>
+              <TR>
+                <TH className="sticky left-0 bg-white">Permiso DGII / caja</TH>
+                {roleDefinitions.map((r) => (
+                  <TH
+                    key={r.key}
+                    className="text-center text-[10px] font-medium"
+                  >
+                    {r.label}
+                  </TH>
+                ))}
+              </TR>
+            </THead>
+            <TBody>
+              {[...DGII_RBAC_PENDING_KEYS].map((key) => (
+                <TR key={key}>
+                  <TD className="sticky left-0 bg-white">
+                    <code className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px]">
+                      {key}
+                    </code>
+                  </TD>
+                  {roleDefinitions.map((r) => {
+                    const has = roleHasPermission(r, key);
+                    return (
+                      <TD
+                        key={r.key}
+                        className="text-center"
+                        aria-label={
+                          has
+                            ? `${r.label} tiene ${key}`
+                            : `${r.label} NO tiene ${key}`
+                        }
+                      >
+                        {has ? (
+                          <Check
+                            className="mx-auto h-4 w-4 text-emerald-600"
+                            aria-hidden
+                          />
+                        ) : (
+                          <span className="text-black/20">—</span>
+                        )}
+                      </TD>
+                    );
+                  })}
+                </TR>
+              ))}
+            </TBody>
+          </Table>
         </CardContent>
       </Card>
 

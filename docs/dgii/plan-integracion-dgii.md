@@ -215,7 +215,28 @@ invoca en este PR.
     * **DATA_SOURCE=mock intacto.** El form funciona contra el mock; al
       cambiar la flag y aplicar migraciones, la persistencia salta
       automáticamente a Supabase sin cambios de código UI.
-  ✅ Entregado en este PR.
+  ✅ Entregado en commit `44ffcb4`.
+- **Asignación rol→permisos DGII mock** — Los 18 permisos DGII/cash se
+  asignan a los 7 roles existentes en `roleDefinitions` con un patrón de
+  segregación de funciones explícito:
+    * **super_admin**: `platform:*` + `dgii:*` + `cash:*` (todos).
+    * **admin**: `business:*` + ... + `dgii:*` + `cash:*` (todos para el business).
+    * **manager**: operación de e-CF (generate/validate/sign/send/status/download)
+      + NC + reports + cash:open/close/change_closing_percentage. **NO**
+      configuración, certificado, secuencias, ni autorización de < 100%.
+    * **cashier**: `dgii:invoices:generate_xml` (cobro tarjeta) +
+      `dgii:invoices:download_pdf` (entrega al cliente) + `cash:open/close`.
+      **NO** firma manual, **NO** envía, **NO** crea NC, **NO** cambia %.
+    * **inventory**: ningún permiso DGII/cash.
+    * **supervisor**: `dgii:reports:view` +
+      `cash:authorize_below_100_percent` + `cash:reverse_closing`
+      (aprobador de cierres sensibles).
+    * **auditor**: solo lectura — `dgii:reports:view` + `check_status` +
+      `download_xml` + `download_pdf`.
+  Helpers nuevos `permissionMatchesPattern` (soporta wildcards `:*` y OR
+  `a|b|c`) + `roleHasPermission`. Matriz visual en `/admin/permisos` con
+  18 filas × 7 columnas mostrando ✓ por celda. `users.test.ts` ampliado
+  a 29 tests (helpers + assignments por rol). ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).

@@ -118,7 +118,9 @@ export const roleDefinitions: RoleDefinition[] = [
     key: "super_admin",
     label: "Súper Admin",
     description: "Acceso total a la plataforma. Solo personal interno.",
-    permissions: ["platform:*"],
+    // `dgii:*` y `cash:*` añadidos para Fase C — permite soporte interno
+    // operar sobre módulos DGII/caja de cualquier business cuando aplique.
+    permissions: ["platform:*", "dgii:*", "cash:*"],
   },
   {
     key: "admin",
@@ -133,6 +135,14 @@ export const roleDefinitions: RoleDefinition[] = [
       "sales:*",
       "reports:*",
       "audit:read",
+      // DGII granular — admin tiene acceso completo al módulo fiscal del
+      // business (incluye certificado, secuencias, todos los flujos de
+      // facturación y notas de crédito).
+      "dgii:*",
+      // Caja granular — admin también puede autorizar % < 100 y reversar
+      // cierres. En segregación estricta se podría restringir al rol
+      // supervisor — ver convención abajo.
+      "cash:*",
     ],
   },
   {
@@ -147,6 +157,12 @@ export const roleDefinitions: RoleDefinition[] = [
       "sales:*",
       "cash_register:open|close",
       "reports:read",
+      // DGII operacional — emite y firma e-CF, crea NC, ve reportes. NO
+      // gestiona certificado ni secuencias (eso queda en admin).
+      "dgii:invoices:generate_xml|validate_xml|sign|send|check_status|download_xml|download_pdf",
+      "dgii:credit_notes:create",
+      "dgii:reports:view",
+      "cash:open|close|change_closing_percentage",
     ],
   },
   {
@@ -160,6 +176,13 @@ export const roleDefinitions: RoleDefinition[] = [
       "proformas:create|read",
       "payments:create",
       "cash_register:open|close",
+      // DGII mínimo — cobra con tarjeta (genera e-CF inmediato) y entrega
+      // PDF al cliente. NO firma manualmente, NO consulta status, NO
+      // descarga XML (eso lo hace manager/admin si hay dudas).
+      "dgii:invoices:generate_xml",
+      "dgii:invoices:download_pdf",
+      "cash:open",
+      "cash:close",
     ],
   },
   {
@@ -172,17 +195,25 @@ export const roleDefinitions: RoleDefinition[] = [
       "lots:read|write|quarantine",
       "inventory_count:create|submit|mobile_scan",
       "purchases:receive",
+      // SIN permisos DGII / cash — inventario no opera fiscalmente.
     ],
   },
   {
     key: "supervisor",
     label: "Supervisor",
-    description: "Aprueba ajustes, revisa diferencias de conteo.",
+    description:
+      "Aprueba ajustes, revisa diferencias de conteo y autoriza cierres sensibles.",
     permissions: [
       "inventory:read",
       "inventory_count:review|approve|reject",
       "inventory_count:adjust|view_differences",
       "audit:read",
+      // Aprobador de cierres caja sensibles — la convención de
+      // segregación de funciones recomienda que el supervisor (no el
+      // cajero ni el manager) autorice cierres con % < 100 y reversos.
+      "dgii:reports:view",
+      "cash:authorize_below_100_percent",
+      "cash:reverse_closing",
     ],
   },
   {
@@ -195,9 +226,57 @@ export const roleDefinitions: RoleDefinition[] = [
       "sales:read",
       "inventory:read",
       "dgii:read",
+      // DGII solo-lectura — auditor puede ver reportes, consultar status
+      // por TrackId y descargar artefactos para revisión, pero NO genera,
+      // firma ni envía.
+      "dgii:reports:view",
+      "dgii:invoices:check_status",
+      "dgii:invoices:download_xml",
+      "dgii:invoices:download_pdf",
     ],
   },
 ];
+
+/**
+ * Evalúa si un patrón de permiso (formato `modulo:accion` con soporte de
+ * wildcard `:*` y OR de acciones `accion1|accion2`) cubre una key concreta.
+ *
+ * Ejemplos:
+ *  - `permissionMatchesPattern("dgii:*", "dgii:invoices:sign")` → true
+ *  - `permissionMatchesPattern("dgii:invoices:generate_xml|sign", "dgii:invoices:sign")` → true
+ *  - `permissionMatchesPattern("cash:open", "cash:close")` → false
+ *  - `permissionMatchesPattern("*", "anything")` → true
+ */
+export function permissionMatchesPattern(
+  pattern: string,
+  key: string,
+): boolean {
+  if (pattern === "*") return true;
+  if (pattern === key) return true;
+  if (pattern.endsWith(":*")) {
+    return key.startsWith(pattern.slice(0, -1));
+  }
+  if (pattern.includes("|")) {
+    // OR en el último segmento: `prefix:a|b|c` → expand a `prefix:a`, `prefix:b`, `prefix:c`.
+    const lastColon = pattern.lastIndexOf(":");
+    if (lastColon === -1) return false;
+    const prefix = pattern.slice(0, lastColon + 1);
+    const actions = pattern.slice(lastColon + 1).split("|");
+    return actions.some((a) => prefix + a === key);
+  }
+  return false;
+}
+
+/**
+ * `true` si el rol tiene el permiso indicado (vía match exacto, wildcard,
+ * o OR de acciones).
+ */
+export function roleHasPermission(
+  role: RoleDefinition,
+  key: string,
+): boolean {
+  return role.permissions.some((p) => permissionMatchesPattern(p, key));
+}
 
 export const allPermissions: Permission[] = [
   // Business / branches / users
