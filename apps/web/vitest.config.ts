@@ -11,6 +11,12 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // `server-only` por diseño lanza al importar fuera de un Server
+      // Component. Vitest corre en entorno node sin esa distinción → stub.
+      "server-only": path.resolve(
+        __dirname,
+        "./src/test/server-only-stub.ts",
+      ),
     },
   },
 });

@@ -134,7 +134,17 @@ invoca en este PR.
   `pdfkit` — encabezado emisor + comprador + items + totales + estado
   DGII + código de seguridad + QR). 24 tests nuevos (102 en services/dgii).
   Formato exacto del QR y código de seguridad sujeto a validación oficial
-  (D-06). ✅ Entregado en este PR.
+  (D-06). ✅ Entregado en commit `900750d`.
+- **Integración POS-demo (parcial)** — Pipeline DGII expuesto via API y UI:
+  `demo-cert.ts` genera cert dummy in-memory (cacheado por proceso),
+  `demo-renderer.ts` mapea `ElectronicInvoice` mock → pipeline completo
+  (build → sign → validate → security code → PDF). 3 endpoints
+  (`/api/dgii/facturas/[id]/{pdf,xml-signed,xml-unsigned}`) sirven los
+  artefactos. Nueva página `/dgii/facturas/[id]` con vista previa PDF
+  embebido, descargas de XML firmado / sin firmar / PDF, banner de
+  "DEMOSTRACIÓN — no fiscal". `next.config.ts` con `serverExternalPackages`
+  para pdfkit/xmllint-wasm/node-forge/xml-crypto. 10 tests nuevos
+  (225 totales). ✅ Entregado en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).
