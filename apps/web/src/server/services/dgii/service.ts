@@ -2,6 +2,7 @@ import "server-only";
 import { env, isDgiiConfigured } from "@/lib/env";
 import type { ElectronicInvoice, Proforma } from "@/types";
 import { buildEcfXml, EcfBuilderUnsupported } from "./builder";
+import { signEcfXml as signEcfXmlImpl } from "./signer";
 
 /**
  * DGII e-CF Service.
@@ -127,7 +128,16 @@ class DgiiServiceImpl implements DgiiService {
     if (!isDgiiConfigured()) {
       throw new DgiiNotConfigured("certificado .p12 no cargado");
     }
-    throw new DgiiNotImplemented("signXml");
+    // El firmador puro vive en `./signer.ts` (Fase F, XMLDSig enveloped
+    // RSA-SHA256 + SHA256, Reference URI vacío, KeyInfo X509). Para
+    // invocarlo necesitamos PEM cert + PEM key descifrados, y eso requiere
+    // el `DgiiCertificateService` (Fase C) que aún no existe. Mientras
+    // tanto los callers que tengan el material clave ya descifrado pueden
+    // importar `signEcfXml` de `./signer` directamente.
+    throw new DgiiNotImplemented(
+      "signXml: pendiente cableado a DgiiCertificateService (Fase C). " +
+        "Usa `signEcfXml` de './signer' con PEM cert + PEM key en memoria.",
+    );
   }
 
   async submitToDgii(_signedXml: string): Promise<DgiiSubmitResult> {
@@ -157,7 +167,15 @@ class DgiiServiceImpl implements DgiiService {
 
 export const dgiiService: DgiiService = new DgiiServiceImpl();
 
-// Re-export del builder para callers que ya tengan el input listo (tests,
-// scripts de pre-certificación). NO se re-exporta el certificado ni la firma.
+// Re-export del builder y firmador para callers que ya tengan el input
+// listo (tests, scripts de pre-certificación, futuro `CertificateService`).
+// Se exporta el firmador pero NO se exponen passwords ni paths a certs.
 export { buildEcfXml, buildEcfXmlPretty } from "./builder";
+export { signEcfXml, verifyEcfSignature } from "./signer";
 export type { EcfBuilderInput } from "./types";
+export type { SignEcfXmlInput, SignEcfXmlResult } from "./signer";
+
+// `signEcfXmlImpl` se importa arriba para que `service.signXml` pueda
+// cablearlo cuando llegue Fase C. Re-export con el nombre `signEcfXml`
+// público para uso externo.
+void signEcfXmlImpl;

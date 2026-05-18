@@ -48,9 +48,9 @@
 | X-01  | Generación XML con orden exacto del XSD    | Sí     | `builder.ts` + `types.ts`          | implementado          | XSD order enforzado, opcionales omitidos, 31 tests cubren orden y formatos              | — | Sí       | No           | —                      | —    |
 | X-02  | Fechas, decimales, sin separador miles     | Sí     | `builder.ts` (`formatDgiiDate`, `formatDgiiAmount`, `formatDgiiPrice`, `formatDgiiDateTime`) | implementado | Helpers centralizados con tests. TODO: TZ-aware (forzar America/Santo_Domingo) — D-03      | Hacer TZ-aware en una iteración menor                                                  | Sí       | No           | —                      | P2   |
 | X-03  | Validación XSD                              | No     | —                                  | pendiente             | No existe validator                                                                      | `libxmljs2` (o equivalente) cargando `docs/dgii/xsd/e-CF-31-v1.0.xsd`                  | Sí       | No           | —                      | P0   |
-| X-04  | Firma XMLDSig enveloped RSA-SHA256          | No     | `signXml` stub                     | pendiente             | Sin librería ni implementación                                                            | `xadesjs`/`xmldsigjs`. Backend only.                                                  | Sí       | No           | bloqueado_secreto      | P0   |
-| X-05  | KeyInfo con X509 del cert                   | No     | —                                  | pendiente             | Idem                                                                                      | Idem                                                                                    | Sí       | No           | bloqueado_secreto      | P0   |
-| X-06  | Canonicalización antes de firmar            | No     | —                                  | pendiente             | Idem                                                                                      | C14N estándar                                                                          | Sí       | No           | —                      | P0   |
+| X-04  | Firma XMLDSig enveloped RSA-SHA256          | Sí     | `signer.ts` + tests                | implementado (estructura) | xml-crypto v6 emite `URI="#_0"` por defecto; DGII pide `URI=""` estricto — duda D-11        | Si certificación rechaza, post-procesar para forzar `URI=""` y remover `Id` auto-generado | Sí       | No           | —                      | P1   |
+| X-05  | KeyInfo con X509 del cert                   | Sí     | `signer.ts`                        | implementado          | `getKeyInfoContent` emite `<X509Data><X509Certificate>...</X509Certificate></X509Data>` con base64 sin headers | — | Sí       | No           | —                      | —    |
+| X-06  | Canonicalización antes de firmar            | Sí     | `signer.ts`                        | implementado          | C14N 20010315 vía xml-crypto                                                              | — | Sí       | No           | —                      | —    |
 | X-07  | No firmar en frontend                       | OK     | `service.ts` con `"server-only"`   | implementado          | —                                                                                         | Mantener                                                                                | Sí       | No           | —                      | —    |
 
 ## 4. Autenticación, envío, consulta
@@ -195,6 +195,14 @@
 - D-08: Set de pruebas oficial para certificación.
 - D-09: Reuso o no de secuencias rechazadas.
 - D-10: Retención mínima de XML.
+- D-11: ¿DGII acepta `URI="#_0"` (XMLDSig spec-compliant default que emite
+  xml-crypto al hacer enveloped) o exige `URI=""` estricto en la Reference?
+  Si exige `URI=""`, hay que post-procesar el XML firmado: forzar `URI=""`
+  y remover el `Id` auto-generado por xml-crypto. Además, `dgii-setup.md`
+  menciona "XAdES-BES" pero el documento adjunto de requisitos pide
+  "XMLDSig enveloped". Si DGII exige XAdES-BES propiamente dicho, añadir
+  `SignedProperties` (SigningTime, SigningCertificate). Implementación
+  actual: XMLDSig enveloped.
 
 ## 15. Dudas para el contador
 

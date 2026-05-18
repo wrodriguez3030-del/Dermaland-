@@ -104,7 +104,15 @@ invoca en este PR.
   Reemplaza el builder buggy de `service.ts` (el bug `<DetallesItems>` doblado
   ya no existe). `service.generateXml` queda como orquestador que lanzará
   `DgiiNotConfigured` hasta que Fase C provea settings + secuencias. ✅
-  Implementación entregada en este PR.
+  Implementación entregada en commit `46c70db`.
+- **Fase F** — `DgiiXmlSigner` (XMLDSig enveloped + RSA-SHA256 + SHA256) en
+  `apps/web/src/server/services/dgii/signer.ts` con 19 tests verdes que cubren
+  estructura (Signature dentro de ECF, después de FechaHoraFirma), algoritmos,
+  KeyInfo X509, DigestValue/SignatureValue no vacíos, verificación roundtrip,
+  detección de tampering y cert distinto, y validaciones de input.
+  `service.signXml` queda como orquestador que lanzará `DgiiNotConfigured`
+  hasta que Fase C provea el `DgiiCertificateService` (carga + descifrado del
+  `.p12` con la password en Vault). ✅ Implementación entregada en este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).
@@ -133,7 +141,7 @@ Detalle completo en `matriz-requisitos-dgii.md`. Top P0:
 | C    | Ampliar `env.ts` con tres ambientes + `dgii_settings.base_url_*`; persistir `/dgii/configuracion`                              | env + page + service                        | Sí      | No             | Fase B                            |
 | D    | ✅ Reescrito `DgiiXmlBuilder` (e-CF 31) en `builder.ts` con `xmlbuilder2`. 31 tests offline pasando. Bug `<DetallesItems>` doblado del builder anterior eliminado. `service.generateXml` lanza `DgiiNotConfigured` hasta Fase C. | `types.ts` + `builder.ts` + `builder.test.ts` + `service.ts` | No      | No             | —                                |
 | E    | Implementar `DgiiXmlValidator` con XSD local                                                                                   | nuevo `validator.ts`                        | No      | No             | Fase D                            |
-| F    | Implementar `DgiiXmlSigner` con dummy cert local                                                                               | nuevo `signer.ts`                           | No      | No             | Fase D                            |
+| F    | ✅ `DgiiXmlSigner` XMLDSig enveloped (RSA-SHA256, SHA256, Reference, KeyInfo X509). Cert dummy generado por node-forge en runtime, jamás persistido. 19 tests + roundtrip verify. `service.signXml` lanza `DgiiNotConfigured` hasta `DgiiCertificateService`. | `signer.ts` + `signer.test.ts` + `service.ts` | No      | No             | —                                 |
 | G    | `DgiiAuthService` contra `testecf` **sólo** con dummy cert o cert real + autorización del usuario                              | nuevo `auth.ts`                             | No      | testecf only   | Fase F + cert dummy o autorización|
 | H    | `DgiiReceptionService` + `DgiiStatusService` contra `testecf`                                                                  | nuevos                                       | Sí      | testecf only   | Fase G                            |
 | I    | PDF + QR                                                                                                                       | nuevo `pdf.ts` + `qr.ts` + páginas         | No      | No             | Fase D-H                          |
