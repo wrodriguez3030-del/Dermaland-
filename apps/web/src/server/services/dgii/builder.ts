@@ -8,6 +8,7 @@ import type {
   EcfTotales,
   EcfEmisor,
   EcfComprador,
+  InformacionReferencia,
 } from "./types";
 
 /**
@@ -61,7 +62,29 @@ export class EcfBuilderInvalidInput extends Error {
 
 const RNC_RE = /^(?:\d{9}|\d{11})$/;
 const ENCF_RE = /^[a-zA-Z0-9]{13}$/;
+/**
+ * `NCFModificado` (e-CF 33/34) puede ser un NCF legado (11 chars: 'B0100000001')
+ * o un eNCF nuevo (13 chars: 'E310000000001'). El XSD lo declara como
+ * `AlfNum11a19ValidationType` (11..19 chars alfanum).
+ */
+const NCF_MODIFICADO_RE = /^[a-zA-Z0-9]{11,19}$/;
 const TELEFONO_RE = /^\d{3}-\d{3}-\d{4}$/;
+
+/** Tipos e-CF soportados por el builder actual. */
+const SUPPORTED_TYPES: ReadonlySet<string> = new Set(["31", "32", "33", "34"]);
+
+/** Tipos que requieren obligatoriamente `<InformacionReferencia>`. */
+const TYPES_REQUIRING_INFO_REFERENCIA: ReadonlySet<string> = new Set([
+  "33",
+  "34",
+]);
+
+/** Tipos donde RNCComprador y RazonSocialComprador son obligatorios. */
+const TYPES_REQUIRING_COMPRADOR_RNC: ReadonlySet<string> = new Set([
+  "31",
+  "33",
+  "34",
+]);
 
 export function formatDgiiDate(d: Date): string {
   if (Number.isNaN(d.getTime())) {
@@ -202,10 +225,16 @@ function buildComprador(
   parent: ReturnType<typeof create>,
   comprador: EcfComprador,
 ): void {
-  assertRnc("comprador.rncComprador", comprador.rncComprador);
+  if (comprador.rncComprador) {
+    assertRnc("comprador.rncComprador", comprador.rncComprador);
+  }
   const c = parent.ele("Comprador");
-  c.ele("RNCComprador").txt(comprador.rncComprador);
-  c.ele("RazonSocialComprador").txt(comprador.razonSocialComprador);
+  if (comprador.rncComprador) {
+    c.ele("RNCComprador").txt(comprador.rncComprador);
+  }
+  if (comprador.razonSocialComprador) {
+    c.ele("RazonSocialComprador").txt(comprador.razonSocialComprador);
+  }
   if (comprador.contactoComprador) {
     c.ele("ContactoComprador").txt(comprador.contactoComprador);
   }
@@ -221,6 +250,35 @@ function buildComprador(
   if (comprador.provinciaComprador) {
     c.ele("ProvinciaComprador").txt(comprador.provinciaComprador);
   }
+}
+
+function buildInformacionReferencia(
+  parent: ReturnType<typeof create>,
+  info: InformacionReferencia,
+): void {
+  if (!NCF_MODIFICADO_RE.test(info.ncfModificado)) {
+    throw new EcfBuilderInvalidInput(
+      "informacionReferencia.ncfModificado",
+      `NCF modificado debe ser 11..19 chars alfanum (recibido: '${info.ncfModificado}')`,
+    );
+  }
+  assertRnc(
+    "informacionReferencia.rncOtroContribuyente",
+    info.rncOtroContribuyente,
+  );
+  if (![1, 2, 3, 4, 5].includes(info.codigoModificacion)) {
+    throw new EcfBuilderInvalidInput(
+      "informacionReferencia.codigoModificacion",
+      `valor permitido: 1..5 (recibido: ${info.codigoModificacion})`,
+    );
+  }
+  // Orden estricto según XSD: NCFModificado, RNCOtroContribuyente,
+  // FechaNCFModificado, CodigoModificacion.
+  const ir = parent.ele("InformacionReferencia");
+  ir.ele("NCFModificado").txt(info.ncfModificado);
+  ir.ele("RNCOtroContribuyente").txt(info.rncOtroContribuyente);
+  ir.ele("FechaNCFModificado").txt(formatDgiiDate(info.fechaNCFModificado));
+  ir.ele("CodigoModificacion").txt(String(info.codigoModificacion));
 }
 
 function buildTotales(
@@ -300,23 +358,64 @@ function buildItem(parent: ReturnType<typeof create>, item: EcfItem): void {
 /**
  * Construye el XML e-CF en el orden exacto del XSD oficial DGII v1.0.
  *
- * Solo cubre la **estructura mínima obligatoria + opcionales más comunes**
- * para Fase D. Campos no cubiertos (Transporte, InformacionesAdicionales,
- * ImpuestosAdicionales, Subtotales, DescuentosORecargos, Paginacion,
- * InformacionReferencia, OtraMoneda, Retencion por item) se añaden por
- * demanda, sin romper el shape de `EcfBuilderInput`.
+ * Tipos soportados:
+ *  - 31 (Factura de Crédito Fiscal): RNCComprador + RazonSocialComprador
+ *    obligatorios.
+ *  - 32 (Factura de Consumo): RNCComprador y RazonSocialComprador opcionales
+ *    (consumidor final).
+ *  - 33 (Nota de Débito) y 34 (Nota de Crédito): RNCComprador +
+ *    RazonSocialComprador + `informacionReferencia` obligatorios. El
+ *    bloque `<InformacionReferencia>` se inserta antes de `<FechaHoraFirma>`.
  *
- * @throws EcfBuilderUnsupported  Tipos distintos a 31 aún no implementados.
- * @throws EcfBuilderInvalidInput Si algún campo no respeta el XSD.
+ * Tipos 41/43/44/45/46/47 lanzan `EcfBuilderUnsupported` (planeados para
+ * fases siguientes).
+ *
+ * NOTA: el XSD oficial de DGII para 32/33/34 NO está en el repo (solo el
+ * de 31). La estructura se basa en el XSD de 31 + el documento adjunto.
+ * Validar contra los XSDs oficiales de 32/33/34 cuando estén disponibles
+ * (matriz D-13).
+ *
+ * Campos no cubiertos (Transporte, InformacionesAdicionales,
+ * ImpuestosAdicionales, Subtotales, DescuentosORecargos, Paginacion,
+ * OtraMoneda, Retencion por item) se añaden por demanda, sin romper el
+ * shape de `EcfBuilderInput`.
+ *
+ * @throws EcfBuilderUnsupported  Tipos no soportados todavía (41+).
+ * @throws EcfBuilderInvalidInput Si algún campo no respeta el XSD o las
+ *  reglas por tipo (ej. NC/ND sin informacionReferencia).
  */
 export function buildEcfXml(input: EcfBuilderInput): string {
-  if (input.tipoEcf !== "31") {
+  if (!SUPPORTED_TYPES.has(input.tipoEcf)) {
     throw new EcfBuilderUnsupported(
-      `Tipo e-CF ${input.tipoEcf} aún no soportado (Fase D solo cubre 31).`,
+      `Tipo e-CF ${input.tipoEcf} aún no soportado (Fase L cubre 31-34).`,
     );
   }
 
   assertEncf(input.eNcf);
+
+  // Reglas por tipo
+  if (TYPES_REQUIRING_COMPRADOR_RNC.has(input.tipoEcf)) {
+    if (!input.comprador.rncComprador) {
+      throw new EcfBuilderInvalidInput(
+        "comprador.rncComprador",
+        `e-CF ${input.tipoEcf} requiere RNCComprador (9 u 11 dígitos)`,
+      );
+    }
+    if (!input.comprador.razonSocialComprador) {
+      throw new EcfBuilderInvalidInput(
+        "comprador.razonSocialComprador",
+        `e-CF ${input.tipoEcf} requiere RazonSocialComprador`,
+      );
+    }
+  }
+  if (TYPES_REQUIRING_INFO_REFERENCIA.has(input.tipoEcf)) {
+    if (!input.informacionReferencia) {
+      throw new EcfBuilderInvalidInput(
+        "informacionReferencia",
+        `e-CF ${input.tipoEcf} (Nota de ${input.tipoEcf === "33" ? "Débito" : "Crédito"}) requiere InformacionReferencia`,
+      );
+    }
+  }
 
   if (input.items.length === 0) {
     throw new EcfBuilderInvalidInput("items", "se requiere al menos 1 item");
@@ -345,6 +444,13 @@ export function buildEcfXml(input: EcfBuilderInput): string {
     buildItem(detalles, item);
   }
 
+  // InformacionReferencia — XSD lo posiciona entre DetallesItems
+  // (después de Subtotales/DescuentosORecargos/Paginacion opcionales) y
+  // FechaHoraFirma.
+  if (input.informacionReferencia) {
+    buildInformacionReferencia(ecf, input.informacionReferencia);
+  }
+
   // FechaHoraFirma — XSD requiere posición final (antes del xs:any).
   ecf.ele("FechaHoraFirma").txt(formatDgiiDateTime(input.fechaHoraFirma));
 
@@ -368,6 +474,9 @@ export function buildEcfXmlPretty(input: EcfBuilderInput): string {
   const detalles = ecf.ele("DetallesItems");
   for (const item of input.items) {
     buildItem(detalles, item);
+  }
+  if (input.informacionReferencia) {
+    buildInformacionReferencia(ecf, input.informacionReferencia);
   }
   ecf.ele("FechaHoraFirma").txt(formatDgiiDateTime(input.fechaHoraFirma));
   return doc.end({ prettyPrint: true });

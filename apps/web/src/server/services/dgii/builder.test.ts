@@ -342,13 +342,12 @@ describe("buildEcfXml — validaciones", () => {
     );
   });
 
-  it("rechaza tipos distintos a 31 con EcfBuilderUnsupported", () => {
-    expect(() => buildEcfXml(makeValidInput({ tipoEcf: "32" }))).toThrow(
-      EcfBuilderUnsupported,
-    );
-    expect(() => buildEcfXml(makeValidInput({ tipoEcf: "34" }))).toThrow(
-      EcfBuilderUnsupported,
-    );
+  it("rechaza tipos 41/43/44/45 con EcfBuilderUnsupported (Fase L cubre 31-34)", () => {
+    for (const tipo of ["41", "43", "44", "45", "46", "47"] as const) {
+      expect(() => buildEcfXml(makeValidInput({ tipoEcf: tipo }))).toThrow(
+        EcfBuilderUnsupported,
+      );
+    }
   });
 
   it("rechaza cantidad <= 0", () => {
@@ -376,5 +375,205 @@ describe("buildEcfXmlPretty", () => {
   it("produce XML con saltos de línea (debug)", () => {
     const xml = buildEcfXmlPretty(makeValidInput());
     expect(xml.split("\n").length).toBeGreaterThan(5);
+  });
+});
+
+describe("buildEcfXml — e-CF 32 (Factura de Consumo)", () => {
+  it("acepta tipo 32 con RNCComprador del consumidor", () => {
+    const xml = buildEcfXml(makeValidInput({ tipoEcf: "32" }));
+    expect(xml).toContain("<TipoeCF>32</TipoeCF>");
+    expect(xml).toContain("<RNCComprador>131234567</RNCComprador>");
+  });
+
+  it("acepta tipo 32 SIN RNCComprador (consumidor final)", () => {
+    const xml = buildEcfXml(
+      makeValidInput({
+        tipoEcf: "32",
+        comprador: { razonSocialComprador: "Consumidor Final" },
+      }),
+    );
+    expect(xml).toContain("<TipoeCF>32</TipoeCF>");
+    expect(xml).not.toContain("<RNCComprador>");
+    expect(xml).toContain(
+      "<RazonSocialComprador>Consumidor Final</RazonSocialComprador>",
+    );
+  });
+
+  it("acepta tipo 32 con Comprador completamente vacío", () => {
+    const xml = buildEcfXml(
+      makeValidInput({ tipoEcf: "32", comprador: {} }),
+    );
+    expect(xml).toContain("<TipoeCF>32</TipoeCF>");
+    expect(xml).toContain("<Comprador/>");
+  });
+
+  it("tipo 31 sigue requiriendo RNCComprador y RazonSocial", () => {
+    expect(() =>
+      buildEcfXml(
+        makeValidInput({
+          tipoEcf: "31",
+          comprador: { razonSocialComprador: "X" } as never,
+        }),
+      ),
+    ).toThrow(EcfBuilderInvalidInput);
+    expect(() =>
+      buildEcfXml(
+        makeValidInput({
+          tipoEcf: "31",
+          comprador: { rncComprador: "131234567" } as never,
+        }),
+      ),
+    ).toThrow(EcfBuilderInvalidInput);
+  });
+});
+
+describe("buildEcfXml — e-CF 33 (Nota de Débito) y 34 (Nota de Crédito)", () => {
+  const baseInfoRef = {
+    ncfModificado: "E310000000100",
+    rncOtroContribuyente: "131234567",
+    fechaNCFModificado: new Date(2026, 3, 10),
+    codigoModificacion: 3 as const,
+  };
+
+  it("acepta tipo 33 con informacionReferencia", () => {
+    const xml = buildEcfXml(
+      makeValidInput({
+        tipoEcf: "33",
+        informacionReferencia: baseInfoRef,
+      }),
+    );
+    expect(xml).toContain("<TipoeCF>33</TipoeCF>");
+    expect(xml).toContain("<InformacionReferencia>");
+    expect(xml).toContain("<NCFModificado>E310000000100</NCFModificado>");
+    expect(xml).toContain(
+      "<RNCOtroContribuyente>131234567</RNCOtroContribuyente>",
+    );
+    expect(xml).toContain(
+      "<FechaNCFModificado>10-04-2026</FechaNCFModificado>",
+    );
+    expect(xml).toContain("<CodigoModificacion>3</CodigoModificacion>");
+  });
+
+  it("acepta tipo 34 con informacionReferencia", () => {
+    const xml = buildEcfXml(
+      makeValidInput({
+        tipoEcf: "34",
+        informacionReferencia: { ...baseInfoRef, codigoModificacion: 1 },
+      }),
+    );
+    expect(xml).toContain("<TipoeCF>34</TipoeCF>");
+    expect(xml).toContain("<CodigoModificacion>1</CodigoModificacion>");
+  });
+
+  it("rechaza tipo 33 SIN informacionReferencia", () => {
+    expect(() => buildEcfXml(makeValidInput({ tipoEcf: "33" }))).toThrow(
+      EcfBuilderInvalidInput,
+    );
+  });
+
+  it("rechaza tipo 34 SIN informacionReferencia", () => {
+    expect(() => buildEcfXml(makeValidInput({ tipoEcf: "34" }))).toThrow(
+      EcfBuilderInvalidInput,
+    );
+  });
+
+  it("acepta NCF modificado legado (11 chars 'B...')", () => {
+    const xml = buildEcfXml(
+      makeValidInput({
+        tipoEcf: "34",
+        informacionReferencia: {
+          ...baseInfoRef,
+          ncfModificado: "B0100000001",
+        },
+      }),
+    );
+    expect(xml).toContain("<NCFModificado>B0100000001</NCFModificado>");
+  });
+
+  it("rechaza ncfModificado fuera del rango 11..19 chars", () => {
+    expect(() =>
+      buildEcfXml(
+        makeValidInput({
+          tipoEcf: "34",
+          informacionReferencia: {
+            ...baseInfoRef,
+            ncfModificado: "TOOSHORT",
+          },
+        }),
+      ),
+    ).toThrow(EcfBuilderInvalidInput);
+  });
+
+  it("rechaza rncOtroContribuyente con guiones", () => {
+    expect(() =>
+      buildEcfXml(
+        makeValidInput({
+          tipoEcf: "33",
+          informacionReferencia: {
+            ...baseInfoRef,
+            rncOtroContribuyente: "1-31-23456-7",
+          },
+        }),
+      ),
+    ).toThrow(EcfBuilderInvalidInput);
+  });
+
+  it("rechaza codigoModificacion fuera de 1..5", () => {
+    expect(() =>
+      buildEcfXml(
+        makeValidInput({
+          tipoEcf: "33",
+          informacionReferencia: {
+            ...baseInfoRef,
+            codigoModificacion: 99 as never,
+          },
+        }),
+      ),
+    ).toThrow(EcfBuilderInvalidInput);
+  });
+
+  it("InformacionReferencia se inserta DESPUÉS de DetallesItems y ANTES de FechaHoraFirma", () => {
+    const xml = buildEcfXml(
+      makeValidInput({
+        tipoEcf: "33",
+        informacionReferencia: baseInfoRef,
+      }),
+    );
+    const idxDetalles = xml.indexOf("<DetallesItems>");
+    const idxInfoRef = xml.indexOf("<InformacionReferencia>");
+    const idxFirma = xml.indexOf("<FechaHoraFirma>");
+    expect(idxDetalles).toBeGreaterThan(-1);
+    expect(idxInfoRef).toBeGreaterThan(idxDetalles);
+    expect(idxFirma).toBeGreaterThan(idxInfoRef);
+  });
+
+  it("orden interno de InformacionReferencia: NCFModificado → RNCOtro → Fecha → CodigoModificacion", () => {
+    const xml = buildEcfXml(
+      makeValidInput({
+        tipoEcf: "33",
+        informacionReferencia: baseInfoRef,
+      }),
+    );
+    const idxNcf = xml.indexOf("<NCFModificado>");
+    const idxRnc = xml.indexOf("<RNCOtroContribuyente>");
+    const idxFecha = xml.indexOf("<FechaNCFModificado>");
+    const idxCod = xml.indexOf("<CodigoModificacion>");
+    expect(idxNcf).toBeLessThan(idxRnc);
+    expect(idxRnc).toBeLessThan(idxFecha);
+    expect(idxFecha).toBeLessThan(idxCod);
+  });
+
+  it("tipo 31 acepta informacionReferencia opcional (XSD permite minOccurs=0)", () => {
+    const xml = buildEcfXml(
+      makeValidInput({
+        informacionReferencia: baseInfoRef,
+      }),
+    );
+    expect(xml).toContain("<InformacionReferencia>");
+  });
+
+  it("tipo 31 sin informacionReferencia NO emite el bloque", () => {
+    const xml = buildEcfXml(makeValidInput());
+    expect(xml).not.toContain("<InformacionReferencia>");
   });
 });

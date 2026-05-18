@@ -82,6 +82,41 @@ export interface FormaPagoLinea {
   montoPago: number;
 }
 
+/**
+ * CodigoModificacionType del XSD (usado en `<InformacionReferencia>` de
+ * Notas de Crédito y Débito):
+ *  1 = Anulación
+ *  2 = Cambios al original (modificaciones que no son anulación)
+ *  3 = Devolución de mercancías
+ *  4 = Descuento por pronto pago
+ *  5 = Corrección de errores en el comprobante original
+ *
+ * Códigos exactos sujetos a validación contra documentación oficial DGII
+ * (matriz D-13).
+ */
+export type CodigoModificacion = 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Bloque `<InformacionReferencia>` del XSD.
+ *
+ * - OPCIONAL en e-CF 31 (puede no aparecer).
+ * - OBLIGATORIO en e-CF 33 (Nota de Débito) y 34 (Nota de Crédito) — referencia
+ *   al e-CF original que se está modificando.
+ *
+ * Todos los campos se declaran como obligatorios aquí porque, cuando el
+ * bloque se incluye, DGII espera la información completa para identificar
+ * el comprobante de referencia. El builder lo serializa en el orden exacto
+ * del XSD.
+ */
+export interface InformacionReferencia {
+  /** e-NCF original que se está modificando (11..19 chars alfanum). */
+  ncfModificado: string;
+  /** RNC del otro contribuyente (9 o 11 dígitos, sin guiones). */
+  rncOtroContribuyente: string;
+  fechaNCFModificado: Date;
+  codigoModificacion: CodigoModificacion;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Secciones del e-CF
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,11 +140,22 @@ export interface EcfEmisor {
 
 export interface EcfComprador {
   /**
-   * RNC o cédula del comprador sin guiones.
-   * Requerido en el XSD para e-CF 31.
+   * RNC o cédula del comprador sin guiones (9 u 11 dígitos).
+   *  - e-CF 31: OBLIGATORIO según XSD.
+   *  - e-CF 32: OPCIONAL (consumidor final puede no tener RNC).
+   *  - e-CF 33/34: OBLIGATORIO (NC/ND requieren identificar al comprador
+   *    del comprobante original).
+   *
+   * El builder enforza la regla por tipo.
    */
-  rncComprador: string;
-  razonSocialComprador: string;
+  rncComprador?: string;
+  /**
+   * Razón social del comprador.
+   *  - e-CF 31, 33, 34: OBLIGATORIO según XSD.
+   *  - e-CF 32: OPCIONAL — para consumidor final, pasar "Consumidor Final"
+   *    o un nombre cuando se conozca.
+   */
+  razonSocialComprador?: string;
   contactoComprador?: string;
   correoComprador?: string;
   direccionComprador?: string;
@@ -179,6 +225,14 @@ export interface EcfBuilderInput {
   comprador: EcfComprador;
   totales: EcfTotales;
   items: EcfItem[];
+
+  /**
+   * Bloque `<InformacionReferencia>`.
+   *  - e-CF 31/32: opcional.
+   *  - e-CF 33/34: OBLIGATORIO. El builder lanza `EcfBuilderInvalidInput`
+   *    si se omite.
+   */
+  informacionReferencia?: InformacionReferencia;
 
   /** Sello temporal antes de firmar (XSD obligatorio, va al final del XML). */
   fechaHoraFirma: Date;

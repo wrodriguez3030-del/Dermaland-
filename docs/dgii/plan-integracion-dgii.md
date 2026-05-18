@@ -119,7 +119,15 @@ invoca en este PR.
   sintácticamente roto). Parche en memoria del typo del XSD oficial
   (`name=" IndicadorServicioTodoIncluidoType"` → sin espacio). Duda D-11
   **RESUELTA**: con `isEmptyUri: true` del signer, el XML firmado pasa
-  XSD oficial. ✅ Entregado en este PR.
+  XSD oficial. ✅ Entregado en commit `a4500fa`.
+- **Fase L (parcial)** — Builder extendido a e-CF 32 (Consumo), 33 (Nota
+  de Débito) y 34 (Nota de Crédito) en `builder.ts` con +16 tests (47 total).
+  Tipos 33/34 requieren `informacionReferencia` (NCFModificado,
+  RNCOtroContribuyente, FechaNCFModificado, CodigoModificacion). Tipo 32
+  acepta consumidor final (RNCComprador y RazonSocialComprador opcionales).
+  Validador XSD (Fase E) sigue usando solo `e-CF-31-v1.0.xsd` — los XSDs
+  oficiales 32/33/34 no están en el repo (matriz D-13). ✅ Entregado en
+  este PR.
 - **Fase C / E / F+** — Cada brecha P0/P1 entra como PR propio sobre esta
   rama. Aplicar la migración 0003 es prerrequisito para cualquier fase que
   persista (C en adelante).
@@ -154,7 +162,7 @@ Detalle completo en `matriz-requisitos-dgii.md`. Top P0:
 | I    | PDF + QR                                                                                                                       | nuevo `pdf.ts` + `qr.ts` + páginas         | No      | No             | Fase D-H                          |
 | J    | Cierre de caja: % configurable + FIFO + autorización + auditoría                                                               | `caja/page.tsx` + `CashClosingEcfService`   | Sí      | No             | Fase B                            |
 | K    | Pre-certificación: panel + set de pruebas + evidencias                                                                          | nueva pantalla + servicio                   | Sí      | testecf only   | Fase G-I + autorización           |
-| L    | e-CF 32, 33, 34 (builders + validators)                                                                                        | servicios + UI                              | No      | testecf only   | Fase D-G                          |
+| L    | ✅ Builder extendido a 32/33/34. Validator sigue con XSD 31 (XSDs 32/33/34 oficiales pendientes — matriz D-13). UI por tipo y validators específicos llegan cuando estén los XSDs. | `types.ts` + `builder.ts` + `builder.test.ts` | No      | No             | XSDs oficiales 32/33/34 (parcial) |
 | M    | Hardening: roles/permisos DGII, reportes, redact logs                                                                          | seeds + UI                                  | Sí      | No             | Todas las anteriores              |
 | N    | Cambio a `certecf` para certificación oficial                                                                                  | switch ambiente                              | No      | certecf        | Cert real + autorización + cierre del set de pruebas |
 | O    | Cambio a `ecf` (producción real)                                                                                                | switch ambiente                              | No      | ecf            | **Aprobación explícita del usuario** + DGII certificación cerrada |
