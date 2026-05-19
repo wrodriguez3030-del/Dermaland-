@@ -13,7 +13,7 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
-import { Send, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Send, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { mockElectronicInvoices } from "@/lib/mock-data/integrations";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -29,6 +29,18 @@ export default function EnviosPage() {
         description="Cola de envíos con reintentos. Si DGII tarda > 1h se activa modo contingencia."
         breadcrumbs={[{ label: "DGII", href: "/dgii" }, { label: "Envíos" }]}
       />
+      <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
+          <div className="text-sm text-amber-900">
+            <strong>Cola MOCK / DEMO — sin envío real.</strong> Los
+            TrackID y estados son sintéticos. Esta pantalla no contacta
+            DGII y los reintentos no ocurren. El envío real al endpoint
+            DGII (`testecf` / `ecf`) queda bloqueado hasta autorización
+            de Fase G.
+          </div>
+        </div>
+      </div>
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Enviados" value={submitted.length} icon={Send} tone="primary" />
         <StatCard label="Aceptados" value={accepted} icon={CheckCircle2} tone="success" />

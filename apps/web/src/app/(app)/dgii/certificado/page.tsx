@@ -9,7 +9,7 @@ import {
   Input,
   Label,
 } from "@/components/ui";
-import { ShieldAlert, Upload } from "lucide-react";
+import { Lock, ShieldAlert, Upload } from "lucide-react";
 
 export default function CertificadoPage() {
   return (
@@ -36,18 +36,27 @@ export default function CertificadoPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Subir certificado</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Subir certificado
+            <Badge tone="warning" className="text-[10px]">
+              <Lock className="h-3 w-3" />
+              Bloqueado · Fase C
+            </Badge>
+          </CardTitle>
           <p className="mt-1 text-xs opacity-60">
-            Solo súper admin puede subir/reemplazar el certificado. La acción
-            queda en auditoría con motivo obligatorio.
+            Form deshabilitado hasta autorizar la subida real del{" "}
+            <code className="font-mono">.p12</code>. En esta fase mock el
+            envío del archivo y la contraseña <strong>no se procesa
+            ni se almacena</strong>. La acción real queda en auditoría
+            con motivo obligatorio cuando se habilite.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <Label>Archivo `.p12` / `.pfx`</Label>
             <div className="flex items-center gap-3">
-              <Input type="file" />
-              <Button variant="outline" size="sm">
+              <Input type="file" disabled aria-disabled="true" />
+              <Button variant="outline" size="sm" disabled aria-disabled="true">
                 <Upload className="h-4 w-4" />
                 Subir
               </Button>
@@ -56,16 +65,27 @@ export default function CertificadoPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Contraseña del certificado</Label>
-              <Input type="password" placeholder="••••••••" />
+              <Input
+                type="password"
+                placeholder="••••••••"
+                disabled
+                aria-disabled="true"
+              />
             </div>
             <div>
               <Label>Confirmar contraseña</Label>
-              <Input type="password" placeholder="••••••••" />
+              <Input
+                type="password"
+                placeholder="••••••••"
+                disabled
+                aria-disabled="true"
+              />
             </div>
           </div>
           <p className="rounded-lg border border-black/5 bg-black/[0.02] p-3 text-xs opacity-70">
-            La contraseña se cifra con KMS (Supabase Vault o variable derivada
-            de `JWT_SECRET` + per-business salt). Nunca se expone en logs.
+            La contraseña se cifrará con KMS (Supabase Vault o variable
+            derivada de `JWT_SECRET` + per-business salt) cuando el form
+            esté habilitado. Nunca se expone en logs.
           </p>
         </CardContent>
       </Card>

@@ -10,6 +10,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
+import { AlertTriangle } from "lucide-react";
 import { mockDgiiSequences } from "@/lib/mock-data/integrations";
 import { formatDate } from "@/lib/utils/format";
 
@@ -21,6 +22,19 @@ export default function SecuenciasPage() {
         description="Rangos autorizados por DGII. Alerta cuando queden < 100 disponibles."
         breadcrumbs={[{ label: "DGII", href: "/dgii" }, { label: "Secuencias" }]}
       />
+      <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
+          <div className="text-sm text-amber-900">
+            <strong>Secuencias MOCK / DEMO — no fiscales.</strong> Estos
+            rangos son ejemplos sintéticos para validar el flujo de
+            consumo y alertas. No están autorizados por DGII y no deben
+            usarse para emitir comprobantes reales. La carga de
+            secuencias reales se habilita en Fase C tras autorizar
+            migraciones Supabase.
+          </div>
+        </div>
+      </div>
       <Card>
         <CardContent className="p-0">
           <Table>

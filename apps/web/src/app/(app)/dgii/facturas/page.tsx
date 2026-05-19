@@ -12,7 +12,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Ban } from "lucide-react";
+import { Ban, AlertTriangle } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { mockElectronicInvoices } from "@/lib/mock-data/integrations";
@@ -39,6 +39,18 @@ export default function FacturasElectronicasPage() {
         description="Comprobantes emitidos. Cada uno lleva XML firmado, TrackID, código QR y representación impresa."
         breadcrumbs={[{ label: "DGII", href: "/dgii" }, { label: "Facturas" }]}
       />
+      <div className="mb-4 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
+          <div className="text-sm text-amber-900">
+            <strong>Listado MOCK / DEMO — no fiscal.</strong> Los e-CF
+            mostrados son ejemplos sintéticos. La acción <em>Anular</em>{" "}
+            solo dispara un toast — no consume secuencia ni envía Nota
+            de Crédito a DGII. La emisión y anulación reales quedan
+            bloqueadas hasta Fase G (envío) / Fase H (consulta).
+          </div>
+        </div>
+      </div>
       <Card>
         <CardContent className="p-0">
           <Table>
