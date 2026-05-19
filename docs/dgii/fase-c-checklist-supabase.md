@@ -3,13 +3,46 @@
 > **Fecha:** 2026-05-19
 > **Branch:** `feature/dgii-module-review-adjustments`
 > **Commit base de la rama:** `4d9dd96` (QA mock aprobado).
-> **Estado:** `supabase db push` aún **NO ejecutado**. Este documento
-> es preparatorio; pide autorización antes de tocar la DB.
->
-> **Restricción dura:** todos los comandos `supabase db push`,
-> `psql`, INSERT directo, cambios de `DATA_SOURCE`, deploy producción
-> o registro de URLs DGII quedan **bloqueados** hasta autorización
-> explícita.
+> **Estado actual:** ✅ **Paso 1 completado** — migraciones aplicadas
+> manualmente desde Dashboard SQL Editor el 2026-05-19. Pasos
+> restantes (regen tipos, `DATA_SOURCE=supabase`, Vercel env) siguen
+> **bloqueados** hasta autorización explícita.
+
+## Cierre del Paso 1 — 2026-05-19
+
+| Item                                       | Resultado                       |
+|--------------------------------------------|---------------------------------|
+| Método usado                               | Dashboard SQL Editor (Ruta B)   |
+| `0003_dgii_pos.sql`                        | ✅ aplicada                     |
+| `0004_dgii_permissions_seed.sql`           | ✅ aplicada                     |
+| `0005_dgii_role_permissions_seed.sql`      | ✅ aplicada                     |
+| Validador in-transaction                   | ✅ pasó (19/18/7/59)            |
+| Tablas DGII creadas                        | 19                              |
+| Permisos DGII/cash insertados              | 18 (`dgii:*` + `cash:*`)        |
+| Roles insertados                           | 7                               |
+| Pares `role_permissions`                   | 59                              |
+| Working tree del repo                      | Limpio en commit `12d7963`      |
+| `DATA_SOURCE` local                        | `mock` (sin cambio)             |
+| Variables en Vercel                        | Ninguna (sin cambio)            |
+| `database.types.ts` regenerado             | ❌ No (placeholders en .env)    |
+| Tipos pendientes                           | `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN` reales para correr `supabase gen types` |
+| DGII real (HTTP testecf / ecf)             | ❌ NO tocado                    |
+| Certificado real                           | ❌ NO subido                    |
+| Deploy producción                          | ❌ NO realizado                 |
+
+**Comando de verificación (Dashboard SQL Editor) para auditar más tarde:**
+
+```sql
+select 'permissions'      as t, count(*) from public.permissions where code like 'dgii:%' or code like 'cash:%'
+union all select 'roles',              count(*) from public.roles
+union all select 'role_permissions',   count(*) from public.role_permissions
+union all select 'dgii_settings',      count(*) from public.dgii_settings
+union all select 'electronic_invoices', count(*) from public.electronic_invoices;
+-- Esperado: 18, 7, 59, 0, 0
+```
+
+**Snapshot Supabase recomendado:** confirmar que existe el backup
+"pre-fase-c-2026-05-19" en Database → Backups.
 
 ## 0. Resúmenes ejecutivos
 
@@ -404,30 +437,47 @@ resolver antes de habilitar Fase G/H:
 - [x] Plan de rollback a mock (§11).
 - [ ] Snapshot Supabase tomado **antes** de aplicar.
 - [ ] Variables Vercel añadidas al ambiente Preview.
-- [ ] Autorización explícita del usuario para ejecutar `supabase
+- [x] Autorización explícita del usuario para ejecutar `supabase
       db push` o pegar los SQL en el Dashboard.
+      **— Autorizado y aplicado el 2026-05-19 (Dashboard SQL Editor).**
 
 ## 14. Veredicto
 
-**✅ LISTO PARA PEDIR AUTORIZACIÓN DE DB PUSH**
+**✅ PASO 1 COMPLETADO — DB Supabase con Fase C aplicada.**
 
-Cumple:
-1. 3 migraciones leídas y resumidas.
-2. No-destructivas en su contenido principal (puro `create table if
-   not exists` + inserts con `on conflict do nothing`).
-3. Rollback documentado para cada una.
-4. Test de drift TS↔SQL ya cubriendo 0005.
-5. CLI disponible (vía `npx`), proyecto Vercel sin env vars (nada
-   se romperá en preview sin tu acción explícita).
+Lo que se hizo:
+1. Migraciones 0003 + 0004 + 0005 aplicadas manualmente en
+   Dashboard SQL Editor (`.scratch-fase-c-combined.sql`, una sola
+   transacción).
+2. Validador in-transaction confirmó counts exactos
+   (19 tablas / 18 permisos / 7 roles / 59 role_permissions).
+3. Repo restaurado a working tree limpio en commit `12d7963`
+   (intento de aplicación vía script Node + `pg` revertido al
+   limpiar después).
+4. Tipos TypeScript **no** regenerados — `.env.local` tiene
+   placeholders en `SUPABASE_PROJECT_REF`. Los repos Supabase
+   castean cliente como `any`, así que typecheck (382/382) sigue
+   verde.
 
-**Bloqueado hasta autorización del usuario:**
-- `npx supabase db push` o pegar SQL en Dashboard.
-- Añadir `DATA_SOURCE=supabase` a Vercel.
+**Siguen bloqueados (no autorizados todavía):**
+- Cambiar `DATA_SOURCE` a `supabase` (local + Vercel).
+- Llenar `apps/web/.env.local` con credenciales reales.
+- Variables en Vercel project.
 - Regenerar `database.types.ts`.
+- Fase G (envío real DGII testecf) / Fase H (status / TrackId).
+- Subir certificado real `.p12`.
+- Deploy producción / DNS.
 
-**Siguiente paso sugerido:**
-1. Tomar snapshot Supabase "pre-fase-c".
-2. Si autorizás: aplicar 0003 → verificar tabla → aplicar 0004 →
-   verificar → aplicar 0005 → verificar → reportar.
-3. Después, si todo verde, regen tipos TS + correr vitest + decidir
-   si ya cambiás a `DATA_SOURCE=supabase` localmente para humo.
+**Siguientes pasos posibles (esperan autorización del usuario):**
+1. **Completar Fase C – tipos TS:** llenar
+   `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN` reales en
+   `apps/web/.env.local`; ejecutar `npx supabase gen types
+   typescript --project-id <ref> > apps/web/src/server/db/database.types.ts`;
+   commit `"Aplicar tipos Supabase para DGII"`.
+2. **Smoke local con Supabase:** cambiar `DATA_SOURCE=supabase` en
+   `apps/web/.env.local`, levantar dev server y validar que las
+   pantallas DGII leen/escriben de las tablas reales. Volver a
+   `mock` después.
+3. **Preview Vercel con Supabase:** añadir env vars al proyecto
+   Vercel + deploy preview.
+4. **Fases G/H:** requieren postulación oficial DGII + cert real.

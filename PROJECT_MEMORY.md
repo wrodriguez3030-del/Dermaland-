@@ -7,6 +7,53 @@
 
 ---
 
+## 0.0 · Sesión 2026-05-19 (tarde) — Fase C DB aplicada en Supabase
+
+**Resultado:** migraciones DGII/POS aplicadas en el proyecto Supabase
+remoto desde Dashboard SQL Editor. Repo y `DATA_SOURCE=mock` intactos.
+
+**Qué se hizo:**
+
+1. **Migraciones aplicadas manualmente** en Dashboard SQL Editor (un
+   solo `BEGIN; … COMMIT;` con `.scratch-fase-c-combined.sql`):
+   - `0003_dgii_pos.sql` — 19 tablas DGII/POS + función
+     `reserve_ecf_sequence_number`.
+   - `0004_dgii_permissions_seed.sql` — tabla `permissions` + 18 seeds.
+   - `0005_dgii_role_permissions_seed.sql` — tablas `roles` +
+     `role_permissions` + 7 roles + 59 pares rol→permiso.
+2. Validador in-transaction confirmó `19 tablas / 18 permisos /
+   7 roles / 59 role_permissions` antes del `COMMIT`.
+3. Intento previo de aplicación vía script Node + `pg` falló porque
+   `.env.local` tiene placeholders en `SUPABASE_DB_URL` y
+   `SUPABASE_PROJECT_REF`. Se eligió Ruta B (Dashboard manual).
+4. **Limpieza posterior:** `pg` removido del workspace,
+   `scripts/apply-fase-c-migrations.mjs` borrado, `package.json` +
+   `pnpm-lock.yaml` restaurados. Working tree limpio en commit
+   `12d7963`.
+5. `database.types.ts` **NO regenerado** — placeholder en
+   `SUPABASE_PROJECT_REF`. Los repos Supabase castean cliente como
+   `any`, typecheck (382/382 tests) sigue verde.
+
+**Pendientes para completar Fase C:**
+
+- Llenar valores reales en `apps/web/.env.local`:
+  `SUPABASE_PROJECT_REF`, `SUPABASE_DB_URL`, `SUPABASE_ACCESS_TOKEN`
+  (token personal del Dashboard, requerido por
+  `supabase gen types`).
+- Ejecutar `npx supabase gen types typescript --project-id <ref> >
+  apps/web/src/server/db/database.types.ts`.
+- Commit `"Aplicar tipos Supabase para DGII"`.
+
+**Restricciones aún vigentes (NO autorizado):**
+
+- `DATA_SOURCE=supabase` (sigue en `mock` local + Vercel vacío).
+- Variables Vercel project (siguen en cero).
+- Fase G (envío real DGII testecf) / Fase H (status / TrackId).
+- Subida real de certificado `.p12`.
+- Deploy producción / DNS.
+
+---
+
 ## 0.1 · Sesión 2026-05-19 — Asistente de habilitación DGII (mock)
 
 **Resultado:** Nueva pantalla `/dgii/habilitacion` — wizard con 6 pasos

@@ -5,6 +5,35 @@
 
 **Última actualización:** 2026-05-19
 
+## 2026-05-19 (tarde) · Fase C — migraciones DGII aplicadas en Supabase
+
+- Tres migraciones aplicadas manualmente desde Supabase Dashboard
+  SQL Editor (`.scratch-fase-c-combined.sql`, una sola transacción):
+  - `0003_dgii_pos.sql` — 19 tablas DGII/POS + función
+    `reserve_ecf_sequence_number` + RLS por tenant
+    (`business_id = auth_business_id()`).
+  - `0004_dgii_permissions_seed.sql` — 18 permisos DGII/cash.
+  - `0005_dgii_role_permissions_seed.sql` — 7 roles + 59 pares
+    rol→permiso (super_admin 18, admin 18, manager 12, cashier 4,
+    inventory 0, supervisor 3, auditor 4).
+- Validador in-transaction confirmó los counts exactos antes del
+  `COMMIT`; el usuario reportó "aplicado, counts OK".
+- **Repo:** working tree limpio en commit `12d7963`. No se generaron
+  cambios de código en este paso. `pg` (intentado para apply
+  automatizado) y `scripts/apply-fase-c-migrations.mjs` fueron
+  removidos al cierre — la ruta automatizada vía Node falló por
+  placeholders en `.env.local`.
+- **`DATA_SOURCE=mock` intacto** local y en Vercel (project
+  `dermaland` sigue con **cero environment variables**).
+- **`database.types.ts` NO regenerado** — `SUPABASE_PROJECT_REF` es
+  placeholder; pendiente para cuando el usuario llene credenciales
+  reales.
+- Pendientes documentados para completar Fase C: real
+  `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN` + ejecutar
+  `supabase gen types` + commit `"Aplicar tipos Supabase para DGII"`.
+- **No se tocó** DGII real, no se usó cert real, no se desplegó a
+  producción. Fases G/H siguen bloqueadas.
+
 ## 2026-05-19 · Asistente de habilitación DGII (mock)
 
 - Nueva ruta `/dgii/habilitacion` — wizard/checklist vertical con 6
