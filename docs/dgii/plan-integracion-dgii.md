@@ -324,6 +324,11 @@ mantenibilidad. **No se ejecuta el refactor en este PR.**
 - `/dgii/envios`: cola real con reintentos visibles.
 - `/dgii/certificado`: upload real cifrado, password vía Vault.
 - **Nueva** `/dgii/certificacion`: panel de pre-certificación.
+- **Nueva** `/dgii/habilitacion`: asistente paso a paso de habilitación e-CF
+  (wizard mock con 6 pasos — postulación, pruebas, representaciones,
+  URLs servicios, declaración jurada, asignación roles/NCF). Persiste
+  progreso en `localStorage`. No envía nada a DGII; los pasos que
+  requieren DGII real quedan marcados `blocked` hasta Fase G/H.
 - `/caja`: % configurable + cálculo automático + advertencias fiscales + auditoría.
 - `/proformas`: leyenda fiscal estandarizada.
 - `/reportes`: reportes fiscales adicionales (L-01..L-06 de la matriz).

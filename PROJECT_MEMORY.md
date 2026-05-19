@@ -3,7 +3,39 @@
 > Archivo vivo. Actualizar al cerrar cualquier cambio importante.
 > Léelo después de `CLAUDE.md` antes de empezar a trabajar.
 
-**Última actualización:** 2026-05-13
+**Última actualización:** 2026-05-19
+
+---
+
+## 0.1 · Sesión 2026-05-19 — Asistente de habilitación DGII (mock)
+
+**Resultado:** Nueva pantalla `/dgii/habilitacion` — wizard con 6 pasos
+para guiar la habilitación e-CF ante DGII. 100% mock, 0% DGII real, 0%
+Supabase real.
+
+**Qué se hizo:**
+
+1. Mock store `apps/web/src/features/dgii/enablement-store.ts` con
+   API CRUD + `localStorage` (`dermaland.dgii-enablement-progress`).
+2. Catálogo declarativo en
+   `apps/web/src/lib/mock-data/dgii-enablement.ts` (6 pasos, checklist
+   por paso, URLs servicios planificadas, permisos relevantes).
+3. Componentes `enablement-status-badge.tsx` (7 estados visuales) y
+   `enablement-step-card.tsx` (acordeón con checklist, select de
+   estado, link al módulo).
+4. Página `/dgii/habilitacion` con barra de progreso global,
+   próximo paso recomendado, leyenda de estados, panel URLs servicios
+   y panel permisos relevantes.
+5. Sidebar DGII actualizado: "Habilitación" como primer item.
+6. Docs actualizados: `plan-integracion-dgii.md`,
+   `matriz-requisitos-dgii.md` (R-14), `estado-actual.md`.
+7. 31 tests nuevos (`enablement-store.test.ts` +
+   `dgii-enablement.test.ts`). Total suite: 382 tests verdes.
+
+**Restricciones:** No `supabase db push`, no `DATA_SOURCE=supabase`, no
+llamadas DGII reales, no certificado real, no XML real enviado.
+Pasos con `requiresDgii=true` muestran `blockedReason` hasta
+autorización Fase G/H.
 
 ---
 

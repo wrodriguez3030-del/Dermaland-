@@ -163,6 +163,7 @@
 | R-11  | `cash:reverse_closing`                        | Sí (mock) | seed, marcado "alto riesgo"           | P1   |
 | R-12  | Asignación rol → permisos DGII/cash            | Sí (mock) | `roleDefinitions` cubre los 7 roles con segregación de funciones (super_admin/admin: `dgii:*` + `cash:*`; manager: operación; cashier: cobro mínimo; inventory: sin DGII; supervisor: aprobador; auditor: solo-lectura). Matriz visual en `/admin/permisos`. Tests cubren cada asignación. | P1   |
 | R-13  | Seed SQL `role_permissions`                    | Sí (SQL, NO aplicado) | `supabase/migrations/0005_dgii_role_permissions_seed.sql` crea `roles` + `role_permissions` + 59 INSERTs idempotentes. Test `role-permissions-sync.test.ts` verifica sync con `roleDefinitions`. **Depende de 0003 + 0004.** Se aplica con Fase C autorizada. | P1   |
+| R-14  | Wizard de habilitación DGII (`/dgii/habilitacion`) | Sí (mock) | Pantalla nueva con 6 pasos (postulación / pruebas e-CF / representaciones impresas / URLs servicios / declaración jurada / asignación roles+NCF). Cada paso con checklist propio, estado configurable (`pending`/`in_progress`/`completed`/`blocked`/`requires_*`), persistencia en `localStorage` (`enablement-store.ts`). Pasos con `requiresDgii=true` muestran `blockedReason` hasta autorización Fase G/H. NO envía nada a DGII. | P1   |
 
 ## 12. Reportes y auditoría
 

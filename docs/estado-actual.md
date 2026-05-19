@@ -3,7 +3,29 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-05-13
+**Última actualización:** 2026-05-19
+
+## 2026-05-19 · Asistente de habilitación DGII (mock)
+
+- Nueva ruta `/dgii/habilitacion` — wizard/checklist vertical con 6
+  pasos (postulación, pruebas e-CF, representaciones impresas, URLs de
+  servicios, declaración jurada, asignación roles + NCF).
+- Cada paso tiene checklist propio, 7 estados (`pending`,
+  `in_progress`, `completed`, `blocked`, `requires_user_action`,
+  `requires_accountant_validation`, `requires_dgii_validation`),
+  estado configurable por el usuario, link a módulo relacionado.
+- Persistencia en `localStorage` vía
+  `apps/web/src/features/dgii/enablement-store.ts`. Producción: migrar
+  a tabla `dgii_enablement_progress` con RLS por business.
+- Catálogo declarativo en
+  `apps/web/src/lib/mock-data/dgii-enablement.ts` (6 pasos + URLs de
+  servicios planificadas + permisos relevantes).
+- Componentes nuevos en `apps/web/src/components/dgii/`:
+  `enablement-step-card.tsx`, `enablement-status-badge.tsx`.
+- Sidebar nav DGII ahora muestra "Habilitación" como primer item.
+- 31 tests nuevos (382 totales). Pasos con `requiresDgii=true` quedan
+  marcados `blocked` hasta Fase G/H.
+- NO toca Supabase real, NO envía a DGII, NO firma con cert real.
 
 ## 2026-05-13 · Restauración a versión completa + deploy prod
 
