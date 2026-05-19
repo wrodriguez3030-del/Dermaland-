@@ -124,6 +124,8 @@ create policy product_lots_all on product_lots for all
 
 -- Vista materializada (refresh manual o trigger): stock por (producto, lote).
 -- Para MVP usar vista normal y solo refrescar materialized en Fase 11.
+-- Nota: product_lots no tiene columna `deleted_at`; el descarte logico vive
+-- en la columna `status` (recalled / expired / damaged / returned).
 create or replace view inventory_stock_by_lot as
   select
     business_id,
@@ -135,8 +137,7 @@ create or replace view inventory_stock_by_lot as
     expires_at,
     current_quantity as quantity,
     status
-  from product_lots
-  where deleted_at is null;
+  from product_lots;
 
 -- Movements
 create table if not exists inventory_movements (

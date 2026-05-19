@@ -7,6 +7,88 @@
 
 ---
 
+## 0.0a · Sesión 2026-05-19 (noche) — Regen tipos Supabase + fix 0002 + 0002a_clients
+
+**Resultado:** `database.types.ts` regenerado contra el proyecto real
+(`sntcvyozbhrgicwmtcoh`) vía MCP Supabase. Bug FK descubierto y
+resuelto: 0003 dependía de una tabla `clients` que no existía en
+ningún archivo del repo — se agregó `0002a_clients.sql`. Bug
+secundario en 0002 corregido (referencia a columna inexistente).
+
+**Qué se hizo:**
+
+1. **MCP Supabase autenticado** (OAuth) y verificado con
+   `mcp__supabase__get_project_url` → URL coincide con el ref
+   `sntcvyozbhrgicwmtcoh`.
+2. **Sanity check:** `mcp__supabase__list_tables` + SQL directo
+   confirmó que `public` estaba **vacío** (0 tablas, 0 migrations).
+   La Fase C documentada en §0.0 no estaba realmente presente en
+   este proyecto — posible reset previo o aplicación originalmente
+   en otro proyecto.
+3. **Re-aplicación autorizada del set completo** vía
+   `mcp__supabase__apply_migration` en orden:
+   - `0001_phase1_core` ✅
+   - `0002_phase2_inventory` ✅ (ajustado para quitar
+     `where deleted_at is null` de `inventory_stock_by_lot` —
+     `product_lots` no tiene esa columna; el descarte lógico vive
+     en `status`)
+   - `0002a_clients` ✅ — **nueva migración del repo** creada en
+     esta sesión. Define `clients` (CRM mínimo + RLS por
+     business_id) que `proformas.customer_id` y
+     `electronic_invoices.customer_id` referencian. Espejo del
+     modelo TS `Customer` en `src/types/index.ts`
+     (defaultBillingType, skinType estructurado, sin duplicados por
+     documento por business).
+   - `0003_dgii_pos` ✅
+   - `0004_dgii_permissions_seed` ✅
+   - `0005_dgii_role_permissions_seed` ✅
+4. **Counts post-aplicación:** 43 tablas en `public`, 19
+   tablas DGII/POS, 18 permisos, 7 roles, 59 role_permissions —
+   coincide con la matriz esperada de Fase C.
+5. **Regen de tipos:** `mcp__supabase__generate_typescript_types`
+   produjo 3.372 líneas / 103 KB con las 43 tablas. Reemplaza el
+   esqueleto manual previo (sólo `businesses`).
+6. **Validaciones:** `typecheck` ✅, `build` ✅ (78 páginas,
+   middleware 89.4 kB), `vitest` ✅ 382/382.
+7. **Fix archivo `0002_phase2_inventory.sql`** del repo — se
+   sincroniza con lo aplicado (sin `where deleted_at is null`),
+   para que un fresh-apply 0001 → 0002 → 0002a → 0003 → 0004 →
+   0005 ya funcione en cualquier proyecto vacío.
+8. **`.mcp.json` queda en `.gitignore`** (decisión §7 del handoff
+   confirmada — no se publica config MCP a GitHub).
+9. **`.claude/` agregado a `.gitignore`** — config local del
+   harness fuera del repo.
+
+**Commits creados:**
+
+- `0cad04b` — Aplicar tipos Supabase para DGII (regen + 0002a).
+- (pendiente al cierre) Corregir migraciones base para Fase C
+  Supabase (fix 0002 + `.gitignore`).
+
+**Restricciones respetadas:**
+
+- `DATA_SOURCE=mock` intacto (local + Vercel).
+- Variables Vercel project siguen vacías.
+- No se llamó DGII real ni `testecf`.
+- Certificado `.p12` no usado.
+- Sin deploy producción / DNS.
+- Migraciones aplicadas únicamente en `sntcvyozbhrgicwmtcoh`.
+- Sin borrado de datos (todas las migraciones son aditivas con
+  `if not exists` / `on conflict do nothing`).
+
+**Pendientes próximos (orden y bajo autorización del usuario):**
+
+1. Smoke test local con `DATA_SOURCE=supabase` (cambiar en
+   `.env.local`, validar `/dgii/configuracion`, `/dgii/secuencias`,
+   `/dgii/facturas`, volver a `mock`).
+2. Llenar env vars del proyecto Vercel + preview deploy con
+   `DATA_SOURCE=supabase`.
+3. Subir certificado real (Fase F real).
+4. Fase G (envío real a `testecf`).
+5. Fase H (consulta status / TrackId).
+
+---
+
 ## 0.0 · Sesión 2026-05-19 (tarde) — Fase C DB aplicada en Supabase
 
 **Resultado:** migraciones DGII/POS aplicadas en el proyecto Supabase

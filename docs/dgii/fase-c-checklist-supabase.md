@@ -3,10 +3,47 @@
 > **Fecha:** 2026-05-19
 > **Branch:** `feature/dgii-module-review-adjustments`
 > **Commit base de la rama:** `4d9dd96` (QA mock aprobado).
-> **Estado actual:** ✅ **Paso 1 completado** — migraciones aplicadas
-> manualmente desde Dashboard SQL Editor el 2026-05-19. Pasos
-> restantes (regen tipos, `DATA_SOURCE=supabase`, Vercel env) siguen
-> **bloqueados** hasta autorización explícita.
+> **Estado actual:** ✅ **Paso 1 completado** y ✅ **regen de tipos
+> completado** (2026-05-19, noche). Pasos restantes
+> (`DATA_SOURCE=supabase`, Vercel env, certificado real, Fases G/H)
+> siguen **bloqueados** hasta autorización explícita.
+
+## Cierre del Paso 2 — 2026-05-19 (noche) · Regen `database.types.ts`
+
+| Item                                                 | Resultado                                    |
+|------------------------------------------------------|----------------------------------------------|
+| Método usado                                         | MCP Supabase (`generate_typescript_types`)   |
+| Project ref                                          | `sntcvyozbhrgicwmtcoh` (confirmado)          |
+| Estado inicial DB                                    | Vacía (0 tablas) — Fase C previa no presente |
+| Migraciones re-aplicadas (orden)                     | 0001 → 0002 → 0002a → 0003 → 0004 → 0005     |
+| `0002a_clients.sql` creada                           | ✅ — define `clients`, requerida por 0003    |
+| `0002_phase2_inventory.sql` corregida                | ✅ — quitado `where deleted_at is null` de `inventory_stock_by_lot` |
+| Counts post-aplicación                               | 43 tablas / 18 perm / 7 roles / 59 mappings  |
+| Tablas DGII/POS                                      | 19                                           |
+| `database.types.ts` regenerado                       | ✅ — 3.372 líneas, 103 KB                    |
+| Commit regen + 0002a                                 | `0cad04b` — "Aplicar tipos Supabase para DGII" |
+| Commit fix 0002 + docs + gitignore                   | (pendiente al momento de escribir)           |
+| `typecheck` / `build` / `vitest`                     | ✅ verde · 78 páginas · 382/382              |
+| `.mcp.json` en `.gitignore`                          | ✅ — no se publica config MCP                |
+| `.claude/` en `.gitignore`                           | ✅ — harness local fuera del repo            |
+| `DATA_SOURCE` local                                  | `mock` (sin cambio)                          |
+| Variables en Vercel                                  | Ninguna (sin cambio)                         |
+| DGII real (HTTP testecf / ecf)                       | ❌ NO tocado                                 |
+| Certificado real                                     | ❌ NO subido                                 |
+| Deploy producción                                    | ❌ NO realizado                              |
+
+**Hallazgo importante:** el proyecto Supabase apuntado por el MCP
+(`sntcvyozbhrgicwmtcoh`) estaba completamente vacío al iniciar la
+sesión, a pesar de la fila "Paso 1" abajo (que decía 19/18/7/59
+aplicado el 2026-05-19 en la tarde). Las migraciones se re-aplicaron
+desde cero vía MCP en orden y con counts equivalentes. Si en sesiones
+futuras la DB vuelve a aparecer vacía, sospechar reset del proyecto.
+
+**Bug corregido en el repo:** `0002_phase2_inventory.sql` ya no
+referencia la columna inexistente `product_lots.deleted_at` en la
+vista `inventory_stock_by_lot`. Esto permite que un fresh-apply
+0001 → 0002 → 0002a → 0003 → 0004 → 0005 funcione en cualquier
+proyecto vacío.
 
 ## Cierre del Paso 1 — 2026-05-19
 
@@ -24,8 +61,8 @@
 | Working tree del repo                      | Limpio en commit `12d7963`      |
 | `DATA_SOURCE` local                        | `mock` (sin cambio)             |
 | Variables en Vercel                        | Ninguna (sin cambio)            |
-| `database.types.ts` regenerado             | ❌ No (placeholders en .env)    |
-| Tipos pendientes                           | `SUPABASE_PROJECT_REF` + `SUPABASE_ACCESS_TOKEN` reales para correr `supabase gen types` |
+| `database.types.ts` regenerado             | ✅ Sí — ver "Cierre del Paso 2" arriba (regenerado 2026-05-19 noche vía MCP) |
+| Tipos pendientes                           | (resuelto en Paso 2)            |
 | DGII real (HTTP testecf / ecf)             | ❌ NO tocado                    |
 | Certificado real                           | ❌ NO subido                    |
 | Deploy producción                          | ❌ NO realizado                 |

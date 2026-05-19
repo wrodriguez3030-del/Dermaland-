@@ -24,6 +24,7 @@ next-env.d.ts
 # secrets / certs / vercel / scratch
 .vercel
 .scratch-*
+.mcp.json
 *.p12
 *.pfx
 *.key
@@ -33,3 +34,6 @@ next-env.d.ts
 *.der
 *.cert
 certificates/
+
+# local tooling / Claude harness
+.claude/

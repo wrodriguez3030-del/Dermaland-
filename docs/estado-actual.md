@@ -5,6 +5,45 @@
 
 **Última actualización:** 2026-05-19
 
+## 2026-05-19 (noche) · Fase C — regen `database.types.ts` + base completa en Supabase
+
+- **Hallazgo:** el proyecto Supabase `sntcvyozbhrgicwmtcoh` (URL
+  `https://sntcvyozbhrgicwmtcoh.supabase.co`) estaba realmente
+  **vacío** al iniciar la sesión — 0 tablas en `public`, 0
+  migrations registradas. La aplicación de Fase C documentada en
+  el bloque "tarde" del 2026-05-19 no estaba presente. Posible
+  reset del proyecto entre sesiones.
+- **Set completo de migraciones re-aplicado** vía
+  `mcp__supabase__apply_migration` (Claude Code) en orden:
+  `0001 → 0002 → 0002a_clients → 0003 → 0004 → 0005`. MCP
+  Supabase autenticado por OAuth.
+- **Nueva migración `0002a_clients.sql`** committeada en el
+  repo. Define la tabla `clients` (CRM mínimo, RLS por
+  business_id) que `proformas.customer_id` y
+  `electronic_invoices.customer_id` referencian en 0003. Sin
+  esta migración intermedia, un fresh-apply de 0003 fallaba con
+  `relation "clients" does not exist`.
+- **Fix `0002_phase2_inventory.sql`** en el repo: la vista
+  `inventory_stock_by_lot` filtraba por `where deleted_at is
+  null` pero `product_lots` no tiene esa columna (el descarte
+  lógico vive en `status`). Se quita el `WHERE` para que un
+  fresh-apply funcione en cualquier proyecto vacío.
+- **Counts post-aplicación:** 43 tablas en `public`, 19
+  tablas DGII/POS, 18 permisos, 7 roles, 59 role_permissions —
+  coincide con la matriz esperada de Fase C.
+- **`database.types.ts` regenerado** desde el proyecto Supabase
+  vía `mcp__supabase__generate_typescript_types` — 3.372 líneas,
+  103 KB, reemplaza el esqueleto manual previo (sólo
+  `businesses`). Commit `0cad04b`.
+- **`.mcp.json` en `.gitignore`** — config MCP no se publica a
+  GitHub (decisión confirmada por el usuario).
+- **`.claude/` en `.gitignore`** — harness local fuera del repo.
+- **Validaciones:** `typecheck` ✅, `build` ✅ (78 páginas,
+  middleware 89.4 kB), `vitest` ✅ 382/382 en los dos commits.
+- **`DATA_SOURCE=mock` intacto** local y en Vercel; Vercel env
+  sigue vacío; DGII real no tocado; certificado `.p12` no usado;
+  sin deploy producción.
+
 ## 2026-05-19 (tarde) · Fase C — migraciones DGII aplicadas en Supabase
 
 - Tres migraciones aplicadas manualmente desde Supabase Dashboard
