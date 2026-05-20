@@ -3,10 +3,14 @@
 import * as React from "react";
 import {
   AlertTriangle,
+  CheckCircle2,
+  Download,
+  PlayCircle,
   ShieldAlert,
   ShieldCheck,
   ShieldOff,
   Upload,
+  XCircle,
 } from "lucide-react";
 import {
   Badge,
@@ -28,6 +32,13 @@ import {
   type PublicCertificate,
   type UploadResult,
 } from "@/features/dgii/certificate-actions";
+import {
+  clearLocalTest,
+  saveLocalTest,
+  useLocalTest,
+  type StoredLocalTest,
+} from "@/features/dgii/local-test-store";
+import { setStepStatus } from "@/features/dgii/enablement-store";
 
 /**
  * Modo real (Fase F).
@@ -258,6 +269,8 @@ export function CertificadoReal({
         </CardContent>
       </Card>
 
+      <LocalTestSection certificateLoaded={Boolean(cert)} />
+
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>Qué sigue después de Fase F</CardTitle>
@@ -286,6 +299,253 @@ export function CertificadoReal({
       </Card>
     </>
   );
+}
+
+function LocalTestSection({
+  certificateLoaded,
+}: {
+  certificateLoaded: boolean;
+}) {
+  const last = useLocalTest();
+  const [running, setRunning] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  async function handleRun() {
+    setError(null);
+    setRunning(true);
+    try {
+      const res = await fetch("/api/dgii/certificate/test-local", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setError(data.message ?? `Prueba falló (${data.reason ?? "unknown"}).`);
+        return;
+      }
+      const evidence = data.evidence as StoredLocalTest;
+      saveLocalTest(evidence);
+      // Marcar el step "pruebas_ecf" del wizard.
+      if (evidence.result === "passed") {
+        setStepStatus("pruebas_ecf", "completed", {
+          completedBy: "local-cert-test",
+          notes: `Prueba local OK (testId=${evidence.testId}).`,
+        });
+      } else {
+        setStepStatus("pruebas_ecf", "in_progress", {
+          notes: `Prueba local con observaciones (testId=${evidence.testId}).`,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido.");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  function handleDownload() {
+    if (!last) return;
+    const blob = new Blob([JSON.stringify(last, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dermaland-local-test-${last.testId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadXml() {
+    if (!last) return;
+    const xml = atob(last.signedXmlBase64);
+    const blob = new Blob([xml], { type: "application/xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dermaland-local-test-${last.testId}.signed.xml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <Card className="mt-6 border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          Prueba local del certificado
+          <Badge tone="info" className="text-[10px]">
+            NO FISCAL · NO DGII
+          </Badge>
+        </CardTitle>
+        <p className="mt-1 text-xs opacity-70">
+          Genera un XML demo, lo firma con RSA-SHA256 usando tu certificado,
+          verifica la firma con la clave pública, valida la estructura y
+          genera un payload QR demo. <strong>Nada de esto sale del
+          servidor hacia DGII</strong>. Sirve para confirmar que el
+          certificado puede firmar antes de habilitar Fase G.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={handleRun}
+            disabled={!certificateLoaded || running}
+            variant="primary"
+            size="sm"
+          >
+            <PlayCircle className="h-4 w-4" />
+            {running ? "Ejecutando…" : "Probar certificado localmente"}
+          </Button>
+          {last && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="h-4 w-4" />
+                Descargar evidencia (JSON)
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadXml}>
+                <Download className="h-4 w-4" />
+                Descargar XML firmado
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => clearLocalTest()}
+              >
+                Limpiar evidencia
+              </Button>
+            </>
+          )}
+        </div>
+
+        {!certificateLoaded && (
+          <p className="mt-3 text-xs text-amber-900">
+            Sube el certificado primero para habilitar la prueba.
+          </p>
+        )}
+
+        {error && (
+          <div className="mt-4 rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900">
+            {error}
+          </div>
+        )}
+
+        {last && (
+          <div className="mt-4 space-y-3">
+            <div
+              className={`flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm ${
+                last.result === "passed"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                  : "border-amber-300 bg-amber-50 text-amber-900"
+              }`}
+            >
+              {last.result === "passed" ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              <strong>
+                {last.result === "passed"
+                  ? "CERTIFICADO VALIDADO LOCALMENTE"
+                  : "Prueba con observaciones"}
+              </strong>
+              <Badge tone="neutral" className="text-[10px]">
+                testId {last.testId.slice(0, 8)}…
+              </Badge>
+              <span className="text-xs opacity-70">
+                {new Date(last.executedAt).toLocaleString("es-DO")}
+              </span>
+            </div>
+
+            <ul className="divide-y divide-black/5 text-sm">
+              {last.steps.map((s) => (
+                <li key={s.name} className="flex items-start gap-3 py-2">
+                  {s.ok ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <XCircle className="mt-0.5 h-4 w-4 text-amber-600" />
+                  )}
+                  <div>
+                    <p className="font-medium">{labelFor(s.name)}</p>
+                    {s.detail && (
+                      <p className="text-xs opacity-70">{s.detail}</p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <dl className="grid gap-2 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider opacity-60">
+                  Algoritmo
+                </dt>
+                <dd>{last.signatureAlgorithm}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider opacity-60">
+                  Tamaño firma
+                </dt>
+                <dd>{last.signatureSize} bytes</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider opacity-60">
+                  SHA-256 del XML
+                </dt>
+                <dd className="font-mono">
+                  {last.xmlSha256.slice(0, 24)}…
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider opacity-60">
+                  Fingerprint cert
+                </dt>
+                <dd className="font-mono">
+                  {last.certificate.fingerprintSha256Short}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-[10px] uppercase tracking-wider opacity-60">
+                  QR payload (demo)
+                </dt>
+                <dd className="break-all font-mono text-[10px]">
+                  {last.qrPayloadDemo}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+              {last.disclaimer}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function labelFor(name: string): string {
+  switch (name) {
+    case "cert_loaded":
+      return "Certificado cargado";
+    case "cert_valid":
+      return "Vigencia del certificado";
+    case "xml_built":
+      return "XML demo construido";
+    case "xml_signed":
+      return "XML firmado (RSA-SHA256)";
+    case "signature_verified":
+      return "Firma verificada con clave pública";
+    case "structure_valid":
+      return "Estructura del XML válida";
+    case "qr_generated":
+      return "Payload QR demo generado";
+    default:
+      return name;
+  }
 }
 
 function CertDetails({ cert }: { cert: PublicCertificate }) {
