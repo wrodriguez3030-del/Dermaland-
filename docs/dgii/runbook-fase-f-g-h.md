@@ -166,6 +166,37 @@ Antes de cualquiera de las 3 fases:
   fallback de UI en modo mock; cuando Fase F entre, se prioriza la
   query a `dgii_certificates`.
 
+### 3.6 Prueba local end-to-end (CLI) — `scripts/run-cert-full-test.mjs`
+
+Script Node que replica el flujo de Fase F **sin browser** y **sin
+DGII**: parsea el `.p12` real, cifra con AES-256-GCM, persiste en
+`dgii_certificates` con RLS via JWT del seed user, firma un XML
+demo (`Ambiente=PRUEBA_LOCAL`) con RSA-SHA256, verifica la firma y
+genera un payload QR marcado `NO_FISCAL`. No llama DGII, no envía
+XML real, no consume secuencias, no imprime password, cert, claves
+ni tokens.
+
+Pre-requisitos: `apps/web/.env.local` con `DGII_CERT_ENCRYPTION_KEY`,
+`DGII_CERT_TEST_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `PREVIEW_ADMIN_EMAIL`,
+`PREVIEW_ADMIN_PASSWORD`. Migración 0006 aplicada (RLS lee claims).
+
+Uso (Bash / Linux / macOS):
+```bash
+CERT_TEST_P12_PATH="ruta/al/cert.p12" node scripts/run-cert-full-test.mjs
+```
+
+Uso (PowerShell):
+```powershell
+$env:CERT_TEST_P12_PATH = "C:\ruta\al\cert.p12"
+node scripts/run-cert-full-test.mjs
+```
+
+Alternativa: pasar el path como argumento posicional —
+`node scripts/run-cert-full-test.mjs ruta/al/cert.p12`. Si falta
+`CERT_TEST_P12_PATH` **y** no se pasa argv[2], el script falla con
+mensaje claro sin tocar nada.
+
 ---
 
 ## 4. Fase G — Envío real a `testecf`
