@@ -34,7 +34,7 @@ import {
   useEnablementProgress,
   resetEnablement,
 } from "@/features/dgii/enablement-store";
-import { useCertificateStatus } from "@/features/dgii/certificate-status-store";
+import { useSyncedCertificate } from "@/features/dgii/use-synced-certificate";
 import {
   evaluateEnablement,
   ENABLEMENT_GLOBAL_STATUS_LABEL,
@@ -55,7 +55,7 @@ import {
  */
 export default function DgiiHabilitacionPage() {
   const progressList = useEnablementProgress();
-  const certificate = useCertificateStatus();
+  const certificate = useSyncedCertificate();
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   const [evaluation, setEvaluation] =
     React.useState<EnablementEvaluation | null>(null);

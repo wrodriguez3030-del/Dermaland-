@@ -17,6 +17,7 @@ const schema = z.object({
   DGII_ENVIRONMENT: z.enum(["cert", "prod"]).default("cert"),
   DGII_CERTIFICATE_PATH: z.string().optional(),
   DGII_CERTIFICATE_PASSWORD: z.string().optional(),
+  DGII_CERT_ENCRYPTION_KEY: z.string().optional(),
 
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
@@ -59,6 +60,23 @@ export function isSupabaseConfigured(): boolean {
 
 export function isDgiiConfigured(): boolean {
   return Boolean(env.DGII_CERTIFICATE_PATH && env.DGII_CERTIFICATE_PASSWORD);
+}
+
+/**
+ * Fase F en runtime: el upload real de certificado solo se activa si:
+ *  - Supabase está configurado (env URL + ANON_KEY).
+ *  - DGII_CERT_ENCRYPTION_KEY existe (cifrado de blob + password).
+ * Cuando alguno falta, la UI cae al modo simulado y NO se acepta upload
+ * real desde el servidor.
+ */
+export function isCertificateUploadEnabled(): boolean {
+  return Boolean(
+    env.NEXT_PUBLIC_SUPABASE_URL &&
+      env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+      env.DGII_CERT_ENCRYPTION_KEY &&
+      env.DGII_CERT_ENCRYPTION_KEY.length >= 32 &&
+      env.DATA_SOURCE === "supabase",
+  );
 }
 
 export function isWhatsappConfigured(): boolean {
