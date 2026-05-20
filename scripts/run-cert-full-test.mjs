@@ -128,6 +128,29 @@ try {
   die(`no pude importar supabase-js: ${err?.message ?? err}`);
 }
 
+// xmllint-wasm (libxml2 compilado) — para validación XSD oficial DGII.
+let validateXML;
+try {
+  const mod = await import(
+    pathToFileURL(
+      path.join(
+        REPO_ROOT,
+        "apps",
+        "web",
+        "node_modules",
+        "xmllint-wasm",
+        "index-node.js",
+      ),
+    ).href
+  );
+  validateXML = mod.validateXML ?? mod.default?.validateXML;
+} catch (err) {
+  console.warn(
+    `[cert-full-test] WARN: no pude importar xmllint-wasm; el paso xsd_valid se omitira: ${err?.message ?? err}`,
+  );
+  validateXML = null;
+}
+
 // ───────────────────────── AES-256-GCM helpers ─────────────────────────
 function decodeKey(str) {
   let s = str.replace(/-/g, "+").replace(/_/g, "/");
@@ -300,6 +323,39 @@ function uuidV4() {
   b[8] = (b[8] & 0x3f) | 0x80;
   const h = b.toString("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+// ───────────────────────── XSD validation helpers ─────────────────────────
+const XSD_ECF32_PATH = path.join(
+  REPO_ROOT,
+  "docs",
+  "dgii",
+  "xsd",
+  "e-CF-32-v1.0.xsd",
+);
+
+async function validateAgainstXsd(signedXml) {
+  if (!validateXML) return { skipped: true, reason: "xmllint-wasm no disponible" };
+  if (!fs.existsSync(XSD_ECF32_PATH))
+    return { skipped: true, reason: `XSD no encontrado en ${XSD_ECF32_PATH}` };
+  let xsd = fs.readFileSync(XSD_ECF32_PATH, "utf8");
+  if (xsd.charCodeAt(0) === 0xfeff) xsd = xsd.slice(1);
+  try {
+    const result = await validateXML({
+      xml: { fileName: "ecf.xml", contents: signedXml },
+      schema: { fileName: "ecf.xsd", contents: xsd },
+    });
+    return {
+      skipped: false,
+      valid: result.valid,
+      errorsCount: result.errors.length,
+      firstErrors: result.errors
+        .slice(0, 3)
+        .map((e) => `${e.message?.slice(0, 140) ?? "?"}`),
+    };
+  } catch (err) {
+    return { skipped: true, reason: `xmllint fallo: ${err?.message ?? err}` };
+  }
 }
 
 function runLocalCertTest({ cert, privateKey, pem, metadata, rnc, razon }) {
@@ -519,6 +575,30 @@ ok(`xmlSha256: ${test.xmlSha256.slice(0, 24)}…`);
 ok(`sigSize: ${test.signatureSize} bytes`);
 ok(`signed XML base64 size: ${test.signedXmlBase64.length}`);
 ok(`qr (demo): ${test.qrPayloadDemo}`);
+
+// XSD oficial DGII contra el XML demo firmado.
+// El demo XML incluye <PruebaLocal> y omite muchos campos obligatorios
+// del XSD oficial — se ESPERA que falle la validación. El valor de este
+// step es confirmar que el XSD es cargable y que xmllint corre. Para
+// validación end-to-end de un e-CF REAL firmado contra XSD, usar la ruta
+// /api/dgii/certificate/test-local (que sí construye un e-CF tipo 32
+// completo con buildEcfXml + signEcfXml antes de validar).
+ok("validando XML demo contra XSD oficial e-CF-32");
+const demoSignedXml = Buffer.from(test.signedXmlBase64, "base64").toString("utf8");
+const xsdResult = await validateAgainstXsd(demoSignedXml);
+if (xsdResult.skipped) {
+  ok(`step xsd_check_demo: SKIP (${xsdResult.reason})`);
+} else if (xsdResult.valid) {
+  ok(`step xsd_check_demo: ✓ (demo XML inesperadamente paso XSD)`);
+} else {
+  ok(
+    `step xsd_check_demo: ✗ (esperado: ${xsdResult.errorsCount} error(es) XSD en demo simplificado)`,
+  );
+  for (const e of xsdResult.firstErrors) ok(`   xsd[0..2]: ${e}`);
+  ok(
+    `   nota: el demo lleva <PruebaLocal>, no es e-CF oficial; para XSD real usar la route /api/dgii/certificate/test-local`,
+  );
+}
 
 const passed = test.steps.every((s) => s.ok);
 ok(passed ? "RESULT: CERTIFICADO VALIDADO LOCALMENTE" : "RESULT: failed con observaciones");

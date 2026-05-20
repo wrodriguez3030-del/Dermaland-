@@ -543,6 +543,8 @@ function labelFor(name: string): string {
       return "Estructura del XML válida";
     case "qr_generated":
       return "Payload QR demo generado";
+    case "xsd_valid":
+      return "e-CF real firmado pasa XSD oficial DGII";
     default:
       return name;
   }

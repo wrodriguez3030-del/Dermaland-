@@ -88,10 +88,15 @@ Antes de cualquiera de las 3 fases:
 ### 3.2 Pre-requisitos específicos
 
 - [ ] Certificado `.p12` emitido por una Autoridad Certificadora
-      aprobada por DGII (Avansi, Certi-Empresa, GoDaddy DR, etc.).
+      aprobada por DGII / INDOTEL (Avansi, Certi-Empresa, GoDaddy DR,
+      Viafirma Dominicana, etc.).
 - [ ] Password del cert custodiada (1Password / Bitwarden / KMS).
-- [ ] RNC del cert coincide con `businesses.rnc` del business
-      destino.
+- [ ] **Tipo de cert: persona física es válido.** DGII requiere
+      certificado digital **de persona física** para procesos
+      tributarios. El titular debe ser el **Usuario Administrador
+      e-CF** o representante autorizado del RNC contribuyente. No
+      bloqueamos por subject del cert; lo validamos via checklist § 3.7
+      antes de Fase G.
 - [ ] Validez del cert > 60 días hacia adelante.
 - [ ] Permiso `dgii:certificate:upload` asignado al rol del usuario
       que sube.
@@ -172,14 +177,23 @@ Script Node que replica el flujo de Fase F **sin browser** y **sin
 DGII**: parsea el `.p12` real, cifra con AES-256-GCM, persiste en
 `dgii_certificates` con RLS via JWT del seed user, firma un XML
 demo (`Ambiente=PRUEBA_LOCAL`) con RSA-SHA256, verifica la firma y
-genera un payload QR marcado `NO_FISCAL`. No llama DGII, no envía
-XML real, no consume secuencias, no imprime password, cert, claves
-ni tokens.
+genera un payload QR marcado `NO_FISCAL`. **Además ejecuta una
+validación XSD oficial contra `docs/dgii/xsd/e-CF-32-v1.0.xsd` vía
+xmllint-wasm** — sobre el XML demo simplificado (que se espera falle,
+por tener `<PruebaLocal>` y omitir campos obligatorios; el step
+informa "esperado" en ese caso). Para XSD real end-to-end con un
+e-CF tipo 32 completo y firmado, usar la ruta
+`/api/dgii/certificate/test-local` (el step `xsd_valid` ahí
+construye un e-CF válido con `buildEcfXml + signEcfXml` antes de
+validar). No llama DGII, no envía XML real, no consume secuencias,
+no imprime password, cert, claves ni tokens.
 
 Pre-requisitos: `apps/web/.env.local` con `DGII_CERT_ENCRYPTION_KEY`,
 `DGII_CERT_TEST_PASSWORD`, `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `PREVIEW_ADMIN_EMAIL`,
 `PREVIEW_ADMIN_PASSWORD`. Migración 0006 aplicada (RLS lee claims).
+Migración 0007 aplicada para que el `INSERT` en `audit_logs` no
+viole RLS (ver § audit_logs abajo).
 
 Uso (Bash / Linux / macOS):
 ```bash
@@ -196,6 +210,55 @@ Alternativa: pasar el path como argumento posicional —
 `node scripts/run-cert-full-test.mjs ruta/al/cert.p12`. Si falta
 `CERT_TEST_P12_PATH` **y** no se pasa argv[2], el script falla con
 mensaje claro sin tocar nada.
+
+### 3.7 Checklist titularidad pre-Fase G
+
+DGII exige que el certificado digital sea de **persona física** y
+que el titular esté autorizado a actuar fiscalmente por el RNC
+emisor. Antes de avanzar a Fase G se valida con el dueño / contador:
+
+- [ ] **Titular del certificado** (CN del subject) anotado:
+      ___________________________
+- [ ] **Cédula del titular** (de `IDCDO-XXXXXXXXXXX` o equivalente
+      en serialNumber): _________________
+- [ ] **RNC emisor** que se usará en e-CFs:
+      _________________ (debe coincidir con
+      `dgii_settings.rncEmisor` y con `businesses.rnc`).
+- [ ] **Relación titular ↔ contribuyente** documentada (empleado
+      autorizado, representante legal, dueño del RNC, etc.):
+      ___________________________
+- [ ] **Designación oficial como Usuario Administrador e-CF**
+      registrada en DGII o documento que delegue al titular como
+      representante autorizado del RNC para firma e-CF: SÍ / NO
+      (con referencia al documento si SÍ).
+- [ ] **Entidad certificadora autorizada DGII / INDOTEL** que emitió
+      el cert: ___________________________ (ej. Viafirma Dominicana,
+      Avansi, Certi-Empresa). Validar contra la lista vigente en
+      INDOTEL antes de Fase G.
+- [ ] Cert NO está revocado (verificar CRL/OCSP de la CA emisora).
+
+Si cualquier ítem está NO o sin confirmar, Fase G permanece
+bloqueada — no se envía a `testecf` ni `ecf`.
+
+### 3.8 audit_logs INSERT (migración 0007)
+
+`audit_logs` originalmente solo tenía policy `SELECT` con guardia
+`business_id`. Los INSERT desde usuarios autenticados (no
+service_role) fallaban con `new row violates row-level security
+policy for table "audit_logs"`. La migración `0007_audit_logs_insert_policy.sql`
+agrega `audit_logs_insert`:
+
+- Permite INSERT cuando `business_id = auth_business_id()`
+  (sin cross-business).
+- Restringe `user_id` a NULL o `auth.uid()` (no suplantación de
+  auditoría de otro usuario).
+- 100% aditiva (idempotente, no toca data, no cambia el SELECT
+  existente).
+
+Aplicar via MCP Supabase o `npx supabase db push` cuando esté
+disponible. La prueba local funcional pasa sin migración 0007 aunque
+emite un `audit warning` de RLS — el cert sí se persiste; solo la
+fila de auditoría se pierde.
 
 ---
 

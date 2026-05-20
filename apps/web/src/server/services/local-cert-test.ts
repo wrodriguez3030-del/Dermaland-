@@ -1,6 +1,10 @@
 import "server-only";
 import forge from "node-forge";
 import { parsePkcs12 } from "./certificate-service";
+import { buildEcfXml, EcfBuilderInvalidInput } from "./dgii/builder";
+import { signEcfXml } from "./dgii/signer";
+import { validateEcfXml } from "./dgii/validator";
+import type { EcfBuilderInput } from "./dgii/types";
 
 /**
  * Prueba local del certificado (NO envía nada a DGII).
@@ -17,10 +21,15 @@ import { parsePkcs12 } from "./certificate-service";
  *  6. Re-verifica la firma con la clave pública del cert para
  *     confirmar consistencia.
  *  7. Valida estructura mínima del XML firmado (well-formed +
- *     elementos obligatorios). NO valida contra XSD oficial DGII —
- *     eso requiere libxmljs y queda para Fase G.
+ *     elementos obligatorios).
  *  8. Genera un payload de QR mock con campos del e-CF.
- *  9. Devuelve evidencia. NUNCA expone la clave privada ni la
+ *  9. (opcional, si el caller pasa `xsdContent`) Construye un e-CF
+ *     tipo 32 REAL con `buildEcfXml`, lo firma con `signEcfXml`
+ *     (XMLDSig enveloped) y lo valida contra el XSD oficial DGII vía
+ *     `validateEcfXml` (xmllint-wasm). Este paso prueba que el
+ *     certificado puede producir XML que pasa el schema oficial,
+ *     sin enviar a DGII.
+ * 10. Devuelve evidencia. NUNCA expone la clave privada ni la
  *     contraseña.
  *
  * El XML firmado y el cert PEM son información que iría dentro del
@@ -50,7 +59,8 @@ export interface LocalTestEvidence {
       | "xml_signed"
       | "signature_verified"
       | "structure_valid"
-      | "qr_generated";
+      | "qr_generated"
+      | "xsd_valid";
     ok: boolean;
     detail?: string;
   }[];
@@ -286,11 +296,19 @@ export interface RunLocalCertTestArgs {
   rncEmisor: string;
   /** Razón social del emisor. */
   razonSocialEmisor: string;
+  /**
+   * Contenido del XSD oficial DGII para e-CF tipo 32 (Consumo) como
+   * string UTF-8. Si se omite, el paso `xsd_valid` no se ejecuta y la
+   * evidencia conserva los 7 pasos clásicos. Se mantiene opcional para
+   * que la versión sin XSD siga funcionando offline (tests con cert
+   * dummy, entornos sin `docs/dgii/xsd/`).
+   */
+  xsdContentEcf32?: string;
 }
 
-export function runLocalCertTest(
+export async function runLocalCertTest(
   args: RunLocalCertTestArgs,
-): LocalTestEvidence {
+): Promise<LocalTestEvidence> {
   const testId = randomId();
   const executedAt = new Date().toISOString();
   const steps: LocalTestEvidence["steps"] = [];
@@ -398,6 +416,90 @@ export function runLocalCertTest(
     xmlSha256,
   });
   steps.push({ name: "qr_generated", ok: true });
+
+  // 9. (opcional) Validación XSD real con e-CF tipo 32 firmado.
+  //
+  // Solo se ejecuta si el caller entrega el contenido del XSD oficial
+  // DGII e-CF-32. Construye un e-CF MÍNIMO VÁLIDO con `buildEcfXml`,
+  // lo firma con `signEcfXml` (XMLDSig enveloped, mismo formato que
+  // se enviaría a DGII en Fase G) y lo valida contra el XSD con
+  // `validateEcfXml` (xmllint-wasm). Si pasa, demuestra que el cert
+  // produce XML aceptable estructuralmente por DGII — sin enviar nada.
+  if (args.xsdContentEcf32) {
+    try {
+      const privateKeyPem = forge.pki.privateKeyToPem(
+        material.privateKey as forge.pki.PrivateKey,
+      );
+      const ecfInput: EcfBuilderInput = {
+        tipoEcf: "32",
+        eNcf: "E320000000001",
+        fechaVencimientoSecuencia: new Date(
+          new Date().getFullYear() + 2,
+          11,
+          31,
+        ),
+        tipoIngresos: "01",
+        tipoPago: 1,
+        emisor: {
+          rncEmisor: rncFromCert,
+          razonSocialEmisor: args.razonSocialEmisor,
+          direccionEmisor: "Prueba local sin envio DGII",
+          fechaEmision: new Date(),
+        },
+        comprador: {},
+        totales: {
+          montoGravadoTotal: 100,
+          itbis1: 18,
+          totalItbis: 18,
+          totalItbis1: 18,
+          montoTotal: 118,
+        },
+        items: [
+          {
+            numeroLinea: 1,
+            indicadorFacturacion: 1,
+            nombreItem: "Producto demo prueba local certificado",
+            indicadorBienoServicio: 1,
+            cantidadItem: 1,
+            precioUnitarioItem: 100,
+            montoItem: 100,
+          },
+        ],
+        fechaHoraFirma: new Date(),
+      };
+      const unsignedReal = buildEcfXml(ecfInput);
+      const { xml: signedReal } = signEcfXml({
+        xml: unsignedReal,
+        certificatePem: material.pem,
+        privateKeyPem,
+      });
+      const xsdResult = await validateEcfXml({
+        xml: signedReal,
+        xsd: args.xsdContentEcf32,
+      });
+      const firstErr = xsdResult.errors[0];
+      steps.push({
+        name: "xsd_valid",
+        ok: xsdResult.valid,
+        detail: xsdResult.valid
+          ? "e-CF tipo 32 real firmado pasa XSD oficial DGII"
+          : `XSD rechazó ${xsdResult.errors.length} error(es). Primero: ${
+              firstErr ? firstErr.message.slice(0, 160) : "sin detalle"
+            }`,
+      });
+    } catch (err) {
+      const msg = err instanceof EcfBuilderInvalidInput
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : String(err);
+      steps.push({
+        name: "xsd_valid",
+        ok: false,
+        detail: `validación XSD no se pudo completar: ${msg.slice(0, 160)}`,
+      });
+    }
+  }
 
   const allOk = steps.every((s) => s.ok);
 

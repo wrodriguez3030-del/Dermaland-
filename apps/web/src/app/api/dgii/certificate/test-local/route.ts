@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { getSession } from "@/server/auth/context";
 import { isCertificateUploadEnabled } from "@/lib/env";
 import {
@@ -11,6 +13,33 @@ import {
   type LocalTestEvidence,
 } from "@/server/services/local-cert-test";
 import { getRepositories } from "@/server/repositories";
+
+/**
+ * Carga el XSD oficial e-CF tipo 32 desde `docs/dgii/xsd/`.
+ *
+ * En dev (next dev en apps/web), `process.cwd()` es la carpeta de la app
+ * y la subida con `../..` resuelve a la raíz del monorepo. En Vercel
+ * Functions, el bundler de Next.js debe incluir el archivo vía
+ * `outputFileTracingIncludes` (configurado en `next.config.ts`); si
+ * faltara, retornamos `null` y el paso XSD se omite — el resto del flujo
+ * de prueba local no se rompe.
+ */
+async function readEcf32Xsd(): Promise<string | null> {
+  try {
+    const xsdPath = path.resolve(
+      process.cwd(),
+      "..",
+      "..",
+      "docs",
+      "dgii",
+      "xsd",
+      "e-CF-32-v1.0.xsd",
+    );
+    return await fs.readFile(xsdPath, "utf8");
+  } catch {
+    return null;
+  }
+}
 
 /**
  * POST /api/dgii/certificate/test-local
@@ -106,14 +135,18 @@ export async function POST() {
     );
   }
 
+  // Cargar XSD oficial e-CF tipo 32 (opcional; si falta, paso xsd_valid se omite).
+  const xsdContentEcf32 = (await readEcf32Xsd()) ?? undefined;
+
   // Ejecutar prueba local.
   let evidence: LocalTestEvidence;
   try {
-    evidence = runLocalCertTest({
+    evidence = await runLocalCertTest({
       p12Bytes: material.p12Bytes,
       password: material.password,
       rncEmisor: rnc,
       razonSocialEmisor: razonSocial,
+      xsdContentEcf32,
     });
   } catch (err) {
     if (err instanceof LocalCertTestError) {
