@@ -21,12 +21,15 @@ import * as React from "react";
  */
 
 export type EnablementStepId =
+  | "certificado_digital"
+  | "configuracion_fiscal"
   | "postulacion"
   | "pruebas_ecf"
   | "representaciones"
   | "url_produccion"
   | "declaracion_jurada"
-  | "roles_ncf";
+  | "roles_ncf"
+  | "estado_final";
 
 export type EnablementStatus =
   | "pending"

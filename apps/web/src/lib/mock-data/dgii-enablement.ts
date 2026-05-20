@@ -1,7 +1,7 @@
 /**
  * Catálogo declarativo de pasos de habilitación DGII.
  *
- * Define los 6 pasos del wizard `/dgii/habilitacion` con su título,
+ * Define los 9 pasos del wizard `/dgii/habilitacion` con su título,
  * descripción, checklist sugerido y links a los módulos que el usuario
  * debe completar. Esto es 100% mock — no contacta DGII, no toca
  * Supabase, no envía nada.
@@ -35,16 +35,56 @@ export interface EnablementStepDef {
   defaultStatus: EnablementStatus;
   /** Si el paso está bloqueado por fase futura no autorizada. */
   blockedReason?: string;
+  /**
+   * Si el paso es informativo (read-only). Se usa para `estado_final`,
+   * que muestra el resumen calculado en vez de un checklist accionable.
+   */
+  readOnly?: boolean;
+  /** Dimensión global a la que aporta este paso (para el evaluador). */
+  dimension?:
+    | "certificate"
+    | "fiscal_config"
+    | "postulacion"
+    | "tests_ecf"
+    | "representaciones"
+    | "urls"
+    | "declaracion"
+    | "roles_ncf"
+    | "final";
 }
 
 export const dgiiEnablementSteps: EnablementStepDef[] = [
   {
-    id: "postulacion",
+    id: "certificado_digital",
     order: 1,
-    title: "Generación de la postulación",
-    shortLabel: "Postulación DGII",
+    title: "Certificado digital",
+    shortLabel: "Certificado",
     description:
-      "Preparar la postulación al contribuyente electrónico ante DGII: datos fiscales del emisor, dirección, contacto y ambiente inicial.",
+      "Subir el certificado `.p12` o `.pfx` emitido por una Autoridad Certificadora aprobada por DGII. Es el primer requisito: sin certificado no se puede firmar XAdES-BES los XML ni avanzar la habilitación.",
+    checklist: [
+      { id: "cert-archivo", label: "Archivo .p12 / .pfx disponible localmente" },
+      { id: "cert-vigencia", label: "Vigencia del certificado verificada (no vencido)" },
+      { id: "cert-titular", label: "Titular coincide con RNC del negocio" },
+      { id: "cert-password", label: "Contraseña del certificado custodiada (KMS / Vault)" },
+      { id: "cert-subida", label: "Certificado subido al módulo /dgii/certificado" },
+      { id: "cert-activo", label: "Certificado marcado como activo en el sistema" },
+    ],
+    route: "/dgii/certificado",
+    relatedRoutes: [{ label: "Configuración fiscal", href: "/dgii/configuracion" }],
+    requiresAccountant: false,
+    requiresDgii: true,
+    defaultStatus: "pending",
+    dimension: "certificate",
+    blockedReason:
+      "Subida real del .p12 + contraseña bloqueada hasta autorizar Fase F (Certificado real).",
+  },
+  {
+    id: "configuracion_fiscal",
+    order: 2,
+    title: "Configuración fiscal",
+    shortLabel: "Config fiscal",
+    description:
+      "Cargar los datos fiscales del emisor: RNC, razón social, dirección, municipio/provincia, contacto y ambiente DGII inicial (testecf por defecto). Estos datos viajan en cada XML emitido.",
     checklist: [
       { id: "rnc", label: "RNC del emisor validado (9 u 11 dígitos)" },
       { id: "razon-social", label: "Razón social declarada" },
@@ -53,18 +93,46 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
       { id: "provincia-municipio", label: "Provincia y municipio (códigos DGII)" },
       { id: "correo", label: "Correo fiscal de contacto" },
       { id: "telefono", label: "Teléfono fiscal" },
-      { id: "responsable", label: "Representante/responsable designado" },
       { id: "ambiente", label: "Ambiente inicial: testecf o certecf" },
     ],
     route: "/dgii/configuracion",
-    relatedRoutes: [{ label: "Certificado digital", href: "/dgii/certificado" }],
+    relatedRoutes: [{ label: "Certificado", href: "/dgii/certificado" }],
     requiresAccountant: false,
     requiresDgii: false,
     defaultStatus: "pending",
+    dimension: "fiscal_config",
+  },
+  {
+    id: "postulacion",
+    order: 3,
+    title: "Generación de la postulación",
+    shortLabel: "Postulación DGII",
+    description:
+      "Generar el formulario y la documentación que se entrega a DGII para iniciar la habilitación como contribuyente electrónico (postulación al ambiente testecf y luego certecf).",
+    checklist: [
+      { id: "datos-completos", label: "Datos fiscales paso 2 verificados" },
+      { id: "cert-listo", label: "Certificado del paso 1 listo y vigente" },
+      { id: "responsable", label: "Representante / responsable designado" },
+      { id: "formulario", label: "Formulario de postulación generado (mock PDF)" },
+      { id: "anexos", label: "Anexos preparados (cert, identidad, RNC, contacto)" },
+      { id: "envio-dgii", label: "Postulación entregada a DGII (offline / portal DGII)" },
+      { id: "aprobacion-dgii", label: "Aprobación de postulación recibida" },
+    ],
+    route: "/dgii/habilitacion",
+    relatedRoutes: [
+      { label: "Configuración fiscal", href: "/dgii/configuracion" },
+      { label: "Certificado", href: "/dgii/certificado" },
+    ],
+    requiresAccountant: true,
+    requiresDgii: true,
+    defaultStatus: "pending",
+    dimension: "postulacion",
+    blockedReason:
+      "El envío real a DGII queda offline; el sistema solo guía el proceso.",
   },
   {
     id: "pruebas_ecf",
-    order: 2,
+    order: 4,
     title: "Pruebas de simulación e-CF",
     shortLabel: "Simulación e-CF",
     description:
@@ -85,10 +153,11 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
     requiresAccountant: false,
     requiresDgii: false,
     defaultStatus: "pending",
+    dimension: "tests_ecf",
   },
   {
     id: "representaciones",
-    order: 3,
+    order: 5,
     title: "Representaciones impresas",
     shortLabel: "PDF / QR",
     description:
@@ -111,11 +180,12 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
     requiresAccountant: false,
     requiresDgii: false,
     defaultStatus: "pending",
+    dimension: "representaciones",
   },
   {
     id: "url_produccion",
-    order: 4,
-    title: "URL Servicios de Producción",
+    order: 6,
+    title: "URL servicios de producción",
     shortLabel: "URLs de servicios",
     description:
       "Preparar los endpoints HTTP del contribuyente que DGII podría requerir para producción. Hoy son mock/stub; cuando se autorice Fase G/H se conectan a DGII real.",
@@ -133,12 +203,13 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
     requiresAccountant: false,
     requiresDgii: true,
     defaultStatus: "pending",
+    dimension: "urls",
     blockedReason:
       "Conexión real DGII bloqueada hasta autorización Fase G (envío) / Fase H (status).",
   },
   {
     id: "declaracion_jurada",
-    order: 5,
+    order: 7,
     title: "Declaración jurada",
     shortLabel: "Declaración jurada",
     description:
@@ -146,8 +217,8 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
     checklist: [
       { id: "datos-fiscales", label: "Datos fiscales revisados con contador" },
       { id: "secuencias", label: "Secuencias e-NCF cargadas y revisadas" },
-      { id: "cert", label: "Certificado digital configurado" },
-      { id: "pruebas", label: "Pruebas e-CF realizadas (paso 2)" },
+      { id: "cert", label: "Certificado digital configurado y activo" },
+      { id: "pruebas", label: "Pruebas e-CF realizadas (paso 4)" },
       { id: "representaciones", label: "Representaciones impresas revisadas" },
       { id: "urls", label: "URLs de servicios revisadas" },
       { id: "contador", label: "Contador validó reglas fiscales" },
@@ -161,10 +232,11 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
     requiresAccountant: true,
     requiresDgii: true,
     defaultStatus: "pending",
+    dimension: "declaracion",
   },
   {
     id: "roles_ncf",
-    order: 6,
+    order: 8,
     title: "Asignación de roles y NCF",
     shortLabel: "Roles y NCF",
     description:
@@ -188,12 +260,29 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
     requiresAccountant: true,
     requiresDgii: false,
     defaultStatus: "pending",
+    dimension: "roles_ncf",
     blockedReason:
       "Asignación efectiva por DB queda mock hasta aplicar migraciones 0003/0004/0005 (Fase C).",
   },
+  {
+    id: "estado_final",
+    order: 9,
+    title: "Estado final de habilitación",
+    shortLabel: "Estado final",
+    description:
+      "Resumen automático del estado de habilitación DGII. Calculado a partir de los 8 pasos anteriores. Este paso no se marca manualmente; se actualiza cuando los otros pasos cambian.",
+    checklist: [],
+    route: "/dgii/habilitacion",
+    relatedRoutes: [],
+    requiresAccountant: false,
+    requiresDgii: true,
+    defaultStatus: "pending",
+    dimension: "final",
+    readOnly: true,
+  },
 ];
 
-/** Lista de permisos DGII/caja relevantes para mostrar en el paso 6. */
+/** Lista de permisos DGII/caja relevantes para mostrar en el paso de roles. */
 export const dgiiEnablementRelevantPermissions = [
   "dgii:configure",
   "dgii:certificate:upload",
@@ -210,7 +299,7 @@ export const dgiiEnablementRelevantPermissions = [
   "cash:change_closing_percentage",
 ] as const;
 
-/** URLs de servicios planificadas (paso 4). */
+/** URLs de servicios planificadas (paso 6). */
 export const dgiiEnablementServiceUrls = [
   {
     path: "/api/dgii/recepcion",

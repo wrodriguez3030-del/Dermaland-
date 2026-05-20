@@ -17,7 +17,10 @@ import {
   ExternalLink,
   Globe,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
+  PlayCircle,
+  ListChecks,
 } from "lucide-react";
 import { EnablementStepCard } from "@/components/dgii/enablement-step-card";
 import { EnablementStatusBadge } from "@/components/dgii/enablement-status-badge";
@@ -29,94 +32,136 @@ import {
 } from "@/lib/mock-data/dgii-enablement";
 import {
   useEnablementProgress,
-  computeProgressPercent,
   resetEnablement,
-  type EnablementStatus,
 } from "@/features/dgii/enablement-store";
+import { useCertificateStatus } from "@/features/dgii/certificate-status-store";
+import {
+  evaluateEnablement,
+  ENABLEMENT_GLOBAL_STATUS_LABEL,
+  ENABLEMENT_GLOBAL_STATUS_TONE,
+  type EnablementEvaluation,
+} from "@/features/dgii/enablement-evaluator";
 
 /**
- * Habilitación Facturación Electrónica DGII (wizard mock).
+ * Habilitación Facturación Electrónica DGII — wizard tipo Alegra.
  *
- * Wizard/checklist vertical con los 6 pasos del proceso de habilitación
- * ante DGII. Persiste el progreso en localStorage. NO contacta DGII,
- * NO toca Supabase real, NO firma con certificado real. Todas las
- * acciones marcables son ejercicios para el equipo del negocio.
+ * 9 pasos en orden:
+ *  1. Certificado digital   2. Configuración fiscal   3. Postulación
+ *  4. Pruebas e-CF          5. Representaciones        6. URL servicios
+ *  7. Declaración jurada    8. Roles y NCF             9. Estado final
+ *
+ * Persiste el progreso en localStorage. NO contacta DGII, NO toca
+ * Supabase real, NO firma con certificado real.
  */
 export default function DgiiHabilitacionPage() {
   const progressList = useEnablementProgress();
+  const certificate = useCertificateStatus();
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  const [evaluation, setEvaluation] =
+    React.useState<EnablementEvaluation | null>(null);
+
+  // Auto-evaluar siempre que cambie progreso o certificado.
+  React.useEffect(() => {
+    setEvaluation(evaluateEnablement(progressList, certificate));
+  }, [progressList, certificate]);
 
   const total = dgiiEnablementSteps.length;
-  const percent = computeProgressPercent(total, progressList);
-  const completedCount = progressList.filter(
-    (p) => p.status === "completed",
-  ).length;
-  const inProgressCount = progressList.filter(
-    (p) => p.status === "in_progress",
-  ).length;
-  const blockedCount = progressList.filter(
-    (p) => p.status === "blocked",
-  ).length;
-  const pendingCount = total - completedCount - inProgressCount - blockedCount;
+  const actionableTotal = total - 1; // excluye estado_final
+  const completedCount = evaluation?.totals.completed ?? 0;
+  const inProgressCount = evaluation?.totals.inProgress ?? 0;
+  const blockedCount = evaluation?.totals.blocked ?? 0;
+  const pendingCount = evaluation?.totals.pending ?? actionableTotal;
+  const percent =
+    actionableTotal === 0
+      ? 0
+      : Math.round((completedCount / actionableTotal) * 100);
 
-  const nextStep = dgiiEnablementSteps.find((s) => {
-    const p = progressList.find((pp) => pp.stepId === s.id);
-    const status: EnablementStatus = p?.status ?? s.defaultStatus;
-    return status !== "completed";
-  });
+  const runReview = () => {
+    setEvaluation(evaluateEnablement(progressList, certificate));
+  };
+
+  const globalStatus = evaluation?.globalStatus ?? "not_started";
+  const globalLabel = ENABLEMENT_GLOBAL_STATUS_LABEL[globalStatus];
+  const globalTone = ENABLEMENT_GLOBAL_STATUS_TONE[globalStatus];
 
   return (
     <>
       <PageHeader
         title="Habilitación Facturación Electrónica DGII"
-        description="Asistente paso a paso para dejar tu negocio listo para emitir e-CF. Modo mock: no se envía nada a DGII."
+        description="Asistente paso a paso, estilo wizard, para dejar tu negocio listo para emitir e-CF. Modo MOCK / DEMO — no se envía nada a DGII."
         breadcrumbs={[
           { label: "DGII", href: "/dgii" },
           { label: "Habilitación" },
         ]}
         actions={
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (confirm("¿Reiniciar progreso de habilitación?")) {
-                resetEnablement();
-              }
-            }}
-            aria-label="Reiniciar progreso"
-          >
-            Reiniciar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={runReview}>
+              <PlayCircle className="h-4 w-4" />
+              Ejecutar revisión de habilitación
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (confirm("¿Reiniciar progreso de habilitación?")) {
+                  resetEnablement();
+                }
+              }}
+              aria-label="Reiniciar progreso"
+            >
+              Reiniciar
+            </Button>
+          </div>
         }
       />
 
+      {/* Aviso MOCK/DEMO/NO FISCAL persistente */}
       <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-5">
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
           <div className="text-sm text-amber-900">
-            <strong>Asistente mock / demo / no fiscal.</strong> Este wizard
-            es una guía interna. No envía postulación a DGII, no firma
-            con certificado real, no consume secuencias reales y no
-            cambia DNS. Cuando se autorice Fase C/G/H, los pasos que hoy
-            quedan en estado <code className="font-mono text-xs">blocked</code>{" "}
-            se activan automáticamente.
+            <strong>MOCK / DEMO / NO FISCAL.</strong> Este wizard guía el
+            proceso de habilitación. <em>No</em> envía postulación a DGII,
+            <em> no</em> firma con certificado real, <em>no</em> consume
+            secuencias reales y <em>no</em> cambia DNS. Cuando se autoricen
+            Fases C/F/G/H, los pasos hoy en estado{" "}
+            <code className="font-mono text-xs">blocked</code> se activan.
           </div>
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-[2fr_1fr]">
+      {/* Panel global: Estado de habilitación DGII + Progreso + Próximo paso */}
+      <div className="mb-6 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[color:var(--brand-accent)]" />
-              Progreso general
+              <ListChecks className="h-5 w-5 text-[color:var(--brand-accent)]" />
+              Estado de habilitación DGII
             </CardTitle>
             <p className="mt-1 text-sm opacity-60">
-              {completedCount} de {total} pasos completados ({percent}%).
+              Cálculo automático a partir del certificado y los 8 pasos del
+              wizard.
             </p>
           </CardHeader>
           <CardContent>
-            <div className="mb-3 h-3 overflow-hidden rounded-full bg-black/5">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge tone={globalTone} className="text-sm">
+                {globalLabel}
+              </Badge>
+              <span className="text-xs opacity-60">
+                Certificado:{" "}
+                {certificate.status === "valid"
+                  ? "válido"
+                  : certificate.status === "uploaded"
+                    ? "cargado"
+                    : certificate.status === "expired"
+                      ? "vencido"
+                      : certificate.status === "invalid"
+                        ? "inválido"
+                        : "sin cargar"}
+              </span>
+            </div>
+            <div className="mt-4 mb-2 h-3 overflow-hidden rounded-full bg-black/5">
               <div
                 role="progressbar"
                 aria-valuenow={percent}
@@ -127,7 +172,11 @@ export default function DgiiHabilitacionPage() {
                 style={{ width: `${percent}%` }}
               />
             </div>
-            <div className="flex flex-wrap gap-2 text-xs">
+            <p className="text-xs opacity-60">
+              {completedCount} de {actionableTotal} pasos completados (
+              {percent}%).
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
               <Badge tone="success">
                 <CheckCircle2 className="h-3 w-3" />
                 {completedCount} finalizados
@@ -138,6 +187,12 @@ export default function DgiiHabilitacionPage() {
                 <Badge tone="danger">{blockedCount} bloqueados</Badge>
               )}
             </div>
+            {evaluation?.evaluatedAt && (
+              <p className="mt-3 text-[11px] opacity-50">
+                Última evaluación:{" "}
+                {new Date(evaluation.evaluatedAt).toLocaleString("es-DO")}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -146,20 +201,20 @@ export default function DgiiHabilitacionPage() {
             <CardTitle>Próximo paso recomendado</CardTitle>
           </CardHeader>
           <CardContent>
-            {nextStep ? (
+            {evaluation?.nextStep ? (
               <>
-                <p className="text-sm font-medium">{nextStep.title}</p>
+                <p className="text-sm font-medium">{evaluation.nextStep.title}</p>
                 <p className="mt-1 text-xs opacity-60">
-                  Paso {nextStep.order} de {total}
+                  Paso {evaluation.nextStep.order} de {total}
                 </p>
                 <div className="mt-3 flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() => setExpandedId(nextStep.id)}
+                    onClick={() => setExpandedId(evaluation.nextStep!.id)}
                   >
                     Ver detalle
                   </Button>
-                  <Link href={nextStep.route}>
+                  <Link href={evaluation.nextStep.route}>
                     <Button variant="outline" size="sm">
                       <ExternalLink className="h-4 w-4" />
                       Ir al módulo
@@ -169,18 +224,113 @@ export default function DgiiHabilitacionPage() {
               </>
             ) : (
               <p className="text-sm opacity-70">
-                ¡Todos los pasos están en estado completado en el sistema
-                mock! Recuerda validar con DGII y contador antes de Fase C/G.
+                Todos los pasos están en estado completado (mock). Recuerda
+                validar con DGII y contador antes de Fase C/F/G/H.
               </p>
             )}
           </CardContent>
         </Card>
       </div>
 
+      {/* Resultado de la última revisión: diagnóstico por dimensión */}
+      {evaluation && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-[color:var(--brand-accent)]" />
+              Revisión de habilitación
+            </CardTitle>
+            <p className="mt-1 text-sm opacity-60">
+              Diagnóstico paso a paso (qué está completo, qué pendiente, qué
+              bloqueado).
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <ul className="divide-y divide-black/5 text-sm">
+              {evaluation.diagnostics.map((d) => (
+                <li key={d.stepId} className="flex items-start gap-3 py-2">
+                  <span className="min-w-[160px]">
+                    <EnablementStatusBadge status={d.status} />
+                  </span>
+                  <div className="flex-1">
+                    <p className="font-medium">{d.title}</p>
+                    <p className="text-xs opacity-70">{d.summary}</p>
+                    <p className="text-xs opacity-60">
+                      Sugerencia: {d.recommendation}
+                    </p>
+                  </div>
+                  {d.blocked && (
+                    <Badge tone="warning" className="shrink-0 self-center">
+                      bloqueo conocido
+                    </Badge>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+              {evaluation.mockNotice}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Wizard 9 pasos */}
       <div className="space-y-3">
         {dgiiEnablementSteps.map((step) => {
           const progress = progressList.find((p) => p.stepId === step.id);
           const expanded = expandedId === step.id;
+
+          if (step.id === "estado_final") {
+            return (
+              <Card
+                key={step.id}
+                className="overflow-hidden border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5"
+              >
+                <CardHeader>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-primary)]/15 text-xs font-semibold text-[color:var(--brand-accent)]">
+                        {step.order}
+                      </span>
+                      <div>
+                        <CardTitle className="flex flex-wrap items-center gap-2">
+                          <span>{step.title}</span>
+                          <Badge tone={globalTone}>{globalLabel}</Badge>
+                        </CardTitle>
+                        <p className="mt-1 text-sm opacity-70">
+                          {step.description}
+                        </p>
+                      </div>
+                    </div>
+                    <Button size="sm" onClick={runReview}>
+                      <PlayCircle className="h-4 w-4" />
+                      Refrescar
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-xl border border-black/5 bg-white p-3 text-sm">
+                    <div className="flex items-start gap-2">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 text-[color:var(--brand-accent)]" />
+                      <div>
+                        <p>
+                          <strong>{globalLabel}.</strong> Próximo paso:{" "}
+                          {evaluation?.nextStep
+                            ? evaluation.nextStep.title
+                            : "ninguno (todo completado en mock)"}
+                          .
+                        </p>
+                        <p className="mt-1 text-xs opacity-70">
+                          {evaluation?.mockNotice}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
           return (
             <EnablementStepCard
               key={step.id}
@@ -188,12 +338,15 @@ export default function DgiiHabilitacionPage() {
               progress={progress}
               expanded={expanded}
               onToggle={() => setExpandedId(expanded ? null : step.id)}
+              certificate={
+                step.id === "certificado_digital" ? certificate : undefined
+              }
             />
           );
         })}
       </div>
 
-      {/* Panel auxiliar: URLs planificadas (referencia para paso 4) */}
+      {/* Panel auxiliar: URLs planificadas (referencia para paso 6) */}
       <Card className="mt-8">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -231,7 +384,7 @@ export default function DgiiHabilitacionPage() {
         </CardContent>
       </Card>
 
-      {/* Permisos relevantes — referencia paso 6 */}
+      {/* Permisos relevantes — referencia paso 8 */}
       <Card className="mt-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -29,13 +29,24 @@ const SIDEBAR_PATH = path.resolve(
 );
 
 describe("dgii-enablement catalog", () => {
-  it("declara exactamente 6 pasos", () => {
-    expect(dgiiEnablementSteps).toHaveLength(6);
+  it("declara exactamente 9 pasos (incluye certificado_digital y estado_final)", () => {
+    expect(dgiiEnablementSteps).toHaveLength(9);
   });
 
-  it("los pasos están ordenados 1..6", () => {
+  it("los pasos están ordenados 1..9", () => {
     const orders = dgiiEnablementSteps.map((s) => s.order);
-    expect(orders).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it("paso 1 es Certificado digital y paso 9 es Estado final", () => {
+    expect(dgiiEnablementSteps[0]?.id).toBe("certificado_digital");
+    expect(dgiiEnablementSteps[8]?.id).toBe("estado_final");
+  });
+
+  it("estado_final es read-only (sin checklist accionable)", () => {
+    const final = dgiiEnablementSteps.find((s) => s.id === "estado_final");
+    expect(final?.readOnly).toBe(true);
+    expect(final?.checklist).toHaveLength(0);
   });
 
   it("los IDs son únicos", () => {
@@ -43,8 +54,9 @@ describe("dgii-enablement catalog", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("cada paso tiene checklist con ≥3 items con IDs únicos", () => {
+  it("cada paso accionable tiene checklist con ≥3 items con IDs únicos", () => {
     for (const step of dgiiEnablementSteps) {
+      if (step.readOnly) continue;
       expect(step.checklist.length).toBeGreaterThanOrEqual(3);
       const ids = step.checklist.map((c) => c.id);
       expect(new Set(ids).size).toBe(ids.length);
@@ -65,13 +77,13 @@ describe("dgii-enablement catalog", () => {
     expect(url?.blockedReason).toMatch(/Fase G|Fase H/);
   });
 
-  it("ningún paso declara endpoint o credencial real", () => {
+  it("ningún paso declara endpoint DGII real activo", () => {
     const blob = JSON.stringify(dgiiEnablementSteps);
-    // Patrones que NO deben aparecer
-    expect(blob).not.toMatch(/\.p12/);
-    expect(blob).not.toMatch(/\.pfx/);
-    expect(blob).not.toMatch(/cert\..{2,5}\b/i);
+    // El catálogo puede MENCIONAR conceptos (.p12, .pfx) en descripciones,
+    // pero no debe contener URLs DGII reales activas ni rutas a archivos.
     expect(blob).not.toMatch(/ecf\.dgii\.gov\.do\/ecf\b/);
+    expect(blob).not.toMatch(/https?:\/\/[^"]*\.p12/);
+    expect(blob).not.toMatch(/\/cert[a-z]*\.p12/i);
   });
 
   it("dgiiEnablementServiceUrls son todos mock o stub (nunca live)", () => {
@@ -118,16 +130,20 @@ describe("/dgii/habilitacion page", () => {
     expect(source).toMatch(/aria-valuenow=\{percent\}/);
   });
 
-  it("incluye links a los 6 módulos referenciados por los pasos", () => {
-    // Cada step.route debe aparecer al menos una vez en el componente
-    // (vía dgiiEnablementSteps o links explícitos)
+  it("incluye links a los 9 módulos referenciados por los pasos", () => {
     const allRoutes = new Set(dgiiEnablementSteps.map((s) => s.route));
-    // /admin/permisos también debe estar visible (CTA panel permisos)
     expect(source).toMatch(/\/admin\/permisos/);
-    // Las rutas exactas viven en el catálogo importado; con que el
-    // import esté presente alcanza, pero verificamos algunas clave.
     expect(allRoutes.has("/dgii/configuracion")).toBe(true);
     expect(allRoutes.has("/dgii/certificacion")).toBe(true);
+    expect(allRoutes.has("/dgii/certificado")).toBe(true);
+  });
+
+  it("incluye el botón Ejecutar revisión de habilitación", () => {
+    expect(source).toMatch(/Ejecutar revisi[oó]n de habilitaci[oó]n/);
+  });
+
+  it("incluye el panel Estado de habilitación DGII", () => {
+    expect(source).toMatch(/Estado de habilitaci[oó]n DGII/);
   });
 
   it("incluye leyenda con los 7 estados", () => {
