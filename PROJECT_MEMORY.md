@@ -7,6 +7,107 @@
 
 ---
 
+## 0.0b · Sesión 2026-05-19 (noche tarde) — Preview Supabase autenticado
+
+**Resultado:** Vercel Preview con `DATA_SOURCE=supabase` desplegado y
+`Ready`. Auth Supabase real funcional (usuario seed `preview-admin@…`
+con claims `business_id`/`role`/`is_platform_admin` en
+`raw_app_meta_data` + `raw_user_meta_data`). Producción intacta
+(0 env vars en Vercel).
+
+**Qué se hizo:**
+
+1. **Diagnóstico auth**: el middleware (`apps/web/src/middleware.ts`)
+   y `getSession()` (`server/auth/context.ts`) leen `sbUser.user_metadata`
+   (campos `business_id`, `role`, `full_name`, `branch_ids`,
+   `is_platform_admin`). RLS en SQL usaba `auth_business_id()` que
+   leía sólo del root del JWT.
+2. **Migración 0006 `0006_auth_helpers_jwt_metadata.sql`** —
+   actualiza `auth_business_id()` y `auth_is_platform_admin()` para
+   leer en orden: root → `app_metadata` → `user_metadata`. Aplicada
+   vía MCP. Sin cambios destructivos.
+3. **Bootstrap usuario seed Preview/Admin**: SQL directo vía MCP
+   (no requiere `SUPABASE_SERVICE_ROLE_KEY` ni Admin SDK) insertó:
+   - 1 fila `auth.users` con email `preview-admin@dermaland.do`,
+     password hasheada con `crypt(..., gen_salt('bf', 10))`,
+     `email_confirmed_at = now()`, claims en
+     `raw_app_meta_data` + `raw_user_meta_data`.
+   - 1 fila `auth.identities` (`provider='email'`).
+   - 1 fila `public.users` (`role='admin'`, business y branch del
+     seed mock).
+   - Counts: `auth.users=1`, `auth.identities=1`, `public.users=1`.
+   - **Password persistida en `apps/web/.env.local` como
+     `PREVIEW_ADMIN_PASSWORD` (gitignored).** Generada con
+     `secrets.token_urlsafe(24)`. No publicada en docs.
+4. **Script idempotente `scripts/bootstrap-preview-supabase-user.mjs`**
+   creado para futuras corridas vía Supabase Admin SDK (requiere
+   service_role real). Útil cuando ese secret esté disponible; el
+   approach SQL directo cumple por ahora.
+5. **Env vars Vercel Preview** (limitadas a la branch
+   `feature/dgii-module-review-adjustments`):
+   - `DATA_SOURCE` = `supabase`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **No agregadas:** `SUPABASE_SERVICE_ROLE_KEY`,
+     `SUPABASE_PROJECT_REF`, `DGII_CERT_ENCRYPTION_KEY`, `JWT_SECRET`.
+     `createServiceRoleClient()` no se invoca por ninguna ruta
+     crítica; las demás no consume el runtime activo.
+   - **Production sigue sin env vars** → `DATA_SOURCE` defaultea a
+     `mock` en `lib/env.ts:7`.
+6. **`apps/web/.env.local` actualizado** con valores reales obtenidos
+   vía MCP Supabase (URL + anon key publishable + project_ref).
+   Service role sigue siendo placeholder — no es necesario para el
+   preview actual.
+7. **Deploy preview**: `vercel deploy --no-clipboard --yes` →
+   `status: Ready`, `target: preview`, 197 output items (λ functions
+   en `iad1`). URL:
+   `https://dermaland-1h96y60m8-wrodriguez3030-4801s-projects.vercel.app`.
+8. **Validación funcional** desde curl: bloqueado por **Vercel SSO
+   Deployment Protection** (todas las rutas devuelven 401 con
+   `set-cookie: _vercel_sso_nonce`). No es bloqueo del middleware
+   de la app: la app builded y deployed correctamente. Para
+   verificar las rutas el usuario debe abrir el preview en un
+   browser autenticado en Vercel con `preview-admin@dermaland.do`
+   + password de `apps/web/.env.local`.
+9. **Validaciones locales**: `typecheck` ✅, `build` ✅ (78 páginas,
+   middleware 89.6 kB), `vitest` ✅ 382/382.
+
+**Hallazgo corregido vs sesión anterior:** el diagnóstico "los
+stubs Supabase rompen `/pos`/`/caja/cierre`/etc." era falso. Esas
+rutas son **client-only + localStorage** y no invocan
+`getRepositories()`. Las únicas rutas que hoy llaman al adapter son
+`/api/inventory-counts/sync` (`inventoryCount.*`, stubs) y
+`/dgii/configuracion` action (`dgii.saveSettings`, ya implementado).
+Por tanto no se implementaron 20 adapters Supabase — trabajo
+ahorrado.
+
+**Restricciones respetadas:**
+
+- Production sin env vars (`DATA_SOURCE` defaultea a `mock`).
+- Vercel deploy sin `--prod`.
+- No se llamó DGII real, ni `testecf`, ni `ecf`.
+- No se subió certificado `.p12`.
+- No se tocó DNS.
+- No se borraron datos (migración 0006 100% aditiva).
+- No se imprimió `SUPABASE_SERVICE_ROLE_KEY` (sigue placeholder).
+- `.env.local` y `.mcp.json` y `.claude/` quedan gitignored.
+
+**Pendientes próximos:**
+
+1. Validación visual del preview en browser (rutas del checklist).
+2. Si querés validación automatizada via curl, configurar
+   `VERCEL_AUTOMATION_BYPASS_SECRET` desde Dashboard.
+3. Eventualmente proveer `SUPABASE_SERVICE_ROLE_KEY` real para
+   habilitar el bootstrap via Admin SDK (más seguro que SQL directo)
+   y `createServiceRoleClient` server-side.
+4. Implementar los repos Supabase faltantes el día que `/pos` u otras
+   rutas migren a server actions con datos reales (no urgente —
+   localStorage es suficiente para el preview actual).
+5. Continuar bloqueado: subida real cert .p12, Fase G envío DGII,
+   Fase H status TrackId, deploy producción.
+
+---
+
 ## 0.0a · Sesión 2026-05-19 (noche) — Regen tipos Supabase + fix 0002 + 0002a_clients
 
 **Resultado:** `database.types.ts` regenerado contra el proyecto real

@@ -5,6 +5,38 @@
 
 **Última actualización:** 2026-05-19
 
+## 2026-05-19 (noche tarde) · Preview Supabase con auth real
+
+- **Vercel Preview desplegado** con `DATA_SOURCE=supabase` (env vars
+  limitadas a la branch `feature/dgii-module-review-adjustments`).
+  URL: `https://dermaland-1h96y60m8-wrodriguez3030-4801s-projects.vercel.app`.
+  Status: `Ready`, target `preview`, 197 λ functions en `iad1`.
+- **Producción intacta**: Vercel Project sigue con **0 env vars** →
+  `DATA_SOURCE` defaultea a `mock` por el schema de `lib/env.ts`.
+- **Auth Supabase real** con un solo usuario seed:
+  `preview-admin@dermaland.do` con `role='admin'`, business y branch
+  del seed mock. Claims (`business_id`, `role`, `is_platform_admin`,
+  `branch_id`, `branch_ids`, `full_name`) en `raw_app_meta_data` +
+  `raw_user_meta_data`. Password generada localmente, persistida
+  en `apps/web/.env.local` (gitignored).
+- **Migración `0006_auth_helpers_jwt_metadata.sql`** — actualiza
+  `auth_business_id()` y `auth_is_platform_admin()` para leer del
+  JWT en orden: root → `app_metadata` → `user_metadata`. Sin esto,
+  RLS bloquearía todas las queries con `auth_business_id() = null`.
+- **Script `scripts/bootstrap-preview-supabase-user.mjs`** —
+  idempotente, requiere `SUPABASE_SERVICE_ROLE_KEY` real (no es
+  obligatorio para el preview actual, pero queda listo).
+- **Validación funcional via curl bloqueada** por Vercel SSO
+  Deployment Protection (`set-cookie: _vercel_sso_nonce`). El usuario
+  debe abrir el preview en browser autenticado. La app build pasó
+  (197 lambdas, typecheck/build/vitest 382/382 localmente).
+- **Hallazgo corregido**: el bloqueador "stubs Supabase rompen
+  `/pos`/`/caja/cierre`/etc." era falso. Esas rutas son client-only
+  + localStorage y no invocan `getRepositories()`. Solo
+  `/api/inventory-counts/sync` y la server action de
+  `/dgii/configuracion` usan adapters; el primero usa stubs (no
+  bloquea preview) y el segundo ya tiene implementación real.
+
 ## 2026-05-19 (noche) · Fase C — regen `database.types.ts` + base completa en Supabase
 
 - **Hallazgo:** el proyecto Supabase `sntcvyozbhrgicwmtcoh` (URL

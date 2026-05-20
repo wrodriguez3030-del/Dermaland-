@@ -8,6 +8,54 @@
 > (`DATA_SOURCE=supabase`, Vercel env, certificado real, Fases G/H)
 > siguen **bloqueados** hasta autorización explícita.
 
+## Cierre del Paso 3 — 2026-05-19 (noche tarde) · Preview Supabase con auth real
+
+| Item                                              | Resultado                                        |
+|---------------------------------------------------|--------------------------------------------------|
+| Migración `0006_auth_helpers_jwt_metadata.sql`    | ✅ aplicada — `auth_business_id()` y `auth_is_platform_admin()` ahora leen root + app_metadata + user_metadata |
+| Bootstrap usuario seed                            | ✅ via SQL directo MCP (sin service_role)       |
+| `auth.users` / `auth.identities` / `public.users` | 1 / 1 / 1                                        |
+| Email seed                                        | `preview-admin@dermaland.do`                     |
+| Role seed                                         | `admin` (`is_platform_admin: false`)             |
+| Password seed                                     | en `apps/web/.env.local` (gitignored) — no publicada |
+| Script `scripts/bootstrap-preview-supabase-user.mjs` | ✅ creado (idempotente, requiere service_role real) |
+| Env vars Vercel Preview                           | `DATA_SOURCE`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (limitadas a branch `feature/dgii-module-review-adjustments`) |
+| Env vars Vercel Production                        | 0 (intacta)                                      |
+| Deploy preview                                    | ✅ Ready — `https://dermaland-1h96y60m8-wrodriguez3030-4801s-projects.vercel.app` |
+| Validación curl                                   | Bloqueada por Vercel SSO Deployment Protection (`set-cookie: _vercel_sso_nonce`) |
+| Validación browser                                | Pendiente al usuario                             |
+| typecheck/build/vitest local                      | ✅ verde · 78 páginas · middleware 89.6 kB · 382/382 |
+| `DATA_SOURCE` en Production                       | sigue `mock` (por default del schema)            |
+| DGII real                                         | ❌ NO tocado                                     |
+| Certificado real                                  | ❌ NO usado                                      |
+| Deploy producción                                 | ❌ NO realizado                                  |
+
+**Claims requeridos** (de `apps/web/src/server/auth/context.ts:48-73`):
+- `business_id` (uuid string) — obligatorio.
+- `role` ∈ `admin|manager|cashier|inventory|supervisor|auditor`.
+- `full_name` (opcional).
+- `branch_ids` (string[]).
+- `is_platform_admin` (boolean).
+
+**Forma de los claims en Supabase Auth:**
+- Set en `raw_app_meta_data` y `raw_user_meta_data` (espejo).
+- Supabase los entrega en el JWT como `app_metadata` y
+  `user_metadata` (sub-objetos del payload). Por eso 0006 hace que
+  RLS los lea desde esos paths.
+
+**Variables Vercel Preview configuradas (solo nombres):**
+- `DATA_SOURCE`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+**Variables NO configuradas (todavía no requeridas):**
+- `SUPABASE_SERVICE_ROLE_KEY` — `createServiceRoleClient()` no se
+  invoca por rutas del checklist actual.
+- `SUPABASE_PROJECT_REF` — sólo lo usa Supabase CLI (gen types).
+- `DGII_CERT_ENCRYPTION_KEY` — bloqueado hasta Fase F real.
+- `JWT_SECRET` — declarado optional en env schema, sin lectura
+  runtime activa.
+
 ## Cierre del Paso 2 — 2026-05-19 (noche) · Regen `database.types.ts`
 
 | Item                                                 | Resultado                                    |
