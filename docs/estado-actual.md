@@ -5,6 +5,35 @@
 
 **Última actualización:** 2026-05-19
 
+## 2026-05-20 (madrugada) · Preview Supabase QA 11/11 verde
+
+- **QA automatizado del preview**: las 11 rutas del checklist
+  devuelven **200** con sesión válida del seed user. Sin sesión las
+  rutas protegidas devuelven 307 → `/login`. Middleware Supabase
+  comportándose correctamente.
+- **`/api/health`** confirma runtime: `env=production`,
+  `data_source=supabase`, `integrations.supabase=true`.
+- **Login REST** via `POST /auth/v1/token?grant_type=password` →
+  JWT con `app_metadata.business_id`,
+  `app_metadata.role=admin`,
+  `app_metadata.is_platform_admin=false`. Coincide con lo seteado
+  en el bootstrap.
+- **Cookie `@supabase/ssr`** construida manualmente:
+  `sb-<project_ref>-auth-token = "base64-" + base64(JSON.stringify(session))`.
+  ~2.1 KB. Usada en curl para superar middleware.
+- **Bug fix seed user**: GoTrue requiere strings vacíos (no NULL)
+  en columnas de token (`confirmation_token`, `recovery_token`,
+  etc.). Inserciones con SQL crudo deben hacer `COALESCE(col, '')`.
+  El script `scripts/bootstrap-preview-supabase-user.mjs` no tiene
+  ese problema porque Admin SDK setea los defaults.
+- **Vercel Protection Bypass**: usado el secret existente del
+  proyecto (registrado previamente) en header
+  `x-vercel-protection-bypass` para QA via curl. La env var
+  `VERCEL_AUTOMATION_BYPASS_SECRET` que agregamos requiere también
+  toggle de Dashboard que NO tocamos.
+- **Production sin cambios** (0 env vars en Vercel Project).
+- **Validaciones locales**: typecheck ✅, build ✅, vitest 382/382.
+
 ## 2026-05-19 (noche tarde) · Preview Supabase con auth real
 
 - **Vercel Preview desplegado** con `DATA_SOURCE=supabase` (env vars

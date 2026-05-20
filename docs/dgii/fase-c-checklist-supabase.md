@@ -8,6 +8,52 @@
 > (`DATA_SOURCE=supabase`, Vercel env, certificado real, Fases G/H)
 > siguen **bloqueados** hasta autorización explícita.
 
+## Cierre del Paso 4 — 2026-05-20 (madrugada) · QA Preview 11/11 verde
+
+| Ruta                  | Sin sesión       | Con sesión seed |
+|-----------------------|-------------------|------------------|
+| `/api/health`         | 200 (public)      | 200              |
+| `/`                   | 307 → `/login`    | 200              |
+| `/login`              | 200 (public)      | 200              |
+| `/pos`                | 307 → `/login`    | 200              |
+| `/caja/cierre`        | 307 → `/login`    | 200              |
+| `/dgii`               | 307 → `/login`    | 200              |
+| `/dgii/habilitacion`  | 307 → `/login`    | 200              |
+| `/dgii/configuracion` | 307 → `/login`    | 200              |
+| `/dgii/secuencias`    | 307 → `/login`    | 200              |
+| `/dgii/reportes`      | 307 → `/login`    | 200              |
+| `/admin/permisos`     | 307 → `/login`    | 200              |
+
+`/api/health` payload: `{ok: true, env: "production", data_source: "supabase", integrations: {supabase: true, dgii: false, whatsapp: false, openai: false}}`.
+
+**Bug menor corregido:** los usuarios insertados con SQL crudo
+(no via Admin SDK) tienen `NULL` en columnas de token que GoTrue
+no acepta. Update aplicado:
+```sql
+UPDATE auth.users SET
+  confirmation_token = COALESCE(confirmation_token, ''),
+  recovery_token = COALESCE(recovery_token, ''),
+  email_change_token_new = COALESCE(email_change_token_new, ''),
+  email_change = COALESCE(email_change, ''),
+  email_change_token_current = COALESCE(email_change_token_current, ''),
+  reauthentication_token = COALESCE(reauthentication_token, ''),
+  phone_change = COALESCE(phone_change, ''),
+  phone_change_token = COALESCE(phone_change_token, '')
+WHERE email = '<seed-email>';
+```
+El script `scripts/bootstrap-preview-supabase-user.mjs` (via Admin
+SDK) no necesita este fix porque createUser/updateUserById setean
+los defaults `''`.
+
+**Estado Vercel:**
+- Project Production env: 0 vars (`DATA_SOURCE` defaultea a `mock`).
+- Project Preview env (limitado a `feature/dgii-module-review-adjustments`):
+  `DATA_SOURCE=supabase`, `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+  `VERCEL_AUTOMATION_BYPASS_SECRET`.
+- `ssoProtection.deploymentType = all_except_custom_domains`
+  (intacto, no se desactivó).
+
 ## Cierre del Paso 3 — 2026-05-19 (noche tarde) · Preview Supabase con auth real
 
 | Item                                              | Resultado                                        |
