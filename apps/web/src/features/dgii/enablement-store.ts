@@ -28,6 +28,7 @@ export type EnablementStepId =
   | "representaciones"
   | "url_produccion"
   | "declaracion_jurada"
+  | "autorizacion_representante"
   | "roles_ncf"
   | "estado_final";
 

@@ -49,6 +49,7 @@ export interface EnablementStepDef {
     | "representaciones"
     | "urls"
     | "declaracion"
+    | "representante"
     | "roles_ncf"
     | "final";
 }
@@ -235,8 +236,65 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
     dimension: "declaracion",
   },
   {
-    id: "roles_ncf",
+    id: "autorizacion_representante",
     order: 8,
+    title: "Autorización del representante e-CF",
+    shortLabel: "Representante e-CF",
+    description:
+      "DGII exige que los e-CF sean firmados con un certificado digital de persona física, perteneciente al Usuario Administrador e-CF del RNC o a un representante autorizado. Confirmá quién firma y dejá la evidencia archivada antes de pasar a pruebas con DGII.",
+    checklist: [
+      {
+        id: "titular-cert",
+        label: "Titular del certificado anotado (nombre completo del CN)",
+      },
+      {
+        id: "cedula-titular",
+        label: "Cédula del titular registrada (coincide con IDCDO-XXXXXXXXXXX del subject)",
+      },
+      {
+        id: "rnc-emisor",
+        label: "RNC emisor confirmado (coincide con dgii_settings.rncEmisor y businesses.rnc)",
+      },
+      {
+        id: "relacion-titular-contribuyente",
+        label: "Relación titular ↔ contribuyente documentada (empleado, representante legal, dueño)",
+      },
+      {
+        id: "designacion-usuario-admin-ecf",
+        label: "Designación oficial como Usuario Administrador e-CF o representante autorizado del RNC en DGII",
+      },
+      {
+        id: "entidad-certificadora",
+        label: "Entidad certificadora autorizada INDOTEL/DGII identificada (ej. Viafirma, Avansi, Certi-Empresa)",
+      },
+      {
+        id: "vigencia-cert",
+        label: "Vigencia del certificado validada (más de 60 días hacia adelante)",
+      },
+      {
+        id: "crl-ocsp",
+        label: "Estado de revocación verificado en CRL/OCSP de la CA (o marcado N/A si no aplica)",
+      },
+      {
+        id: "acta-firmada",
+        label: "Acta o documento de designación firmado/archivado con el contador",
+      },
+    ],
+    route: "/dgii/habilitacion",
+    relatedRoutes: [
+      { label: "Certificado", href: "/dgii/certificado" },
+      { label: "Configuración fiscal", href: "/dgii/configuracion" },
+    ],
+    requiresAccountant: true,
+    requiresDgii: false,
+    defaultStatus: "pending",
+    dimension: "representante",
+    blockedReason:
+      "Sin confirmar titularidad del cert vs RNC emisor + designación e-CF, Fase G (envío a testecf) queda bloqueada.",
+  },
+  {
+    id: "roles_ncf",
+    order: 9,
     title: "Asignación de roles y NCF",
     shortLabel: "Roles y NCF",
     description:
@@ -266,11 +324,11 @@ export const dgiiEnablementSteps: EnablementStepDef[] = [
   },
   {
     id: "estado_final",
-    order: 9,
+    order: 10,
     title: "Estado final de habilitación",
     shortLabel: "Estado final",
     description:
-      "Resumen automático del estado de habilitación DGII. Calculado a partir de los 8 pasos anteriores. Este paso no se marca manualmente; se actualiza cuando los otros pasos cambian.",
+      "Resumen automático del estado de habilitación DGII. Calculado a partir de los 9 pasos anteriores. Este paso no se marca manualmente; se actualiza cuando los otros pasos cambian.",
     checklist: [],
     route: "/dgii/habilitacion",
     relatedRoutes: [],

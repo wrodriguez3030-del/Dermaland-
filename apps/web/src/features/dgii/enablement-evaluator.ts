@@ -251,7 +251,7 @@ function pickGlobalStatus(
   )
     return "blocked_by_fiscal_config";
 
-  // 3. Listo para fiscal producción: roles + pruebas + reps + URLs + declaración + postulación completos.
+  // 3. Listo para producción fiscal: roles + pruebas + reps + URLs + declaración + postulación + representante completos.
   const completedAll = [
     "configuracion_fiscal",
     "postulacion",
@@ -259,14 +259,16 @@ function pickGlobalStatus(
     "representaciones",
     "url_produccion",
     "declaracion_jurada",
+    "autorizacion_representante",
     "roles_ncf",
   ].every((id) => byId.get(id as EnablementStepId)?.status === "completed");
   if (completedAll && cert === "valid") return "ready_for_fiscal_production";
 
-  // 4. Certificado por DGII: postulación completada + declaración completada.
+  // 4. Certificado por DGII: postulación + declaración + autorización de representante completas.
   if (
     has("postulacion", "completed") &&
-    has("declaracion_jurada", "completed")
+    has("declaracion_jurada", "completed") &&
+    has("autorizacion_representante", "completed")
   )
     return "certified_by_dgii";
 
@@ -279,10 +281,13 @@ function pickGlobalStatus(
   )
     return "in_certification";
 
-  // 6. Listo para testecf: certificado válido + config fiscal completa.
+  // 6. Listo para testecf: certificado válido + config fiscal + autorización del representante e-CF.
+  //    El gate de representante es CRÍTICO: DGII no acepta envíos sin Usuario
+  //    Administrador e-CF confirmado, aunque el cert sea técnicamente válido.
   if (
     cert === "valid" &&
     has("configuracion_fiscal", "completed") &&
+    has("autorizacion_representante", "completed") &&
     !has("pruebas_ecf", "completed")
   )
     return "ready_for_testecf";

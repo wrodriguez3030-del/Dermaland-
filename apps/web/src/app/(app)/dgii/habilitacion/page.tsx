@@ -43,15 +43,22 @@ import {
 } from "@/features/dgii/enablement-evaluator";
 
 /**
- * Habilitación Facturación Electrónica DGII — wizard tipo Alegra.
+ * Habilitación Facturación Electrónica DGII — wizard SaaS para clientes.
  *
- * 9 pasos en orden:
+ * 10 pasos en orden:
  *  1. Certificado digital   2. Configuración fiscal   3. Postulación
  *  4. Pruebas e-CF          5. Representaciones        6. URL servicios
- *  7. Declaración jurada    8. Roles y NCF             9. Estado final
+ *  7. Declaración jurada    8. Autorización representante e-CF
+ *  9. Roles y NCF          10. Estado final
  *
- * Persiste el progreso en localStorage. NO contacta DGII, NO toca
- * Supabase real, NO firma con certificado real.
+ * Modo SaaS: cada cliente DermaLand opera en su propio business_id;
+ * certificado, secuencias, auditoría y permisos están aislados por
+ * RLS en Supabase. El wizard nunca cruza datos entre clientes.
+ *
+ * Persiste el progreso en localStorage (por browser del usuario; se
+ * migrará a tabla `dgii_enablement_progress` con RLS cuando se mueva
+ * de cliente-only a multi-device). NO contacta DGII, NO firma con
+ * certificado real en este wizard.
  */
 export default function DgiiHabilitacionPage() {
   const progressList = useEnablementProgress();
@@ -65,8 +72,8 @@ export default function DgiiHabilitacionPage() {
     setEvaluation(evaluateEnablement(progressList, certificate));
   }, [progressList, certificate]);
 
-  const total = dgiiEnablementSteps.length;
-  const actionableTotal = total - 1; // excluye estado_final
+  const total = dgiiEnablementSteps.length; // 10 (9 accionables + estado_final)
+  const actionableTotal = total - 1; // excluye estado_final → 9
   const completedCount = evaluation?.totals.completed ?? 0;
   const inProgressCount = evaluation?.totals.inProgress ?? 0;
   const blockedCount = evaluation?.totals.blocked ?? 0;
@@ -130,6 +137,23 @@ export default function DgiiHabilitacionPage() {
         </div>
       </div>
 
+      {/* Modo SaaS · aislamiento por business_id */}
+      <div className="mb-6 rounded-2xl border border-sky-300 bg-sky-50 p-5">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 text-sky-700" />
+          <div className="text-sm text-sky-950">
+            <strong>Modo SaaS · datos aislados por cliente.</strong> Cada
+            negocio DermaLand opera bajo su propio <code className="font-mono text-xs">business_id</code>:
+            certificado digital, secuencias e-NCF, configuración fiscal,
+            permisos por rol y auditoría se aplican <em>solo</em> a tu
+            negocio. Postgres Row-Level Security (RLS) garantiza que ningún
+            usuario vea ni modifique datos de otro contribuyente — verificado
+            con tests E2E que intentan cross-business inserts y son
+            rechazados por la política.
+          </div>
+        </div>
+      </div>
+
       {/* Panel global: Estado de habilitación DGII + Progreso + Próximo paso */}
       <div className="mb-6 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Card>
@@ -139,8 +163,8 @@ export default function DgiiHabilitacionPage() {
               Estado de habilitación DGII
             </CardTitle>
             <p className="mt-1 text-sm opacity-60">
-              Cálculo automático a partir del certificado y los 8 pasos del
-              wizard.
+              Cálculo automático a partir del certificado y los 9 pasos
+              accionables del wizard.
             </p>
           </CardHeader>
           <CardContent>
@@ -339,7 +363,10 @@ export default function DgiiHabilitacionPage() {
               expanded={expanded}
               onToggle={() => setExpandedId(expanded ? null : step.id)}
               certificate={
-                step.id === "certificado_digital" ? certificate : undefined
+                step.id === "certificado_digital" ||
+                step.id === "autorizacion_representante"
+                  ? certificate
+                  : undefined
               }
             />
           );

@@ -35,13 +35,19 @@ import {
   CERTIFICATE_STATUS_TONE,
   type CertificateMockState,
 } from "@/features/dgii/certificate-status-store";
+import { useLocalTest } from "@/features/dgii/local-test-store";
 
 interface EnablementStepCardProps {
   step: EnablementStepDef;
   progress?: EnablementProgress;
   expanded: boolean;
   onToggle: () => void;
-  /** Estado actual del certificado (solo se usa en el step certificado_digital). */
+  /**
+   * Estado actual del certificado. Se usa para:
+   *  - `certificado_digital`: panel de estado + acciones.
+   *  - `autorizacion_representante`: pre-fill informativo (subject,
+   *    issuer, vigencia) para que el usuario verifique titularidad.
+   */
   certificate?: CertificateMockState;
 }
 
@@ -55,6 +61,7 @@ export function EnablementStepCard({
   const status: EnablementStatus = progress?.status ?? step.defaultStatus;
   const checklistFromStore = progress?.checklist ?? [];
   const isCertificateStep = step.id === "certificado_digital";
+  const isRepresentanteStep = step.id === "autorizacion_representante";
   const certStatus = certificate?.status ?? "not_uploaded";
   const certLocked = certStatus === "not_uploaded";
   const certInvalid = certStatus === "expired" || certStatus === "invalid";
@@ -73,6 +80,16 @@ export function EnablementStepCard({
       blockerReason: next === "blocked" ? step.blockedReason : undefined,
     });
   };
+
+  // Para el step "autorizacion_representante" leemos la evidencia de la
+  // última prueba local de cert (run en /dgii/certificado → POST
+  // /api/dgii/certificate/test-local). Si existe, mostramos campos
+  // pre-extraídos del subject/issuer para ayudar al usuario a verificar
+  // titularidad. Si no, lo invitamos a correr la prueba primero.
+  const localTest = useLocalTest();
+  const representanteHints = isRepresentanteStep
+    ? representanteHintsFromEvidence(localTest)
+    : null;
 
   const handleToggle = (itemId: string) => {
     if (!progress) {
@@ -207,6 +224,57 @@ export function EnablementStepCard({
             </div>
           )}
 
+          {isRepresentanteStep && (
+            <div className="rounded-xl border border-sky-300 bg-sky-50 p-3 text-xs text-sky-950">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide opacity-70">
+                Datos sugeridos extraídos del certificado activo
+              </p>
+              {representanteHints ? (
+                <dl className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-[160px_1fr]">
+                  <dt className="opacity-60">Titular (CN):</dt>
+                  <dd className="font-medium break-words">
+                    {representanteHints.titular ?? "—"}
+                  </dd>
+                  <dt className="opacity-60">Cédula del titular:</dt>
+                  <dd className="font-mono break-words">
+                    {representanteHints.cedula ?? "—"}
+                  </dd>
+                  <dt className="opacity-60">RNC extraído del cert:</dt>
+                  <dd className="font-mono break-words">
+                    {representanteHints.rncEmisor ?? "—"}
+                  </dd>
+                  <dt className="opacity-60">Entidad certificadora:</dt>
+                  <dd className="break-words">
+                    {representanteHints.entidadCertificadora ?? "—"}
+                  </dd>
+                  <dt className="opacity-60">Vigencia:</dt>
+                  <dd className="break-words">
+                    {representanteHints.vigencia ?? "—"}
+                  </dd>
+                </dl>
+              ) : (
+                <p>
+                  No hay evidencia de prueba local todavía. Andá a{" "}
+                  <Link
+                    href="/dgii/certificado"
+                    className="underline underline-offset-2"
+                  >
+                    /dgii/certificado
+                  </Link>{" "}
+                  y ejecutá la prueba local del certificado primero — vamos a
+                  pre-llenar estos datos para que sea más fácil verificar
+                  titularidad.
+                </p>
+              )}
+              <p className="mt-2 text-[11px] opacity-70">
+                Estos valores son <strong>sugerencias</strong> derivadas del
+                cert; el contador o representante autorizado debe confirmar
+                con la designación oficial e-CF. <strong>Fase G permanece
+                bloqueada</strong> hasta marcar todos los items del checklist.
+              </p>
+            </div>
+          )}
+
           {step.blockedReason && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
               <div className="flex items-start gap-2">
@@ -223,7 +291,7 @@ export function EnablementStepCard({
               <p className="font-medium">Resumen automático del wizard.</p>
               <p className="mt-1 text-xs opacity-70">
                 Este paso no tiene checklist manual: el estado se calcula a
-                partir del avance de los 8 pasos anteriores y del certificado
+                partir del avance de los 9 pasos accionables y del certificado
                 digital. Usa el botón <strong>“Ejecutar revisión de
                 habilitación”</strong> en la cabecera para refrescarlo.
               </p>
@@ -334,4 +402,56 @@ export function EnablementStepCard({
       )}
     </Card>
   );
+}
+
+interface RepresentanteHints {
+  titular?: string;
+  cedula?: string;
+  rncEmisor?: string;
+  entidadCertificadora?: string;
+  vigencia?: string;
+}
+
+/**
+ * Extrae campos legibles desde la evidencia local del cert (último
+ * `runLocalCertTest`). Es puro/best-effort: si el subject no incluye
+ * cédula con prefijo `IDCDO-`, devuelve undefined en ese campo.
+ */
+export function representanteHintsFromEvidence(
+  ev: ReturnType<typeof useLocalTest>,
+): RepresentanteHints | null {
+  if (!ev) return null;
+  const subject = ev.certificate.subjectDn ?? "";
+  const issuer = ev.certificate.issuerDn ?? "";
+  const cn = subject
+    .split(",")
+    .map((s) => s.trim())
+    .find((s) => s.toLowerCase().startsWith("cn="))
+    ?.replace(/^cn=/i, "")
+    ?.trim();
+  const cedulaMatch = subject.match(/IDCDO-(\d{9,11})/i);
+  const issuerOrg = issuer
+    .split(",")
+    .map((s) => s.trim())
+    .find((s) => s.toUpperCase().startsWith("O="))
+    ?.replace(/^O=/i, "")
+    ?.trim();
+  const issuerCn = issuer
+    .split(",")
+    .map((s) => s.trim())
+    .find((s) => s.toLowerCase().startsWith("cn="))
+    ?.replace(/^cn=/i, "")
+    ?.trim();
+  return {
+    titular: cn,
+    cedula: cedulaMatch ? cedulaMatch[1] : undefined,
+    rncEmisor: ev.certificate.rncEmisor,
+    entidadCertificadora: issuerOrg ?? issuerCn,
+    vigencia:
+      ev.certificate.validity === "valid"
+        ? "vigente"
+        : ev.certificate.validity === "expired"
+          ? "vencido"
+          : "inválido",
+  };
 }

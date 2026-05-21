@@ -29,18 +29,19 @@ const SIDEBAR_PATH = path.resolve(
 );
 
 describe("dgii-enablement catalog", () => {
-  it("declara exactamente 9 pasos (incluye certificado_digital y estado_final)", () => {
-    expect(dgiiEnablementSteps).toHaveLength(9);
+  it("declara exactamente 10 pasos (incluye certificado_digital, autorizacion_representante y estado_final)", () => {
+    expect(dgiiEnablementSteps).toHaveLength(10);
   });
 
-  it("los pasos están ordenados 1..9", () => {
+  it("los pasos están ordenados 1..10", () => {
     const orders = dgiiEnablementSteps.map((s) => s.order);
-    expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(orders).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
-  it("paso 1 es Certificado digital y paso 9 es Estado final", () => {
+  it("paso 1 es Certificado digital, paso 8 es Autorización del representante, paso 10 es Estado final", () => {
     expect(dgiiEnablementSteps[0]?.id).toBe("certificado_digital");
-    expect(dgiiEnablementSteps[8]?.id).toBe("estado_final");
+    expect(dgiiEnablementSteps[7]?.id).toBe("autorizacion_representante");
+    expect(dgiiEnablementSteps[9]?.id).toBe("estado_final");
   });
 
   it("estado_final es read-only (sin checklist accionable)", () => {

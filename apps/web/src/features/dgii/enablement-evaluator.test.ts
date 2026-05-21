@@ -57,13 +57,25 @@ describe("evaluateEnablement", () => {
     expect(ev.globalStatus).toBe("blocked_by_fiscal_config");
   });
 
-  it("ready_for_testecf con cert válido y config fiscal completada", () => {
+  it("ready_for_testecf con cert válido + config fiscal + autorización representante", () => {
     const progress = [
       step("certificado_digital", "completed"),
       step("configuracion_fiscal", "completed"),
+      step("autorizacion_representante", "completed"),
     ];
     const ev = evaluateEnablement(progress, cert("valid"));
     expect(ev.globalStatus).toBe("ready_for_testecf");
+  });
+
+  it("NO es ready_for_testecf si falta la autorización del representante (gate pre-Fase G)", () => {
+    const progress = [
+      step("certificado_digital", "completed"),
+      step("configuracion_fiscal", "completed"),
+      // autorizacion_representante intencionalmente OMITIDO.
+    ];
+    const ev = evaluateEnablement(progress, cert("valid"));
+    expect(ev.globalStatus).not.toBe("ready_for_testecf");
+    expect(ev.globalStatus).toBe("in_preparation");
   });
 
   it("in_certification cuando pruebas + reps están listas y postulacion in_progress", () => {
@@ -78,7 +90,7 @@ describe("evaluateEnablement", () => {
     expect(ev.globalStatus).toBe("in_certification");
   });
 
-  it("certified_by_dgii cuando postulación y declaración están completed", () => {
+  it("certified_by_dgii cuando postulación + declaración + autorización representante están completed", () => {
     const progress = [
       step("certificado_digital", "completed"),
       step("configuracion_fiscal", "completed"),
@@ -86,12 +98,13 @@ describe("evaluateEnablement", () => {
       step("representaciones", "completed"),
       step("postulacion", "completed"),
       step("declaracion_jurada", "completed"),
+      step("autorizacion_representante", "completed"),
     ];
     const ev = evaluateEnablement(progress, cert("valid"));
     expect(ev.globalStatus).toBe("certified_by_dgii");
   });
 
-  it("ready_for_fiscal_production cuando todos los 7 pasos clave están completed", () => {
+  it("ready_for_fiscal_production cuando todos los 8 pasos clave están completed", () => {
     const progress = [
       step("certificado_digital", "completed"),
       step("configuracion_fiscal", "completed"),
@@ -100,6 +113,7 @@ describe("evaluateEnablement", () => {
       step("representaciones", "completed"),
       step("url_produccion", "completed"),
       step("declaracion_jurada", "completed"),
+      step("autorizacion_representante", "completed"),
       step("roles_ncf", "completed"),
     ];
     const ev = evaluateEnablement(progress, cert("valid"));
@@ -107,10 +121,13 @@ describe("evaluateEnablement", () => {
     expect(ev.nextStep).toBeNull();
   });
 
-  it("incluye 8 diagnósticos (excluye estado_final)", () => {
+  it("incluye 9 diagnósticos (excluye estado_final)", () => {
     const ev = evaluateEnablement([], cert("not_uploaded"));
-    expect(ev.diagnostics).toHaveLength(8);
+    expect(ev.diagnostics).toHaveLength(9);
     expect(ev.diagnostics.find((d) => d.stepId === "estado_final")).toBeUndefined();
+    expect(
+      ev.diagnostics.find((d) => d.stepId === "autorizacion_representante"),
+    ).toBeDefined();
   });
 
   it("cada diagnóstico trae summary y recommendation no vacíos", () => {
