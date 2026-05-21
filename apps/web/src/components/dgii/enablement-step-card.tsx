@@ -36,6 +36,7 @@ import {
   type CertificateMockState,
 } from "@/features/dgii/certificate-status-store";
 import { useLocalTest } from "@/features/dgii/local-test-store";
+import { RepresentanteEvidenceForm } from "./representante-evidence-form";
 
 interface EnablementStepCardProps {
   step: EnablementStepDef;
@@ -298,44 +299,53 @@ export function EnablementStepCard({
             </div>
           ) : (
             <>
-              <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-60">
-                  Checklist
-                </h4>
-                <ul className="space-y-1">
-                  {checklistItems.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleToggle(item.id)}
-                        className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/[0.03]"
-                        aria-pressed={item.done}
-                      >
-                        {item.done ? (
-                          <Check
-                            className="mt-0.5 h-4 w-4 text-emerald-600"
-                            aria-hidden
-                          />
-                        ) : (
-                          <Square
-                            className="mt-0.5 h-4 w-4 opacity-30"
-                            aria-hidden
-                          />
-                        )}
-                        <span
-                          className={
-                            item.done
-                              ? "line-through opacity-50"
-                              : "opacity-90"
-                          }
+              {isRepresentanteStep ? (
+                <div>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-60">
+                    Evidencia por ítem
+                  </h4>
+                  <RepresentanteEvidenceForm step={step} progress={progress} />
+                </div>
+              ) : (
+                <div>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-60">
+                    Checklist
+                  </h4>
+                  <ul className="space-y-1">
+                    {checklistItems.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggle(item.id)}
+                          className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-black/[0.03]"
+                          aria-pressed={item.done}
                         >
-                          {item.label}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                          {item.done ? (
+                            <Check
+                              className="mt-0.5 h-4 w-4 text-emerald-600"
+                              aria-hidden
+                            />
+                          ) : (
+                            <Square
+                              className="mt-0.5 h-4 w-4 opacity-30"
+                              aria-hidden
+                            />
+                          )}
+                          <span
+                            className={
+                              item.done
+                                ? "line-through opacity-50"
+                                : "opacity-90"
+                            }
+                          >
+                            {item.label}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>

@@ -211,6 +211,64 @@ Alternativa: pasar el path como argumento posicional —
 `CERT_TEST_P12_PATH` **y** no se pasa argv[2], el script falla con
 mensaje claro sin tocar nada.
 
+### 3.7a Flujo SaaS: cómo un cliente completa el checklist (UX)
+
+DermaLand expone el checklist como **paso 8 del wizard SaaS** en
+`/dgii/habilitacion` ("Autorización del representante e-CF"). El
+cliente NO necesita asistencia técnica:
+
+1. **Pre-fill automático.** Al expandir el paso, el panel sky
+   "Datos sugeridos extraídos del certificado activo" muestra
+   titular CN, cédula `IDCDO-...`, RNC, entidad certificadora,
+   vigencia — extraído del subject/issuer del cert via
+   `useLocalTest()`. Si no hay evidencia local todavía, el panel
+   invita a correr la prueba en `/dgii/certificado` primero.
+
+2. **Evidencia por ítem.** Cada uno de los 9 ítems se confirma
+   individualmente con: **estado** (Confirmado / Pendiente / No
+   aplica), **responsable** que confirma (contador, admin, dueño),
+   **fecha de confirmación** (auto-fill al marcar Confirmado),
+   **referencia documental** (acta, código, enlace al expediente)
+   y **nota libre** de auditoría. Todo persiste en localStorage
+   (`dermaland.dgii-enablement-progress`).
+
+3. **Declaración formal del responsable.** Al pie del paso hay un
+   checkbox de declaración explícita: "Confirmo que el titular del
+   certificado está designado como Usuario Administrador e-CF o
+   representante autorizado del contribuyente." Sin aceptar la
+   declaración el evaluador **NO** marca el paso como `completed`,
+   aunque los 9 ítems estén Confirmed.
+
+4. **Gate estricto del evaluador.** El evaluador
+   (`enablement-evaluator.ts`) degrada `status === "completed"` a
+   `in_progress` si:
+   - faltan ítems con `evidence.status === "confirmed"` o
+     `not_applicable`, O
+   - `declarationAccepted !== true`.
+   Esto significa que el usuario NO puede saltarse el checklist
+   forzando el Select del paso a Completed.
+
+5. **Panel global "Pendiente antes de enviar a DGII testecf".** En
+   la parte superior del wizard se lista cada gap explícito (cert,
+   config fiscal, ítems de autorización, declaración, pruebas
+   locales). Cuando todo está verde aparece el badge "listo para
+   enviar*".
+
+6. **Botón CTA "Enviar pruebas a DGII testecf".** Visible pero
+   **siempre deshabilitado** en este wizard. Tooltip:
+   *"Disponible cuando certificado, configuración fiscal,
+   representante e-CF y validaciones locales estén completas.
+   Además, el envío real a DGII permanece bloqueado hasta que se
+   autorice Fase G."* El botón nunca dispara red — es indicador
+   visual de que el flujo está completo localmente.
+
+7. **Trazabilidad.** La estructura `ChecklistItemEvidence` queda
+   pensada para migrar a Supabase (tabla
+   `dgii_enablement_evidence` con RLS por `business_id`) cuando
+   se mueva de cliente-only a multi-device. Mientras tanto, el
+   cliente puede exportar el JSON del localStorage si DGII pide
+   evidencia escrita.
+
 ### 3.7 Checklist titularidad pre-Fase G
 
 DGII exige que el certificado digital sea de **persona física** y

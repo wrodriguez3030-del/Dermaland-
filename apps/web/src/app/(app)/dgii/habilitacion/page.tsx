@@ -39,8 +39,10 @@ import {
   evaluateEnablement,
   ENABLEMENT_GLOBAL_STATUS_LABEL,
   ENABLEMENT_GLOBAL_STATUS_TONE,
+  representanteRemaining,
   type EnablementEvaluation,
 } from "@/features/dgii/enablement-evaluator";
+import { Send, Lock } from "lucide-react";
 
 /**
  * Habilitación Facturación Electrónica DGII — wizard SaaS para clientes.
@@ -256,6 +258,13 @@ export default function DgiiHabilitacionPage() {
         </Card>
       </div>
 
+      {/* Pendiente antes de enviar a DGII testecf */}
+      <TestEcfReadinessPanel
+        progressList={progressList}
+        evaluation={evaluation}
+        certStatus={certificate.status}
+      />
+
       {/* Resultado de la última revisión: diagnóstico por dimensión */}
       {evaluation && (
         <Card className="mb-6">
@@ -462,5 +471,132 @@ export default function DgiiHabilitacionPage() {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+/**
+ * Panel "Pendiente antes de enviar a DGII testecf".
+ *
+ * Acumula los gaps que bloquean `ready_for_testecf`:
+ *   - Certificado sin cargar / no válido
+ *   - Configuración fiscal sin completar
+ *   - Validaciones locales (paso pruebas_ecf) sin completar
+ *   - Items de autorización representante sin confirmar
+ *   - Declaración del representante sin aceptar
+ *
+ * Botón CTA "Enviar pruebas a DGII testecf" SIEMPRE deshabilitado en
+ * este wizard (aunque todos los gaps estén verdes); el envío real
+ * solo se habilita cuando se autorice Fase G. Mientras tanto, el
+ * tooltip explica las condiciones.
+ */
+function TestEcfReadinessPanel({
+  progressList,
+  evaluation,
+  certStatus,
+}: {
+  progressList: ReturnType<typeof useEnablementProgress>;
+  evaluation: EnablementEvaluation | null;
+  certStatus: ReturnType<typeof useSyncedCertificate>["status"];
+}) {
+  const repStep = dgiiEnablementSteps.find(
+    (s) => s.id === "autorizacion_representante",
+  );
+  const repProgress = progressList.find(
+    (p) => p.stepId === "autorizacion_representante",
+  );
+  const rep = repStep
+    ? representanteRemaining(repProgress, repStep.checklist.length)
+    : null;
+
+  const configFiscalCompleted = progressList.some(
+    (p) => p.stepId === "configuracion_fiscal" && p.status === "completed",
+  );
+  const pruebasEcfCompleted = progressList.some(
+    (p) => p.stepId === "pruebas_ecf" && p.status === "completed",
+  );
+
+  const gaps: string[] = [];
+  if (certStatus !== "valid") gaps.push("Cargar y validar el certificado digital (paso 1).");
+  if (!configFiscalCompleted)
+    gaps.push("Completar la configuración fiscal (paso 2): RNC, razón social, dirección.");
+  if (rep && rep.remaining > 0)
+    gaps.push(
+      `Confirmar ${rep.remaining} de ${rep.total} ítem(s) de autorización del representante e-CF (paso 8).`,
+    );
+  if (rep && !rep.declarationAccepted)
+    gaps.push("Aceptar la declaración formal del representante e-CF (paso 8).");
+  if (!pruebasEcfCompleted)
+    gaps.push("Completar las pruebas locales de simulación e-CF (paso 4).");
+
+  const ready = gaps.length === 0;
+  const ctaDisabledReason =
+    "Disponible cuando certificado, configuración fiscal, representante e-CF y validaciones locales estén completas. Además, el envío real a DGII permanece bloqueado hasta que se autorice Fase G.";
+
+  return (
+    <Card className="mb-6 border-[color:var(--brand-accent)]/30 bg-[color:var(--brand-accent)]/[0.04]">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <Send className="h-5 w-5 text-[color:var(--brand-accent)]" />
+          Pendiente antes de enviar a DGII testecf
+          {ready ? (
+            <Badge tone="success">listo para enviar*</Badge>
+          ) : (
+            <Badge tone="warning">{gaps.length} gap(s)</Badge>
+          )}
+        </CardTitle>
+        <p className="mt-1 text-sm opacity-70">
+          Antes de enviar tu primera factura a las pruebas de DGII
+          (<code className="font-mono text-xs">testecf</code>), estos
+          requisitos deben estar verdes. El sistema no envía nada
+          hasta que vos confirmes y tu contador valide.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {ready ? (
+          <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+            ✅ Todos los requisitos previos están cubiertos. El botón de
+            envío real (abajo) sigue deshabilitado hasta que se autorice
+            Fase G.
+          </p>
+        ) : (
+          <ul className="ml-1 space-y-2 text-sm">
+            {gaps.map((g, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <span className="opacity-90">{g}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div title={ctaDisabledReason}>
+            <Button
+              size="sm"
+              disabled
+              aria-disabled
+              aria-describedby="testecf-cta-tooltip"
+            >
+              <Send className="h-4 w-4" />
+              Enviar pruebas a DGII testecf
+            </Button>
+          </div>
+          <p
+            id="testecf-cta-tooltip"
+            className="max-w-xl text-xs opacity-70"
+          >
+            <Lock className="-mt-0.5 mr-1 inline h-3 w-3" />
+            {ctaDisabledReason}
+          </p>
+        </div>
+
+        <p className="mt-3 text-[11px] opacity-60">
+          * "Listo para enviar" significa que los pasos locales están
+          completos. <strong>No se ha enviado nada a DGII.</strong> Es
+          modo pre-certificación. La validación final corre por cuenta
+          del contador y de DGII.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

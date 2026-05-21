@@ -5,6 +5,7 @@ import type {
   CertificateMockState,
   CertificateStatus,
 } from "./certificate-status-store";
+import { dgiiEnablementSteps } from "@/lib/mock-data/dgii-enablement";
 
 function cert(status: CertificateStatus): CertificateMockState {
   return {
@@ -29,6 +30,34 @@ function step(
     status,
     updatedAt: "2026-05-20T00:00:00.000Z",
     checklist,
+  };
+}
+
+/**
+ * Helper para construir el paso `autorizacion_representante` con
+ * evidencia completa (todos los items confirmed) Y declaración
+ * aceptada. Sin esto el evaluador degrada el status a in_progress.
+ */
+function fullyConfirmedRepresentante(): EnablementProgress {
+  const def = dgiiEnablementSteps.find(
+    (s) => s.id === "autorizacion_representante",
+  )!;
+  return {
+    stepId: "autorizacion_representante",
+    status: "completed",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+    declarationAccepted: true,
+    declarationAcceptedAt: "2026-05-20T00:00:00.000Z",
+    checklist: def.checklist.map((it) => ({
+      id: it.id,
+      label: it.label,
+      done: true,
+      evidence: {
+        status: "confirmed",
+        responsible: "test contador",
+        confirmedAt: "2026-05-20T00:00:00.000Z",
+      },
+    })),
   };
 }
 
@@ -57,11 +86,11 @@ describe("evaluateEnablement", () => {
     expect(ev.globalStatus).toBe("blocked_by_fiscal_config");
   });
 
-  it("ready_for_testecf con cert válido + config fiscal + autorización representante", () => {
+  it("ready_for_testecf con cert válido + config fiscal + autorización representante (evidencia + declaración)", () => {
     const progress = [
       step("certificado_digital", "completed"),
       step("configuracion_fiscal", "completed"),
-      step("autorizacion_representante", "completed"),
+      fullyConfirmedRepresentante(),
     ];
     const ev = evaluateEnablement(progress, cert("valid"));
     expect(ev.globalStatus).toBe("ready_for_testecf");
@@ -76,6 +105,35 @@ describe("evaluateEnablement", () => {
     const ev = evaluateEnablement(progress, cert("valid"));
     expect(ev.globalStatus).not.toBe("ready_for_testecf");
     expect(ev.globalStatus).toBe("in_preparation");
+  });
+
+  it("NO es ready_for_testecf si el representante tiene status=completed pero falta evidencia", () => {
+    // El usuario forzó completed via Select pero NO completó evidencia.
+    const progress = [
+      step("certificado_digital", "completed"),
+      step("configuracion_fiscal", "completed"),
+      step("autorizacion_representante", "completed"), // sin evidencia + sin declaración
+    ];
+    const ev = evaluateEnablement(progress, cert("valid"));
+    expect(ev.globalStatus).not.toBe("ready_for_testecf");
+    // Diagnóstico degrada el step a in_progress.
+    const rep = ev.diagnostics.find(
+      (d) => d.stepId === "autorizacion_representante",
+    );
+    expect(rep?.status).toBe("in_progress");
+  });
+
+  it("NO es ready_for_testecf si la declaración NO está aceptada aunque los 9 items estén confirmed", () => {
+    const rep = fullyConfirmedRepresentante();
+    rep.declarationAccepted = false;
+    delete rep.declarationAcceptedAt;
+    const progress = [
+      step("certificado_digital", "completed"),
+      step("configuracion_fiscal", "completed"),
+      rep,
+    ];
+    const ev = evaluateEnablement(progress, cert("valid"));
+    expect(ev.globalStatus).not.toBe("ready_for_testecf");
   });
 
   it("in_certification cuando pruebas + reps están listas y postulacion in_progress", () => {
@@ -98,7 +156,7 @@ describe("evaluateEnablement", () => {
       step("representaciones", "completed"),
       step("postulacion", "completed"),
       step("declaracion_jurada", "completed"),
-      step("autorizacion_representante", "completed"),
+      fullyConfirmedRepresentante(),
     ];
     const ev = evaluateEnablement(progress, cert("valid"));
     expect(ev.globalStatus).toBe("certified_by_dgii");
@@ -113,7 +171,7 @@ describe("evaluateEnablement", () => {
       step("representaciones", "completed"),
       step("url_produccion", "completed"),
       step("declaracion_jurada", "completed"),
-      step("autorizacion_representante", "completed"),
+      fullyConfirmedRepresentante(),
       step("roles_ncf", "completed"),
     ];
     const ev = evaluateEnablement(progress, cert("valid"));

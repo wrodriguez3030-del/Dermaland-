@@ -103,7 +103,56 @@ function resolveStatus(
   step: EnablementStepDef,
   progress: EnablementProgress | undefined,
 ): EnablementStatus {
+  // Gate estricto pre-Fase G: para `autorizacion_representante` el
+  // paso solo se considera `completed` cuando TODOS los ítems del
+  // catálogo tienen evidencia confirmada (o N/A) Y el responsable
+  // aceptó la declaración final. Esto previene que un usuario marque
+  // el paso como completed sin trazabilidad por ítem.
+  if (step.id === "autorizacion_representante") {
+    if (!progress) return step.defaultStatus;
+    const required = step.checklist.length;
+    const confirmed = progress.checklist.filter(
+      (c) =>
+        c.evidence?.status === "confirmed" ||
+        c.evidence?.status === "not_applicable",
+    ).length;
+    const allConfirmed = confirmed === required && required > 0;
+    if (allConfirmed && progress.declarationAccepted === true) {
+      return "completed";
+    }
+    if (
+      progress.status === "completed" &&
+      !(allConfirmed && progress.declarationAccepted === true)
+    ) {
+      // El usuario forzó completed via Select pero falta evidencia/declaración —
+      // el evaluador lo degrada a in_progress para que el gate funcione.
+      return "in_progress";
+    }
+    return progress.status;
+  }
   return progress?.status ?? step.defaultStatus;
+}
+
+/**
+ * Cuántos items del checklist de `autorizacion_representante` faltan
+ * por confirmar (confirmed o not_applicable). Devuelve null si el
+ * paso no fue inicializado.
+ */
+export function representanteRemaining(
+  progress: EnablementProgress | undefined,
+  totalItems: number,
+): { remaining: number; total: number; declarationAccepted: boolean } | null {
+  if (!progress) return { remaining: totalItems, total: totalItems, declarationAccepted: false };
+  const confirmed = progress.checklist.filter(
+    (c) =>
+      c.evidence?.status === "confirmed" ||
+      c.evidence?.status === "not_applicable",
+  ).length;
+  return {
+    remaining: Math.max(0, totalItems - confirmed),
+    total: totalItems,
+    declarationAccepted: progress.declarationAccepted === true,
+  };
 }
 
 function inferStatusFromCertificate(

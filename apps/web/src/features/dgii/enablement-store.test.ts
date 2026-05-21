@@ -5,6 +5,8 @@ import {
   upsertProgress,
   setStepStatus,
   toggleChecklistItem,
+  setChecklistItemEvidence,
+  setDeclarationAccepted,
   resetEnablement,
   computeProgressPercent,
   type EnablementProgress,
@@ -121,5 +123,70 @@ describe("enablement-store", () => {
       makeProgress("pruebas_ecf", { status: "in_progress" }),
     ];
     expect(computeProgressPercent(6, list)).toBe(0);
+  });
+
+  it("setChecklistItemEvidence inicializa el paso si no existe", () => {
+    setChecklistItemEvidence(
+      "autorizacion_representante",
+      "titular-cert",
+      "Titular del cert",
+      { status: "confirmed", responsible: "Juan Pérez" },
+    );
+    const list = listProgress();
+    expect(list).toHaveLength(1);
+    const item = list[0]!.checklist.find((c) => c.id === "titular-cert");
+    expect(item?.done).toBe(true);
+    expect(item?.evidence?.status).toBe("confirmed");
+    expect(item?.evidence?.responsible).toBe("Juan Pérez");
+    // confirmedAt auto-set.
+    expect(item?.evidence?.confirmedAt).toBeTruthy();
+  });
+
+  it("setChecklistItemEvidence con status=pending marca done=false", () => {
+    setChecklistItemEvidence(
+      "autorizacion_representante",
+      "titular-cert",
+      "Titular",
+      { status: "confirmed" },
+    );
+    setChecklistItemEvidence(
+      "autorizacion_representante",
+      "titular-cert",
+      "Titular",
+      { status: "pending" },
+    );
+    const item = listProgress()[0]!.checklist.find(
+      (c) => c.id === "titular-cert",
+    );
+    expect(item?.done).toBe(false);
+    expect(item?.evidence?.status).toBe("pending");
+  });
+
+  it("setChecklistItemEvidence con status=not_applicable marca done=true (cuenta como cubierto)", () => {
+    setChecklistItemEvidence(
+      "autorizacion_representante",
+      "crl-ocsp",
+      "CRL/OCSP",
+      { status: "not_applicable" },
+    );
+    const item = listProgress()[0]!.checklist.find((c) => c.id === "crl-ocsp");
+    expect(item?.done).toBe(true);
+    expect(item?.evidence?.status).toBe("not_applicable");
+  });
+
+  it("setDeclarationAccepted registra timestamp + cambia status si era pending", () => {
+    setDeclarationAccepted("autorizacion_representante", true);
+    const list = listProgress();
+    expect(list[0]?.declarationAccepted).toBe(true);
+    expect(list[0]?.declarationAcceptedAt).toBeTruthy();
+    expect(list[0]?.status).toBe("in_progress");
+  });
+
+  it("setDeclarationAccepted(false) limpia el timestamp", () => {
+    setDeclarationAccepted("autorizacion_representante", true);
+    setDeclarationAccepted("autorizacion_representante", false);
+    const list = listProgress();
+    expect(list[0]?.declarationAccepted).toBe(false);
+    expect(list[0]?.declarationAcceptedAt).toBeUndefined();
   });
 });
