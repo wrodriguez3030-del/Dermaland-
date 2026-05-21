@@ -320,6 +320,95 @@ fila de auditoría se pierde.
 
 ---
 
+## 3.9 Pre-flight Fase G (dry-run) — 2026-05-21
+
+**Estado:** DRY-RUN LISTO. NO se hace ningún fetch a DGII.
+
+DermaLand expone un endpoint server-side que construye el payload
+exacto de Fase G y lo valida localmente — **sin tocar DGII**:
+
+- **Cliente:** `apps/web/src/server/services/dgii/testecf-client.ts`
+  - `prepareTestecfSubmission(args)` — pura, build → XSD → firma →
+    URLs calculadas. Refuse `ambiente !== "testecf"` y overrides de
+    URL que apuntan a `/ecf/` (anti foot-gun anti-producción).
+  - `executeTestecfSubmission(args)` — **STUB. Siempre tira
+    `TestecfSendDisabled`**. El cuerpo HTTP real está pendiente de
+    autorización formal de Fase G + postulación + rango.
+- **Orquestador:** `apps/web/src/server/services/dgii/testecf-preflight.ts`
+  - `runTestecfPreflight({businessId, tipoEcf})` — resuelve cert
+    server-side, lee dgii_settings, construye e-CF demo, llama
+    `prepareTestecfSubmission`.
+- **Endpoint:** `POST /api/dgii/invoices/testecf-send` con body
+  `{ tipoEcf: "31"|"32"|"33"|"34" }`. Auth seed user. Devuelve la
+  evidencia + razones de bloqueo del envío real.
+- **UI:** botón "Pre-flight Fase G testecf (dry-run)" en
+  `/dgii/habilitacion` dentro del panel "Pendiente antes de enviar".
+  Selector de tipo + resultado en pantalla.
+
+**Killswitches en capas (todas deben estar verdes para enviar real):**
+
+1. `DGII_TESTECF_SEND_ENABLED=true` (env var, default `false`).
+2. `ambiente === "testecf"` (jamás `certecf` ni `ecf`).
+3. `postulacionApproved: true` en el body.
+4. `rangoAuthorized: true` en el body.
+5. `userConfirmedAt` ISO timestamp en el body.
+6. Aun con todo en true, **el código de `executeTestecfSubmission`
+   tira `TestecfSendDisabled`** porque el HTTP real no está
+   implementado en este build.
+
+**Endpoints DGII testecf** (calculados, NO invocados):
+
+| Paso | Método | URL |
+|---|---|---|
+| Semilla | GET | `https://ecf.dgii.gov.do/testecf/autenticacion/api/autenticacion/semilla` |
+| ValidarSemilla | POST | `https://ecf.dgii.gov.do/testecf/autenticacion/api/autenticacion/validarsemilla` |
+| Recepción ECF | POST (multipart) | `https://ecf.dgii.gov.do/testecf/recepcion/api/ecf` |
+
+**Variables de entorno relevantes:**
+
+| Variable | Default | Uso |
+|---|---|---|
+| `DGII_ENVIRONMENT` | `testecf` | Enum: `testecf\|certecf\|ecf` (legacy `cert\|prod` aceptados) |
+| `DGII_BASE_URL_TESTECF` | `https://ecf.dgii.gov.do/testecf` | Override del default; refuse URLs `/ecf/` |
+| `DGII_BASE_URL_CERTECF` | `https://ecf.dgii.gov.do/certecf` | Override |
+| `DGII_BASE_URL_ECF` | `https://ecf.dgii.gov.do/ecf` | Override |
+| `DGII_TESTECF_SEND_ENABLED` | `"false"` | Killswitch — `"true"` requerido para que `executeTestecfSubmission` salga del primer guard |
+
+**Tests:**
+
+- `apps/web/src/server/services/dgii/testecf-client.test.ts` (11):
+  - URLs correctas testecf
+  - XSD oficial pasa tipo 31 y tipo 32
+  - rechaza ambiente !== `testecf`
+  - `send.enabled === false` + reasons (killswitch, postulación, rango)
+  - evidencia NO contiene password ni private key
+  - `executeTestecfSubmission` tira siempre (con/sin flags externas)
+  - **guard global de fetch:** ningún test invoca `global.fetch`
+    (mocked con `vi.spyOn` que tira si se llama).
+
+**Cómo correr el dry-run desde browser:**
+
+1. Login en Preview con seed user.
+2. `/dgii/habilitacion`.
+3. Scroll al panel "Pendiente antes de enviar a DGII testecf".
+4. Seleccionar tipo e-CF (31/32/33/34).
+5. Click "Verificar pre-flight".
+6. Resultado muestra: URLs calculadas, XSD ✓/✗, firma ✓/✗, tamaño
+   XML firmado, razones de bloqueo del envío real (siempre listadas
+   en este build).
+
+**Lo que falta antes de Fase G real:**
+
+- Confirmar postulación testecf del RNC emisor con DGII (externo).
+- Obtener rango e-NCF testecf autorizado por DGII (externo).
+- Implementar el cuerpo HTTP de `executeTestecfSubmission` (semilla,
+  validarsemilla, recepción multipart, persistencia en
+  `dgii_submissions`, audit log).
+- Tests E2E mockeados con `nock` o equivalente.
+- Autorización explícita per-tipo del dueño.
+
+---
+
 ## 4. Fase G — Envío real a `testecf`
 
 ### 4.1 Qué activa

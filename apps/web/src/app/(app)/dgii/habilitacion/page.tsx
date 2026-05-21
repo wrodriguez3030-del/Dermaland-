@@ -43,6 +43,7 @@ import {
   type EnablementEvaluation,
 } from "@/features/dgii/enablement-evaluator";
 import { Send, Lock } from "lucide-react";
+import { TestecfPreflightRunner } from "@/components/dgii/testecf-preflight-runner";
 
 /**
  * Habilitación Facturación Electrónica DGII — wizard SaaS para clientes.
@@ -596,6 +597,10 @@ function TestEcfReadinessPanel({
           modo pre-certificación. La validación final corre por cuenta
           del contador y de DGII.
         </p>
+
+        {/* Pre-flight dry-run de Fase G — construye + valida + firma + */}
+        {/* calcula URLs sin hacer fetch a DGII */}
+        <TestecfPreflightRunner />
       </CardContent>
     </Card>
   );
