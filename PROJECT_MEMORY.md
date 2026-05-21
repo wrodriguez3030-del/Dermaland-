@@ -3,7 +3,77 @@
 > Archivo vivo. Actualizar al cerrar cualquier cambio importante.
 > Léelo después de `CLAUDE.md` antes de empezar a trabajar.
 
-**Última actualización:** 2026-05-19
+**Última actualización:** 2026-05-21
+
+---
+
+## 0.0g · Sesión 2026-05-21 — QA SaaS pre-Fase G APROBADO (14/14)
+
+**Resultado:** el dueño ejecutó manualmente el checklist
+`docs/dgii/qa-saas-pre-fase-g.md` (13 secciones × 14 criterios)
+contra el Preview `https://dermaland-igsr1gdv4-wrodriguez3030-4801s-projects.vercel.app`
+(commit `c02d714`) y reportó **14/14 verdes**. Fase G **NO
+autorizada** aún — sigue bloqueada por política operativa hasta
+confirmar 4 validaciones externas no técnicas.
+
+**Lo verificado:**
+
+1. Login con seed user `preview-admin@dermaland.do` (cookie
+   `@supabase/ssr` se setea, redirect a home autenticada).
+2. `/dgii/habilitacion` carga con 3 banners (MOCK · SaaS isolation
+   · Pendiente antes de enviar) + 10 pasos del wizard.
+3. Paso 1 cert digital con 8 steps verdes (incluyendo `xsd_valid`
+   contra XSD oficial e-CF-32).
+4. Paso 2 configuración fiscal completada.
+5. Paso 4 pruebas locales de los 4 tipos e-CF (31/32/33/34) con
+   XSD verde.
+6. Paso 8 autorización representante e-CF: banner sky con
+   pre-fill desde el cert, 9 ítems con form de evidencia rica
+   (responsable + fecha + ref documental + nota + estado
+   tri-state), declaración formal del responsable con timestamp.
+7. Gate `ready_for_testecf` con anti-bypass: forzar Select a
+   completed sin evidencia degrada el diagnóstico a `in_progress`.
+8. CTA "Enviar pruebas a DGII testecf" sigue **disabled** aún
+   con todo verde (intencional — Fase G no autorizada).
+9. Banners MOCK / NO FISCAL / no enviado a DGII visibles.
+10. `audit_logs` recibe filas con `business_id` correcto sin RLS
+    error (migración 0007 funcionando en Preview).
+
+**Lo que NO se hizo (bloqueos vigentes):**
+
+- ✗ DGII real / testecf / envío XML / Fase H polling.
+- ✗ `vercel deploy --prod` / tocar Production env.
+- ✗ Consumir secuencias e-NCF reales / cambiar DNS.
+- ✗ Imprimir password, JWT, private key, cert.
+- ✗ Subir `.p12`/`.pfx`/`.key`/`.pem` a Git.
+- ✗ Modificar `.env.local`, `.mcp.json`, `.claude/`.
+
+**Pendiente operativo (NO técnico) antes de autorizar Fase G:**
+
+| # | Validación externa | Quién |
+|---|---|---|
+| 1 | Acta/designación Usuario Administrador e-CF firmada y archivada | Contador / oficial DGII |
+| 2 | Certificado vigente >60 días, sin revocación CRL/OCSP | Contador / titular |
+| 3 | Titular del cert autorizado para representar el RNC | Contador / representante legal |
+| 4 | RNC emisor correcto para el contribuyente | Contador |
+
+Estas 4 NO las puede confirmar el sistema — corren por afuera con
+contador / portal DGII / acta legal.
+
+**Commits relevantes en esta sesión:**
+
+- `b6fc375` — `Agregar checklist QA SaaS pre-Fase G DGII` (docs,
+  623 LOC nuevos en `docs/dgii/qa-saas-pre-fase-g.md`).
+- Próximo commit de esta sesión documenta la aprobación del QA en:
+  - `docs/dgii/qa-saas-pre-fase-g.md` (bloque "Resultado de la
+    corrida del QA — 2026-05-21" al inicio).
+  - `docs/estado-actual.md` (sección 2026-05-21).
+  - `PROJECT_MEMORY.md` (esta entrada).
+
+**Estado final:** PRE-FASE G **LISTO TÉCNICAMENTE**. Fase G
+bloqueada hasta confirmación externa de las 4 validaciones.
+Producción Vercel intacta. Branch
+`feature/dgii-module-review-adjustments` con working tree clean.
 
 ---
 

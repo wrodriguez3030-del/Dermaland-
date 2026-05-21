@@ -3,7 +3,46 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-05-19
+**Última actualización:** 2026-05-21
+
+## 2026-05-21 · QA SaaS pre-Fase G APROBADO (14/14)
+
+- **Checklist QA browser-based ejecutado manualmente** sobre el
+  Preview `https://dermaland-igsr1gdv4-wrodriguez3030-4801s-projects.vercel.app`
+  (commit `c02d714`).
+- **Resultado: 14/14 criterios técnicos verdes** — login, wizard
+  carga, panel "Pendiente antes de enviar a DGII testecf", paso 1
+  cert digital (8 steps incluyendo `xsd_valid`), paso 2 config
+  fiscal, paso 4 pruebas locales (4 tipos e-CF), paso 8
+  autorización representante (banner pre-fill + 9 ítems con
+  evidencia + declaración formal), gate `ready_for_testecf`
+  bloquea/desbloquea correctamente, CTA "Enviar pruebas a DGII
+  testecf" sigue disabled aún con todo verde, mensajes MOCK / NO
+  FISCAL visibles, `audit_logs` recibe inserts (migración 0007
+  funcionando).
+- **Fase G sigue bloqueada por política operativa** hasta confirmar
+  formalmente las 4 validaciones externas no técnicas:
+  1. Acta / designación oficial Usuario Administrador e-CF.
+  2. Certificado vigente y válido (>60 días + sin revocación).
+  3. Titular del cert autorizado para representar el RNC.
+  4. RNC emisor correcto para el contribuyente.
+- **Producción Vercel intacta** · 0 env vars · `DATA_SOURCE=mock`
+  por default · sin DGII real · sin testecf · sin envío XML · sin
+  consumo de secuencias reales · sin `vercel deploy --prod` · sin
+  cambios de DNS.
+- **Commit del cierre del QA:** ver branch
+  `feature/dgii-module-review-adjustments` (último commit de docs
+  documenta esta aprobación).
+- **Documentación detallada:**
+  - `docs/dgii/qa-saas-pre-fase-g.md` (623 LOC) — checklist 13
+    secciones + bloque de aprobación 2026-05-21 al inicio.
+  - Resultado por sección: tabla 14×PASS.
+
+**Próximo paso natural:** completar las 4 validaciones externas
+(acta firmada por contador, vigencia del cert, autorización del
+titular, RNC emisor). Recién con esas 4 + el QA técnico aprobado
+tendría sentido conversar sobre autorizar Fase G (envío real a
+testecf).
 
 ## 2026-05-20 (madrugada) · Preview Supabase QA 11/11 verde
 

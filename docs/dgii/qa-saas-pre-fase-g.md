@@ -11,6 +11,62 @@
 
 ---
 
+## ✅ Resultado de la corrida del QA — 2026-05-21
+
+**Estado: APROBADO** — los 14 criterios técnicos están verdes en el
+Preview. Fase G **sigue bloqueada** hasta confirmar formalmente las
+4 validaciones externas no técnicas.
+
+**Preview validado:**
+`https://dermaland-igsr1gdv4-wrodriguez3030-4801s-projects.vercel.app`
+(commit `c02d714` · SaaS UX completa con form de evidencia rico y
+declaración formal).
+
+**Resultados por sección (verificados manualmente en browser):**
+
+| Sección | Resultado |
+|---|---|
+| 1. Login con seed user | ✓ PASS |
+| 2. /dgii/habilitacion carga | ✓ PASS (3 banners + 10 pasos visibles) |
+| 3. Panel "Pendiente antes de enviar a DGII testecf" | ✓ PASS |
+| 4. Paso 1 certificado digital | ✓ PASS |
+| 5. Paso 2 configuración fiscal | ✓ PASS |
+| 6. Paso 4 pruebas locales | ✓ PASS |
+| 7. Paso 8 autorización representante e-CF | ✓ PASS |
+| 8. Evidencia por ítem | ✓ PASS |
+| 9. Declaración formal | ✓ PASS |
+| 10. Bloqueo/desbloqueo `ready_for_testecf` | ✓ PASS |
+| 11. CTA "Enviar pruebas a DGII testecf" disabled | ✓ PASS |
+| 12. Mensajes MOCK / NO FISCAL | ✓ PASS |
+| 13. Auditoría y persistencia | ✓ PASS |
+
+**Confirmaciones de aislamiento (sistema):**
+- ✓ Producción Vercel intacta (0 env vars · `DATA_SOURCE=mock` por
+  default).
+- ✓ Cero llamadas a DGII real.
+- ✓ Cero envío de XML.
+- ✓ Cero consumo de secuencias reales en testecf / ecf.
+- ✓ Sin tocar DNS ni `vercel deploy --prod`.
+
+**Pendiente — validaciones externas no técnicas (NO autorizadas
+todavía):**
+
+| # | Validación externa | Quién la confirma |
+|---|---|---|
+| 1 | Acta / designación oficial como Usuario Administrador e-CF del RNC | Contador / oficial DGII |
+| 2 | Certificado vigente y válido (más de 60 días + sin revocación CRL/OCSP) | Contador / titular |
+| 3 | Titular del certificado autorizado para representar el RNC del contribuyente | Contador / representante legal |
+| 4 | RNC emisor correcto para el contribuyente que va a emitir e-CF | Contador |
+
+**Hasta que las 4 estén confirmadas y archivadas, Fase G (envío
+real a testecf) permanece bloqueada por política operativa**, no
+solo por el gate técnico. El sistema cumple los pre-requisitos
+técnicos; la decisión legal-fiscal corre por afuera.
+
+---
+
+---
+
 ## 0. Pre-requisitos del QA
 
 - [ ] Acceso al Preview de Vercel del proyecto `dermaland`
