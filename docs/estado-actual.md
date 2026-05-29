@@ -47,13 +47,18 @@
   `dgii_submissions`). Vía `ALTER POLICY`, behavior-preserving, no
   destructivo, no fiscal. Cierra el resto de warnings "Auth RLS Init
   Plan".
-- **PENDIENTE (no ejecutado en este cambio):** aplicar 0008 + 0009 a Supabase
-  y re-correr el Security Advisor. El MCP Supabase apunta a otro
-  proyecto y `SUPABASE_DB_URL` en `.env.local` es placeholder → no se
-  pudo aplicar ni inspeccionar en vivo desde aquí. Auditoría basada en
-  las migraciones (fuente de verdad) + output del Advisor. Aplicar con
-  Supabase CLI / SQL Editor del proyecto `sntcvyozbhrgicwmtcoh` (ver
-  runbook). **Producción Vercel y env intactos.**
+- **APLICADO 2026-05-29** por el dueño vía **SQL Editor** del proyecto
+  `sntcvyozbhrgicwmtcoh` (sin credenciales en sesión; el MCP apuntaba a
+  otro proyecto y `SUPABASE_DB_URL` estaba en placeholder). Verificación
+  SELECT-only confirmada (6/6):
+  1. `inventory_stock_by_lot` → `security_invoker=true` ✅
+  2. view consultable ✅
+  3. 4 funciones con `search_path` fijo ✅
+  4. multiple permissive → 0 filas ✅
+  5. auth RLS init-plan sin envolver → 0 filas ✅
+  6. policies siguen filtrando por `business_id` (sin `qual=true`) ✅
+  - Pendiente manual: activar **Leaked Password Protection** en
+    Authentication → Settings → Security. **Producción Vercel y env intactos.**
 
 ## 2026-05-21 · QA SaaS pre-Fase G APROBADO (14/14)
 
