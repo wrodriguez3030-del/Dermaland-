@@ -684,6 +684,14 @@ Sin vars → `DATA_SOURCE` defaultea a `mock` por el schema en
 `reserve_ecf_sequence_number` solo recibe `search_path` (metadato).
 NO se cambia su lógica de reserva de secuencias e-CF.
 
+**Migración 0009** (`0009_rls_initplan_remaining.sql`, follow-up
+autorizado 2026-05-29): cierra el warning "Auth RLS Init Plan" en las
+34 policies `_all` restantes (núcleo, inventario y DGII/POS) envolviendo
+`auth_business_id()`/`auth_is_platform_admin()` en `(select ...)` vía
+`ALTER POLICY`. Behavior-preserving, no destructivo, **no fiscal**: solo
+optimiza el plan RLS; no llama DGII, no testecf, no XML, no toca
+certificados ni secuencias.
+
 ### 11.2 Cómo aplicar 0008 (NO se aplicó automáticamente)
 
 El MCP de Supabase apunta a otro proyecto y `SUPABASE_DB_URL` en

@@ -40,7 +40,14 @@
 - **Validaciones:** `typecheck` ✅ · `vitest run` 446/446 ✅ ·
   `build` ✅. Sin referencias en código/tests a los nombres de policy
   renombrados.
-- **PENDIENTE (no ejecutado en este cambio):** aplicar 0008 a Supabase
+- **Migración `0009_rls_initplan_remaining.sql`** (follow-up autorizado
+  2026-05-29): envuelve `auth_business_id()`/`auth_is_platform_admin()`
+  en `(select ...)` en las **34 policies `_all` restantes** (incl.
+  tablas DGII como `dgii_certificates`, `ecf_sequences`,
+  `dgii_submissions`). Vía `ALTER POLICY`, behavior-preserving, no
+  destructivo, no fiscal. Cierra el resto de warnings "Auth RLS Init
+  Plan".
+- **PENDIENTE (no ejecutado en este cambio):** aplicar 0008 + 0009 a Supabase
   y re-correr el Security Advisor. El MCP Supabase apunta a otro
   proyecto y `SUPABASE_DB_URL` en `.env.local` es placeholder → no se
   pudo aplicar ni inspeccionar en vivo desde aquí. Auditoría basada en
