@@ -3,7 +3,50 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-05-21
+**Última actualización:** 2026-05-29
+
+## 2026-05-29 · Correcciones Supabase Security Advisor (migración 0008)
+
+- **Migración `supabase/migrations/0008_security_advisor_fixes.sql`** —
+  100% no destructiva e idempotente. NO toca DGII real, NO testecf,
+  NO XML, NO certificados, NO datos. Solo metadatos de objetos y
+  reorganización de policies RLS preservando la semántica exacta de
+  acceso multi-tenant.
+- **Warnings corregidos por SQL:**
+  1. **Security Definer View** · `public.inventory_stock_by_lot` →
+     `security_invoker = true` (la view ahora respeta la RLS de
+     `product_lots` del usuario que consulta; antes la bypaseaba →
+     riesgo cross-tenant).
+  2. **Auth RLS Initialization Plan** · `public.audit_logs` →
+     `auth_business_id()`/`auth.uid()` envueltos en `(select ...)`
+     (InitPlan, una sola evaluación por query).
+  3. **Function Search Path Mutable** · `select_lot_for_sale`,
+     `auth_business_id`, `auth_is_platform_admin`,
+     `reserve_ecf_sequence_number` → `set search_path = public, auth,
+     extensions` (sin cambiar cuerpo ni security model; siguen
+     SECURITY INVOKER).
+  4. **Multiple Permissive Policies** · `plans`, `businesses`,
+     `branches`, `users`, `clients` → consolidadas a una policy por
+     comando (select/insert/update/delete). Unión por OR preserva el
+     acceso previo; auth.*() envueltas en `(select ...)`.
+- **Warning que requiere acción MANUAL en Dashboard (no por SQL):**
+  - **Leaked Password Protection Disabled** → Supabase Dashboard →
+    Authentication → Settings → Security → activar "Leaked password
+    protection" (HaveIBeenPwned). Ver runbook.
+- **Aislamiento multi-tenant confirmado por diseño:** todas las
+  policies siguen filtrando por `business_id = auth_business_id()`
+  (o `id = auth_business_id()` en `businesses`); platform admin
+  mantiene su alcance; ningún cambio abre acceso cross-business.
+- **Validaciones:** `typecheck` ✅ · `vitest run` 446/446 ✅ ·
+  `build` ✅. Sin referencias en código/tests a los nombres de policy
+  renombrados.
+- **PENDIENTE (no ejecutado en este cambio):** aplicar 0008 a Supabase
+  y re-correr el Security Advisor. El MCP Supabase apunta a otro
+  proyecto y `SUPABASE_DB_URL` en `.env.local` es placeholder → no se
+  pudo aplicar ni inspeccionar en vivo desde aquí. Auditoría basada en
+  las migraciones (fuente de verdad) + output del Advisor. Aplicar con
+  Supabase CLI / SQL Editor del proyecto `sntcvyozbhrgicwmtcoh` (ver
+  runbook). **Producción Vercel y env intactos.**
 
 ## 2026-05-21 · QA SaaS pre-Fase G APROBADO (14/14)
 

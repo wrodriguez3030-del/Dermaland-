@@ -3,6 +3,14 @@
 > **Versión:** 1.0 · **Fecha:** 2026-05-21
 > 30 checklists prácticos con responsable + evidencia + criterio de salida + riesgo si no se cumple.
 
+> **Nota 2026-05-29 — Hardening Supabase:** las correcciones del
+> Security Advisor (RLS init-plan, search_path de funciones,
+> `security_invoker` en views, multiple permissive policies, leaked
+> password protection) están documentadas en
+> `runbook-fase-f-g-h.md` §11 y aplicadas vía
+> `supabase/migrations/0008_security_advisor_fixes.sql`. Aplican como
+> requisito de seguridad transversal previo a producción fiscal.
+
 ---
 
 ## Introducción

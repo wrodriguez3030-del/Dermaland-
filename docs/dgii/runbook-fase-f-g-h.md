@@ -666,5 +666,64 @@ Sin vars → `DATA_SOURCE` defaultea a `mock` por el schema en
 
 ---
 
-**Última actualización:** 2026-05-20
-**Próxima revisión:** al activar cada fase.
+## 11. Supabase Security Advisor — correcciones (migración 0008)
+
+> Añadido 2026-05-29. No fiscal, no DGII real. La migración
+> `supabase/migrations/0008_security_advisor_fixes.sql` corrige los
+> avisos del Security Advisor de forma no destructiva.
+
+### 11.1 Qué corrige por SQL (migración 0008)
+
+| Warning | Objeto | Fix |
+|---|---|---|
+| Security Definer View | `inventory_stock_by_lot` | `security_invoker = true` |
+| Auth RLS Init Plan | `audit_logs` (select + insert) | `auth.*()` → `(select auth.*())` |
+| Function Search Path Mutable | `select_lot_for_sale`, `auth_business_id`, `auth_is_platform_admin`, `reserve_ecf_sequence_number` | `set search_path = public, auth, extensions` |
+| Multiple Permissive Policies | `plans`, `businesses`, `branches`, `users`, `clients` | una policy por comando |
+
+`reserve_ecf_sequence_number` solo recibe `search_path` (metadato).
+NO se cambia su lógica de reserva de secuencias e-CF.
+
+### 11.2 Cómo aplicar 0008 (NO se aplicó automáticamente)
+
+El MCP de Supabase apunta a otro proyecto y `SUPABASE_DB_URL` en
+`.env.local` es placeholder, así que la migración **no se aplicó ni se
+inspeccionó en vivo** desde la sesión. Aplicarla manualmente sobre el
+proyecto `sntcvyozbhrgicwmtcoh`:
+
+- **Opción A (recomendada, Preview/branch primero):** Supabase CLI
+  `supabase db push` apuntando al branch de Preview, validar Advisor,
+  y luego promover. O usar el SQL Editor del Dashboard.
+- **Opción B:** pegar el contenido de `0008_security_advisor_fixes.sql`
+  en el SQL Editor del proyecto y ejecutar (corre en transacción).
+
+Verificación post-aplicación (queries SELECT-only al final del archivo
+de migración). Confirmar en **Dashboard → Advisors → Security** que los
+4 grupos de warnings bajan.
+
+### 11.3 Leaked Password Protection (acción MANUAL, no por SQL)
+
+- **Qué es:** Supabase Auth puede rechazar contraseñas filtradas
+  comparándolas contra HaveIBeenPwned (k-anonymity, no envía la
+  contraseña en claro).
+- **Dónde se activa:** Dashboard → **Authentication → Settings →
+  Security** → toggle "Leaked password protection". No se puede activar
+  por migración SQL.
+- **Plan:** disponible en planes Pro+ de Supabase. En Free puede no
+  aparecer el toggle.
+- **Impacto en login:** no afecta logins existentes; solo valida en
+  signup / cambio de password. Riesgo de ruptura: nulo para usuarios
+  ya creados. Recomendado activarlo.
+
+### 11.4 Impacto en SaaS multi-tenant
+
+Ningún cambio abre acceso cross-business. Todas las policies siguen
+filtrando por `business_id` (o `id` en `businesses`); platform admin
+conserva su alcance. La view `inventory_stock_by_lot` pasa a respetar
+la RLS de `product_lots` (antes la bypaseaba). Service role sigue
+bypaseando RLS como antes.
+
+---
+
+**Última actualización:** 2026-05-29
+**Próxima revisión:** al activar cada fase / tras aplicar 0008.
