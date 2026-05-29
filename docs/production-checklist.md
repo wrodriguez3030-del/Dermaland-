@@ -21,6 +21,11 @@ Revisión obligatoria antes de cada release a producción.
 - [ ] Sesión 8h para súper admin · 7 días para usuarios normales.
 - [ ] Reauthentication para acciones destructivas (impersonar, eliminar negocio).
 - [ ] Middleware activo y `/super-admin` protegido por `is_platform_admin`.
+- [ ] **Leaked Password Protection (HaveIBeenPwned)** activado en
+      Authentication → Settings → Security. ⚠️ **Bloqueado en plan Free**
+      (requiere Supabase Pro+). Riesgo aceptado temporal: ver
+      `docs/riesgos.md` R-SEC-01. **Activar al subir a Pro, antes de
+      producción SaaS real.**
 
 ## RLS y multi-tenant (P3)
 

@@ -57,8 +57,12 @@
   4. multiple permissive → 0 filas ✅
   5. auth RLS init-plan sin envolver → 0 filas ✅
   6. policies siguen filtrando por `business_id` (sin `qual=true`) ✅
-  - Pendiente manual: activar **Leaked Password Protection** en
-    Authentication → Settings → Security. **Producción Vercel y env intactos.**
+  - **Leaked Password Protection:** NO activable — feature solo en
+    Supabase **Pro+**, el proyecto está en **Free**. Aceptado como riesgo
+    temporal **R-SEC-01** (`docs/riesgos.md`); mitigación: passwords
+    fuertes, no reutilizar, rotar seeds, MFA, y upgrade a Pro antes de
+    producción SaaS real. No se crean más migraciones por este warning.
+    **Producción Vercel y env intactos.**
 
 ## 2026-05-21 · QA SaaS pre-Fase G APROBADO (14/14)
 
