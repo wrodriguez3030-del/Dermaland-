@@ -14,6 +14,7 @@ import {
   mockWhatsappConversations,
   mockWhatsappTemplates,
 } from "@/lib/mock-data/integrations";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
 
 export default function WhatsappOverview() {
   const open = mockWhatsappConversations.filter((c) => c.status === "open").length;
@@ -41,6 +42,34 @@ export default function WhatsappOverview() {
         <StatCard label="Plantillas aprobadas" value={templates} icon={Users} />
       </div>
 
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Perfil del negocio</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            {mockBusiness.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={mockBusiness.logoUrl}
+                alt={mockBusiness.commercialName}
+                className="h-14 w-14 shrink-0 rounded-xl border border-black/10 bg-white object-contain p-1.5"
+              />
+            )}
+            <div className="min-w-0 text-sm">
+              <div className="font-semibold">{mockBusiness.commercialName}</div>
+              {mockBusiness.slogan && (
+                <div className="opacity-70">{mockBusiness.slogan}</div>
+              )}
+              <div className="mt-1 opacity-70">
+                {mockBusiness.whatsapp}
+                {mockBusiness.instagramUrl && " · @dermalandrd"}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Conexión Meta Cloud API</CardTitle>
@@ -49,7 +78,7 @@ export default function WhatsappOverview() {
           <div className="flex items-center gap-3">
             <Badge tone="success">Conectado</Badge>
             <span className="text-sm opacity-70">
-              Número verificado: <strong>+1 809-226-5252</strong>
+              Número verificado: <strong>{mockBusiness.whatsapp}</strong>
             </span>
           </div>
           <dl className="mt-4 grid gap-4 sm:grid-cols-3 text-sm">

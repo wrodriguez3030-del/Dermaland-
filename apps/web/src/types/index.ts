@@ -16,6 +16,17 @@ export interface Business extends Audited, SoftDeletable {
   whatsapp?: string;
   email?: string;
   instagramUrl?: string;
+  /** Sitio web público o link en bio (opcional). */
+  website?: string;
+  /** Dirección física de la empresa (usada en recibos y comprobantes). */
+  address?: string;
+  city?: string;
+  province?: string;
+  /** Eslogan comercial corto. */
+  slogan?: string;
+  /** Descripción / bio comercial breve. */
+  description?: string;
+  /** URL o ruta del logo institucional (PNG/SVG). */
   logoUrl?: string;
   dgiiEnabled: boolean;
   planId: ID;

@@ -18,6 +18,14 @@ export function Header({ className }: { className?: string }) {
       )}
     >
       <div className="flex flex-1 items-center gap-4">
+        {mockBusiness.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mockBusiness.logoUrl}
+            alt={mockBusiness.commercialName}
+            className="h-8 w-8 shrink-0 object-contain"
+          />
+        )}
         <div className="hidden md:flex items-center gap-2 text-xs">
           <span className="rounded-full bg-[color:var(--brand-primary)]/10 px-2.5 py-0.5 font-medium text-[color:var(--brand-accent)]">
             {mockBusiness.commercialName}
