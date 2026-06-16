@@ -170,8 +170,11 @@ export interface Product extends Audited, SoftDeletable, BusinessScoped {
   imageAlt?: string | null;
   /** URL de origen (sitio oficial / distribuidor) — usada para auditoría y reimport. */
   imageSourceUrl?: string | null;
-  /** Estado de la importación de imagen del producto. */
-  imageStatus?: "downloaded" | "needs_review" | "not_found" | "error" | null;
+  /**
+   * Estado de la importación de imagen del producto.
+   * `linked` = imagen externa referenciada por URL (no descargada al repo).
+   */
+  imageStatus?: "downloaded" | "linked" | "needs_review" | "not_found" | "error" | null;
   active: boolean;
   sellable: boolean;
 }
