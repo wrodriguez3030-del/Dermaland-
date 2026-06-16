@@ -426,7 +426,14 @@ export interface Payment {
   proformaId: ID;
   method: PaymentMethod;
   amount: number;
+  /** Referencia de texto corta (p. ej. "otro método"). */
   reference?: string;
+  /**
+   * Últimos 4 dígitos de la tarjeta o referencia de transferencia, como
+   * referencia administrativa. NUNCA se guarda el número completo, CVV ni
+   * vencimiento.
+   */
+  last4?: string;
   userId: ID;
   userName: string;
   createdAt: string;

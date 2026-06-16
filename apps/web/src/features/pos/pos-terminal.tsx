@@ -9,13 +9,9 @@ import {
   Plus,
   Minus,
   ScanBarcode,
-  CreditCard,
-  Banknote,
-  Wallet,
   CheckCircle2,
   AlertTriangle,
   FileText,
-  ReceiptText,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
@@ -34,11 +30,16 @@ import {
   generateProformaNumber,
 } from "@/features/sales/proforma-store";
 import { resolveDocumentToIssue } from "@/features/sales/document-resolver";
-import type { DefaultBillingType, PaymentMethod, Proforma } from "@/types";
+import type { DefaultBillingType, Proforma } from "@/types";
 import {
   billingTypeEcf,
   billingTypeLabel,
 } from "@/features/customers/billing";
+import {
+  ChargeSaleModal,
+  type ChargeSaleResult,
+} from "./components/charge-sale-modal";
+import { primaryPaymentMethod } from "./payment-validation";
 
 interface CartLine {
   productId: string;
@@ -53,41 +54,13 @@ interface CartLine {
   discount: number;
 }
 
-/**
- * Métodos de pago expuestos en el selector visual (los 3 más usados en
- * mostrador). Procesadores específicos (`azul`, `cardnet`, `visanet`,
- * `paypal`, `manual`, `other`) caen en `card`/`transfer`/`cash` para el MVP;
- * el detalle queda para una integración futura.
- */
-type PrimaryPaymentMethod = Extract<PaymentMethod, "cash" | "card" | "transfer">;
-
-const PRIMARY_PAYMENT_METHODS: ReadonlyArray<{
-  value: PrimaryPaymentMethod;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-}> = [
-  { value: "cash", label: "Efectivo", icon: Banknote, description: "DOP en mano" },
-  { value: "card", label: "Tarjeta", icon: CreditCard, description: "Crédito / débito" },
-  {
-    value: "transfer",
-    label: "Transferencia",
-    icon: Wallet,
-    description: "Bancaria / app",
-  },
-];
-
 export function PosTerminal() {
   const customers = useCustomers();
   const [search, setSearch] = React.useState("");
   const [cart, setCart] = React.useState<CartLine[]>([]);
   const [customerId, setCustomerId] = React.useState<string | "">("");
   const [discountGlobalPercent, setDiscountGlobalPercent] = React.useState(0);
-  // null = aún sin elegir → ningún botón resaltado, submit deshabilitado.
-  const [paymentMethod, setPaymentMethod] = React.useState<PrimaryPaymentMethod | null>(
-    null,
-  );
-  const [paymentAmount, setPaymentAmount] = React.useState<string>("");
+  const [chargeOpen, setChargeOpen] = React.useState(false);
   const [billingType, setBillingType] =
     React.useState<DefaultBillingType>("consumo");
   const [issued, setIssued] = React.useState<{
@@ -155,14 +128,7 @@ export function PosTerminal() {
       !customer.documentNumber ||
       customer.documentType !== "rnc");
 
-  // Resolver del documento a emitir.
-  const resolved = React.useMemo(
-    () => resolveDocumentToIssue({ billingType, paymentMethod }),
-    [billingType, paymentMethod],
-  );
-
-  const canSubmit =
-    cart.length > 0 && paymentMethod !== null && !creditFiscalNeedsRnc;
+  const canCharge = cart.length > 0 && !creditFiscalNeedsRnc;
 
   const addProduct = (productId: string) => {
     const product = getProductById(productId);
@@ -218,14 +184,22 @@ export function PosTerminal() {
   const removeLine = (lotId: string) =>
     setCart((prev) => prev.filter((l) => l.lotId !== lotId));
 
-  const issue = () => {
-    if (!canSubmit || paymentMethod === null) return;
+  const finalizeCharge = (result: ChargeSaleResult) => {
+    if (!canCharge) return;
 
     const number = generateProformaNumber();
     const id = generateProformaId();
     const now = new Date().toISOString();
-    const amountReceived = Number(paymentAmount) > 0 ? Number(paymentAmount) : total;
-    const changeAmount = Math.max(0, amountReceived - total);
+    const amountReceived = result.amountReceived;
+    const changeAmount = result.changeAmount;
+    const paidTotal = result.payments.reduce((s, p) => s + p.amount, 0);
+    // El método primario decide el documento a emitir (en pago dividido se
+    // prioriza tarjeta → factura e-CF de consumo). Lógica fiscal MVP intacta.
+    const primaryMethod = primaryPaymentMethod(result.payments);
+    const resolved = resolveDocumentToIssue({
+      billingType,
+      paymentMethod: primaryMethod,
+    });
 
     const newProforma: Proforma = {
       id,
@@ -260,20 +234,20 @@ export function PosTerminal() {
       discount: globalDiscountAmount,
       itbis: scaledItbis,
       total,
-      status: amountReceived >= total ? "paid" : "issued",
-      payments: [
-        {
-          id: `pay_${Date.now()}`,
-          proformaId: id,
-          method: paymentMethod,
-          amount: Math.min(amountReceived, total),
-          userId: "usr_cashier_1",
-          userName: "Rosa Peralta",
-          createdAt: now,
-        },
-      ],
-      paid: Math.min(amountReceived, total),
-      balance: Math.max(0, total - amountReceived),
+      status: paidTotal >= total ? "paid" : "issued",
+      payments: result.payments.map((p, i) => ({
+        id: `pay_${Date.now()}_${i}`,
+        proformaId: id,
+        method: p.method,
+        amount: p.amount,
+        ...(p.last4 ? { last4: p.last4 } : {}),
+        ...(p.reference ? { reference: p.reference } : {}),
+        userId: "usr_cashier_1",
+        userName: "Rosa Peralta",
+        createdAt: now,
+      })),
+      paid: Math.min(paidTotal, total),
+      balance: Math.max(0, total - paidTotal),
       discountPercent: discountGlobalPercent,
       discountAmount: globalDiscountAmount,
       billingType,
@@ -297,8 +271,7 @@ export function PosTerminal() {
     setCart([]);
     setDiscountGlobalPercent(0);
     setCustomerId("");
-    setPaymentAmount("");
-    setPaymentMethod(null);
+    setChargeOpen(false);
   };
 
   return (
@@ -632,100 +605,32 @@ export function PosTerminal() {
               </div>
             </div>
 
-            {/* ── Selector de método de pago (sin default seleccionado) ── */}
-            <div className="mt-4">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-medium opacity-70">
-                  Método de pago
-                </span>
-                {paymentMethod === null && (
-                  <span className="text-[10px] text-amber-700">
-                    selecciona uno
-                  </span>
-                )}
-              </div>
-              <div
-                className="grid grid-cols-3 gap-2"
-                role="radiogroup"
-                aria-label="Método de pago"
-              >
-                {PRIMARY_PAYMENT_METHODS.map(({ value, label, icon: Icon }) => {
-                  const active = paymentMethod === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setPaymentMethod(value)}
-                      className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition ${
-                        active
-                          ? "border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/10 text-[color:var(--brand-primary)] shadow-sm"
-                          : "border-black/10 bg-white text-black/60 hover:border-black/25 hover:text-black/80"
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <input
-              type="number"
-              placeholder={`Recibido (${formatCurrency(total)})`}
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              className="mt-3 h-10 w-full rounded-lg border border-black/10 px-3 text-sm"
-              aria-label="Monto recibido"
-            />
-
-            {/* ── Indicador de documento a emitir ── */}
-            <div
-              className={`mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
-                paymentMethod === null
-                  ? "border-black/10 bg-black/[0.02] text-black/60"
-                  : resolved.documentKind === "invoice"
-                    ? "border-violet-200 bg-violet-50 text-violet-900"
-                    : "border-blue-200 bg-blue-50 text-blue-900"
-              }`}
-            >
-              {resolved.documentKind === "invoice" ? (
-                <FileText className="mt-0.5 h-4 w-4 shrink-0" />
-              ) : (
-                <ReceiptText className="mt-0.5 h-4 w-4 shrink-0" />
-              )}
-              <div className="min-w-0">
-                <div className="font-semibold">Documento a emitir</div>
-                <div className="truncate">
-                  {paymentMethod === null
-                    ? "—"
-                    : resolved.label}
-                </div>
-              </div>
-            </div>
-
             <Button
-              className="mt-3 w-full"
+              className="mt-4 w-full"
               size="lg"
-              onClick={issue}
-              disabled={!canSubmit}
+              onClick={() => setChargeOpen(true)}
+              disabled={!canCharge}
             >
-              {resolved.buttonLabel}
+              Cobrar venta
             </Button>
-            {!canSubmit && cart.length > 0 && (
+            {creditFiscalNeedsRnc && (
               <p className="mt-1 text-center text-[11px] text-black/50">
-                {creditFiscalNeedsRnc
-                  ? "Cliente sin RNC para crédito fiscal."
-                  : paymentMethod === null
-                    ? "Selecciona método de pago para continuar."
-                    : ""}
+                Cliente sin RNC para crédito fiscal.
               </p>
             )}
           </div>
         )}
       </div>
+
+      <ChargeSaleModal
+        open={chargeOpen}
+        onClose={() => setChargeOpen(false)}
+        subtotal={subtotal}
+        itbis={scaledItbis}
+        total={total}
+        billingType={billingType}
+        onConfirm={finalizeCharge}
+      />
     </div>
   );
 }
