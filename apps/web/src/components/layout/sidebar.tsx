@@ -14,7 +14,6 @@ import {
   Receipt,
   Wallet,
   CalendarClock,
-  HeartPulse,
   BarChart3,
   Shield,
   MessageSquare,
@@ -27,6 +26,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
+
+/** Logo configurado de la empresa; si no hay, cae al logo oficial. */
+const brandLogo = mockBusiness.logoUrl ?? "/brand/dermaland-logo.svg";
 
 interface NavItem {
   label: string;
@@ -188,19 +191,16 @@ export function Sidebar({ className }: { className?: string }) {
     >
       <Link
         href="/"
-        className="flex items-center gap-2 px-5 py-5 border-b border-black/5"
+        className="flex items-center gap-2.5 px-5 py-5 border-b border-black/5"
       >
-        <span
-          aria-hidden
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-[color:var(--brand-primary)] text-white"
-        >
-          <HeartPulse className="h-5 w-5" />
-        </span>
-        <div>
-          <div className="text-sm font-semibold leading-tight">DermaLand</div>
-          <div className="text-[10px] uppercase tracking-wider opacity-50">
-            Plataforma SaaS
-          </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={brandLogo}
+          alt={mockBusiness.commercialName}
+          className="h-9 w-9 shrink-0 object-contain"
+        />
+        <div className="text-base font-semibold leading-tight">
+          {mockBusiness.commercialName}
         </div>
       </Link>
 
