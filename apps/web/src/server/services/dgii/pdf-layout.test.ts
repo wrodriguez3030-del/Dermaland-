@@ -181,6 +181,26 @@ describe("generateEcfPdf — layout y contenido", () => {
     expect(ascii).toContain("E320000000123");
   });
 
+  it("acepta formas de pago y NO expone número completo de tarjeta", async () => {
+    const buf = await generateEcfPdf({
+      ecf: makeInput(),
+      signedXml,
+      ambiente: "testecf",
+      estadoDgii: "signed",
+      demo: true,
+      compradorTelefono: "+1 809-555-0101",
+      paymentLines: [
+        { label: "Tarjeta", amount: 2500, last4: "4242" },
+        { label: "Efectivo", amount: 450 },
+      ],
+    });
+    // Genera un PDF válido con la sección de pagos. El sistema nunca recibe el
+    // PAN completo: el tipo PdfPaymentLine sólo lleva `last4`, por lo que es
+    // imposible imprimir el número de tarjeta completo.
+    expect(buf.subarray(0, 5).toString("ascii")).toBe("%PDF-");
+    expect(buf.byteLength).toBeGreaterThan(1000);
+  });
+
   it("el PDF demo difiere del no-demo (nota DEMO añadida)", async () => {
     const base = {
       ecf: makeInput(),

@@ -19,23 +19,22 @@ import type {
 } from "./types";
 
 /**
- * Generador de la representación impresa (PDF) del e-CF.
+ * Generador de la representación impresa (PDF A4) del e-CF.
  *
- * Renderiza el comprobante con la información requerida por DGII:
- *  - Encabezado del emisor (logo, RNC, razón social, dirección, contacto).
- *  - Tipo de comprobante, e-NCF, fecha de emisión.
- *  - Datos del comprador cuando aplique (e-CF 32 puede ser consumidor final).
- *  - Tabla de items con cantidad, precio unitario y total.
- *  - Totales (gravado, exento, ITBIS, total) con el total destacado.
- *  - Estado DGII, código de seguridad y QR de consulta — el QR queda aislado
- *    en su propia zona con márgenes, sin tocar ningún dato.
+ * Layout orientado a legibilidad y profesionalismo:
+ *  - Encabezado: logo DermaLand + identidad del emisor (RNC, dirección,
+ *    teléfono/email) a la izquierda; tipo de documento, e-NCF y fecha a la
+ *    derecha.
+ *  - Comprador: nombre, RNC/Cédula, teléfono y dirección cuando existan.
+ *  - Tabla de items con #, descripción (wrap), cantidad, precio, ITBIS y
+ *    total — altura por fila, sin textos cortados ni montados.
+ *  - Totales con el TOTAL destacado; forma de pago con sólo los últimos 4
+ *    (nunca el número completo de tarjeta).
+ *  - QR aislado en su propio bloque, con márgenes; la nota DEMO va debajo de
+ *    todo, sin tocar el QR.
  *
- * Diseño orientado a legibilidad: tipografías cómodas, secciones separadas y
- * QR que nunca se superpone con texto. NO depende de fonts externas (Helvetica
- * built-in) ni escribe a disco.
- *
- * IMPORTANTE: este renderer es presentación pura. NO toca XML, firma,
- * secuencias ni el ambiente fiscal — sólo dibuja.
+ * Es presentación pura: NO toca XML, firma, secuencias ni ambiente fiscal.
+ * NO depende de fonts externas (Helvetica) ni escribe a disco.
  */
 
 export class DgiiPdfError extends Error {
@@ -76,25 +75,32 @@ const TIPO_LABELS: Record<string, string> = {
   "47": "Pagos al Exterior",
 };
 
-// ── Geometría de página (LETTER, márgenes seguros de 50pt) ───────────────────
+// ── Geometría de página (A4, márgenes seguros de 50pt) ───────────────────────
+// A4 = 595.28 × 841.89 pt.
 const LEFT = 50;
-const RIGHT = 562;
-const CONTENT_W = RIGHT - LEFT; // 512
-const BOTTOM = 742; // 792 − 50
+const RIGHT = 545;
+const CONTENT_W = RIGHT - LEFT; // 495
+const BOTTOM = 790; // 841.89 − ~50
 const BRAND = "#7E8A6E";
 const HAIR = "#cccccc";
 
 /**
- * Marca DermaLand como path vectorial (mismo trazo que el logo SVG, pero solo
- * con curvas Bézier para máxima compatibilidad con el parser de pdfkit). La
- * "D" queda calada vía regla even-odd: sobre papel blanco se ve verde con la
- * D blanca.
+ * Marca DermaLand como path vectorial (mismo trazo que el logo SVG, sólo con
+ * curvas Bézier para compatibilidad con el parser de pdfkit). La "D" queda
+ * calada vía regla even-odd: sobre papel blanco se ve verde con la D blanca.
  */
 const LOGO_PATH =
   "M256 60 C256 60 120 220 120 330 C120 405 181 466 256 466 " +
   "C331 466 392 405 392 330 C392 220 256 60 256 60 Z " +
   "M190 210 H270 C330 210 360 255 360 305 C360 355 330 400 270 400 H190 Z " +
   "M218 240 H268 C305 240 325 270 325 305 C325 340 305 370 268 370 H218 Z";
+
+/** Línea de forma de pago para mostrar en el PDF (sólo últimos 4, nunca PAN). */
+export interface PdfPaymentLine {
+  label: string;
+  amount: number;
+  last4?: string;
+}
 
 export interface GenerateEcfPdfInput {
   /** Datos del e-CF (mismo shape que el builder). */
@@ -107,11 +113,12 @@ export interface GenerateEcfPdfInput {
   estadoDgii: EstadoDgii;
   /** TrackId opcional (cuando ya se envió a DGII). */
   trackId?: string;
-  /**
-   * Cuando es `true`, el PDF muestra la nota de vista previa DEMO en el pie.
-   * Lo usan los renderers de demostración (no fiscales).
-   */
+  /** Cuando es `true`, muestra la nota de vista previa DEMO en el pie. */
   demo?: boolean;
+  /** Teléfono del comprador (opcional) para el bloque de cliente. */
+  compradorTelefono?: string;
+  /** Formas de pago (opcional) — sólo últimos 4 dígitos, nunca el PAN. */
+  paymentLines?: PdfPaymentLine[];
 }
 
 type PDFDoc = InstanceType<typeof PDFDocument>;
@@ -123,8 +130,8 @@ type PDFDoc = InstanceType<typeof PDFDocument>;
  */
 export function footerQrLayout() {
   const qrSize = 92;
-  const qrX = RIGHT - qrSize; // borde derecho del área de contenido
-  const gap = 24; // separación mínima texto ↔ QR
+  const qrX = RIGHT - qrSize;
+  const gap = 24;
   const textWidth = qrX - LEFT - gap;
   return { qrSize, qrX, gap, textWidth, pageLeft: LEFT, pageRight: RIGHT };
 }
@@ -152,13 +159,12 @@ export async function generateEcfPdf(
     codigoSeguridad,
   });
 
-  // QR con buena resolución para que sea nítido y escaneable al imprimir.
   const qrPng = await generateQrCodePng(url, { scale: 6, margin: 1 });
 
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
-        size: "LETTER",
+        size: "A4",
         margin: 50,
         info: {
           Title: `e-CF ${input.ecf.eNcf}`,
@@ -175,10 +181,24 @@ export async function generateEcfPdf(
         reject(new DgiiPdfError("pdfkit falló", err)),
       );
 
+      const t = input.ecf.totales;
+      const itbisRatio =
+        t.montoGravadoTotal && t.montoGravadoTotal > 0 && t.totalItbis
+          ? t.totalItbis / t.montoGravadoTotal
+          : 0;
+
       renderHeader(doc, input.ecf.emisor, input.ecf.tipoEcf, input.ecf.eNcf);
-      renderComprador(doc, input.ecf.comprador, input.ecf.emisor.fechaEmision);
-      renderItems(doc, input.ecf.items);
+      renderComprador(
+        doc,
+        input.ecf.comprador,
+        input.ecf.emisor.fechaEmision,
+        input.compradorTelefono,
+      );
+      renderItems(doc, input.ecf.items, itbisRatio);
       renderTotales(doc, input.ecf.totales);
+      if (input.paymentLines && input.paymentLines.length > 0) {
+        renderPagos(doc, input.paymentLines);
+      }
       renderFooter(doc, {
         estadoDgii: input.estadoDgii,
         trackId: input.trackId,
@@ -204,7 +224,6 @@ export async function generateEcfPdf(
 // Helpers de layout
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Línea horizontal fina de separación. */
 function hr(doc: PDFDoc, gapBefore = 4, gapAfter = 8): void {
   const y = doc.y + gapBefore;
   doc
@@ -217,7 +236,6 @@ function hr(doc: PDFDoc, gapBefore = 4, gapAfter = 8): void {
   doc.y = y + gapAfter;
 }
 
-/** Dibuja la marca DermaLand (vector) en (x, y) con el tamaño dado. */
 function drawLogo(doc: PDFDoc, x: number, y: number, size: number): void {
   doc.save();
   doc.translate(x, y).scale(size / 512);
@@ -240,10 +258,9 @@ function renderHeader(
   const logoSize = 56;
   drawLogo(doc, LEFT, top, logoSize);
 
-  // Columna izquierda — identidad del emisor (al lado del logo).
   const textX = LEFT + logoSize + 12; // 118
-  const rightX = 372;
-  const leftW = rightX - textX - 14; // ~240, sin tocar la columna derecha
+  const rightX = 360;
+  const leftW = rightX - textX - 14; // ~228
 
   doc
     .fillColor("black")
@@ -251,7 +268,10 @@ function renderHeader(
     .fontSize(15)
     .text(emisor.razonSocialEmisor, textX, top, { width: leftW });
   doc.font("Helvetica").fontSize(10);
-  if (emisor.nombreComercial && emisor.nombreComercial !== emisor.razonSocialEmisor) {
+  if (
+    emisor.nombreComercial &&
+    emisor.nombreComercial !== emisor.razonSocialEmisor
+  ) {
     doc.text(emisor.nombreComercial, textX, doc.y, { width: leftW });
   }
   doc.fontSize(9.5);
@@ -275,18 +295,15 @@ function renderHeader(
   }
   const leftBottom = doc.y;
 
-  // Columna derecha — tipo de documento, e-NCF, fecha (alineada a la derecha).
-  const rightW = RIGHT - rightX; // 190
+  const rightW = RIGHT - rightX; // 185
   doc
     .font("Helvetica-Bold")
     .fontSize(12)
     .fillColor(BRAND)
-    .text(
-      `${TIPO_LABELS[tipoEcf] ?? "Comprobante Fiscal Electrónico"}`,
-      rightX,
-      top,
-      { width: rightW, align: "right" },
-    );
+    .text(TIPO_LABELS[tipoEcf] ?? "Comprobante Fiscal Electrónico", rightX, top, {
+      width: rightW,
+      align: "right",
+    });
   doc
     .fillColor("black")
     .font("Helvetica")
@@ -295,10 +312,10 @@ function renderHeader(
       width: rightW,
       align: "right",
     });
-  doc.font("Helvetica-Bold").fontSize(10).text(`e-NCF: ${eNcf}`, rightX, doc.y, {
-    width: rightW,
-    align: "right",
-  });
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(10)
+    .text(`e-NCF: ${eNcf}`, rightX, doc.y, { width: rightW, align: "right" });
   doc
     .font("Helvetica")
     .fontSize(10)
@@ -316,6 +333,7 @@ function renderComprador(
   doc: PDFDoc,
   comprador: EcfComprador,
   fechaEmision: Date,
+  telefono?: string,
 ): void {
   doc
     .font("Helvetica-Bold")
@@ -330,12 +348,12 @@ function renderComprador(
     doc.y,
     { width: CONTENT_W },
   );
-  doc.text(
-    `RNC/Cédula: ${comprador.rncComprador ?? "No aplica"}`,
-    LEFT,
-    doc.y,
-    { width: CONTENT_W },
-  );
+  doc.text(`RNC/Cédula: ${comprador.rncComprador ?? "No aplica"}`, LEFT, doc.y, {
+    width: CONTENT_W,
+  });
+  if (telefono) {
+    doc.text(`Teléfono: ${telefono}`, LEFT, doc.y, { width: CONTENT_W });
+  }
   if (comprador.direccionComprador) {
     doc.text(`Dirección: ${comprador.direccionComprador}`, LEFT, doc.y, {
       width: CONTENT_W,
@@ -347,13 +365,14 @@ function renderComprador(
   hr(doc, 6, 8);
 }
 
-// Columnas de la tabla de items (x, ancho, alineación).
+// Columnas de la tabla de items (x, ancho, alineación) — A4 (CONTENT_W=495).
 const ITEM_COLS = [
-  { label: "#", x: LEFT, w: 22, align: "left" as const },
-  { label: "Descripción", x: LEFT + 26, w: 262, align: "left" as const },
-  { label: "Cant.", x: LEFT + 292, w: 48, align: "right" as const },
-  { label: "Precio U.", x: LEFT + 342, w: 78, align: "right" as const },
-  { label: "Total", x: LEFT + 422, w: 90, align: "right" as const },
+  { label: "#", x: LEFT, w: 20, align: "left" as const },
+  { label: "Descripción", x: LEFT + 22, w: 205, align: "left" as const },
+  { label: "Cant.", x: LEFT + 229, w: 42, align: "right" as const },
+  { label: "Precio U.", x: LEFT + 273, w: 70, align: "right" as const },
+  { label: "ITBIS", x: LEFT + 345, w: 66, align: "right" as const },
+  { label: "Total", x: LEFT + 413, w: 82, align: "right" as const },
 ];
 
 function renderItemsHeader(doc: PDFDoc): number {
@@ -373,7 +392,7 @@ function renderItemsHeader(doc: PDFDoc): number {
   return lineY + 6;
 }
 
-function renderItems(doc: PDFDoc, items: EcfItem[]): void {
+function renderItems(doc: PDFDoc, items: EcfItem[], itbisRatio: number): void {
   let y = renderItemsHeader(doc);
   const descCol = ITEM_COLS[1]!;
 
@@ -385,7 +404,6 @@ function renderItems(doc: PDFDoc, items: EcfItem[]): void {
     const descH = doc.heightOfString(desc, { width: descCol.w });
     const rowH = Math.max(descH, 14) + 8;
 
-    // Salto de página seguro si la fila no cabe.
     if (y + rowH > BOTTOM) {
       doc.addPage();
       doc.y = 50;
@@ -393,6 +411,7 @@ function renderItems(doc: PDFDoc, items: EcfItem[]): void {
       doc.font("Helvetica").fontSize(10);
     }
 
+    const itbisLinea = item.montoItem * itbisRatio;
     doc.text(String(item.numeroLinea), ITEM_COLS[0]!.x, y, {
       width: ITEM_COLS[0]!.w,
       align: "left",
@@ -406,8 +425,12 @@ function renderItems(doc: PDFDoc, items: EcfItem[]): void {
       width: ITEM_COLS[3]!.w,
       align: "right",
     });
-    doc.text(formatDgiiAmount(item.montoItem), ITEM_COLS[4]!.x, y, {
+    doc.text(formatDgiiAmount(itbisLinea), ITEM_COLS[4]!.x, y, {
       width: ITEM_COLS[4]!.w,
+      align: "right",
+    });
+    doc.text(formatDgiiAmount(item.montoItem), ITEM_COLS[5]!.x, y, {
+      width: ITEM_COLS[5]!.w,
       align: "right",
     });
 
@@ -424,10 +447,10 @@ function renderItems(doc: PDFDoc, items: EcfItem[]): void {
 }
 
 function renderTotales(doc: PDFDoc, totales: EcfTotales): void {
-  const labelX = 340;
-  const labelW = 120;
-  const valX = 466;
-  const valW = RIGHT - valX; // 96
+  const labelX = 325;
+  const labelW = 130;
+  const valX = 459;
+  const valW = RIGHT - valX; // 86
 
   const row = (label: string, value: string) => {
     const y = doc.y;
@@ -451,17 +474,13 @@ function renderTotales(doc: PDFDoc, totales: EcfTotales): void {
     row("ITBIS:", formatDgiiAmount(totales.totalItbis));
   }
 
-  // Total destacado: caja de color suave + tipografía mayor.
   const ty = doc.y + 2;
   doc.rect(labelX, ty, RIGHT - labelX, 24).fill("#eef1ea");
   doc.fillColor("black");
   doc
     .font("Helvetica-Bold")
     .fontSize(13)
-    .text("TOTAL:", labelX + 6, ty + 5, {
-      width: labelW - 6,
-      align: "right",
-    });
+    .text("TOTAL:", labelX + 6, ty + 5, { width: labelW - 6, align: "right" });
   doc
     .font("Helvetica-Bold")
     .fontSize(13)
@@ -469,7 +488,28 @@ function renderTotales(doc: PDFDoc, totales: EcfTotales): void {
       width: valW,
       align: "right",
     });
-  doc.y = ty + 24 + 6;
+  doc.y = ty + 24 + 8;
+}
+
+function renderPagos(doc: PDFDoc, lines: PdfPaymentLine[]): void {
+  doc
+    .font("Helvetica-Bold")
+    .fontSize(10.5)
+    .fillColor("black")
+    .text("Forma de pago", LEFT, doc.y);
+  doc.moveDown(0.2);
+  doc.font("Helvetica").fontSize(9.5);
+  for (const p of lines) {
+    const y = doc.y;
+    const label = p.last4 ? `${p.label} ····${p.last4}` : p.label;
+    doc.text(label, LEFT, y, { width: 300 });
+    doc.text(formatDgiiAmount(p.amount), 360, y, {
+      width: RIGHT - 360,
+      align: "right",
+    });
+    doc.y = y + 14;
+  }
+  doc.moveDown(0.2);
 }
 
 function renderFooter(
@@ -486,7 +526,6 @@ function renderFooter(
 ): void {
   const { qrSize, qrX, textWidth: textW } = footerQrLayout();
   const qrLabelH = 14;
-  // Altura mínima necesaria para el bloque de pie completo.
   const needed = 12 + qrSize + qrLabelH + 60;
   if (doc.y + needed > BOTTOM) {
     doc.addPage();
@@ -509,15 +548,13 @@ function renderFooter(
     doc.y,
     { width: textW },
   );
-  doc.font("Helvetica-Bold").text(
-    `Código de Seguridad: ${data.codigoSeguridad}`,
-    LEFT,
-    doc.y,
-    { width: textW },
-  );
+  doc
+    .font("Helvetica-Bold")
+    .text(`Código de Seguridad: ${data.codigoSeguridad}`, LEFT, doc.y, {
+      width: textW,
+    });
   const textBottom = doc.y;
 
-  // QR aislado a la derecha, con su etiqueta centrada debajo.
   doc.image(data.qrPng, qrX, qrY, { width: qrSize, height: qrSize });
   doc
     .font("Helvetica")
@@ -530,8 +567,6 @@ function renderFooter(
   doc.fillColor("black");
   const qrBottom = qrY + qrSize + qrLabelH;
 
-  // Nota legal / DEMO — SIEMPRE debajo de ambos bloques (texto y QR), nunca
-  // superpuesta con el QR.
   let noteY = Math.max(textBottom, qrBottom) + 14;
   if (data.demo) {
     doc

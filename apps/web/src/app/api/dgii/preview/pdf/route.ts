@@ -9,6 +9,18 @@ import {
 } from "@/server/services/dgii/service";
 import { getDgiiDemoKeyPair } from "@/server/services/dgii/demo-cert";
 
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: "Efectivo",
+  card: "Tarjeta",
+  transfer: "Transferencia",
+  azul: "Azul",
+  cardnet: "CardNET",
+  visanet: "VisaNet",
+  paypal: "PayPal",
+  manual: "Manual",
+  other: "Otro",
+};
+
 /**
  * POST /api/dgii/preview/pdf
  *
@@ -42,12 +54,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       certificatePem,
       privateKeyPem,
     });
+    // Forma(s) de pago para el PDF — sólo últimos 4, nunca el PAN completo.
+    const paymentLines = (proforma.payments ?? []).map((p) => ({
+      label: PAYMENT_LABELS[p.method] ?? p.method,
+      amount: p.amount,
+      last4: p.last4,
+    }));
     const pdfBuffer = await generateEcfPdf({
       ecf: ecfInput,
       signedXml,
       ambiente: "testecf",
       estadoDgii: "signed",
       demo: true,
+      compradorTelefono: proforma.customerPhone,
+      paymentLines,
     });
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
