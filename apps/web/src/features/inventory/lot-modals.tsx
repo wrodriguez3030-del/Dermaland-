@@ -4,13 +4,12 @@ import * as React from "react";
 import { AlertTriangle, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
-import {
-  getWarehousesByBranch,
-  getBranchById,
-  getWarehouseById,
-} from "@/lib/mock-data/tenancy";
+import { getBranchById } from "@/lib/mock-data/tenancy";
 import { addLot, adjustStock } from "@/features/inventory/lot-store";
-import { listActiveBranches } from "@/features/tenancy/branch-store";
+import {
+  listActiveBranches,
+  defaultWarehouseForBranch,
+} from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
 
 function Overlay({
@@ -59,7 +58,6 @@ export function NewLotModal({
 }: NewLotModalProps) {
   const toast = useToast();
   const [branchId, setBranchId] = React.useState("");
-  const [warehouseId, setWarehouseId] = React.useState("");
   const [lotNumber, setLotNumber] = React.useState("");
   const [quantity, setQuantity] = React.useState("");
   const [expiresAt, setExpiresAt] = React.useState("");
@@ -69,14 +67,12 @@ export function NewLotModal({
   const [missing, setMissing] = React.useState<Set<string>>(new Set());
   const [error, setError] = React.useState<string | null>(null);
 
-  const warehouses = branchId ? getWarehousesByBranch(branchId) : [];
   const isMissing = (k: string) => missing.has(k);
 
   if (!open) return null;
 
   const reset = () => {
     setBranchId("");
-    setWarehouseId("");
     setLotNumber("");
     setQuantity("");
     setExpiresAt("");
@@ -93,7 +89,7 @@ export function NewLotModal({
       {
         productId,
         branchId,
-        warehouseId,
+        warehouseId: branchId ? defaultWarehouseForBranch(branchId) : "",
         lotNumber,
         initialQuantity: Number(quantity),
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : "",
@@ -128,8 +124,8 @@ export function NewLotModal({
       </div>
 
       <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-        El stock se agrega por <strong>lote, sucursal y almacén</strong>. El
-        producto existe globalmente, pero las existencias viven en cada lote.
+        El stock se agrega por <strong>lote y sucursal</strong>. El producto
+        existe globalmente, pero las existencias viven en cada sucursal.
       </div>
 
       {error && (
@@ -144,34 +140,13 @@ export function NewLotModal({
           <Label>Sucursal *</Label>
           <Select
             value={branchId}
-            onChange={(e) => {
-              setBranchId(e.target.value);
-              setWarehouseId("");
-            }}
+            onChange={(e) => setBranchId(e.target.value)}
             className={isMissing("branchId") ? "border-rose-400" : undefined}
           >
             <option value="">— Selecciona —</option>
             {listActiveBranches().map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label>Almacén *</Label>
-          <Select
-            value={warehouseId}
-            onChange={(e) => setWarehouseId(e.target.value)}
-            disabled={!branchId}
-            className={isMissing("warehouseId") ? "border-rose-400" : undefined}
-          >
-            <option value="">
-              {branchId ? "— Selecciona —" : "Elige sucursal primero"}
-            </option>
-            {warehouses.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
               </option>
             ))}
           </Select>
@@ -299,7 +274,6 @@ export function AdjustStockModal({
   };
 
   const branch = getBranchById(lot.branchId);
-  const warehouse = getWarehouseById(lot.warehouseId);
 
   return (
     <Overlay onClose={onClose}>
@@ -316,8 +290,8 @@ export function AdjustStockModal({
       </div>
 
       <div className="mt-3 text-xs opacity-70">
-        {branch?.name ?? lot.branchId} · {warehouse?.name ?? lot.warehouseId} ·
-        cantidad actual <strong>{lot.currentQuantity}</strong>
+        {branch?.name ?? lot.branchId} · cantidad actual{" "}
+        <strong>{lot.currentQuantity}</strong>
       </div>
 
       {error && (

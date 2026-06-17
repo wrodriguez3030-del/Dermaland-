@@ -63,7 +63,7 @@ export default function MovimientosPage() {
     <>
       <PageHeader
         title="Movimientos de inventario"
-        description="Cada movimiento queda con producto + lote + sucursal + almacén + usuario + motivo. Auditable — solo lectura."
+        description="Cada movimiento queda con producto + lote + sucursal + usuario + motivo. Auditable — solo lectura."
         breadcrumbs={[
           { label: "Inventario", href: "/inventario" },
           { label: "Movimientos" },

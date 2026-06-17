@@ -88,6 +88,20 @@ export function listActiveWarehouses(): Warehouse[] {
 }
 
 /**
+ * Almacén interno por defecto de una sucursal. El usuario opera por SUCURSAL;
+ * internamente el stock sigue guardando `warehouse_id` por compatibilidad, así
+ * que mapeamos sucursal → su almacén principal (o el primero). Si la sucursal
+ * no tiene almacén (p. ej. recién creada), se usa un id sintético estable.
+ */
+export function defaultWarehouseForBranch(branchId: string): string {
+  const main = mockWarehouses.find((w) => w.branchId === branchId && w.isMain);
+  if (main) return main.id;
+  const any = mockWarehouses.find((w) => w.branchId === branchId);
+  if (any) return any.id;
+  return `wh_default_${branchId}`;
+}
+
+/**
  * Nombre de sucursal para HISTÓRICO/reportes: resuelve aunque esté inactiva o
  * eliminada (cae al seed `mockBranches`), para no perder nombres en documentos
  * y reportes antiguos.

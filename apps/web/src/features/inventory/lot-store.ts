@@ -126,6 +126,35 @@ export interface BranchStockGroup {
   available: number;
 }
 
+export interface BranchStockSummary {
+  branchId: string;
+  lots: number;
+  available: number;
+  expired: number;
+  soon: number;
+}
+
+/**
+ * Stock de un producto agrupado SÓLO por sucursal (sin almacén) — base de la
+ * sección "Stock por sucursal" que ve el usuario.
+ */
+export function stockBranchSummary(productId: string): BranchStockSummary[] {
+  const map = new Map<string, BranchStockSummary>();
+  for (const lot of listLotsByProduct(productId)) {
+    let g = map.get(lot.branchId);
+    if (!g) {
+      g = { branchId: lot.branchId, lots: 0, available: 0, expired: 0, soon: 0 };
+      map.set(lot.branchId, g);
+    }
+    g.lots += 1;
+    if (lot.status === "available") g.available += lot.currentQuantity;
+    const st = expiryStatus(lot.expiresAt);
+    if (st === "expired") g.expired += 1;
+    else if (st === "soon") g.soon += 1;
+  }
+  return [...map.values()];
+}
+
 /** Agrupa los lotes disponibles de un producto por sucursal + almacén. */
 export function stockByBranch(productId: string): BranchStockGroup[] {
   const map = new Map<string, BranchStockGroup>();

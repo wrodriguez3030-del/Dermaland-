@@ -37,7 +37,7 @@ import {
   getCategoryById,
   getLaboratoryById,
 } from "@/lib/mock-data/catalog";
-import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
+import { getBranchById } from "@/lib/mock-data/tenancy";
 import {
   formatCurrency,
   formatDate,
@@ -50,7 +50,7 @@ import {
   expiryStatus,
   listLotsByProduct,
   listMovementsByProduct,
-  stockByBranch,
+  stockBranchSummary,
   useInventoryTick,
   type ExpiryStatus,
 } from "@/features/inventory/lot-store";
@@ -116,7 +116,7 @@ export default function ProductDetailPage() {
   const lots = listLotsByProduct(product.id);
   const stock = availableStock(product.id);
   const movements = listMovementsByProduct(product.id);
-  const branchGroups = stockByBranch(product.id);
+  const branchGroups = stockBranchSummary(product.id);
   const hasLots = lots.length > 0;
   const requiresExpiry = true; // dermocosmética: todo lote lleva vencimiento
 
@@ -308,21 +308,35 @@ export default function ProductDetailPage() {
               <THead>
                 <TR>
                   <TH>Sucursal</TH>
-                  <TH>Almacén</TH>
                   <TH className="text-right">Lotes</TH>
                   <TH className="text-right">Disponible</TH>
+                  <TH className="text-right">Vencidos</TH>
+                  <TH className="text-right">Por vencer</TH>
                 </TR>
               </THead>
               <TBody>
                 {branchGroups.map((g) => (
-                  <TR key={`${g.branchId}_${g.warehouseId}`}>
-                    <TD>{getBranchById(g.branchId)?.name ?? g.branchId}</TD>
-                    <TD className="text-sm opacity-80">
-                      {getWarehouseById(g.warehouseId)?.name ?? g.warehouseId}
+                  <TR key={g.branchId}>
+                    <TD className="font-medium">
+                      {getBranchById(g.branchId)?.name ?? g.branchId}
                     </TD>
-                    <TD className="text-right tabular-nums">{g.lots.length}</TD>
+                    <TD className="text-right tabular-nums">{g.lots}</TD>
                     <TD className="text-right tabular-nums font-medium">
                       {g.available} {product.unit}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {g.expired > 0 ? (
+                        <span className="text-rose-700">{g.expired}</span>
+                      ) : (
+                        "—"
+                      )}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {g.soon > 0 ? (
+                        <span className="text-amber-700">{g.soon}</span>
+                      ) : (
+                        "—"
+                      )}
                     </TD>
                   </TR>
                 ))}
@@ -348,7 +362,7 @@ export default function ProductDetailPage() {
                 <THead>
                   <TR>
                     <TH>Lote</TH>
-                    <TH>Sucursal / Almacén</TH>
+                    <TH>Sucursal</TH>
                     <TH className="text-right">Inicial</TH>
                     <TH className="text-right">Actual</TH>
                     <TH>Vence</TH>
@@ -375,10 +389,6 @@ export default function ProductDetailPage() {
                         </TD>
                         <TD className="text-xs opacity-70">
                           {getBranchById(lot.branchId)?.name ?? lot.branchId}
-                          <span className="opacity-50">
-                            {" "}
-                            · {getWarehouseById(lot.warehouseId)?.name ?? lot.warehouseId}
-                          </span>
                         </TD>
                         <TD className="text-right tabular-nums">
                           {lot.initialQuantity}

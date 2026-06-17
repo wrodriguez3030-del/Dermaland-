@@ -15,9 +15,10 @@ import {
 } from "./lot-store";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 
-// Lote seed: lot_lrp_001a (prod_lrp_001, 18 u disponibles, wh_stg_main / br_santiago).
-const ORIGIN_WH = "wh_stg_main";
-const DEST_WH = "wh_naco_main";
+// Lote seed: lot_lrp_001a (prod_lrp_001, 18 u disponibles, br_santiago).
+const ORIGIN_BRANCH = "br_santiago";
+const DEST_BRANCH = "br_sd_naco";
+const DEST_WH = "wh_naco_main"; // almacén default interno de Naco
 const LOT = "lot_lrp_001a";
 const PID = "prod_lrp_001";
 
@@ -29,8 +30,8 @@ beforeEach(() => {
 
 function validInput(qty = 10) {
   return {
-    originWarehouseId: ORIGIN_WH,
-    destinationWarehouseId: DEST_WH,
+    originBranchId: ORIGIN_BRANCH,
+    destinationBranchId: DEST_BRANCH,
     transferDate: "2026-06-17",
     notes: "Reabastecer Naco",
     items: [{ lotId: LOT, productId: PID, quantity: qty }],
@@ -41,7 +42,7 @@ describe("validateTransfer", () => {
   it("origen y destino no pueden ser iguales", () => {
     const err = validateTransfer({
       ...validInput(),
-      destinationWarehouseId: ORIGIN_WH,
+      destinationBranchId: ORIGIN_BRANCH,
     });
     expect(err).toMatch(/no pueden ser iguales/i);
   });

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { mockBusiness, getWarehouseById } from "@/lib/mock-data/tenancy";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
+import { defaultWarehouseForBranch } from "@/features/tenancy/branch-store";
 import { listAllLots, transferStock } from "./lot-store";
 
 /**
@@ -97,8 +98,10 @@ function genTransferNumber(): string {
 }
 
 export interface CreateTransferInput {
-  originWarehouseId: string;
-  destinationWarehouseId: string;
+  /** Sucursal origen (el usuario opera por sucursal; el almacén es interno). */
+  originBranchId: string;
+  /** Sucursal destino. */
+  destinationBranchId: string;
   transferDate: string;
   notes?: string;
   items: TransferItemDraft[];
@@ -109,12 +112,12 @@ export type CreateTransferResult =
   | { ok: true; transfer: Transfer }
   | { ok: false; error: string };
 
-/** Valida la cabecera y las cantidades contra el stock disponible. */
+/** Valida la cabecera y las cantidades contra el stock disponible (por sucursal). */
 export function validateTransfer(input: CreateTransferInput): string | null {
-  if (!input.originWarehouseId) return "Selecciona el almacén origen.";
-  if (!input.destinationWarehouseId) return "Selecciona el almacén destino.";
-  if (input.originWarehouseId === input.destinationWarehouseId) {
-    return "El almacén origen y destino no pueden ser iguales.";
+  if (!input.originBranchId) return "Selecciona la sucursal origen.";
+  if (!input.destinationBranchId) return "Selecciona la sucursal destino.";
+  if (input.originBranchId === input.destinationBranchId) {
+    return "La sucursal origen y destino no pueden ser iguales.";
   }
   if (!input.transferDate) return "Indica la fecha de la transferencia.";
   if (!input.items || input.items.length === 0) {
@@ -127,8 +130,8 @@ export function validateTransfer(input: CreateTransferInput): string | null {
     }
     const lot = lots.find((l) => l.id === it.lotId);
     if (!lot) return "Uno de los lotes ya no existe.";
-    if (lot.warehouseId !== input.originWarehouseId) {
-      return "Todos los lotes deben pertenecer al almacén origen.";
+    if (lot.branchId !== input.originBranchId) {
+      return "Todos los lotes deben pertenecer a la sucursal origen.";
     }
     if (lot.status !== "available") {
       return `El lote ${lot.lotNumber} no está disponible (${lot.status}).`;
@@ -144,11 +147,9 @@ export function createTransfer(input: CreateTransferInput): CreateTransferResult
   const err = validateTransfer(input);
   if (err) return { ok: false, error: err };
 
-  const originWh = getWarehouseById(input.originWarehouseId);
-  const destWh = getWarehouseById(input.destinationWarehouseId);
-  if (!originWh || !destWh) {
-    return { ok: false, error: "Almacén origen o destino inválido." };
-  }
+  // El almacén es interno: se mapea automáticamente al default de cada sucursal.
+  const originWarehouseId = defaultWarehouseForBranch(input.originBranchId);
+  const destWarehouseId = defaultWarehouseForBranch(input.destinationBranchId);
 
   const lots = listAllLots();
   const transferId = genId("trf");
@@ -160,8 +161,8 @@ export function createTransfer(input: CreateTransferInput): CreateTransferResult
     const lot = lots.find((l) => l.id === it.lotId)!;
     const res = transferStock({
       originLotId: it.lotId,
-      destBranchId: destWh.branchId,
-      destWarehouseId: destWh.id,
+      destBranchId: input.destinationBranchId,
+      destWarehouseId,
       quantity: it.quantity,
       reference: transferNumber,
       notes: input.notes,
@@ -188,10 +189,10 @@ export function createTransfer(input: CreateTransferInput): CreateTransferResult
     id: transferId,
     businessId: mockBusiness.id,
     transferNumber,
-    originWarehouseId: originWh.id,
-    originBranchId: originWh.branchId,
-    destinationWarehouseId: destWh.id,
-    destinationBranchId: destWh.branchId,
+    originWarehouseId,
+    originBranchId: input.originBranchId,
+    destinationWarehouseId: destWarehouseId,
+    destinationBranchId: input.destinationBranchId,
     transferDate: input.transferDate,
     notes: input.notes,
     status: "completed",

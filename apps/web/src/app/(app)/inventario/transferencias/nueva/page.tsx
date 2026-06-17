@@ -22,8 +22,10 @@ import {
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { getWarehouseById, getBranchById } from "@/lib/mock-data/tenancy";
-import { listActiveWarehouses } from "@/features/tenancy/branch-store";
+import {
+  listActiveBranches,
+  resolveBranchName,
+} from "@/features/tenancy/branch-store";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { formatDate } from "@/lib/utils/format";
 import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
@@ -51,11 +53,11 @@ export default function NuevaTransferenciaPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState(false);
 
-  // Lotes disponibles en el almacén origen.
+  // Lotes disponibles en la sucursal origen.
   const availableLots = React.useMemo(() => {
     if (!origin) return [] as ProductLot[];
     return listAllLots().filter(
-      (l) => l.warehouseId === origin && l.status === "available" && l.currentQuantity > 0,
+      (l) => l.branchId === origin && l.status === "available" && l.currentQuantity > 0,
     );
   }, [origin]);
 
@@ -70,10 +72,10 @@ export default function NuevaTransferenciaPage() {
     setRows((r) => r.map((row, ix) => (ix === i ? { ...row, ...patch } : row)));
 
   const validateLocal = (): string | null => {
-    if (!origin) return "Selecciona el almacén origen.";
-    if (!destination) return "Selecciona el almacén destino.";
+    if (!origin) return "Selecciona la sucursal origen.";
+    if (!destination) return "Selecciona la sucursal destino.";
     if (origin === destination)
-      return "El almacén origen y destino no pueden ser iguales.";
+      return "La sucursal origen y destino no pueden ser iguales.";
     if (!date) return "Indica la fecha.";
     const valid = rows.filter((r) => r.lotId && Number(r.quantity) > 0);
     if (valid.length === 0) return "Agrega al menos un producto con cantidad.";
@@ -105,8 +107,8 @@ export default function NuevaTransferenciaPage() {
         return { lotId: r.lotId, productId: lot.productId, quantity: Number(r.quantity) };
       });
     const res = createTransfer({
-      originWarehouseId: origin,
-      destinationWarehouseId: destination,
+      originBranchId: origin,
+      destinationBranchId: destination,
       transferDate: date,
       notes: notes || undefined,
       items,
@@ -133,7 +135,7 @@ export default function NuevaTransferenciaPage() {
         <ArrowLeft className="h-3 w-3" /> Volver a transferencias
       </Link>
       <PageHeader
-        title="Nueva transferencia entre almacenes"
+        title="Nueva transferencia entre sucursales"
         breadcrumbs={[
           { label: "Inventario", href: "/inventario" },
           { label: "Transferencias", href: "/inventario/transferencias" },
@@ -142,7 +144,7 @@ export default function NuevaTransferenciaPage() {
       />
 
       <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-900">
-        Selecciona el almacén origen, el almacén destino y los productos/lotes
+        Selecciona la sucursal origen, la sucursal destino y los productos/lotes
         que deseas mover. El sistema descontará del origen y sumará al destino
         automáticamente, conservando el lote y su vencimiento.
       </div>
@@ -158,7 +160,7 @@ export default function NuevaTransferenciaPage() {
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label>Almacén origen *</Label>
+              <Label>Sucursal origen *</Label>
               <Select
                 value={origin}
                 onChange={(e) => {
@@ -167,25 +169,25 @@ export default function NuevaTransferenciaPage() {
                 }}
               >
                 <option value="">— Selecciona —</option>
-                {listActiveWarehouses().map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} · {getBranchById(w.branchId)?.name}
+                {listActiveBranches().map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
                   </option>
                 ))}
               </Select>
             </div>
             <div>
-              <Label>Almacén destino *</Label>
+              <Label>Sucursal destino *</Label>
               <Select
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
               >
                 <option value="">— Selecciona —</option>
-                {listActiveWarehouses()
-                  .filter((w) => w.id !== origin)
-                  .map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} · {getBranchById(w.branchId)?.name}
+                {listActiveBranches()
+                  .filter((b) => b.id !== origin)
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
                     </option>
                   ))}
               </Select>
@@ -345,8 +347,8 @@ export default function NuevaTransferenciaPage() {
         message={
           <>
             Se moverán <strong>{total}</strong> unidades de{" "}
-            <strong>{getWarehouseById(origin)?.name}</strong> a{" "}
-            <strong>{getWarehouseById(destination)?.name}</strong>. Esta acción
+            <strong>{resolveBranchName(origin)}</strong> a{" "}
+            <strong>{resolveBranchName(destination)}</strong>. Esta acción
             descuenta del origen y suma al destino.
           </>
         }

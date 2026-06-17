@@ -17,7 +17,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { getWarehouseById, getBranchById } from "@/lib/mock-data/tenancy";
+import { resolveBranchName } from "@/features/tenancy/branch-store";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 import {
@@ -26,10 +26,6 @@ import {
 } from "@/features/inventory/transfer-store";
 import type { Transfer } from "@/features/inventory/transfer-store";
 
-function whLabel(id: string) {
-  const w = getWarehouseById(id);
-  return w ? `${w.name} · ${getBranchById(w.branchId)?.name ?? ""}` : id;
-}
 
 export default function TransferDetailPage() {
   const params = useParams<{ id: string }>();
@@ -124,7 +120,9 @@ export default function TransferDetailPage() {
               <div className="text-[10px] uppercase tracking-wider opacity-50">
                 Origen
               </div>
-              <div className="font-medium">{whLabel(transfer.originWarehouseId)}</div>
+              <div className="font-medium">
+                {resolveBranchName(transfer.originBranchId)}
+              </div>
             </div>
             <ArrowRight className="h-5 w-5 opacity-40" />
             <div>
@@ -132,7 +130,7 @@ export default function TransferDetailPage() {
                 Destino
               </div>
               <div className="font-medium">
-                {whLabel(transfer.destinationWarehouseId)}
+                {resolveBranchName(transfer.destinationBranchId)}
               </div>
             </div>
             <div className="ml-auto text-right">

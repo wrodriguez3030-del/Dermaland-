@@ -9,6 +9,7 @@ import {
   listLotsByProduct,
   listMovementsByProduct,
   stockByBranch,
+  stockBranchSummary,
   validateLot,
 } from "./lot-store";
 
@@ -163,6 +164,34 @@ describe("stockByBranch", () => {
     const groups = stockByBranch(PID);
     expect(groups).toHaveLength(2);
     expect(groups.reduce((s, g) => s + g.available, 0)).toBe(12);
+  });
+});
+
+describe("stock por sucursal (sin mezclar entre sucursales)", () => {
+  it("agrupa el stock por sucursal y no mezcla cantidades", () => {
+    addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "S1",
+      initialQuantity: 8,
+      expiresAt: future(120),
+    });
+    addLot({
+      productId: PID,
+      branchId: "br_sd_naco",
+      warehouseId: "wh_naco_main",
+      lotNumber: "N1",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    const summary = stockBranchSummary(PID);
+    const stg = summary.find((g) => g.branchId === "br_santiago")!;
+    const naco = summary.find((g) => g.branchId === "br_sd_naco")!;
+    expect(stg.available).toBe(8);
+    expect(naco.available).toBe(5);
+    // El total disponible es la suma de ambas sucursales.
+    expect(availableStock(PID)).toBe(13);
   });
 });
 

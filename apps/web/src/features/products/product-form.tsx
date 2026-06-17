@@ -27,8 +27,10 @@ import {
   updateProduct,
 } from "@/features/products/product-store";
 import { addLot } from "@/features/inventory/lot-store";
-import { getWarehousesByBranch } from "@/lib/mock-data/tenancy";
-import { listActiveBranches } from "@/features/tenancy/branch-store";
+import {
+  listActiveBranches,
+  defaultWarehouseForBranch,
+} from "@/features/tenancy/branch-store";
 import type { Product } from "@/types";
 
 type Mode = "create" | "edit";
@@ -99,7 +101,6 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   // Lote inicial opcional (sólo al crear).
   const [withLot, setWithLot] = React.useState(false);
   const [lotBranch, setLotBranch] = React.useState("");
-  const [lotWarehouse, setLotWarehouse] = React.useState("");
   const [lotNumber, setLotNumber] = React.useState("");
   const [lotQty, setLotQty] = React.useState("");
   const [lotExpiry, setLotExpiry] = React.useState("");
@@ -181,7 +182,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         const lotRes = addLot({
           productId: result.product.id,
           branchId: lotBranch,
-          warehouseId: lotWarehouse,
+          warehouseId: lotBranch ? defaultWarehouseForBranch(lotBranch) : "",
           lotNumber,
           initialQuantity: Number(lotQty),
           expiresAt: lotExpiry ? new Date(lotExpiry).toISOString() : "",
@@ -564,10 +565,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                     <Label>Sucursal *</Label>
                     <Select
                       value={lotBranch}
-                      onChange={(e) => {
-                        setLotBranch(e.target.value);
-                        setLotWarehouse("");
-                      }}
+                      onChange={(e) => setLotBranch(e.target.value)}
                       className={isMissing("branchId") ? "border-rose-400" : undefined}
                     >
                       <option value="">— Selecciona —</option>
@@ -576,28 +574,6 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                           {b.name}
                         </option>
                       ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Almacén *</Label>
-                    <Select
-                      value={lotWarehouse}
-                      onChange={(e) => setLotWarehouse(e.target.value)}
-                      disabled={!lotBranch}
-                      className={
-                        isMissing("warehouseId") ? "border-rose-400" : undefined
-                      }
-                    >
-                      <option value="">
-                        {lotBranch ? "— Selecciona —" : "Elige sucursal"}
-                      </option>
-                      {(lotBranch ? getWarehousesByBranch(lotBranch) : []).map(
-                        (w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.name}
-                          </option>
-                        ),
-                      )}
                     </Select>
                   </div>
                   <div>

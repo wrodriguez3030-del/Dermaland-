@@ -16,25 +16,25 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { ShieldAlert } from "lucide-react";
-import {
-  getProductById,
-  mockProductLots,
-} from "@/lib/mock-data/catalog";
+import { getProductById } from "@/lib/mock-data/catalog";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import { Badge } from "@/components/ui";
 import { ProductImage } from "@/features/products/components/product-image";
+import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
+import { resolveBranchName } from "@/features/tenancy/branch-store";
 
 export default function StockPorLotePage() {
   const toast = useToast();
-  const sorted = [...mockProductLots].sort(
+  useInventoryTick();
+  const sorted = [...listAllLots()].sort(
     (a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt),
   );
   return (
     <>
       <PageHeader
         title="Stock por lote"
-        description="Detalle por producto + lote + vencimiento + sucursal + almacén. Es el stock real del negocio."
+        description="Detalle por producto + lote + vencimiento + sucursal. Es el stock real del negocio."
         breadcrumbs={[{ label: "Inventario", href: "/inventario" }, { label: "Por lote" }]}
       />
 
@@ -63,7 +63,7 @@ export default function StockPorLotePage() {
                 <TH className="w-[60px]"></TH>
                 <TH>Producto</TH>
                 <TH>Lote</TH>
-                <TH>Almacén</TH>
+                <TH>Sucursal</TH>
                 <TH className="text-right">Cantidad</TH>
                 <TH>Vence</TH>
                 <TH>Días</TH>
@@ -99,7 +99,9 @@ export default function StockPorLotePage() {
                       <div className="font-mono text-xs opacity-60">{p?.sku}</div>
                     </TD>
                     <TD className="font-mono text-xs">{lot.lotNumber}</TD>
-                    <TD className="text-xs opacity-70">{lot.warehouseId}</TD>
+                    <TD className="text-xs opacity-70">
+                      {resolveBranchName(lot.branchId)}
+                    </TD>
                     <TD className="text-right tabular-nums font-medium">
                       {lot.currentQuantity}
                     </TD>

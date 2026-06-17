@@ -93,7 +93,6 @@ const groups: NavGroup[] = [
       { label: "Stock por lote", href: "/inventario/por-lote" },
       { label: "Movimientos", href: "/inventario/movimientos" },
       { label: "Transferencias", href: "/inventario/transferencias" },
-      { label: "Almacenes", href: "/inventario/almacenes" },
       { label: "Vencimientos", href: "/inventario/vencimientos" },
       { label: "Bajo stock", href: "/inventario/bajo-stock" },
       { label: "Cuarentena", href: "/inventario/cuarentena" },

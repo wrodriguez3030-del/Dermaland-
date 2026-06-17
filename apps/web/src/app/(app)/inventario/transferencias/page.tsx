@@ -19,17 +19,15 @@ import {
 import { FilterBar } from "@/components/ui/filter-bar";
 import { SearchInput } from "@/components/ui/search-input";
 import { ArrowRightLeft, Eye, Plus, X } from "lucide-react";
-import { mockWarehouses, getWarehouseById, getBranchById } from "@/lib/mock-data/tenancy";
 import { formatDate } from "@/lib/utils/format";
+import {
+  listActiveBranches,
+  resolveBranchName,
+} from "@/features/tenancy/branch-store";
 import {
   listTransfers,
   useTransfersTick,
 } from "@/features/inventory/transfer-store";
-
-const whLabel = (id: string) => {
-  const w = getWarehouseById(id);
-  return w ? `${w.name} · ${getBranchById(w.branchId)?.name ?? ""}` : id;
-};
 
 export default function TransferenciasPage() {
   useTransfersTick();
@@ -47,8 +45,8 @@ export default function TransferenciasPage() {
   };
 
   const filtered = all.filter((t) => {
-    if (origin && t.originWarehouseId !== origin) return false;
-    if (destination && t.destinationWarehouseId !== destination) return false;
+    if (origin && t.originBranchId !== origin) return false;
+    if (destination && t.destinationBranchId !== destination) return false;
     if (q.trim()) {
       const term = q.trim().toLowerCase();
       const hay =
@@ -90,10 +88,10 @@ export default function TransferenciasPage() {
           onChange={(e) => setQ(e.target.value)}
         />
         <Select value={origin} onChange={(e) => setOrigin(e.target.value)}>
-          <option value="">Origen: todos</option>
-          {mockWarehouses.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
+          <option value="">Origen: todas</option>
+          {listActiveBranches().map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
             </option>
           ))}
         </Select>
@@ -101,10 +99,10 @@ export default function TransferenciasPage() {
           value={destination}
           onChange={(e) => setDestination(e.target.value)}
         >
-          <option value="">Destino: todos</option>
-          {mockWarehouses.map((w) => (
-            <option key={w.id} value={w.id}>
-              {w.name}
+          <option value="">Destino: todas</option>
+          {listActiveBranches().map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
             </option>
           ))}
         </Select>
@@ -163,8 +161,10 @@ export default function TransferenciasPage() {
                     {t.transferNumber}
                   </TD>
                   <TD className="text-xs">{formatDate(t.transferDate)}</TD>
-                  <TD className="text-xs">{whLabel(t.originWarehouseId)}</TD>
-                  <TD className="text-xs">{whLabel(t.destinationWarehouseId)}</TD>
+                  <TD className="text-xs">{resolveBranchName(t.originBranchId)}</TD>
+                  <TD className="text-xs">
+                    {resolveBranchName(t.destinationBranchId)}
+                  </TD>
                   <TD className="text-right tabular-nums font-medium">
                     {t.totalQuantity}
                   </TD>
