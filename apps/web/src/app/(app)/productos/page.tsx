@@ -34,8 +34,11 @@ import {
   getCategoryById,
   mockBrands,
   mockCategories,
-  totalStockForProduct,
 } from "@/lib/mock-data/catalog";
+import {
+  availableStock as totalStockForProduct,
+  useInventoryTick,
+} from "@/features/inventory/lot-store";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
 
@@ -57,6 +60,7 @@ type StatusFilter = "all" | "active" | "inactive" | "low" | "out";
 export default function ProductosPage() {
   const products = useProducts();
   const toast = useToast();
+  const tick = useInventoryTick(); // refleja cambios de stock por lotes
 
   const [q, setQ] = React.useState("");
   const [brand, setBrand] = React.useState("");
@@ -94,7 +98,8 @@ export default function ProductosPage() {
       }
       return true;
     });
-  }, [products, q, brand, category, status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, q, brand, category, status, tick]);
 
   const { sort, sorted, toggle } = useTableSort(
     filtered,

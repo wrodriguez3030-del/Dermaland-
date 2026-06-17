@@ -1,8 +1,18 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  PackagePlus,
+  SlidersHorizontal,
+  History,
+  ShoppingCart,
+  Pencil,
+  Power,
+  PackageX,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -20,14 +30,14 @@ import {
   TH,
   TD,
 } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import {
   getBrandById,
   getCategoryById,
   getLaboratoryById,
-  getLotsByProduct,
-  totalStockForProduct,
 } from "@/lib/mock-data/catalog";
-import { mockInventoryMovements } from "@/lib/mock-data/inventory-movements";
+import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
 import {
   formatCurrency,
   formatDate,
@@ -35,13 +45,43 @@ import {
   daysUntil,
 } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
+import {
+  availableStock,
+  expiryStatus,
+  listLotsByProduct,
+  listMovementsByProduct,
+  stockByBranch,
+  useInventoryTick,
+  type ExpiryStatus,
+} from "@/features/inventory/lot-store";
+import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
 import { ProductImage } from "@/features/products/components/product-image";
-import { useProduct } from "@/features/products/product-store";
+import { useProduct, updateProduct } from "@/features/products/product-store";
+import type { ProductLot } from "@/types";
+
+const expiryTone: Record<ExpiryStatus, "danger" | "warning" | "success"> = {
+  expired: "danger",
+  soon: "danger",
+  warn: "warning",
+  ok: "success",
+};
+const expiryRowBg: Record<ExpiryStatus, string> = {
+  expired: "bg-rose-50",
+  soon: "bg-rose-50/60",
+  warn: "bg-amber-50/60",
+  ok: "",
+};
 
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
   const product = useProduct(id);
+  const toast = useToast();
+  useInventoryTick(); // re-render al cambiar lotes/movimientos
+
+  const [lotOpen, setLotOpen] = React.useState(false);
+  const [adjustLot, setAdjustLot] = React.useState<ProductLot | null>(null);
+  const [confirmInactivate, setConfirmInactivate] = React.useState(false);
 
   if (!product) {
     return (
@@ -73,11 +113,15 @@ export default function ProductDetailPage() {
   const brand = getBrandById(product.brandId);
   const category = getCategoryById(product.categoryId);
   const laboratory = getLaboratoryById(product.laboratoryId);
-  const lots = getLotsByProduct(product.id);
-  const stock = totalStockForProduct(product.id);
-  const movements = mockInventoryMovements
-    .filter((m) => m.productId === product.id)
-    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  const lots = listLotsByProduct(product.id);
+  const stock = availableStock(product.id);
+  const movements = listMovementsByProduct(product.id);
+  const branchGroups = stockByBranch(product.id);
+  const hasLots = lots.length > 0;
+  const requiresExpiry = true; // dermocosmética: todo lote lleva vencimiento
+
+  const firstAdjustable =
+    lots.find((l) => l.status === "available") ?? lots[0] ?? null;
 
   return (
     <>
@@ -101,13 +145,59 @@ export default function ProductDetailPage() {
           <>
             <Link href={`/productos/${product.id}/editar`}>
               <Button variant="outline" size="sm">
-                Editar
+                <Pencil className="h-4 w-4" /> Editar
               </Button>
             </Link>
-            <Button size="sm">Nuevo lote</Button>
+            <Button size="sm" onClick={() => setLotOpen(true)}>
+              <PackagePlus className="h-4 w-4" /> Nuevo lote
+            </Button>
           </>
         }
       />
+
+      {/* Acciones rápidas */}
+      <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <QuickAction
+          icon={PackagePlus}
+          label="Nuevo lote"
+          onClick={() => setLotOpen(true)}
+        />
+        <QuickAction
+          icon={SlidersHorizontal}
+          label="Ajuste de stock"
+          onClick={() => {
+            if (firstAdjustable) setAdjustLot(firstAdjustable);
+            else toast.success("Agrega un lote antes de ajustar stock.");
+          }}
+        />
+        <QuickAction
+          icon={History}
+          label="Ver movimientos"
+          href={`/inventario/movimientos?producto=${product.id}`}
+        />
+        <QuickAction
+          icon={ShoppingCart}
+          label="Ver ventas"
+          href="/reportes/productos"
+        />
+        <QuickAction
+          icon={Pencil}
+          label="Editar producto"
+          href={`/productos/${product.id}/editar`}
+        />
+        <QuickAction
+          icon={Power}
+          label={product.active ? "Inactivar" : "Reactivar"}
+          danger={product.active}
+          onClick={() => {
+            if (product.active) setConfirmInactivate(true);
+            else {
+              updateProduct(product.id, { active: true });
+              toast.success("Producto reactivado.");
+            }
+          }}
+        />
+      </div>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-4">
         <Card className="lg:col-span-1">
@@ -176,10 +266,78 @@ export default function ProductDetailPage() {
         </Card>
       </div>
 
+      {/* Empty state: producto sin lote */}
+      {!hasLots && (
+        <Card className="mb-6 border-amber-200 bg-amber-50/40">
+          <CardContent className="py-8 text-center">
+            <PackageX className="mx-auto mb-2 h-8 w-8 text-amber-600" />
+            <p className="text-sm font-semibold">
+              Este producto no tiene stock cargado.
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-xs opacity-70">
+              Agrega un lote para poder venderlo. El stock se registra por lote,
+              sucursal y almacén, con su fecha de vencimiento.
+            </p>
+            <Button size="sm" className="mt-4" onClick={() => setLotOpen(true)}>
+              <PackagePlus className="h-4 w-4" /> Agregar primer lote
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Ayuda: flujo recomendado */}
+      <div className="mb-6 rounded-xl border border-black/10 bg-black/[0.02] p-4 text-xs">
+        <div className="mb-1 font-semibold">Para agregar inventario:</div>
+        <ol className="ml-4 list-decimal space-y-0.5 opacity-75">
+          <li>Crea el producto (ya está creado).</li>
+          <li>Agrega un lote con “Nuevo lote”.</li>
+          <li>Selecciona sucursal y almacén.</li>
+          <li>Indica cantidad y fecha de vencimiento.</li>
+          <li>Guarda — el stock queda disponible para vender.</li>
+        </ol>
+      </div>
+
+      {/* Stock por sucursal */}
+      {hasLots && (
+        <Card className="mb-6">
+          <CardContent className="p-0">
+            <div className="border-b border-black/5 px-4 py-3 text-sm font-semibold">
+              Stock por sucursal
+            </div>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Sucursal</TH>
+                  <TH>Almacén</TH>
+                  <TH className="text-right">Lotes</TH>
+                  <TH className="text-right">Disponible</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {branchGroups.map((g) => (
+                  <TR key={`${g.branchId}_${g.warehouseId}`}>
+                    <TD>{getBranchById(g.branchId)?.name ?? g.branchId}</TD>
+                    <TD className="text-sm opacity-80">
+                      {getWarehouseById(g.warehouseId)?.name ?? g.warehouseId}
+                    </TD>
+                    <TD className="text-right tabular-nums">{g.lots.length}</TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      {g.available} {product.unit}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="lots">
         <TabsList>
           <TabsTrigger value="lots">Lotes ({lots.length})</TabsTrigger>
-          <TabsTrigger value="movements">Movimientos</TabsTrigger>
+          <TabsTrigger value="movements">
+            Movimientos ({movements.length})
+          </TabsTrigger>
           <TabsTrigger value="sales">Ventas</TabsTrigger>
         </TabsList>
 
@@ -190,40 +348,38 @@ export default function ProductDetailPage() {
                 <THead>
                   <TR>
                     <TH>Lote</TH>
-                    <TH>Almacén</TH>
+                    <TH>Sucursal / Almacén</TH>
                     <TH className="text-right">Inicial</TH>
                     <TH className="text-right">Actual</TH>
                     <TH>Vence</TH>
                     <TH>Días</TH>
                     <TH>Estado</TH>
-                    <TH className="text-right">Costo</TH>
+                    <TH className="text-right pr-4">Acciones</TH>
                   </TR>
                 </THead>
                 <TBody>
                   {lots.length === 0 && (
                     <TR>
                       <TD colSpan={8} className="py-8 text-center text-sm opacity-60">
-                        Sin lotes registrados aún. Los lotes se crean al recibir
-                        órdenes de compra (Fase 3).
+                        Sin lotes. Usa “Agregar primer lote”.
                       </TD>
                     </TR>
                   )}
                   {lots.map((lot) => {
                     const days = daysUntil(lot.expiresAt);
-                    const tone =
-                      days < 0
-                        ? "danger"
-                        : days < 30
-                          ? "danger"
-                          : days < 90
-                            ? "warning"
-                            : "neutral";
+                    const st = expiryStatus(lot.expiresAt);
                     return (
-                      <TR key={lot.id}>
+                      <TR key={lot.id} className={expiryRowBg[st]}>
                         <TD>
                           <div className="font-mono text-xs">{lot.lotNumber}</div>
                         </TD>
-                        <TD className="text-xs opacity-70">{lot.warehouseId}</TD>
+                        <TD className="text-xs opacity-70">
+                          {getBranchById(lot.branchId)?.name ?? lot.branchId}
+                          <span className="opacity-50">
+                            {" "}
+                            · {getWarehouseById(lot.warehouseId)?.name ?? lot.warehouseId}
+                          </span>
+                        </TD>
                         <TD className="text-right tabular-nums">
                           {lot.initialQuantity}
                         </TD>
@@ -232,15 +388,19 @@ export default function ProductDetailPage() {
                         </TD>
                         <TD>{formatDate(lot.expiresAt)}</TD>
                         <TD>
-                          <Badge tone={tone}>
-                            {days < 0
-                              ? `${Math.abs(days)} d. venc.`
-                              : `${days} d.`}
+                          <Badge tone={expiryTone[st]}>
+                            {days < 0 ? `${Math.abs(days)} d. venc.` : `${days} d.`}
                           </Badge>
                         </TD>
                         <TD>{lotStatusBadge(lot.status)}</TD>
-                        <TD className="text-right tabular-nums text-xs">
-                          {formatCurrency(lot.unitCost)}
+                        <TD className="pr-4 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAdjustLot(lot)}
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5" /> Ajustar
+                          </Button>
                         </TD>
                       </TR>
                     );
@@ -317,7 +477,68 @@ export default function ProductDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <NewLotModal
+        open={lotOpen}
+        onClose={() => setLotOpen(false)}
+        productId={product.id}
+        productName={product.name}
+        requireExpiry={requiresExpiry}
+      />
+      <AdjustStockModal
+        open={adjustLot !== null}
+        onClose={() => setAdjustLot(null)}
+        lot={adjustLot}
+        productName={product.name}
+      />
+      <ConfirmDialog
+        open={confirmInactivate}
+        title="Inactivar producto"
+        message={`¿Inactivar ${product.name}? Dejará de venderse pero conserva su historial y lotes.`}
+        confirmLabel="Inactivar"
+        destructive
+        onCancel={() => setConfirmInactivate(false)}
+        onConfirm={() => {
+          updateProduct(product.id, { active: false });
+          setConfirmInactivate(false);
+          toast.success("Producto inactivado.");
+        }}
+      />
+      <toast.Toast />
     </>
+  );
+}
+
+function QuickAction({
+  icon: Icon,
+  label,
+  href,
+  onClick,
+  danger,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  danger?: boolean;
+}) {
+  const inner = (
+    <div
+      className={`flex h-full flex-col items-center justify-center gap-1.5 rounded-xl border p-3 text-center text-xs font-medium transition hover:shadow-sm ${
+        danger
+          ? "border-rose-200 bg-rose-50/40 text-rose-700 hover:bg-rose-50"
+          : "border-black/10 bg-white hover:border-[color:var(--brand-primary)]/40"
+      }`}
+    >
+      <Icon className="h-5 w-5" />
+      {label}
+    </div>
+  );
+  if (href) return <Link href={href}>{inner}</Link>;
+  return (
+    <button type="button" onClick={onClick} className="text-left">
+      {inner}
+    </button>
   );
 }
 

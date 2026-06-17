@@ -26,6 +26,11 @@ import {
   listAllProducts,
   updateProduct,
 } from "@/features/products/product-store";
+import { addLot } from "@/features/inventory/lot-store";
+import {
+  mockBranches,
+  getWarehousesByBranch,
+} from "@/lib/mock-data/tenancy";
 import type { Product } from "@/types";
 
 type Mode = "create" | "edit";
@@ -93,6 +98,15 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   );
   const [active, setActive] = React.useState(product?.active ?? true);
 
+  // Lote inicial opcional (sólo al crear).
+  const [withLot, setWithLot] = React.useState(false);
+  const [lotBranch, setLotBranch] = React.useState("");
+  const [lotWarehouse, setLotWarehouse] = React.useState("");
+  const [lotNumber, setLotNumber] = React.useState("");
+  const [lotQty, setLotQty] = React.useState("");
+  const [lotExpiry, setLotExpiry] = React.useState("");
+  const [lotCost, setLotCost] = React.useState("");
+
   const [imageUrl, setImageUrl] = React.useState<string | null>(
     product?.imageUrl ?? null,
   );
@@ -156,16 +170,43 @@ export function ProductForm({ mode, product }: ProductFormProps) {
 
     if (mode === "create") {
       const result = createProduct({ ...common, active: true, sellable: true });
-      setSubmitting(false);
       if (!result.ok) {
+        setSubmitting(false);
         if (result.missingFields?.length) {
           setMissing(new Set(result.missingFields));
         }
         setErrorBanner(result.error);
         return;
       }
+      // Lote inicial opcional.
+      if (withLot) {
+        const lotRes = addLot({
+          productId: result.product.id,
+          branchId: lotBranch,
+          warehouseId: lotWarehouse,
+          lotNumber,
+          initialQuantity: Number(lotQty),
+          expiresAt: lotExpiry ? new Date(lotExpiry).toISOString() : "",
+          unitCost: Number(lotCost) || Number(cost) || 0,
+          reason: "Entrada inicial",
+        });
+        if (!lotRes.ok) {
+          setSubmitting(false);
+          setErrorBanner(
+            `Producto creado, pero el lote inicial falló: ${lotRes.error}`,
+          );
+          setMissing(new Set(lotRes.missingFields ?? []));
+          setTimeout(() => router.push(`/productos/${result.product.id}`), 1200);
+          return;
+        }
+      }
+      setSubmitting(false);
       setMissing(new Set());
-      toast.success(`Producto guardado · ${result.product.sku}`);
+      toast.success(
+        withLot
+          ? `Producto y lote inicial guardados · ${result.product.sku}`
+          : `Producto guardado · ${result.product.sku}`,
+      );
       setTimeout(() => router.push(`/productos/${result.product.id}`), 600);
       return;
     }
@@ -502,6 +543,110 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               </div>
             )}
           </FormSection>
+
+          {mode === "create" && (
+            <FormSection
+              title="Lote inicial (opcional)"
+              description="El stock vive por lote, sucursal y almacén. Puedes cargar el primer lote ahora o después desde el detalle del producto."
+            >
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={withLot}
+                  onChange={(e) => setWithLot(e.target.checked)}
+                />
+                <span className="text-sm font-medium">
+                  Crear un lote inicial junto con el producto
+                </span>
+              </label>
+              {withLot && (
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>Sucursal *</Label>
+                    <Select
+                      value={lotBranch}
+                      onChange={(e) => {
+                        setLotBranch(e.target.value);
+                        setLotWarehouse("");
+                      }}
+                      className={isMissing("branchId") ? "border-rose-400" : undefined}
+                    >
+                      <option value="">— Selecciona —</option>
+                      {mockBranches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Almacén *</Label>
+                    <Select
+                      value={lotWarehouse}
+                      onChange={(e) => setLotWarehouse(e.target.value)}
+                      disabled={!lotBranch}
+                      className={
+                        isMissing("warehouseId") ? "border-rose-400" : undefined
+                      }
+                    >
+                      <option value="">
+                        {lotBranch ? "— Selecciona —" : "Elige sucursal"}
+                      </option>
+                      {(lotBranch ? getWarehousesByBranch(lotBranch) : []).map(
+                        (w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.name}
+                          </option>
+                        ),
+                      )}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Número de lote *</Label>
+                    <Input
+                      value={lotNumber}
+                      onChange={(e) => setLotNumber(e.target.value)}
+                      placeholder="LRP24A"
+                      className={isMissing("lotNumber") ? "border-rose-400" : undefined}
+                    />
+                  </div>
+                  <div>
+                    <Label>Cantidad inicial *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={lotQty}
+                      onChange={(e) => setLotQty(e.target.value)}
+                      placeholder="24"
+                      className={
+                        isMissing("initialQuantity") ? "border-rose-400" : undefined
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Fecha de vencimiento *</Label>
+                    <Input
+                      type="date"
+                      value={lotExpiry}
+                      onChange={(e) => setLotExpiry(e.target.value)}
+                      className={isMissing("expiresAt") ? "border-rose-400" : undefined}
+                    />
+                  </div>
+                  <div>
+                    <Label>Costo del lote</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={lotCost}
+                      onChange={(e) => setLotCost(e.target.value)}
+                      placeholder="850.00"
+                    />
+                  </div>
+                </div>
+              )}
+            </FormSection>
+          )}
         </CardContent>
       </Card>
 
