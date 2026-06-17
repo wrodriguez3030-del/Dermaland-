@@ -130,18 +130,21 @@ export function RowActions({
 
   // ─── Inline variant ──
   if (variant === "inline") {
+    // Botones SÓLO ícono (sin texto) para una columna de acciones compacta.
+    // Se conservan `title` (tooltip) y `aria-label` (accesibilidad).
     const baseBtn =
-      "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs font-medium transition";
+      "inline-flex h-8 w-8 items-center justify-center rounded-md border transition";
     const ghostBtn =
       "border-black/10 text-[color:var(--brand-fg)] bg-white hover:border-[color:var(--brand-primary)] hover:bg-[color:var(--brand-primary)]/5";
     const dangerBtn =
       "border-rose-200 text-rose-700 bg-white hover:bg-rose-50";
+    const ico = "h-4 w-4";
 
     return (
       <>
         <div
           className={cn(
-            "flex flex-wrap items-center gap-1",
+            "flex flex-nowrap items-center gap-1",
             align === "end" ? "justify-end" : "justify-start",
             className,
           )}
@@ -154,8 +157,7 @@ export function RowActions({
                 aria-label="Ver"
                 title="Ver"
               >
-                <Eye className="h-3 w-3" />
-                <span className="hidden sm:inline">Ver</span>
+                <Eye className={ico} />
               </Link>
             ) : (
               <button
@@ -165,8 +167,7 @@ export function RowActions({
                 aria-label="Ver"
                 title="Ver"
               >
-                <Eye className="h-3 w-3" />
-                <span className="hidden sm:inline">Ver</span>
+                <Eye className={ico} />
               </button>
             ))}
           {showEdit &&
@@ -177,8 +178,7 @@ export function RowActions({
                 aria-label="Editar"
                 title="Editar"
               >
-                <Pencil className="h-3 w-3" />
-                <span className="hidden sm:inline">Editar</span>
+                <Pencil className={ico} />
               </Link>
             ) : (
               <button
@@ -188,8 +188,7 @@ export function RowActions({
                 aria-label="Editar"
                 title="Editar"
               >
-                <Pencil className="h-3 w-3" />
-                <span className="hidden sm:inline">Editar</span>
+                <Pencil className={ico} />
               </button>
             ))}
           {customActions.map((a) => {
@@ -200,10 +199,10 @@ export function RowActions({
                 type="button"
                 onClick={() => handleCustom(a)}
                 className={cn(baseBtn, a.destructive ? dangerBtn : ghostBtn)}
+                aria-label={a.label}
                 title={a.label}
               >
-                <Icon className="h-3 w-3" />
-                <span className="hidden sm:inline">{a.label}</span>
+                <Icon className={ico} />
               </button>
             );
           })}
@@ -215,8 +214,7 @@ export function RowActions({
               aria-label={deleteLabel}
               title={deleteLabel}
             >
-              <Trash2 className="h-3 w-3" />
-              <span className="hidden sm:inline">{deleteLabel}</span>
+              <Trash2 className={ico} />
             </button>
           )}
         </div>
