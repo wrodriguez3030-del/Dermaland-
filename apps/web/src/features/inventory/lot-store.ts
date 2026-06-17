@@ -270,6 +270,93 @@ export function adjustStock(input: AdjustStockInput): AdjustResult {
   return { ok: true, delta };
 }
 
+export interface TransferStockInput {
+  originLotId: string;
+  destBranchId: string;
+  destWarehouseId: string;
+  quantity: number;
+  /** Referencia común de la transferencia (número). */
+  reference: string;
+  notes?: string;
+}
+
+export type TransferStockResult =
+  | { ok: true; destLotId: string }
+  | { ok: false; error: string };
+
+/**
+ * Mueve `quantity` de un lote de origen a un almacén destino, preservando
+ * número de lote y fecha de vencimiento. Descuenta del origen, crea (o suma a)
+ * un lote equivalente en destino y registra `transfer_out` + `transfer_in` con
+ * la misma referencia. No abre acceso cross-business (todo `mockBusiness.id`).
+ */
+export function transferStock(input: TransferStockInput): TransferStockResult {
+  const origin = listAllLots().find((l) => l.id === input.originLotId);
+  if (!origin) return { ok: false, error: "Lote de origen no encontrado." };
+  if (origin.status !== "available") {
+    return { ok: false, error: `El lote ${origin.lotNumber} no está disponible (${origin.status}).` };
+  }
+  if (!(input.quantity > 0)) {
+    return { ok: false, error: "La cantidad a transferir debe ser mayor que 0." };
+  }
+  if (input.quantity > origin.currentQuantity) {
+    return { ok: false, error: "La cantidad a transferir supera el stock disponible." };
+  }
+  if (origin.warehouseId === input.destWarehouseId) {
+    return { ok: false, error: "El almacén origen y destino no pueden ser iguales." };
+  }
+
+  // Descontar del origen.
+  const overrides = readQtyOverrides();
+  overrides[origin.id] = origin.currentQuantity - input.quantity;
+  safeWrite(KEY_QTY, overrides);
+
+  // Crear lote equivalente en destino (conserva lote y vencimiento).
+  const now = new Date().toISOString();
+  const destLot: ProductLot = {
+    id: genId("lot"),
+    businessId: mockBusiness.id,
+    branchId: input.destBranchId,
+    productId: origin.productId,
+    warehouseId: input.destWarehouseId,
+    lotNumber: origin.lotNumber,
+    expiresAt: origin.expiresAt,
+    receivedAt: now,
+    initialQuantity: input.quantity,
+    currentQuantity: input.quantity,
+    unitCost: origin.unitCost,
+    status: "available",
+    notes: `Transferencia ${input.reference}`,
+    createdAt: now,
+    updatedAt: now,
+  };
+  safeWrite(KEY_LOTS, [...readNewLots(), destLot]);
+
+  // Movimientos en pareja con referencia común.
+  pushMovement({
+    productId: origin.productId,
+    lotId: origin.id,
+    warehouseId: origin.warehouseId,
+    branchId: origin.branchId,
+    type: "transfer_out",
+    quantity: -input.quantity,
+    reason: input.notes || "Transferencia entre almacenes",
+    reference: input.reference,
+  });
+  pushMovement({
+    productId: origin.productId,
+    lotId: destLot.id,
+    warehouseId: input.destWarehouseId,
+    branchId: input.destBranchId,
+    type: "transfer_in",
+    quantity: input.quantity,
+    reason: input.notes || "Transferencia entre almacenes",
+    reference: input.reference,
+  });
+
+  return { ok: true, destLotId: destLot.id };
+}
+
 function pushMovement(
   m: Omit<
     InventoryMovement,
