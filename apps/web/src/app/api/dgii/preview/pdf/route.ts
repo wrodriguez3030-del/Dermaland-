@@ -47,6 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       signedXml,
       ambiente: "testecf",
       estadoDgii: "signed",
+      demo: true,
     });
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,

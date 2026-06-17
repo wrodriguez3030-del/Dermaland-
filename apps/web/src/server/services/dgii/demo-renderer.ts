@@ -202,6 +202,7 @@ export async function renderEcfFromMock(
     ambiente: DEMO_AMBIENTE,
     estadoDgii: invoice.status as EstadoDgii,
     trackId: invoice.trackId,
+    demo: true,
   };
   const pdfBuffer = await generateEcfPdf(pdfInput);
 
