@@ -5,12 +5,12 @@ import { AlertTriangle, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import {
-  mockBranches,
   getWarehousesByBranch,
   getBranchById,
   getWarehouseById,
 } from "@/lib/mock-data/tenancy";
 import { addLot, adjustStock } from "@/features/inventory/lot-store";
+import { listActiveBranches } from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
 
 function Overlay({
@@ -151,7 +151,7 @@ export function NewLotModal({
             className={isMissing("branchId") ? "border-rose-400" : undefined}
           >
             <option value="">— Selecciona —</option>
-            {mockBranches.map((b) => (
+            {listActiveBranches().map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>

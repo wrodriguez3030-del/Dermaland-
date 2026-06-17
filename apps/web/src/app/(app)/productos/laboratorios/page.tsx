@@ -24,7 +24,7 @@ import { RowActions } from "@/components/ui/row-actions";
 import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
 import { mockLaboratories, mockProducts } from "@/lib/mock-data/catalog";
-import { mockBranches } from "@/lib/mock-data/tenancy";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { useProformas } from "@/features/sales/proforma-store";
 import { formatCurrency } from "@/lib/utils/format";
 import {
@@ -44,6 +44,7 @@ const rankColor = (rank: number) =>
 export default function LaboratoriosPage() {
   const { visible, hide } = useLocalSoftDelete(mockLaboratories);
   const proformas = useProformas();
+  const activeBranches = useActiveBranches();
   const toast = useToast();
 
   const [q, setQ] = React.useState("");
@@ -160,7 +161,7 @@ export default function LaboratoriosPage() {
         />
         <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
           <option value="">Todas las sucursales</option>
-          {mockBranches.map((b) => (
+          {activeBranches.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
             </option>

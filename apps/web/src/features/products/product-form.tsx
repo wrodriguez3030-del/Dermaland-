@@ -27,10 +27,8 @@ import {
   updateProduct,
 } from "@/features/products/product-store";
 import { addLot } from "@/features/inventory/lot-store";
-import {
-  mockBranches,
-  getWarehousesByBranch,
-} from "@/lib/mock-data/tenancy";
+import { getWarehousesByBranch } from "@/lib/mock-data/tenancy";
+import { listActiveBranches } from "@/features/tenancy/branch-store";
 import type { Product } from "@/types";
 
 type Mode = "create" | "edit";
@@ -573,7 +571,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       className={isMissing("branchId") ? "border-rose-400" : undefined}
                     >
                       <option value="">— Selecciona —</option>
-                      {mockBranches.map((b) => (
+                      {listActiveBranches().map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
                         </option>

@@ -6,10 +6,12 @@ import { Plus, Warehouse as WarehouseIcon } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
 import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
-import { mockBranches, mockWarehouses } from "@/lib/mock-data/tenancy";
+import { mockWarehouses } from "@/lib/mock-data/tenancy";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 
 export default function AlmacenesPage() {
   const { visible, hide } = useLocalSoftDelete(mockWarehouses);
+  const activeBranches = useActiveBranches();
   const toast = useToast();
   return (
     <>
@@ -29,7 +31,7 @@ export default function AlmacenesPage() {
       />
 
       <div className="space-y-6">
-        {mockBranches.map((b) => {
+        {activeBranches.map((b) => {
           const items = visible.filter((w) => w.branchId === b.id);
           return (
             <div key={b.id}>

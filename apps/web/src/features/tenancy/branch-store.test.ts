@@ -6,10 +6,15 @@ import {
   setBranchActive,
   deleteBranch,
   listAllBranches,
+  listActiveBranches,
+  listActiveWarehouses,
+  isBranchActive,
+  resolveBranchName,
   getBranchFromStore,
   branchDependencies,
   clearLocalBranches,
 } from "./branch-store";
+import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import { canManageBranches } from "./permissions";
 import { mockBranches } from "@/lib/mock-data/tenancy";
 import { clearLocalInventory } from "@/features/inventory/lot-store";
@@ -80,6 +85,40 @@ describe("eliminación con dependencias", () => {
     const del = deleteBranch(r.branch.id);
     expect(del.ok).toBe(true);
     expect(getBranchFromStore(r.branch.id)).toBeUndefined();
+  });
+});
+
+describe("visibilidad operativa (activas vs inactivas/eliminadas)", () => {
+  it("una sucursal inactiva NO aparece en operación pero SÍ en Administración", () => {
+    const seed = mockBranches[0]!;
+    setBranchActive(seed.id, false);
+    // Operación: excluida.
+    expect(listActiveBranches().some((b) => b.id === seed.id)).toBe(false);
+    expect(isBranchActive(seed.id)).toBe(false);
+    // Admin: sigue visible con su estado.
+    const adminRow = listAllBranches().find((b) => b.id === seed.id);
+    expect(adminRow).toBeDefined();
+    expect(adminRow!.status).toBe("inactive");
+  });
+
+  it("los almacenes de una sucursal inactiva no aparecen como opción operativa", () => {
+    const withWh = mockWarehouses[0]!.branchId;
+    setBranchActive(withWh, false);
+    expect(listActiveWarehouses().some((w) => w.branchId === withWh)).toBe(false);
+  });
+
+  it("una sucursal eliminada (nueva, sin deps) no aparece en selectores", () => {
+    const r = createBranch({ name: "Efímera", code: "EFI-1" });
+    if (!r.ok) throw new Error("setup");
+    deleteBranch(r.branch.id);
+    expect(listActiveBranches().some((b) => b.id === r.branch.id)).toBe(false);
+    expect(listAllBranches().some((b) => b.id === r.branch.id)).toBe(false);
+  });
+
+  it("resolveBranchName devuelve el nombre histórico aunque la sucursal esté inactiva", () => {
+    const seed = mockBranches[0]!;
+    setBranchActive(seed.id, false);
+    expect(resolveBranchName(seed.id)).toBe(seed.name);
   });
 });
 

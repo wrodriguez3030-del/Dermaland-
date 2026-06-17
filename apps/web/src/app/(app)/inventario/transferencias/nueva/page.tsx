@@ -22,11 +22,8 @@ import {
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import {
-  mockWarehouses,
-  getWarehouseById,
-  getBranchById,
-} from "@/lib/mock-data/tenancy";
+import { getWarehouseById, getBranchById } from "@/lib/mock-data/tenancy";
+import { listActiveWarehouses } from "@/features/tenancy/branch-store";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { formatDate } from "@/lib/utils/format";
 import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
@@ -170,7 +167,7 @@ export default function NuevaTransferenciaPage() {
                 }}
               >
                 <option value="">— Selecciona —</option>
-                {mockWarehouses.map((w) => (
+                {listActiveWarehouses().map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name} · {getBranchById(w.branchId)?.name}
                   </option>
@@ -184,7 +181,7 @@ export default function NuevaTransferenciaPage() {
                 onChange={(e) => setDestination(e.target.value)}
               >
                 <option value="">— Selecciona —</option>
-                {mockWarehouses
+                {listActiveWarehouses()
                   .filter((w) => w.id !== origin)
                   .map((w) => (
                     <option key={w.id} value={w.id}>

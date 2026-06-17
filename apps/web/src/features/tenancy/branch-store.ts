@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
-import type { Branch } from "@/types";
+import type { Branch, Warehouse } from "@/types";
 import { mockBranches, mockWarehouses } from "@/lib/mock-data/tenancy";
 import { listAllLots, listAllMovements } from "@/features/inventory/lot-store";
 import { listAllProformas } from "@/features/sales/proforma-store";
+
+const KEY_CURRENT = "dermaland.current-branch";
 
 /**
  * Store de sucursales — MVP (localStorage).
@@ -65,6 +67,37 @@ export function listAllBranches(): Branch[] {
 
 export function getBranchFromStore(id: string): Branch | undefined {
   return listAllBranches().find((b) => b.id === id);
+}
+
+/**
+ * Sucursales OPERATIVAS: activas y no eliminadas. Único origen para selectores
+ * de operación (POS, caja, inventario, lotes, transferencias, conteo…).
+ */
+export function listActiveBranches(): Branch[] {
+  return listAllBranches().filter((b) => b.status === "active");
+}
+
+export function isBranchActive(id: string): boolean {
+  return listActiveBranches().some((b) => b.id === id);
+}
+
+/** Almacenes cuya sucursal está activa (para selectores operativos). */
+export function listActiveWarehouses(): Warehouse[] {
+  const active = new Set(listActiveBranches().map((b) => b.id));
+  return mockWarehouses.filter((w) => active.has(w.branchId));
+}
+
+/**
+ * Nombre de sucursal para HISTÓRICO/reportes: resuelve aunque esté inactiva o
+ * eliminada (cae al seed `mockBranches`), para no perder nombres en documentos
+ * y reportes antiguos.
+ */
+export function resolveBranchName(id: string): string {
+  return (
+    getBranchFromStore(id)?.name ??
+    mockBranches.find((b) => b.id === id)?.name ??
+    id
+  );
 }
 
 // ─── Dependencias (para decidir si se puede eliminar) ────────────────────────
@@ -240,4 +273,70 @@ export function useBranch(id: string | null | undefined): Branch | undefined {
   const all = useBranches();
   if (!id) return undefined;
   return all.find((b) => b.id === id);
+}
+
+/** Sólo sucursales activas, reactivo a cambios del store. */
+export function useActiveBranches(): Branch[] {
+  return useBranches().filter((b) => b.status === "active");
+}
+
+export interface CurrentBranchApi {
+  branchId: string;
+  branches: Branch[];
+  setBranchId: (id: string) => void;
+  /** Aviso cuando la sucursal guardada dejó de estar activa. */
+  notice: string | null;
+  dismissNotice: () => void;
+}
+
+/**
+ * Selector de sucursal "actual" (selector superior / business switcher).
+ *
+ * Persiste la selección en localStorage y la VALIDA contra las sucursales
+ * activas: si la guardada fue inactivada o eliminada, cambia automáticamente a
+ * una activa disponible y emite un aviso. Reactivo: si cambia el set de
+ * sucursales activas (editar/inactivar/eliminar), se re-valida.
+ */
+export function useCurrentBranch(): CurrentBranchApi {
+  const branches = useActiveBranches();
+  const [branchId, setBranchIdState] = React.useState<string>("");
+  const [notice, setNotice] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const saved =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(KEY_CURRENT) ?? ""
+        : "";
+    const stillActive = branches.some((b) => b.id === saved);
+    if (stillActive) {
+      if (branchId !== saved) setBranchIdState(saved);
+      return;
+    }
+    const fallback = branches[0]?.id ?? "";
+    if (saved && fallback) {
+      setNotice(
+        "La sucursal seleccionada ya no está activa. Se cambió a una sucursal disponible.",
+      );
+    }
+    setBranchIdState(fallback);
+    if (typeof window !== "undefined") {
+      if (fallback) window.localStorage.setItem(KEY_CURRENT, fallback);
+      else window.localStorage.removeItem(KEY_CURRENT);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branches.map((b) => b.id).join(",")]);
+
+  const setBranchId = React.useCallback((id: string) => {
+    setBranchIdState(id);
+    setNotice(null);
+    if (typeof window !== "undefined") window.localStorage.setItem(KEY_CURRENT, id);
+  }, []);
+
+  return {
+    branchId,
+    branches,
+    setBranchId,
+    notice,
+    dismissNotice: () => setNotice(null),
+  };
 }

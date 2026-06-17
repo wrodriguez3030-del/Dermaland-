@@ -22,7 +22,8 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { StatCard } from "@/components/ui/stat-card";
 import { CalendarClock, AlertTriangle, ShieldAlert, Eye, X } from "lucide-react";
 import { getProductById } from "@/lib/mock-data/catalog";
-import { mockBranches, getBranchById } from "@/lib/mock-data/tenancy";
+import { getBranchById } from "@/lib/mock-data/tenancy";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { daysUntil, formatDate } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import {
@@ -49,6 +50,7 @@ type DayFilter = "all" | "expired" | "30" | "60" | "90";
 
 export default function VencimientosPage() {
   useInventoryTick();
+  const activeBranches = useActiveBranches();
   const [branch, setBranch] = React.useState("");
   const [dayFilter, setDayFilter] = React.useState<DayFilter>("all");
 
@@ -121,7 +123,7 @@ export default function VencimientosPage() {
       <FilterBar className="mb-4">
         <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
           <option value="">Todas las sucursales</option>
-          {mockBranches.map((b) => (
+          {activeBranches.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
             </option>

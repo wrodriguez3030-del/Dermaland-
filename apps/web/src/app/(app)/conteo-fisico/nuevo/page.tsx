@@ -1,3 +1,5 @@
+"use client";
+
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Card,
@@ -9,7 +11,10 @@ import {
   Textarea,
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
-import { mockBranches, mockWarehouses } from "@/lib/mock-data/tenancy";
+import {
+  listActiveBranches,
+  listActiveWarehouses,
+} from "@/features/tenancy/branch-store";
 import { mockUsers } from "@/lib/mock-data/users";
 
 export default function NuevoConteoPage() {
@@ -42,7 +47,7 @@ export default function NuevoConteoPage() {
               <div>
                 <Label>Sucursal *</Label>
                 <Select>
-                  {mockBranches.map((b) => (
+                  {listActiveBranches().map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
@@ -52,7 +57,7 @@ export default function NuevoConteoPage() {
               <div>
                 <Label>Almacén *</Label>
                 <Select>
-                  {mockWarehouses.map((w) => (
+                  {listActiveWarehouses().map((w) => (
                     <option key={w.id} value={w.id}>
                       {w.name}
                     </option>

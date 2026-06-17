@@ -3,20 +3,40 @@
 import * as React from "react";
 import { Bell, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { mockBusiness, mockBranches } from "@/lib/mock-data/tenancy";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentBranch } from "@/features/tenancy/branch-store";
 
 export function Header({ className }: { className?: string }) {
-  const [branch, setBranch] = React.useState(mockBranches[0]?.id ?? "");
-  const currentBranch = mockBranches.find((b) => b.id === branch);
+  const {
+    branchId: branch,
+    branches,
+    setBranchId: setBranch,
+    notice,
+    dismissNotice,
+  } = useCurrentBranch();
+  const currentBranch = branches.find((b) => b.id === branch);
 
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-black/5 bg-white/80 px-6 backdrop-blur",
-        className,
+    <>
+      {notice && (
+        <div className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs text-amber-900">
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={dismissNotice}
+            className="rounded px-2 py-0.5 font-medium hover:bg-amber-100"
+          >
+            Entendido
+          </button>
+        </div>
       )}
-    >
+      <header
+        className={cn(
+          "sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-black/5 bg-white/80 px-6 backdrop-blur",
+          className,
+        )}
+      >
       <div className="flex flex-1 items-center gap-4">
         {mockBusiness.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -36,7 +56,8 @@ export function Header({ className }: { className?: string }) {
             onChange={(e) => setBranch(e.target.value)}
             className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
           >
-            {mockBranches.map((b) => (
+            {branches.length === 0 && <option value="">Sin sucursales</option>}
+            {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>
@@ -93,6 +114,7 @@ export function Header({ className }: { className?: string }) {
           <ChevronDown className="h-3 w-3 opacity-40" />
         </div>
       </div>
-    </header>
+      </header>
+    </>
   );
 }
