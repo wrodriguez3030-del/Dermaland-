@@ -1,9 +1,14 @@
+"use client";
+
+import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
 import { ProductImage } from "@/features/products/components/product-image";
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   Table,
@@ -14,24 +19,36 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
-import { Boxes, AlertTriangle, ShieldAlert, CalendarClock } from "lucide-react";
-import {
-  getBrandById,
-  getLotsByProduct,
-  mockProducts,
-  totalStockForProduct,
-} from "@/lib/mock-data/catalog";
+import { Boxes, AlertTriangle, ShieldAlert, X } from "lucide-react";
+import { getBrandById, mockProducts } from "@/lib/mock-data/catalog";
+import { getBranchById } from "@/lib/mock-data/tenancy";
+import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
 import { formatCurrency } from "@/lib/utils/format";
+import type { ProductLot } from "@/types";
 
-export default function InventarioPage() {
-  const rows = mockProducts.map((p) => {
-    const lots = getLotsByProduct(p.id);
-    const stock = totalStockForProduct(p.id);
-    const value = lots
-      .filter((l) => l.status === "available")
-      .reduce((s, l) => s + l.currentQuantity * l.unitCost, 0);
-    return { p, lots, stock, value };
-  });
+function InventarioContent() {
+  const params = useSearchParams();
+  const branch = params.get("branch") ?? "";
+  useInventoryTick();
+
+  const branchName = branch ? getBranchById(branch)?.name : undefined;
+  const allLots = listAllLots();
+
+  const rows = mockProducts
+    .map((p) => {
+      const lots = allLots.filter(
+        (l) => l.productId === p.id && (!branch || l.branchId === branch),
+      );
+      const stock = lots
+        .filter((l) => l.status === "available")
+        .reduce((s, l) => s + l.currentQuantity, 0);
+      const value = lots
+        .filter((l) => l.status === "available")
+        .reduce((s, l) => s + l.currentQuantity * l.unitCost, 0);
+      return { p, lots, stock, value };
+    })
+    // Si se filtra por sucursal, ocultar productos sin lotes en esa sucursal.
+    .filter((r) => (branch ? r.lots.length > 0 : true));
 
   const totalUnits = rows.reduce((s, r) => s + r.stock, 0);
   const totalValue = rows.reduce((s, r) => s + r.value, 0);
@@ -46,13 +63,22 @@ export default function InventarioPage() {
         breadcrumbs={[{ label: "Inventario" }]}
       />
 
+      {branch && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
+          <span>
+            Filtrado por sucursal:{" "}
+            <strong>{branchName ?? branch}</strong>
+          </span>
+          <Link href="/inventario">
+            <Button variant="ghost" size="sm">
+              <X className="h-4 w-4" /> Quitar filtro
+            </Button>
+          </Link>
+        </div>
+      )}
+
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Unidades disponibles"
-          value={totalUnits}
-          icon={Boxes}
-          tone="primary"
-        />
+        <StatCard label="Unidades disponibles" value={totalUnits} icon={Boxes} tone="primary" />
         <StatCard
           label="Valor de inventario"
           value={formatCurrency(totalValue)}
@@ -65,12 +91,7 @@ export default function InventarioPage() {
           icon={AlertTriangle}
           tone="warning"
         />
-        <StatCard
-          label="Sin stock"
-          value={noStockCount}
-          icon={ShieldAlert}
-          tone="danger"
-        />
+        <StatCard label="Sin stock" value={noStockCount} icon={ShieldAlert} tone="danger" />
       </div>
 
       <Card>
@@ -90,6 +111,15 @@ export default function InventarioPage() {
               </TR>
             </THead>
             <TBody>
+              {rows.length === 0 && (
+                <TR>
+                  <TD colSpan={9} className="py-10 text-center text-sm opacity-60">
+                    {branch
+                      ? "Esta sucursal no tiene inventario cargado."
+                      : "Sin productos."}
+                  </TD>
+                </TR>
+              )}
               {rows.map(({ p, lots, stock, value }) => {
                 const lowStock = stock <= p.minStock;
                 const noStock = stock === 0;
@@ -127,16 +157,14 @@ export default function InventarioPage() {
                     <TD>
                       <div className="flex flex-wrap gap-1">
                         {noStock && <Badge tone="danger">Sin stock</Badge>}
-                        {!noStock && lowStock && (
-                          <Badge tone="warning">Bajo mínimo</Badge>
-                        )}
-                        {lots.some((l) => l.status === "expired") && (
+                        {!noStock && lowStock && <Badge tone="warning">Bajo mínimo</Badge>}
+                        {lots.some((l: ProductLot) => l.status === "expired") && (
                           <Badge tone="danger">Vencido</Badge>
                         )}
-                        {lots.some((l) => l.status === "quarantine") && (
+                        {lots.some((l: ProductLot) => l.status === "quarantine") && (
                           <Badge tone="warning">Cuarentena</Badge>
                         )}
-                        {lots.some((l) => l.status === "recalled") && (
+                        {lots.some((l: ProductLot) => l.status === "recalled") && (
                           <Badge tone="danger">Recall</Badge>
                         )}
                       </div>
@@ -156,5 +184,13 @@ export default function InventarioPage() {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+export default function InventarioPage() {
+  return (
+    <React.Suspense fallback={<div className="p-6 text-sm opacity-60">Cargando…</div>}>
+      <InventarioContent />
+    </React.Suspense>
   );
 }
