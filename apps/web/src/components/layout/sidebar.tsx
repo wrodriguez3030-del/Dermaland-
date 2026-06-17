@@ -280,9 +280,9 @@ function SidebarGroup({
                 <Link
                   href={item.href}
                   className={cn(
-                    "block rounded-md px-2 py-1.5 text-xs",
+                    "block rounded-md px-2 py-1.5 text-xs transition",
                     active
-                      ? "bg-[color:var(--brand-primary)]/10 font-medium text-[color:var(--brand-accent)]"
+                      ? "bg-[color:var(--brand-primary)]/12 font-medium text-[color:var(--brand-accent)] shadow-[inset_2px_0_0_var(--brand-primary)]"
                       : "text-black/60 hover:bg-black/[0.03] hover:text-[color:var(--brand-fg)]",
                   )}
                 >
