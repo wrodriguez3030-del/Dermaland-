@@ -1,11 +1,13 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Power, RotateCcw, Upload, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
   Button,
+  Select,
   Table,
   THead,
   TBody,
@@ -24,6 +26,7 @@ import { useToast } from "@/components/ui/toast";
 import { ProductImage } from "@/features/products/components/product-image";
 import {
   deleteProduct,
+  updateProduct,
   useProducts,
 } from "@/features/products/product-store";
 import {
@@ -49,21 +52,69 @@ const comparators = {
   price: (a: Product, b: Product) => a.price - b.price,
 };
 
+type StatusFilter = "all" | "active" | "inactive" | "low" | "out";
+
 export default function ProductosPage() {
   const products = useProducts();
   const toast = useToast();
+
+  const [q, setQ] = React.useState("");
+  const [brand, setBrand] = React.useState("");
+  const [category, setCategory] = React.useState("");
+  const [status, setStatus] = React.useState<StatusFilter>("all");
+
+  const hasFilters =
+    q.trim() !== "" || brand !== "" || category !== "" || status !== "all";
+
+  const clearFilters = () => {
+    setQ("");
+    setBrand("");
+    setCategory("");
+    setStatus("all");
+  };
+
+  const filtered = React.useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return products.filter((p) => {
+      if (term) {
+        const hay =
+          p.name.toLowerCase().includes(term) ||
+          p.sku.toLowerCase().includes(term) ||
+          (p.barcode ?? "").toLowerCase().includes(term);
+        if (!hay) return false;
+      }
+      if (brand && p.brandId !== brand) return false;
+      if (category && p.categoryId !== category) return false;
+      if (status !== "all") {
+        const stock = totalStockForProduct(p.id);
+        if (status === "active" && !p.active) return false;
+        if (status === "inactive" && p.active) return false;
+        if (status === "low" && !(stock <= p.minStock)) return false;
+        if (status === "out" && stock > 0) return false;
+      }
+      return true;
+    });
+  }, [products, q, brand, category, status]);
+
   const { sort, sorted, toggle } = useTableSort(
-    products,
+    filtered,
     "name",
     "asc",
     comparators,
   );
 
+  const total = products.length;
+  const showing = sorted.length;
+
   return (
     <>
       <PageHeader
         title="Productos"
-        description={`Catálogo del business · ${products.length} productos visibles del seed (1342 totales en CSV inicial)`}
+        description={
+          hasFilters
+            ? `Mostrando ${showing} de ${total} productos`
+            : `${total} productos en el catálogo`
+        }
         breadcrumbs={[{ label: "Productos" }]}
         actions={
           <>
@@ -85,26 +136,41 @@ export default function ProductosPage() {
         <SearchInput
           placeholder="Buscar por nombre, SKU o código de barras…"
           containerClassName="flex-1 min-w-[260px]"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
         />
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todas las marcas</option>
+        <Select value={brand} onChange={(e) => setBrand(e.target.value)}>
+          <option value="">Todas las marcas</option>
           {mockBrands.map((b) => (
-            <option key={b.id}>{b.name}</option>
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
           ))}
-        </select>
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todas las categorías</option>
+        </Select>
+        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="">Todas las categorías</option>
           {mockCategories.map((c) => (
-            <option key={c.id}>{c.name}</option>
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
           ))}
-        </select>
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Estado: todos</option>
-          <option>Activos</option>
-          <option>Inactivos</option>
-          <option>Bajo stock</option>
-          <option>Sin stock</option>
-        </select>
+        </Select>
+        <Select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as StatusFilter)}
+        >
+          <option value="all">Estado: todos</option>
+          <option value="active">Activos</option>
+          <option value="inactive">Inactivos</option>
+          <option value="low">Bajo stock</option>
+          <option value="out">Sin stock</option>
+        </Select>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X className="h-4 w-4" />
+            Limpiar filtros
+          </Button>
+        )}
       </FilterBar>
 
       <Table>
@@ -139,8 +205,37 @@ export default function ProductosPage() {
           </TR>
         </THead>
         <TBody>
+          {sorted.length === 0 && (
+            <TR>
+              <TD colSpan={8}>
+                <div className="py-12 text-center">
+                  <p className="text-sm font-medium">
+                    {total === 0
+                      ? "Aún no hay productos en el catálogo."
+                      : "Ningún producto coincide con los filtros."}
+                  </p>
+                  <p className="mt-1 text-xs opacity-60">
+                    {total === 0
+                      ? "Crea el primero con “Nuevo producto” o importa un CSV."
+                      : "Ajusta o limpia los filtros para ver más resultados."}
+                  </p>
+                  {hasFilters && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={clearFilters}
+                    >
+                      <X className="h-4 w-4" />
+                      Limpiar filtros
+                    </Button>
+                  )}
+                </div>
+              </TD>
+            </TR>
+          )}
           {sorted.map((p) => {
-            const brand = getBrandById(p.brandId);
+            const brandObj = getBrandById(p.brandId);
             const category = getCategoryById(p.categoryId);
             const stock = totalStockForProduct(p.id);
             const lowStock = stock <= p.minStock;
@@ -173,7 +268,7 @@ export default function ProductosPage() {
                     </div>
                   </Link>
                 </TD>
-                <TD>{brand?.name ?? "—"}</TD>
+                <TD>{brandObj?.name ?? "—"}</TD>
                 <TD>
                   <span className="text-xs opacity-80">
                     {category?.name ?? "—"}
@@ -211,6 +306,29 @@ export default function ProductosPage() {
                       toast.success("Producto eliminado correctamente.");
                     }}
                     entityName={p.name}
+                    customActions={[
+                      p.active
+                        ? {
+                            label: "Inactivar",
+                            icon: Power,
+                            onClick: () => {
+                              updateProduct(p.id, { active: false });
+                              toast.success(`${p.name} inactivado.`);
+                            },
+                            confirm: {
+                              title: "Inactivar producto",
+                              message: `¿Inactivar ${p.name}? Dejará de venderse pero conserva su historial.`,
+                            },
+                          }
+                        : {
+                            label: "Reactivar",
+                            icon: RotateCcw,
+                            onClick: () => {
+                              updateProduct(p.id, { active: true });
+                              toast.success(`${p.name} reactivado.`);
+                            },
+                          },
+                    ]}
                   />
                 </TD>
               </TR>

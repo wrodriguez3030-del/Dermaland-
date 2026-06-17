@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent, Button } from "@/components/ui";
+import { Card, CardContent } from "@/components/ui";
 import { useProduct } from "@/features/products/product-store";
-import { EditProductImageCard } from "@/features/products/edit-product-image-card";
+import { ProductForm } from "@/features/products/product-form";
 
 export default function EditarProductoPage() {
   const params = useParams<{ id: string }>();
@@ -57,28 +57,9 @@ export default function EditarProductoPage() {
           { label: product.sku, href: `/productos/${id}` },
           { label: "Editar" },
         ]}
-        actions={
-          <>
-            <Link href={`/productos/${id}`}>
-              <Button variant="outline" size="sm">
-                Cancelar
-              </Button>
-            </Link>
-            <Button size="sm">Guardar cambios</Button>
-          </>
-        }
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <EditProductImageCard productId={id} />
-        <Card>
-          <CardContent className="py-12 text-center text-sm opacity-70">
-            Edición completa del producto (nombre, SKU, precio, marca, etc.) —
-            pendiente. Por ahora la imagen se puede cambiar y el resto del
-            formulario reusa el de "Nuevo producto".
-          </CardContent>
-        </Card>
-      </div>
+      <ProductForm mode="edit" product={product} />
     </div>
   );
 }
