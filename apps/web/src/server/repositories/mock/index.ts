@@ -46,9 +46,6 @@ import {
   mockUsers,
 } from "@/lib/mock-data/users";
 import {
-  getBrandById,
-  getProductByBarcode,
-  getProductById,
   mockBrands,
   mockCategories,
   mockLaboratories,

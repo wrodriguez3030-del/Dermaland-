@@ -143,8 +143,11 @@ hook cliente que hace fetch cuando el backend es `supabase`, con fallback local)
    hooks `useBrandsList`/`useCategoriesList`/`useLaboratoriesList` + mutaciones
    `saveBrand`/`saveCategory`/`saveLaboratory` + CRUD completo por modal en
    `/productos/marcas`, `/productos/categorias`, `/productos/laboratorios`. Seed
-   idempotente vía `/api/products?action=seed` (upsert por `sku`/nombre). Todo
-   gated por `NEXT_PUBLIC_DATA_SOURCE=supabase`: producción (`mock`) intacta.
+   idempotente via `scripts/seed-catalog-supabase.mjs`: requiere snapshot previo
+   (`pnpm --filter web exec tsx src/lib/mock-data/catalog-export.ts`) e idempotencia
+   por `unique(business_id,sku)` (productos) y `unique(business_id,name)` (marcas);
+   labs/categorías por select+insert; soporta `--dry-run`. Todo gated por
+   `NEXT_PUBLIC_DATA_SOURCE=supabase`: producción (`mock`) intacta.
    Validado: typecheck ✅ · vitest 622/622 ✅ · build 98 páginas ✅. Pendiente
    verificación end-to-end real (requiere MCP autenticado +
    `NEXT_PUBLIC_DATA_SOURCE=supabase` en Preview).
