@@ -35,12 +35,14 @@ import {
   mockBrands,
   mockCategories,
 } from "@/lib/mock-data/catalog";
-import {
-  availableStock as totalStockForProduct,
-  useInventoryTick,
-} from "@/features/inventory/lot-store";
+import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
+
+// Lookup de stock compartido con los comparadores (se sincroniza en cada
+// render con el mapa precalculado, para no recorrer todos los lotes por fila).
+const stockLookup = new Map<string, number>();
+const stockOf = (id: string) => stockLookup.get(id) ?? 0;
 
 const comparators = {
   name: (a: Product, b: Product) => a.name.localeCompare(b.name),
@@ -50,12 +52,12 @@ const comparators = {
     const bn = getBrandById(b.brandId)?.name ?? "";
     return an.localeCompare(bn);
   },
-  stock: (a: Product, b: Product) =>
-    totalStockForProduct(a.id) - totalStockForProduct(b.id),
+  stock: (a: Product, b: Product) => stockOf(a.id) - stockOf(b.id),
   price: (a: Product, b: Product) => a.price - b.price,
 };
 
 type StatusFilter = "all" | "active" | "inactive" | "low" | "out";
+const PAGE_SIZE = 50;
 
 export default function ProductosPage() {
   const products = useProducts();
@@ -66,6 +68,21 @@ export default function ProductosPage() {
   const [brand, setBrand] = React.useState("");
   const [category, setCategory] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
+  const [page, setPage] = React.useState(0);
+
+  // Mapa de stock disponible por producto (un solo recorrido de lotes).
+  const stockMap = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const lot of listAllLots()) {
+      if (lot.status !== "available") continue;
+      m.set(lot.productId, (m.get(lot.productId) ?? 0) + lot.currentQuantity);
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick]);
+  // Sincronizar el lookup que usan los comparadores.
+  stockLookup.clear();
+  stockMap.forEach((v, k) => stockLookup.set(k, v));
 
   const hasFilters =
     q.trim() !== "" || brand !== "" || category !== "" || status !== "all";
@@ -84,13 +101,14 @@ export default function ProductosPage() {
         const hay =
           p.name.toLowerCase().includes(term) ||
           p.sku.toLowerCase().includes(term) ||
-          (p.barcode ?? "").toLowerCase().includes(term);
+          (p.barcode ?? "").toLowerCase().includes(term) ||
+          (p.keywords ?? []).some((k) => k.toLowerCase().includes(term));
         if (!hay) return false;
       }
       if (brand && p.brandId !== brand) return false;
       if (category && p.categoryId !== category) return false;
       if (status !== "all") {
-        const stock = totalStockForProduct(p.id);
+        const stock = stockMap.get(p.id) ?? 0;
         if (status === "active" && !p.active) return false;
         if (status === "inactive" && p.active) return false;
         if (status === "low" && !(stock <= p.minStock)) return false;
@@ -98,8 +116,7 @@ export default function ProductosPage() {
       }
       return true;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, q, brand, category, status, tick]);
+  }, [products, q, brand, category, status, stockMap]);
 
   const { sort, sorted, toggle } = useTableSort(
     filtered,
@@ -110,6 +127,15 @@ export default function ProductosPage() {
 
   const total = products.length;
   const showing = sorted.length;
+  const pageCount = Math.max(1, Math.ceil(showing / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  // Volver a la primera página cuando cambian filtros/orden.
+  React.useEffect(() => {
+    setPage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, brand, category, status, sort.key, sort.direction]);
 
   return (
     <>
@@ -239,10 +265,10 @@ export default function ProductosPage() {
               </TD>
             </TR>
           )}
-          {sorted.map((p) => {
+          {paged.map((p) => {
             const brandObj = getBrandById(p.brandId);
             const category = getCategoryById(p.categoryId);
-            const stock = totalStockForProduct(p.id);
+            const stock = stockMap.get(p.id) ?? 0;
             const lowStock = stock <= p.minStock;
             return (
               <TR key={p.id}>
@@ -341,6 +367,32 @@ export default function ProductosPage() {
           })}
         </TBody>
       </Table>
+
+      {pageCount > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <span className="opacity-60">
+            Página {safePage + 1} de {pageCount} · {showing} productos
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage === 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage >= pageCount - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
       <toast.Toast />
     </>
   );

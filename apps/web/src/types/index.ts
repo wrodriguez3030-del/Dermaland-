@@ -188,6 +188,25 @@ export interface Product extends Audited, SoftDeletable, BusinessScoped {
   imageStatus?: "downloaded" | "linked" | "needs_review" | "not_found" | "error" | null;
   active: boolean;
   sellable: boolean;
+  // ── Enriquecimiento comercial (opcional, para vender mejor) ──
+  /** Nombre corto para listas/POS. */
+  shortName?: string;
+  /** Contenido/tamaño (p. ej. "40 ml", "30 cápsulas"). */
+  content?: string;
+  /** Uso del producto (limpieza, protección solar, despigmentante…). */
+  useType?: string;
+  /** Tipo de piel ideal. */
+  skinType?: string;
+  /** Beneficios principales (bullets cortos). */
+  benefits?: string[];
+  /** Modo de uso simple. */
+  modeOfUse?: string;
+  /** Momento de uso: día / noche / ambos. */
+  timeOfUse?: "dia" | "noche" | "ambos";
+  /** Tip de venta para el personal. */
+  salesTip?: string;
+  /** Palabras clave para búsqueda interna. */
+  keywords?: string[];
 }
 
 export type LotStatus =

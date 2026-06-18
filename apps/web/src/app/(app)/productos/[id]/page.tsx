@@ -266,6 +266,71 @@ export default function ProductDetailPage() {
         </Card>
       </div>
 
+      {/* Información comercial / para vender mejor */}
+      {(product.useType ||
+        product.skinType ||
+        (product.benefits && product.benefits.length > 0) ||
+        product.modeOfUse ||
+        product.salesTip) && (
+        <Card className="mb-6">
+          <CardContent>
+            <div className="mb-3 text-sm font-semibold">Para vender mejor</div>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-3">
+              {product.useType && (
+                <DataPoint label="Uso">{product.useType}</DataPoint>
+              )}
+              {product.skinType && (
+                <DataPoint label="Tipo de piel">{product.skinType}</DataPoint>
+              )}
+              {product.timeOfUse && (
+                <DataPoint label="Momento de uso">
+                  {product.timeOfUse === "dia"
+                    ? "Día"
+                    : product.timeOfUse === "noche"
+                      ? "Noche"
+                      : "Día y noche"}
+                </DataPoint>
+              )}
+              {product.content && (
+                <DataPoint label="Contenido">{product.content}</DataPoint>
+              )}
+            </dl>
+            {product.benefits && product.benefits.length > 0 && (
+              <div className="mt-4">
+                <div className="text-[10px] uppercase tracking-wider opacity-50">
+                  Beneficios
+                </div>
+                <ul className="mt-1 list-disc pl-5 text-sm opacity-80">
+                  {product.benefits.map((b, i) => (
+                    <li key={i}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {product.modeOfUse && (
+              <p className="mt-3 text-sm">
+                <span className="opacity-50">Modo de uso: </span>
+                {product.modeOfUse}
+              </p>
+            )}
+            {product.salesTip && (
+              <div className="mt-3 rounded-lg border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-3 py-2 text-sm">
+                <span className="font-medium text-[color:var(--brand-accent)]">
+                  Tip de venta:{" "}
+                </span>
+                {product.salesTip}
+              </div>
+            )}
+            {product.imageStatus === "needs_review" && (
+              <p className="mt-3 text-xs text-amber-700">
+                Imagen pendiente · precio y stock por cargar (importado del
+                catálogo Alegra).
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Empty state: producto sin lote */}
       {!hasLots && (
         <Card className="mb-6 border-amber-200 bg-amber-50/40">

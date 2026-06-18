@@ -6,10 +6,11 @@ import type {
   ProductLot,
 } from "@/types";
 import { mockBusiness } from "./tenancy";
+import { importedBrands, importedProducts } from "./catalog-imported";
 
 const now = "2026-05-05T09:00:00Z";
 
-export const mockBrands: Brand[] = [
+const seedBrands: Brand[] = [
   { id: "br_sesderma", businessId: mockBusiness.id, name: "SESDERMA", productCount: 83, createdAt: now, updatedAt: now },
   { id: "br_eucerin", businessId: mockBusiness.id, name: "EUCERIN", productCount: 63, createdAt: now, updatedAt: now },
   { id: "br_uriage", businessId: mockBusiness.id, name: "URIAGE", productCount: 62, createdAt: now, updatedAt: now },
@@ -23,6 +24,12 @@ export const mockBrands: Brand[] = [
   { id: "br_heliocare", businessId: mockBusiness.id, name: "HELIOCARE", productCount: 24, createdAt: now, updatedAt: now },
   { id: "br_cerave", businessId: mockBusiness.id, name: "CERAVE", productCount: 21, createdAt: now, updatedAt: now },
   { id: "br_filorga", businessId: mockBusiness.id, name: "FILORGA", productCount: 16, createdAt: now, updatedAt: now },
+];
+
+/** Marcas del seed + marcas importadas del Excel (dedupe por id). */
+export const mockBrands: Brand[] = [
+  ...seedBrands,
+  ...importedBrands.filter((b) => !seedBrands.some((s) => s.id === b.id)),
 ];
 
 export const mockLaboratories: Laboratory[] = [
@@ -359,12 +366,15 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
   },
 ];
 
-export const mockProducts: Product[] = baseProducts.map((p) => ({
+const seedProducts: Product[] = baseProducts.map((p) => ({
   ...p,
   businessId: mockBusiness.id,
   createdAt: now,
   updatedAt: now,
 }));
+
+/** Productos del seed (12 detallados) + catálogo importado del Excel. */
+export const mockProducts: Product[] = [...seedProducts, ...importedProducts];
 
 const day = (offsetDays: number) => {
   const d = new Date("2026-05-05T00:00:00Z");
