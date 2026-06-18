@@ -30,10 +30,19 @@ import { ConfirmDialog } from "./confirm-dialog";
 export interface CustomAction {
   label: string;
   icon?: LucideIcon;
-  onClick: () => void | Promise<void>;
+  /** Acción imperativa. Opcional cuando se usa `href`. */
+  onClick?: () => void | Promise<void>;
   destructive?: boolean;
   /** Para confirmación de acciones tipo "anular". */
   confirm?: { title?: string; message?: React.ReactNode };
+  /** Acción visible pero no disponible para este registro/estado. */
+  disabled?: boolean;
+  /** Tooltip explicando por qué está deshabilitada. */
+  disabledReason?: string;
+  /** Si se provee, la acción navega a este destino (en vez de `onClick`). */
+  href?: string;
+  /** Para `href`: abrir en pestaña nueva / enlace externo (wa.me, etc.). */
+  external?: boolean;
 }
 
 export interface RowActionsProps {
@@ -118,13 +127,13 @@ export function RowActions({
       setOpen(false);
       return;
     }
-    await a.onClick();
+    await a.onClick?.();
     setOpen(false);
   };
 
   const runConfirmCustom = async () => {
     if (!confirmCustom) return;
-    await confirmCustom.onClick();
+    await confirmCustom.onClick?.();
     setConfirmCustom(null);
   };
 
@@ -193,6 +202,45 @@ export function RowActions({
             ))}
           {customActions.map((a) => {
             const Icon = a.icon ?? Ban;
+            if (a.disabled) {
+              return (
+                <button
+                  key={a.label}
+                  type="button"
+                  disabled
+                  aria-label={a.label}
+                  title={a.disabledReason ?? a.label}
+                  className={cn(baseBtn, ghostBtn, "cursor-not-allowed opacity-40")}
+                >
+                  <Icon className={ico} />
+                </button>
+              );
+            }
+            if (a.href) {
+              return a.external ? (
+                <a
+                  key={a.label}
+                  href={a.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(baseBtn, a.destructive ? dangerBtn : ghostBtn)}
+                  aria-label={a.label}
+                  title={a.label}
+                >
+                  <Icon className={ico} />
+                </a>
+              ) : (
+                <Link
+                  key={a.label}
+                  href={a.href}
+                  className={cn(baseBtn, a.destructive ? dangerBtn : ghostBtn)}
+                  aria-label={a.label}
+                  title={a.label}
+                >
+                  <Icon className={ico} />
+                </Link>
+              );
+            }
             return (
               <button
                 key={a.label}

@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { Ban, Printer, Send } from "lucide-react";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
+import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
 import {
   SortableTH,
   useTableSort,
@@ -158,25 +160,16 @@ export default function ProformasPage() {
                           {
                             label: "Imprimir",
                             icon: Printer,
-                            onClick: () => {
-                              if (typeof window !== "undefined") {
-                                window.open(
-                                  `/proformas/${p.id}/print`,
-                                  "_blank",
-                                );
-                              }
-                            },
+                            href: `/proformas/${p.id}/print`,
+                          },
+                          {
+                            label: "Enviar WhatsApp",
+                            icon: Send,
+                            href: buildWhatsappShareUrl(p, mockBusiness),
+                            external: true,
                           },
                           ...(p.status === "issued" || p.status === "partially_paid"
                             ? [
-                                {
-                                  label: "Reenviar",
-                                  icon: Send,
-                                  onClick: () =>
-                                    toast.success(
-                                      `Proforma ${p.number} reenviada.`,
-                                    ),
-                                },
                                 {
                                   label: "Anular",
                                   icon: Ban,

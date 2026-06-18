@@ -17,7 +17,10 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { Printer, Send } from "lucide-react";
 import { mockProformas } from "@/lib/mock-data/sales";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
+import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 interface PaymentRow {
@@ -28,6 +31,7 @@ interface PaymentRow {
   method: string;
   amount: number;
   reference?: string;
+  last4?: string;
   userId: string;
   userName: string;
   createdAt: string;
@@ -107,13 +111,39 @@ export default function PagosPage() {
                   <TD className="text-right tabular-nums font-medium">
                     {formatCurrency(p.amount)}
                   </TD>
-                  <TD className="text-xs font-mono">{p.reference ?? "—"}</TD>
+                  <TD className="text-xs font-mono">
+                    {p.last4
+                      ? `····${p.last4}`
+                      : p.reference ?? "—"}
+                  </TD>
                   <TD className="text-xs">{p.userName}</TD>
                   <TD className="pr-4">
                     <RowActions
                       viewHref={`/proformas/${p.proformaId}`}
                       canEdit={false}
                       canDelete={false}
+                      customActions={[
+                        {
+                          label: "Imprimir recibo",
+                          icon: Printer,
+                          href: `/proformas/${p.proformaId}/print`,
+                        },
+                        ...(() => {
+                          const pf = mockProformas.find(
+                            (x) => x.id === p.proformaId,
+                          );
+                          return pf
+                            ? [
+                                {
+                                  label: "Enviar recibo por WhatsApp",
+                                  icon: Send,
+                                  href: buildWhatsappShareUrl(pf, mockBusiness),
+                                  external: true,
+                                },
+                              ]
+                            : [];
+                        })(),
+                      ]}
                     />
                   </TD>
                 </TR>

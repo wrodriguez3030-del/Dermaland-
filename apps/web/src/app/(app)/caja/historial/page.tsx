@@ -1,3 +1,5 @@
+"use client";
+
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -10,6 +12,8 @@ import {
   TH,
   TD,
 } from "@/components/ui";
+import { RowActions } from "@/components/ui/row-actions";
+import { Pencil, Printer, Send, Trash2 } from "lucide-react";
 import { mockCashRegisterSessions } from "@/lib/mock-data/sales";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
@@ -37,6 +41,7 @@ export default function HistorialCajaPage() {
                 <TH className="text-right">Esperado</TH>
                 <TH className="text-right">Contado</TH>
                 <TH className="text-right">Diferencia</TH>
+                <TH className="text-right pr-4">Acciones</TH>
               </TR>
             </THead>
             <TBody>
@@ -65,6 +70,47 @@ export default function HistorialCajaPage() {
                     ) : (
                       "—"
                     )}
+                  </TD>
+                  <TD className="pr-4">
+                    <RowActions
+                      viewHref={`/caja/cierre/${s.id}`}
+                      canEdit={false}
+                      canDelete={false}
+                      customActions={[
+                        {
+                          label: "Editar",
+                          icon: Pencil,
+                          disabled: s.status !== "open",
+                          disabledReason:
+                            "Este cierre ya fue cerrado y no puede editarse.",
+                          href: s.status === "open" ? `/caja/cierre/${s.id}` : undefined,
+                        },
+                        {
+                          label: "Imprimir cierre",
+                          icon: Printer,
+                          disabled: s.status === "open",
+                          disabledReason: "El cierre aún está abierto.",
+                          href:
+                            s.status !== "open" ? `/caja/cierre/${s.id}` : undefined,
+                        },
+                        {
+                          label: "Enviar resumen",
+                          icon: Send,
+                          disabled: s.status === "open",
+                          disabledReason:
+                            "Disponible al cerrar la sesión, desde el detalle del cierre.",
+                          href:
+                            s.status !== "open" ? `/caja/cierre/${s.id}` : undefined,
+                        },
+                        {
+                          label: "Eliminar",
+                          icon: Trash2,
+                          disabled: true,
+                          disabledReason:
+                            "No se puede eliminar porque tiene movimientos asociados.",
+                        },
+                      ]}
+                    />
                   </TD>
                 </TR>
               ))}
