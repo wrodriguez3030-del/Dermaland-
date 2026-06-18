@@ -4,7 +4,6 @@ import * as React from "react";
 import { Plus, Trophy, FlaskConical, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -21,9 +20,9 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
 import { RowActions } from "@/components/ui/row-actions";
-import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
-import { mockLaboratories, mockProducts } from "@/lib/mock-data/catalog";
+import { CatalogFormDialog } from "@/features/products/catalog-form-dialog";
+import { mockProducts } from "@/lib/mock-data/catalog";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { useProformas } from "@/features/sales/proforma-store";
 import { formatCurrency } from "@/lib/utils/format";
@@ -31,6 +30,12 @@ import {
   computeLabSales,
   summarizeLabSales,
 } from "@/features/products/lab-sales";
+import {
+  useLaboratoriesList,
+  saveLaboratory,
+  deleteLaboratoryAnywhere,
+  CATALOG_BACKEND,
+} from "@/features/products/catalog-store";
 
 const rankColor = (rank: number) =>
   rank === 1
@@ -42,10 +47,15 @@ const rankColor = (rank: number) =>
         : "bg-[color:var(--brand-primary)]/60";
 
 export default function LaboratoriosPage() {
-  const { visible, hide } = useLocalSoftDelete(mockLaboratories);
+  const labs = useLaboratoriesList();
   const proformas = useProformas();
   const activeBranches = useActiveBranches();
   const toast = useToast();
+
+  const [dialog, setDialog] = React.useState<{ mode: "create" | "edit"; id?: string; initial?: Record<string, string> } | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const isLocal = CATALOG_BACKEND === "local";
 
   const [q, setQ] = React.useState("");
   const [branch, setBranch] = React.useState("");
@@ -65,12 +75,12 @@ export default function LaboratoriosPage() {
 
   const rows = React.useMemo(
     () =>
-      computeLabSales(visible, mockProducts, proformas, {
+      computeLabSales(labs, mockProducts, proformas, {
         branchId: branch || undefined,
         from: from || undefined,
         to: to || undefined,
       }),
-    [visible, proformas, branch, from, to],
+    [labs, proformas, branch, from, to],
   );
 
   const summary = React.useMemo(() => summarizeLabSales(rows), [rows]);
@@ -85,6 +95,15 @@ export default function LaboratoriosPage() {
     return r;
   }, [rows, q, topN]);
 
+  const onSubmit = async (values: Record<string, string>) => {
+    setSubmitting(true); setError(null);
+    const res = await saveLaboratory(dialog!.mode, { name: values.name ?? "", country: values.country }, dialog?.id);
+    setSubmitting(false);
+    if (!res.ok) { setError(res.error); return; }
+    toast.success(dialog!.mode === "create" ? "Laboratorio creado." : "Cambios guardados.");
+    setDialog(null);
+  };
+
   return (
     <>
       <PageHeader
@@ -95,12 +114,18 @@ export default function LaboratoriosPage() {
           { label: "Laboratorios" },
         ]}
         actions={
-          <Button size="sm">
+          <Button size="sm" onClick={() => { setError(null); setDialog({ mode: "create", initial: {} }); }}>
             <Plus className="h-4 w-4" />
             Nuevo laboratorio
           </Button>
         }
       />
+
+      <div className={`mb-4 rounded-xl border px-4 py-2.5 text-xs ${isLocal ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+        {isLocal
+          ? "Los cambios se guardan en este equipo (modo demo, sin Supabase)."
+          : "Los laboratorios son una fuente única compartida (Supabase)."}
+      </div>
 
       {/* Resumen */}
       <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -251,10 +276,11 @@ export default function LaboratoriosPage() {
                   <TD className="pr-4">
                     <RowActions
                       viewHref={`/productos?laboratory=${r.lab.id}`}
-                      editHref={`/productos/laboratorios/${r.lab.id}/editar`}
-                      onDelete={() => {
-                        hide(r.lab.id);
-                        toast.success("Laboratorio eliminado correctamente.");
+                      onEdit={() => { setError(null); setDialog({ mode: "edit", id: r.lab.id, initial: { name: r.lab.name, country: r.lab.country ?? "" } }); }}
+                      onDelete={async () => {
+                        const res = await deleteLaboratoryAnywhere(r.lab.id);
+                        if (!res.ok) toast.error(res.error);
+                        else toast.success("Laboratorio eliminado.");
                       }}
                       entityName={r.lab.name}
                     />
@@ -265,6 +291,17 @@ export default function LaboratoriosPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <CatalogFormDialog
+        open={dialog !== null}
+        title={dialog?.mode === "edit" ? "Editar laboratorio" : "Nuevo laboratorio"}
+        fields={[{ key: "name", label: "Nombre", required: true }, { key: "country", label: "País" }]}
+        initial={dialog?.initial}
+        submitting={submitting}
+        error={error}
+        onClose={() => setDialog(null)}
+        onSubmit={onSubmit}
+      />
       <toast.Toast />
     </>
   );
