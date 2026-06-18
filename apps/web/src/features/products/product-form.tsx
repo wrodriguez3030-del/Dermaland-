@@ -22,9 +22,8 @@ import {
 } from "@/lib/mock-data/catalog";
 import { ProductImageUploader } from "@/features/products/components/product-image-uploader";
 import {
-  createProduct,
   listAllProducts,
-  updateProduct,
+  saveProduct,
 } from "@/features/products/product-store";
 import { addLot } from "@/features/inventory/lot-store";
 import {
@@ -44,10 +43,8 @@ interface ProductFormProps {
 /**
  * Formulario único de producto, usado tanto para crear como para editar.
  *
- * En `create` llama `createProduct`; en `edit` llama `updateProduct` sobre el
- * producto recibido (persistencia en el store local — mismo contrato que
- * mapeará a Supabase cuando el módulo se conecte). Todos los campos son
- * editables en ambos modos.
+ * Llama `saveProduct` que despacha local vs Supabase según el backend
+ * configurado. Todos los campos son editables en ambos modos.
  */
 export function ProductForm({ mode, product }: ProductFormProps) {
   const router = useRouter();
@@ -131,7 +128,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     return m;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorBanner(null);
 
@@ -168,7 +165,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     };
 
     if (mode === "create") {
-      const result = createProduct({ ...common, active: true, sellable: true });
+      const result = await saveProduct("create", { ...common, active: true, sellable: true });
       if (!result.ok) {
         setSubmitting(false);
         if (result.missingFields?.length) {
@@ -226,16 +223,15 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       setErrorBanner(`Ya existe otro producto con SKU ${sku.trim()}.`);
       return;
     }
-    updateProduct(product.id, {
-      ...common,
-      sku: sku.trim(),
-      name: name.trim(),
-      active,
-    });
+    const res = await saveProduct("edit", { ...common, sku: sku.trim(), name: name.trim(), active }, product.id);
     setSubmitting(false);
+    if (!res.ok) {
+      setErrorBanner(res.error);
+      return;
+    }
     setMissing(new Set());
     toast.success(`Cambios guardados · ${sku.trim()}`);
-    setTimeout(() => router.push(`/productos/${product.id}`), 600);
+    setTimeout(() => router.push(`/productos/${res.product.id}`), 600);
   };
 
   const submitLabel = mode === "create" ? "Guardar producto" : "Guardar cambios";
