@@ -246,6 +246,33 @@ export function NumberingModal({ open, mode, numbering, onClose }: Props) {
           </div>
         </div>
 
+        {readOnly && numbering && (
+          <div className="mt-3 rounded-lg border border-black/10 bg-black/[0.02] p-3 text-xs">
+            <div className="mb-1 font-medium">Uso</div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 opacity-80">
+              <span>
+                Consumidos:{" "}
+                <strong>
+                  {Math.max(0, numbering.nextNumber - numbering.rangeStart)}
+                </strong>
+              </span>
+              <span>
+                Disponibles:{" "}
+                <strong>
+                  {Math.max(0, numbering.rangeEnd - numbering.nextNumber + 1)}
+                </strong>
+              </span>
+              <span>
+                Próximo: <strong>{numbering.nextNumber}</strong>
+              </span>
+            </div>
+            <p className="mt-1 opacity-60">
+              El historial detallado de documentos aparecerá al vincularse
+              comprobantes a esta numeración.
+            </p>
+          </div>
+        )}
+
         {isElectronic && environment !== "mock" && environment !== "demo" && (
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             Las numeraciones e-CF reales requieren postulación DGII aprobada,

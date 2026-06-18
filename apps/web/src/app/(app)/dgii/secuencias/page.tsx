@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import {
   AlertTriangle,
+  Clock,
   Hash,
   Plus,
   Power,
@@ -230,6 +231,12 @@ export default function NumeracionesPage() {
                           }}
                           entityName={n.name}
                           customActions={[
+                            {
+                              label: "Historial / uso",
+                              icon: Clock,
+                              onClick: () =>
+                                setModal({ open: true, mode: "view", numbering: n }),
+                            },
                             ...(!n.isPreferred && active
                               ? [
                                   {
