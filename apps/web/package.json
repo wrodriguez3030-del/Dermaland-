@@ -50,6 +50,7 @@
     "pdf-to-img": "^6.2.0",
     "postcss": "8.4.49",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.22.4",
     "typescript": "5.7.3",
     "vitest": "^4.1.5",
     "xlsx": "^0.18.5"
