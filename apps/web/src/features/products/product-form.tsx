@@ -16,10 +16,10 @@ import {
 import { FormSection } from "@/components/ui/filter-bar";
 import { useToast } from "@/components/ui/toast";
 import {
-  mockBrands,
-  mockCategories,
-  mockLaboratories,
-} from "@/lib/mock-data/catalog";
+  useBrandsList,
+  useCategoriesList,
+  useLaboratoriesList,
+} from "@/features/products/catalog-store";
 import { ProductImageUploader } from "@/features/products/components/product-image-uploader";
 import {
   listAllProducts,
@@ -49,6 +49,10 @@ interface ProductFormProps {
 export function ProductForm({ mode, product }: ProductFormProps) {
   const router = useRouter();
   const toast = useToast();
+
+  const brands = useBrandsList();
+  const categories = useCategoriesList();
+  const laboratories = useLaboratoriesList();
 
   const [name, setName] = React.useState(product?.name ?? "");
   const [sku, setSku] = React.useState(product?.sku ?? "");
@@ -331,7 +335,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                 <Label>Marca</Label>
                 <Select value={brandId} onChange={(e) => setBrandId(e.target.value)}>
                   <option value="">— Sin marca —</option>
-                  {mockBrands.map((b) => (
+                  {brands.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
@@ -345,7 +349,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                   onChange={(e) => setCategoryId(e.target.value)}
                 >
                   <option value="">— Sin categoría —</option>
-                  {mockCategories.map((c) => (
+                  {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -359,7 +363,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                   onChange={(e) => setLaboratoryId(e.target.value)}
                 >
                   <option value="">— Sin laboratorio —</option>
-                  {mockLaboratories.map((l) => (
+                  {laboratories.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
                     </option>
