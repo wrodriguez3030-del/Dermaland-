@@ -13,6 +13,10 @@ import {
   getBranchFromStore,
   branchDependencies,
   clearLocalBranches,
+  resetBranchesToSeed,
+  getActiveBranches,
+  getAllBranchesForAdmin,
+  getBranchById,
 } from "./branch-store";
 import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import { canManageBranches } from "./permissions";
@@ -119,6 +123,30 @@ describe("visibilidad operativa (activas vs inactivas/eliminadas)", () => {
     const seed = mockBranches[0]!;
     setBranchActive(seed.id, false);
     expect(resolveBranchName(seed.id)).toBe(seed.name);
+  });
+});
+
+describe("fuente única y reset (sincronización entre equipos)", () => {
+  it("aliases: getActiveBranches solo activas, getAllBranchesForAdmin incluye inactivas", () => {
+    const seed = mockBranches[0]!;
+    setBranchActive(seed.id, false);
+    expect(getActiveBranches().some((b) => b.id === seed.id)).toBe(false);
+    expect(getAllBranchesForAdmin().some((b) => b.id === seed.id)).toBe(true);
+    expect(getBranchById(seed.id)?.id).toBe(seed.id);
+  });
+
+  it("resetBranchesToSeed descarta cambios locales y la sucursal seleccionada", () => {
+    window.localStorage.setItem("dermaland.current-branch", "br_inexistente");
+    createBranch({ name: "Local PC", code: "LOCAL-1" });
+    setBranchActive(mockBranches[0]!.id, false);
+    expect(getAllBranchesForAdmin().length).toBeGreaterThan(mockBranches.length);
+
+    resetBranchesToSeed();
+
+    expect(getAllBranchesForAdmin().length).toBe(mockBranches.length);
+    // Seed restaurado: la sucursal vuelve a su estado original.
+    expect(getBranchById(mockBranches[0]!.id)?.status).toBe(mockBranches[0]!.status);
+    expect(window.localStorage.getItem("dermaland.current-branch")).toBeNull();
   });
 });
 

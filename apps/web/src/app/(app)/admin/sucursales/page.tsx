@@ -2,16 +2,18 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Building2, Plus, Star, Power, RotateCcw, Boxes } from "lucide-react";
+import { Building2, Plus, Star, Power, RotateCcw, Boxes, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Button, Card } from "@/components/ui";
 import { RowActions } from "@/components/ui/row-actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import {
   useBranches,
   setBranchActive,
   deleteBranch,
+  resetBranchesToSeed,
 } from "@/features/tenancy/branch-store";
 import { canManageBranches } from "@/features/tenancy/permissions";
 
@@ -19,6 +21,7 @@ export default function SucursalesPage() {
   const branches = useBranches();
   const toast = useToast();
   const canManage = canManageBranches();
+  const [confirmReset, setConfirmReset] = React.useState(false);
 
   return (
     <>
@@ -28,15 +31,34 @@ export default function SucursalesPage() {
         breadcrumbs={[{ label: "Administración" }, { label: "Sucursales" }]}
         actions={
           canManage ? (
-            <Link href="/admin/sucursales/nueva">
-              <Button size="sm">
-                <Plus className="h-4 w-4" />
-                Nueva sucursal
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmReset(true)}
+                aria-label="Restablecer en este equipo"
+                title="Descartar cambios locales y volver al baseline"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Restablecer (este equipo)
               </Button>
-            </Link>
+              <Link href="/admin/sucursales/nueva">
+                <Button size="sm">
+                  <Plus className="h-4 w-4" />
+                  Nueva sucursal
+                </Button>
+              </Link>
+            </>
           ) : undefined
         }
       />
+
+      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
+        Los cambios de sucursales se guardan <strong>en este equipo</strong>
+        (modo demo, sin Supabase). Si otra PC muestra sucursales distintas, usa{" "}
+        <strong>“Restablecer (este equipo)”</strong> para volver al baseline
+        compartido. Los selectores de operación sólo muestran sucursales activas.
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {branches.map((b) => {
@@ -164,6 +186,20 @@ export default function SucursalesPage() {
           );
         })}
       </div>
+
+      <ConfirmDialog
+        open={confirmReset}
+        title="Restablecer sucursales en este equipo"
+        destructive={false}
+        confirmLabel="Restablecer"
+        message="Se descartan los cambios de sucursales hechos en este equipo (altas, ediciones y bajas locales) y la sucursal seleccionada, volviendo al baseline compartido. No afecta inventario, ventas ni otros datos."
+        onCancel={() => setConfirmReset(false)}
+        onConfirm={() => {
+          resetBranchesToSeed();
+          setConfirmReset(false);
+          toast.success("Sucursales restablecidas en este equipo.");
+        }}
+      />
       <toast.Toast />
     </>
   );

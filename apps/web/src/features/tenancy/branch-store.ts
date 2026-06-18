@@ -266,6 +266,29 @@ export function clearLocalBranches(): void {
   safeWrite(KEY_DELETED, []);
 }
 
+/**
+ * Restablece las sucursales de ESTE equipo al baseline compartido (seed):
+ * descarta altas/ediciones/bajas locales y la sucursal seleccionada guardada.
+ * Útil cuando una PC quedó con datos divergentes (los cambios de sucursal se
+ * guardan localmente en modo demo, no se sincronizan entre equipos).
+ */
+export function resetBranchesToSeed(): void {
+  clearLocalBranches();
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(KEY_CURRENT);
+  }
+}
+
+// ─── Alias de fuente única (API explícita) ───────────────────────────────────
+/** Sucursales ACTIVAS (operación). Única fuente para selectores operativos. */
+export const getActiveBranches = listActiveBranches;
+/** Todas las sucursales (Administración): activas + inactivas. */
+export const getAllBranchesForAdmin = listAllBranches;
+/** Sucursal por id (resuelve del store; incluye inactivas). */
+export function getBranchById(id: string): Branch | undefined {
+  return getBranchFromStore(id);
+}
+
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
 export function useBranches(): Branch[] {
