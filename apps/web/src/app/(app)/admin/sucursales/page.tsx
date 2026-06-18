@@ -11,9 +11,10 @@ import { useToast } from "@/components/ui/toast";
 import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import {
   useBranches,
-  setBranchActive,
-  deleteBranch,
+  setBranchActiveAnywhere,
+  deleteBranchAnywhere,
   resetBranchesToSeed,
+  BRANCH_BACKEND,
 } from "@/features/tenancy/branch-store";
 import { canManageBranches } from "@/features/tenancy/permissions";
 
@@ -21,6 +22,7 @@ export default function SucursalesPage() {
   const branches = useBranches();
   const toast = useToast();
   const canManage = canManageBranches();
+  const isLocalBackend = BRANCH_BACKEND === "local";
   const [confirmReset, setConfirmReset] = React.useState(false);
 
   return (
@@ -32,16 +34,18 @@ export default function SucursalesPage() {
         actions={
           canManage ? (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmReset(true)}
-                aria-label="Restablecer en este equipo"
-                title="Descartar cambios locales y volver al baseline"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Restablecer (este equipo)
-              </Button>
+              {isLocalBackend && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmReset(true)}
+                  aria-label="Restablecer en este equipo"
+                  title="Descartar cambios locales y volver al baseline"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Restablecer (este equipo)
+                </Button>
+              )}
               <Link href="/admin/sucursales/nueva">
                 <Button size="sm">
                   <Plus className="h-4 w-4" />
@@ -53,12 +57,20 @@ export default function SucursalesPage() {
         }
       />
 
-      <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
-        Los cambios de sucursales se guardan <strong>en este equipo</strong>
-        (modo demo, sin Supabase). Si otra PC muestra sucursales distintas, usa{" "}
-        <strong>“Restablecer (este equipo)”</strong> para volver al baseline
-        compartido. Los selectores de operación sólo muestran sucursales activas.
-      </div>
+      {isLocalBackend ? (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
+          Los cambios de sucursales se guardan <strong>en este equipo</strong>
+          (modo demo, sin Supabase). Si otra PC muestra sucursales distintas, usa{" "}
+          <strong>“Restablecer (este equipo)”</strong> para volver al baseline
+          compartido. Los selectores de operación sólo muestran sucursales activas.
+        </div>
+      ) : (
+        <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900">
+          Las sucursales son una <strong>fuente única compartida</strong> (Supabase).
+          Los cambios se ven en todos los equipos. Los selectores de operación sólo
+          muestran sucursales activas.
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {branches.map((b) => {
@@ -90,8 +102,8 @@ export default function SucursalesPage() {
                     <RowActions
                       viewHref={`/admin/sucursales/${b.id}`}
                       editHref={`/admin/sucursales/${b.id}/editar`}
-                      onDelete={() => {
-                        const res = deleteBranch(b.id);
+                      onDelete={async () => {
+                        const res = await deleteBranchAnywhere(b.id);
                         if (!res.ok) toast.error(res.error);
                         else toast.success("Sucursal eliminada.");
                       }}
@@ -101,9 +113,10 @@ export default function SucursalesPage() {
                           ? {
                               label: "Inactivar",
                               icon: Power,
-                              onClick: () => {
-                                setBranchActive(b.id, false);
-                                toast.success(`${b.name} inactivada.`);
+                              onClick: async () => {
+                                const res = await setBranchActiveAnywhere(b.id, false);
+                                if (!res.ok) toast.error(res.error);
+                                else toast.success(`${b.name} inactivada.`);
                               },
                               confirm: {
                                 title: "Inactivar sucursal",
@@ -113,9 +126,10 @@ export default function SucursalesPage() {
                           : {
                               label: "Reactivar",
                               icon: RotateCcw,
-                              onClick: () => {
-                                setBranchActive(b.id, true);
-                                toast.success(`${b.name} reactivada.`);
+                              onClick: async () => {
+                                const res = await setBranchActiveAnywhere(b.id, true);
+                                if (!res.ok) toast.error(res.error);
+                                else toast.success(`${b.name} reactivada.`);
                               },
                             },
                       ]}

@@ -22,8 +22,8 @@ import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
 import {
   useBranch,
   branchDependencies,
-  setBranchActive,
-  deleteBranch,
+  setBranchActiveAnywhere,
+  deleteBranchAnywhere,
 } from "@/features/tenancy/branch-store";
 import { canManageBranches } from "@/features/tenancy/permissions";
 
@@ -167,9 +167,10 @@ export default function SucursalDetailPage() {
                   variant="outline"
                   size="sm"
                   className="w-full justify-start"
-                  onClick={() => {
-                    setBranchActive(branch.id, true);
-                    toast.success("Sucursal reactivada.");
+                  onClick={async () => {
+                    const res = await setBranchActiveAnywhere(branch.id, true);
+                    if (!res.ok) toast.error(res.error);
+                    else toast.success("Sucursal reactivada.");
                   }}
                 >
                   <RotateCcw className="h-4 w-4" /> Reactivar
@@ -273,10 +274,11 @@ export default function SucursalDetailPage() {
         confirmLabel="Inactivar"
         message={`¿Seguro que deseas inactivar ${branch.name}? No se borra inventario, movimientos ni ventas.`}
         onCancel={() => setConfirmInactivate(false)}
-        onConfirm={() => {
-          setBranchActive(branch.id, false);
+        onConfirm={async () => {
+          const res = await setBranchActiveAnywhere(branch.id, false);
           setConfirmInactivate(false);
-          toast.success("Sucursal inactivada.");
+          if (!res.ok) toast.error(res.error);
+          else toast.success("Sucursal inactivada.");
         }}
       />
       <ConfirmDialog
@@ -285,8 +287,8 @@ export default function SucursalDetailPage() {
         confirmLabel="Eliminar"
         message={`¿Eliminar ${branch.name}? Sólo es posible si no tiene datos asociados.`}
         onCancel={() => setConfirmDelete(false)}
-        onConfirm={() => {
-          const res = deleteBranch(branch.id);
+        onConfirm={async () => {
+          const res = await deleteBranchAnywhere(branch.id);
           setConfirmDelete(false);
           if (!res.ok) {
             toast.error(res.error);

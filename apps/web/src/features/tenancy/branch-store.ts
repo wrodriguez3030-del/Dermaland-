@@ -310,6 +310,140 @@ export async function fetchBranchesFromServer(
   return ((await res.json()) as { branches: Branch[] }).branches;
 }
 
+/** Notifica a los hooks (local y servidor) que las sucursales cambiaron. */
+function notifyBranchesChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  }
+}
+
+/**
+ * Mapea el input del formulario al payload que espera la API/repositorio
+ * Supabase (`Omit<Branch, "id"|"createdAt"|"updatedAt">`). Rellena los campos
+ * que el formulario no captura con los mismos defaults que el alta local.
+ */
+function createInputToServerPayload(input: CreateBranchInput) {
+  return {
+    code: input.code.trim().toUpperCase(),
+    name: input.name.trim(),
+    address: input.address?.trim() ?? "",
+    city: input.city?.trim() ?? "",
+    province: input.province?.trim() ?? "",
+    country: "República Dominicana",
+    phone: input.phone?.trim() || undefined,
+    email: input.email?.trim() || undefined,
+    isPilot: input.isPilot ?? false,
+    showOnWebsite: input.showOnWebsite ?? false,
+    status: input.status ?? "active",
+  };
+}
+
+// ─── Mutaciones contra el servidor (modo supabase) ───────────────────────────
+
+/** Alta de sucursal vía API compartida. Devuelve el mismo shape que el local. */
+export async function createBranchOnServer(
+  input: CreateBranchInput,
+): Promise<BranchResult> {
+  const missing: string[] = [];
+  if (!input.name?.trim()) missing.push("name");
+  if (!input.code?.trim()) missing.push("code");
+  if (missing.length) {
+    return { ok: false, error: "Complete los campos requeridos.", missingFields: missing };
+  }
+  try {
+    const res = await fetch("/api/branches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(createInputToServerPayload(input)),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      branch?: Branch;
+      error?: string;
+    };
+    if (!res.ok || !body.branch) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    }
+    notifyBranchesChanged();
+    return { ok: true, branch: body.branch };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Edición de sucursal vía API compartida. */
+export async function updateBranchOnServer(
+  id: string,
+  patch: Partial<Branch>,
+): Promise<BranchResult> {
+  try {
+    const res = await fetch(`/api/branches/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      branch?: Branch;
+      error?: string;
+    };
+    if (!res.ok || !body.branch) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    }
+    notifyBranchesChanged();
+    return { ok: true, branch: body.branch };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Baja (soft delete) de sucursal vía API compartida. */
+export async function softDeleteBranchOnServer(id: string): Promise<DeleteResult> {
+  try {
+    const res = await fetch(`/api/branches/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    }
+    notifyBranchesChanged();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ─── Mutaciones unificadas (despachan local vs supabase) ─────────────────────
+// Las páginas/formularios llaman a estas: en modo local conservan el camino
+// síncrono (envuelto en promesa), en modo supabase pegan a la API compartida.
+
+export async function saveBranch(
+  mode: "create" | "edit",
+  input: CreateBranchInput,
+  id?: string,
+): Promise<BranchResult> {
+  if (BRANCH_BACKEND === "supabase") {
+    return mode === "create"
+      ? createBranchOnServer(input)
+      : updateBranchOnServer(id!, input);
+  }
+  return mode === "create" ? createBranch(input) : updateBranch(id!, input);
+}
+
+export async function setBranchActiveAnywhere(
+  id: string,
+  active: boolean,
+): Promise<BranchResult> {
+  if (BRANCH_BACKEND === "supabase") {
+    return updateBranchOnServer(id, { status: active ? "active" : "inactive" });
+  }
+  return setBranchActive(id, active);
+}
+
+export async function deleteBranchAnywhere(id: string): Promise<DeleteResult> {
+  if (BRANCH_BACKEND === "supabase") {
+    return softDeleteBranchOnServer(id);
+  }
+  return deleteBranch(id);
+}
+
 // ─── Alias de fuente única (API explícita) ───────────────────────────────────
 /** Sucursales ACTIVAS (operación). Única fuente para selectores operativos. */
 export const getActiveBranches = listActiveBranches;
@@ -323,13 +457,34 @@ export function getBranchById(id: string): Branch | undefined {
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
 export function useBranches(): Branch[] {
-  const [list, setList] = React.useState<Branch[]>(() => listAllBranches());
+  // En modo supabase el estado inicial parte vacío y se llena con el fetch;
+  // en modo local parte del seed+localStorage de inmediato.
+  const [list, setList] = React.useState<Branch[]>(() =>
+    BRANCH_BACKEND === "supabase" ? [] : listAllBranches(),
+  );
   React.useEffect(() => {
-    const refresh = () => setList(listAllBranches());
+    let alive = true;
+    const refresh = () => {
+      if (BRANCH_BACKEND === "supabase") {
+        // Scope admin: trae activas + inactivas; los selectores operativos
+        // filtran por status en cliente (useActiveBranches).
+        fetchBranchesFromServer("admin")
+          .then((branches) => {
+            if (alive) setList(branches);
+          })
+          .catch(() => {
+            // Fallback: si la API falla (sesión/red/RLS), no romper la UI.
+            if (alive) setList(listAllBranches());
+          });
+      } else {
+        setList(listAllBranches());
+      }
+    };
     window.addEventListener(CHANGE_EVENT, refresh);
     window.addEventListener("storage", refresh);
     refresh();
     return () => {
+      alive = false;
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };

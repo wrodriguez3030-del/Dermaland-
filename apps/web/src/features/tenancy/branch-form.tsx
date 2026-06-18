@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
 import { useToast } from "@/components/ui/toast";
-import { createBranch, updateBranch } from "@/features/tenancy/branch-store";
+import { saveBranch } from "@/features/tenancy/branch-store";
 import type { Branch } from "@/types";
 
 interface BranchFormProps {
@@ -47,7 +47,7 @@ export function BranchForm({ mode, branch }: BranchFormProps) {
   const [submitting, setSubmitting] = React.useState(false);
   const isMissing = (k: string) => missing.has(k);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
@@ -65,10 +65,7 @@ export function BranchForm({ mode, branch }: BranchFormProps) {
       status,
     };
 
-    const res =
-      mode === "create"
-        ? createBranch(payload)
-        : updateBranch(branch!.id, payload);
+    const res = await saveBranch(mode, payload, branch?.id);
 
     setSubmitting(false);
     if (!res.ok) {

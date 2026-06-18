@@ -44,7 +44,7 @@ Leyenda: ✅ implementado · ⚠️ parcial / gated · ❌ no usa Supabase (loca
 |---|---|---|---|---|
 | **Administración** |||||
 | Empresa (business) | ✅ `business.ts` | — | server action DGII usa repos | ⚠️ repo listo; UI admin no migrada |
-| Sucursales (branches) | ✅ `branch.ts` | ✅ `/api/branches` (409 si no `supabase`) | ❌ `branch-store` (localStorage) | ⚠️ backend listo; UI usa store local (`BRANCH_BACKEND`) |
+| Sucursales (branches) | ✅ `branch.ts` | ✅ `/api/branches` + `/[id]` (409 si no `supabase`) | ✅ hooks fetch al servidor + mutaciones API (gated) | ✅ **migrada 2026-06-18** (read+write vía API; fallback local) |
 | Usuarios | ✅ `user.ts` | — | ❌ mock | ⚠️ repo listo; UI no migrada |
 | Roles / permisos | parcial (seed migraciones 0004/0005) | — | mock | ⚠️ datos seed en DB; gestión UI no migrada |
 | Auditoría | ✅ `audit.ts` | — | ❌ | ⚠️ repo listo; UI no migrada |
@@ -121,8 +121,19 @@ navegador, PWA/service worker, y `DATA_SOURCE` sin fijar.
 Cada módulo replica el patrón de `branches` (API route con RLS por JWT +
 hook cliente que hace fetch cuando el backend es `supabase`, con fallback local):
 
-1. **Sucursales** — backend 100% listo; solo falta el wiring final de
-   `useBranches`/`useActiveBranches` a `fetchBranchesFromServer`.
+1. ~~**Sucursales** — backend 100% listo; solo falta el wiring final de
+   `useBranches`/`useActiveBranches` a `fetchBranchesFromServer`.~~
+   ✅ **HECHO 2026-06-18.** Lecturas: `useBranches` (y por derivación
+   `useActiveBranches`/`useCurrentBranch`/`useBranch`) hacen `fetch` a
+   `/api/branches?scope=admin` cuando `BRANCH_BACKEND==="supabase"`, con
+   fallback a `localStorage` si la API falla. Escrituras: wrappers
+   `saveBranch`/`setBranchActiveAnywhere`/`deleteBranchAnywhere` despachan a
+   la API (`POST` / `PATCH` / `DELETE /api/branches[/:id]`) en modo supabase y
+   al store local en modo demo. Banner/botón "Restablecer (este equipo)" solo
+   se muestran en modo local. Todo gated por `NEXT_PUBLIC_DATA_SOURCE=supabase`:
+   producción (`mock`) intacta. Validado: typecheck ✅ · vitest 609/609 ✅ ·
+   build ✅. Pendiente verificación end-to-end real (requiere MCP autenticado +
+   `NEXT_PUBLIC_DATA_SOURCE=supabase` en Preview).
 2. **Productos + catálogos** (categorías/marcas/laboratorios) — repo listo;
    faltan API routes + hooks.
 3. **Clientes** — repo listo; faltan API routes + hooks.
