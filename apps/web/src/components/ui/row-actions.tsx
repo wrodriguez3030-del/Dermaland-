@@ -8,6 +8,10 @@ import {
   Trash2,
   MoreVertical,
   Ban,
+  Power,
+  Printer,
+  Send,
+  Copy,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -58,14 +62,29 @@ export interface RowActionsProps {
   onDelete?: () => void | Promise<void>;
   /** Mostrado en confirmación: "¿Eliminar a {entityName}?" */
   entityName?: string;
+  /** Alias de `entityName`. */
+  itemLabel?: string;
   /** Texto override del botón eliminar (ej. "Anular", "Cancelar") */
   deleteLabel?: string;
+  /** Si es `false`, elimina sin diálogo de confirmación (por defecto pide). */
+  confirmDelete?: boolean;
+  // ── Acciones estándar de conveniencia (icon-only) ──
+  onActivate?: () => void | Promise<void>;
+  onDeactivate?: () => void | Promise<void>;
+  onPrint?: () => void;
+  onSend?: () => void;
+  onDuplicate?: () => void | Promise<void>;
   /** Acciones extra (anular, liberar cuarentena, etc.) */
   customActions?: CustomAction[];
   /** Permisos */
   canView?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
+  canActivate?: boolean;
+  canDeactivate?: boolean;
+  canPrint?: boolean;
+  canSend?: boolean;
+  canDuplicate?: boolean;
   /** Para alinear en celdas de tabla */
   align?: "start" | "end";
   className?: string;
@@ -79,16 +98,29 @@ export function RowActions({
   onEdit,
   onDelete,
   entityName,
+  itemLabel,
   deleteLabel = "Eliminar",
+  confirmDelete = true,
+  onActivate,
+  onDeactivate,
+  onPrint,
+  onSend,
+  onDuplicate,
   customActions = [],
   canView = true,
   canEdit = true,
   canDelete = true,
+  canActivate = true,
+  canDeactivate = true,
+  canPrint = true,
+  canSend = true,
+  canDuplicate = true,
   align = "end",
   className,
 }: RowActionsProps) {
+  const entity = itemLabel ?? entityName;
   const [open, setOpen] = React.useState(false);
-  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [confirmCustom, setConfirmCustom] = React.useState<
     CustomAction | null
   >(null);
@@ -113,11 +145,16 @@ export function RowActions({
   const showView = canView && (viewHref || onView);
   const showEdit = canEdit && (editHref || onEdit);
   const showDelete = canDelete && onDelete;
+  const showActivate = canActivate && !!onActivate;
+  const showDeactivate = canDeactivate && !!onDeactivate;
+  const showPrint = canPrint && !!onPrint;
+  const showSend = canSend && !!onSend;
+  const showDuplicate = canDuplicate && !!onDuplicate;
 
   const handleDelete = async () => {
     if (!onDelete) return;
     await onDelete();
-    setConfirmDelete(false);
+    setConfirmOpen(false);
     setOpen(false);
   };
 
@@ -200,6 +237,61 @@ export function RowActions({
                 <Pencil className={ico} />
               </button>
             ))}
+          {showDuplicate && (
+            <button
+              type="button"
+              onClick={onDuplicate}
+              className={cn(baseBtn, ghostBtn)}
+              aria-label="Duplicar"
+              title="Duplicar"
+            >
+              <Copy className={ico} />
+            </button>
+          )}
+          {showPrint && (
+            <button
+              type="button"
+              onClick={onPrint}
+              className={cn(baseBtn, ghostBtn)}
+              aria-label="Imprimir"
+              title="Imprimir"
+            >
+              <Printer className={ico} />
+            </button>
+          )}
+          {showSend && (
+            <button
+              type="button"
+              onClick={onSend}
+              className={cn(baseBtn, ghostBtn)}
+              aria-label="Enviar"
+              title="Enviar"
+            >
+              <Send className={ico} />
+            </button>
+          )}
+          {showActivate && (
+            <button
+              type="button"
+              onClick={onActivate}
+              className={cn(baseBtn, ghostBtn)}
+              aria-label="Activar"
+              title="Activar"
+            >
+              <Power className={ico} />
+            </button>
+          )}
+          {showDeactivate && (
+            <button
+              type="button"
+              onClick={onDeactivate}
+              className={cn(baseBtn, ghostBtn)}
+              aria-label="Inactivar"
+              title="Inactivar"
+            >
+              <Power className={ico} />
+            </button>
+          )}
           {customActions.map((a) => {
             const Icon = a.icon ?? Ban;
             if (a.disabled) {
@@ -257,7 +349,7 @@ export function RowActions({
           {showDelete && (
             <button
               type="button"
-              onClick={() => setConfirmDelete(true)}
+              onClick={() => (confirmDelete ? setConfirmOpen(true) : handleDelete())}
               className={cn(baseBtn, dangerBtn)}
               aria-label={deleteLabel}
               title={deleteLabel}
@@ -267,16 +359,16 @@ export function RowActions({
           )}
         </div>
         <ConfirmDialog
-          open={confirmDelete}
+          open={confirmOpen}
           title={`Confirmar ${deleteLabel.toLowerCase()}`}
           message={
-            entityName
-              ? `¿Está seguro de que desea ${deleteLabel.toLowerCase()} a ${entityName}?`
+            entity
+              ? `¿Está seguro de que desea ${deleteLabel.toLowerCase()} a ${entity}?`
               : "¿Está seguro de que desea continuar?"
           }
           confirmLabel={deleteLabel}
           onConfirm={handleDelete}
-          onCancel={() => setConfirmDelete(false)}
+          onCancel={() => setConfirmOpen(false)}
         />
         <ConfirmDialog
           open={!!confirmCustom}
@@ -397,7 +489,7 @@ export function RowActions({
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  setConfirmDelete(true);
+                  setConfirmOpen(true);
                   setOpen(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50"
@@ -410,7 +502,7 @@ export function RowActions({
         )}
       </div>
       <ConfirmDialog
-        open={confirmDelete}
+        open={confirmOpen}
         title={`Confirmar ${deleteLabel.toLowerCase()}`}
         message={
           entityName
@@ -419,7 +511,7 @@ export function RowActions({
         }
         confirmLabel={deleteLabel}
         onConfirm={handleDelete}
-        onCancel={() => setConfirmDelete(false)}
+        onCancel={() => setConfirmOpen(false)}
       />
       <ConfirmDialog
         open={!!confirmCustom}

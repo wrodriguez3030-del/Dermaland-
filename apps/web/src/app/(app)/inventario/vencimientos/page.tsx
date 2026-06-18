@@ -20,7 +20,8 @@ import {
 } from "@/components/ui";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { StatCard } from "@/components/ui/stat-card";
-import { CalendarClock, AlertTriangle, ShieldAlert, Eye, X } from "lucide-react";
+import { CalendarClock, AlertTriangle, ShieldAlert, X } from "lucide-react";
+import { RowActions } from "@/components/ui/row-actions";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { getBranchById } from "@/lib/mock-data/tenancy";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
@@ -196,12 +197,12 @@ export default function VencimientosPage() {
                       </Badge>
                     </TD>
                     <TD>{lotStatusBadge(lot.status)}</TD>
-                    <TD className="pr-4 text-right">
-                      <Link href={`/productos/${lot.productId}`}>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-3.5 w-3.5" /> Ver producto
-                        </Button>
-                      </Link>
+                    <TD className="pr-4">
+                      <RowActions
+                        viewHref={`/productos/${lot.productId}`}
+                        canEdit={false}
+                        canDelete={false}
+                      />
                     </TD>
                   </TR>
                 );

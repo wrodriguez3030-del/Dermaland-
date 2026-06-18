@@ -58,6 +58,31 @@ describe("RowActions", () => {
     expect(del).toHaveAttribute("title", "No se puede eliminar una venta emitida.");
   });
 
+  it("acciones de conveniencia (activar/imprimir/enviar/duplicar) con aria-label", () => {
+    render(
+      <RowActions
+        canView={false}
+        canEdit={false}
+        canDelete={false}
+        onActivate={() => {}}
+        onPrint={() => {}}
+        onSend={() => {}}
+        onDuplicate={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText("Activar")).toBeInTheDocument();
+    expect(screen.getByLabelText("Imprimir")).toBeInTheDocument();
+    expect(screen.getByLabelText("Enviar")).toBeInTheDocument();
+    expect(screen.getByLabelText("Duplicar")).toBeInTheDocument();
+  });
+
+  it("confirmDelete=false elimina sin diálogo", () => {
+    const onDelete = vi.fn();
+    render(<RowActions onDelete={onDelete} confirmDelete={false} entityName="X" />);
+    fireEvent.click(screen.getByLabelText("Eliminar"));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
   it("Eliminar pide confirmación antes de ejecutar el borrado", () => {
     const onDelete = vi.fn();
     render(<RowActions onDelete={onDelete} entityName="Venta 001" />);

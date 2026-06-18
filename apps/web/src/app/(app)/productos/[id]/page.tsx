@@ -31,6 +31,7 @@ import {
   TD,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import {
   getBrandById,
@@ -468,14 +469,19 @@ export default function ProductDetailPage() {
                           </Badge>
                         </TD>
                         <TD>{lotStatusBadge(lot.status)}</TD>
-                        <TD className="pr-4 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setAdjustLot(lot)}
-                          >
-                            <SlidersHorizontal className="h-3.5 w-3.5" /> Ajustar
-                          </Button>
+                        <TD className="pr-4">
+                          <RowActions
+                            canView={false}
+                            canEdit={false}
+                            canDelete={false}
+                            customActions={[
+                              {
+                                label: "Ajustar stock",
+                                icon: SlidersHorizontal,
+                                onClick: () => setAdjustLot(lot),
+                              },
+                            ]}
+                          />
                         </TD>
                       </TR>
                     );

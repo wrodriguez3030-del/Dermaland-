@@ -18,7 +18,8 @@ import {
 } from "@/components/ui";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { SearchInput } from "@/components/ui/search-input";
-import { ArrowRightLeft, Eye, Plus, X } from "lucide-react";
+import { ArrowRightLeft, Plus, X } from "lucide-react";
+import { RowActions } from "@/components/ui/row-actions";
 import { formatDate } from "@/lib/utils/format";
 import {
   listActiveBranches,
@@ -174,12 +175,12 @@ export default function TransferenciasPage() {
                       {t.status === "completed" ? "Completada" : "Anulada"}
                     </Badge>
                   </TD>
-                  <TD className="pr-4 text-right">
-                    <Link href={`/inventario/transferencias/${t.id}`}>
-                      <Button variant="ghost" size="sm" aria-label="Ver" title="Ver">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </Link>
+                  <TD className="pr-4">
+                    <RowActions
+                      viewHref={`/inventario/transferencias/${t.id}`}
+                      canEdit={false}
+                      canDelete={false}
+                    />
                   </TD>
                 </TR>
               ))}
