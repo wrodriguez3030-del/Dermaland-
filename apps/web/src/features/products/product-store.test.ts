@@ -7,6 +7,9 @@ import {
   listAllProducts,
   updateProduct,
   clearLocalProducts,
+  saveProduct,
+  deleteProductAnywhere,
+  PRODUCT_BACKEND,
 } from "./product-store";
 import { mockProducts } from "@/lib/mock-data/catalog";
 
@@ -78,5 +81,27 @@ describe("product-store CRUD", () => {
     createProduct({ sku: "X1", name: "X", price: 1 });
     clearLocalProducts();
     expect(listAllProducts().length).toBe(mockProducts.length);
+  });
+});
+
+describe("product-store wrappers (modo local)", () => {
+  beforeEach(() => { window.localStorage.clear(); clearLocalProducts(); });
+
+  it("PRODUCT_BACKEND es 'local' sin NEXT_PUBLIC_DATA_SOURCE=supabase", () => {
+    expect(PRODUCT_BACKEND).toBe("local");
+  });
+
+  it("saveProduct('create') agrega al store local", async () => {
+    const res = await saveProduct("create", { sku: "WRAP-1", name: "Wrap", price: 99 });
+    expect(res.ok).toBe(true);
+    expect(listAllProducts().some((p) => p.sku === "WRAP-1")).toBe(true);
+  });
+
+  it("deleteProductAnywhere borra del store local", async () => {
+    const created = await saveProduct("create", { sku: "WRAP-2", name: "Wrap2", price: 10 });
+    if (!created.ok) throw new Error("setup");
+    const del = await deleteProductAnywhere(created.product.id);
+    expect(del.ok).toBe(true);
+    expect(listAllProducts().some((p) => p.id === created.product.id)).toBe(false);
   });
 });
