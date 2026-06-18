@@ -235,26 +235,125 @@ const audit: AuditRepository = {
 const brand: BrandRepository = {
   async list(ctx) {
     guard(ctx);
-    return mockBrands.filter((b) => b.businessId === ctx.businessId);
+    const applyPatch = (b: Brand): Brand =>
+      brandPatches[b.id] ? { ...b, ...brandPatches[b.id] } : b;
+    const base = mockBrands
+      .filter((b) => b.businessId === ctx.businessId)
+      .map(applyPatch);
+    const extra = extraBrands
+      .filter((b) => b.businessId === ctx.businessId)
+      .map(applyPatch);
+    return [...base, ...extra].filter((b) => !deletedBrandIds.has(b.id));
   },
   async byId(ctx, id) {
     guard(ctx);
-    const b = getBrandById(id);
-    return b && b.businessId === ctx.businessId ? b : null;
+    return (await brand.list(ctx)).find((b) => b.id === id) ?? null;
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const created: Brand = {
+      id: mockGenId("br"),
+      businessId: ctx.businessId,
+      name: input.name,
+      productCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraBrands.push(created);
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    brandPatches[id] = { ...(brandPatches[id] ?? {}), ...patch };
+    const found = (await brand.list(ctx)).find((b) => b.id === id);
+    if (!found) throw new Error("Marca no encontrada");
+    return found;
+  },
+  async delete(ctx, id) {
+    guard(ctx);
+    deletedBrandIds.add(id);
   },
 };
 
 const category: CategoryRepository = {
   async list(ctx) {
     guard(ctx);
-    return mockCategories.filter((c) => c.businessId === ctx.businessId);
+    const applyPatch = (c: Category): Category =>
+      categoryPatches[c.id] ? { ...c, ...categoryPatches[c.id] } : c;
+    const base = mockCategories
+      .filter((c) => c.businessId === ctx.businessId)
+      .map(applyPatch);
+    const extra = extraCategories
+      .filter((c) => c.businessId === ctx.businessId)
+      .map(applyPatch);
+    return [...base, ...extra].filter((c) => !deletedCategoryIds.has(c.id));
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const created: Category = {
+      id: mockGenId("cat"),
+      businessId: ctx.businessId,
+      name: input.name,
+      parentId: input.parentId ?? null,
+      description: input.description,
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraCategories.push(created);
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    categoryPatches[id] = { ...(categoryPatches[id] ?? {}), ...patch };
+    const found = (await category.list(ctx)).find((c) => c.id === id);
+    if (!found) throw new Error("Categoría no encontrada");
+    return found;
+  },
+  async delete(ctx, id) {
+    guard(ctx);
+    deletedCategoryIds.add(id);
   },
 };
 
 const laboratory: LaboratoryRepository = {
   async list(ctx) {
     guard(ctx);
-    return mockLaboratories.filter((l) => l.businessId === ctx.businessId);
+    const applyPatch = (l: Laboratory): Laboratory =>
+      laboratoryPatches[l.id] ? { ...l, ...laboratoryPatches[l.id] } : l;
+    const base = mockLaboratories
+      .filter((l) => l.businessId === ctx.businessId)
+      .map(applyPatch);
+    const extra = extraLaboratories
+      .filter((l) => l.businessId === ctx.businessId)
+      .map(applyPatch);
+    return [...base, ...extra].filter((l) => !deletedLaboratoryIds.has(l.id));
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const created: Laboratory = {
+      id: mockGenId("lab"),
+      businessId: ctx.businessId,
+      name: input.name,
+      country: input.country,
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraLaboratories.push(created);
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    laboratoryPatches[id] = { ...(laboratoryPatches[id] ?? {}), ...patch };
+    const found = (await laboratory.list(ctx)).find((l) => l.id === id);
+    if (!found) throw new Error("Laboratorio no encontrado");
+    return found;
+  },
+  async delete(ctx, id) {
+    guard(ctx);
+    deletedLaboratoryIds.add(id);
   },
 };
 

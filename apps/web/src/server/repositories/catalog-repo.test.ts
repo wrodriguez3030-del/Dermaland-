@@ -77,3 +77,32 @@ describe("ProductRepository (mock) — escritura", () => {
     expect(all.some((p) => p.id === created.id)).toBe(false);
   });
 });
+
+describe("Catálogos (mock) — escritura", () => {
+  it("brand create/update/delete", async () => {
+    const b = await mockRepositories.brand.create(ctx, { name: "MARCA X" });
+    expect(b.id).toBeTruthy();
+    const u = await mockRepositories.brand.update(ctx, b.id, { name: "MARCA Y" });
+    expect(u.name).toBe("MARCA Y");
+    await mockRepositories.brand.delete(ctx, b.id);
+    const all = await mockRepositories.brand.list(ctx);
+    expect(all.some((x) => x.id === b.id)).toBe(false);
+  });
+
+  it("category create con parentId y description", async () => {
+    const c = await mockRepositories.category.create(ctx, {
+      name: "CAT X",
+      description: "desc",
+    });
+    expect(c.name).toBe("CAT X");
+    expect(c.description).toBe("desc");
+  });
+
+  it("laboratory create con country", async () => {
+    const l = await mockRepositories.laboratory.create(ctx, {
+      name: "LAB X",
+      country: "España",
+    });
+    expect(l.country).toBe("España");
+  });
+});

@@ -105,14 +105,30 @@ export interface AuditRepository {
 export interface BrandRepository {
   list(ctx: RepoContext): Promise<Brand[]>;
   byId(ctx: RepoContext, id: ID): Promise<Brand | null>;
+  create(ctx: RepoContext, input: { name: string }): Promise<Brand>;
+  update(ctx: RepoContext, id: ID, patch: { name?: string }): Promise<Brand>;
+  delete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface CategoryRepository {
   list(ctx: RepoContext): Promise<Category[]>;
+  create(
+    ctx: RepoContext,
+    input: { name: string; parentId?: ID | null; description?: string },
+  ): Promise<Category>;
+  update(
+    ctx: RepoContext,
+    id: ID,
+    patch: { name?: string; parentId?: ID | null; description?: string },
+  ): Promise<Category>;
+  delete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface LaboratoryRepository {
   list(ctx: RepoContext): Promise<Laboratory[]>;
+  create(ctx: RepoContext, input: { name: string; country?: string }): Promise<Laboratory>;
+  update(ctx: RepoContext, id: ID, patch: { name?: string; country?: string }): Promise<Laboratory>;
+  delete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface ProductRepository {
