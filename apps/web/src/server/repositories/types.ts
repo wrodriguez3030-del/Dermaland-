@@ -126,6 +126,12 @@ export interface ProductRepository {
   byId(ctx: RepoContext, id: ID): Promise<Product | null>;
   byBarcode(ctx: RepoContext, barcode: string): Promise<Product | null>;
   totalStock(ctx: RepoContext, productId: ID): Promise<number>;
+  create(
+    ctx: RepoContext,
+    input: Omit<Product, "id" | "createdAt" | "updatedAt" | "deletedAt">,
+  ): Promise<Product>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Product>): Promise<Product>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface ProductLotRepository {

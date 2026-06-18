@@ -79,6 +79,88 @@ export const productRepository: ProductRepository = {
       0,
     );
   },
+
+  async create(ctx: RepoContext, input) {
+    const sb = await getClient("product.create");
+    const row: Record<string, unknown> = {
+      business_id: ctx.businessId,
+      sku: input.sku,
+      barcode: input.barcode ?? null,
+      name: input.name,
+      description: input.description ?? null,
+      brand_id: input.brandId ?? null,
+      laboratory_id: input.laboratoryId ?? null,
+      category_id: input.categoryId ?? null,
+      unit: input.unit,
+      pharmaceutical_form: input.pharmaceuticalForm ?? null,
+      presentation: input.presentation ?? null,
+      active_ingredient: input.activeIngredient ?? null,
+      concentration: input.concentration ?? null,
+      sanitary_registry: input.sanitaryRegistry ?? null,
+      storage_temperature: input.storageTemperature ?? null,
+      requires_prescription: input.requiresPrescription,
+      controlled: input.controlled,
+      cost: input.cost,
+      price: input.price,
+      itbis_rate: input.itbisRate,
+      min_stock: input.minStock,
+      max_stock: input.maxStock,
+      image_url: input.imageUrl ?? null,
+      active: input.active,
+      sellable: input.sellable,
+    };
+    const { data, error } = await sb.from("products").insert(row).select("*").single();
+    if (error) throw new SupabaseRepositoryError("product.create", error);
+    return productRowToTs(data);
+  },
+
+  async update(ctx: RepoContext, id: string, patch) {
+    const sb = await getClient("product.update");
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.sku !== undefined) row.sku = patch.sku;
+    if (patch.barcode !== undefined) row.barcode = patch.barcode ?? null;
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.description !== undefined) row.description = patch.description ?? null;
+    if (patch.brandId !== undefined) row.brand_id = patch.brandId ?? null;
+    if (patch.laboratoryId !== undefined) row.laboratory_id = patch.laboratoryId ?? null;
+    if (patch.categoryId !== undefined) row.category_id = patch.categoryId ?? null;
+    if (patch.unit !== undefined) row.unit = patch.unit;
+    if (patch.pharmaceuticalForm !== undefined) row.pharmaceutical_form = patch.pharmaceuticalForm ?? null;
+    if (patch.presentation !== undefined) row.presentation = patch.presentation ?? null;
+    if (patch.activeIngredient !== undefined) row.active_ingredient = patch.activeIngredient ?? null;
+    if (patch.concentration !== undefined) row.concentration = patch.concentration ?? null;
+    if (patch.sanitaryRegistry !== undefined) row.sanitary_registry = patch.sanitaryRegistry ?? null;
+    if (patch.storageTemperature !== undefined) row.storage_temperature = patch.storageTemperature ?? null;
+    if (patch.requiresPrescription !== undefined) row.requires_prescription = patch.requiresPrescription;
+    if (patch.controlled !== undefined) row.controlled = patch.controlled;
+    if (patch.cost !== undefined) row.cost = patch.cost;
+    if (patch.price !== undefined) row.price = patch.price;
+    if (patch.itbisRate !== undefined) row.itbis_rate = patch.itbisRate;
+    if (patch.minStock !== undefined) row.min_stock = patch.minStock;
+    if (patch.maxStock !== undefined) row.max_stock = patch.maxStock;
+    if (patch.imageUrl !== undefined) row.image_url = patch.imageUrl ?? null;
+    if (patch.active !== undefined) row.active = patch.active;
+    if (patch.sellable !== undefined) row.sellable = patch.sellable;
+    const { data, error } = await sb
+      .from("products")
+      .update(row)
+      .eq("business_id", ctx.businessId)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (error) throw new SupabaseRepositoryError("product.update", error);
+    return productRowToTs(data);
+  },
+
+  async softDelete(ctx: RepoContext, id: string) {
+    const sb = await getClient("product.softDelete");
+    const { error } = await sb
+      .from("products")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("business_id", ctx.businessId)
+      .eq("id", id);
+    if (error) throw new SupabaseRepositoryError("product.softDelete", error);
+  },
 };
 
 export const productLotRepository: ProductLotRepository = {

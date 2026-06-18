@@ -33,6 +33,8 @@ import type {
   WhatsappRepository,
 } from "../types";
 
+import type { Brand, Category, Laboratory, Product } from "@/types";
+
 import {
   mockBranches,
   mockBusiness,
@@ -100,6 +102,57 @@ import { daysUntil } from "@/lib/utils/format";
 const guard = (ctx: RepoContext) => {
   if (!ctx.businessId) throw new Error("RepoContext.businessId requerido");
 };
+
+// ─── Overlays de escritura para catálogo (no mutar los mock-data seed) ───────
+let extraProducts: Product[] = [];
+const deletedProductIds = new Set<string>();
+const productPatches: Record<string, Partial<Product>> = {};
+
+let extraBrands: Brand[] = [];
+const deletedBrandIds = new Set<string>();
+const brandPatches: Record<string, Partial<Brand>> = {};
+
+let extraCategories: Category[] = [];
+const deletedCategoryIds = new Set<string>();
+const categoryPatches: Record<string, Partial<Category>> = {};
+
+let extraLaboratories: Laboratory[] = [];
+const deletedLaboratoryIds = new Set<string>();
+const laboratoryPatches: Record<string, Partial<Laboratory>> = {};
+
+export function __resetCatalogMockWrites(): void {
+  extraProducts = [];
+  deletedProductIds.clear();
+  for (const k of Object.keys(productPatches)) delete productPatches[k];
+  extraBrands = [];
+  deletedBrandIds.clear();
+  for (const k of Object.keys(brandPatches)) delete brandPatches[k];
+  extraCategories = [];
+  deletedCategoryIds.clear();
+  for (const k of Object.keys(categoryPatches)) delete categoryPatches[k];
+  extraLaboratories = [];
+  deletedLaboratoryIds.clear();
+  for (const k of Object.keys(laboratoryPatches)) delete laboratoryPatches[k];
+}
+
+function mockProductsView(businessId: string): Product[] {
+  const applyPatch = (p: Product): Product =>
+    productPatches[p.id] ? { ...p, ...productPatches[p.id] } : p;
+  const base = mockProducts
+    .filter((p) => p.businessId === businessId)
+    .map(applyPatch);
+  const extra = extraProducts
+    .filter((p) => p.businessId === businessId)
+    .map(applyPatch);
+  // extra primero para que aparezcan dentro del slice del limit en list()
+  return [...extra, ...base].filter((p) => !deletedProductIds.has(p.id));
+}
+
+function mockGenId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+}
 
 const business: BusinessRepository = {
   async current(ctx) {
@@ -205,8 +258,7 @@ const product: ProductRepository = {
   async list(ctx, opts) {
     guard(ctx);
     const q = (opts?.search ?? "").toLowerCase();
-    return mockProducts
-      .filter((p) => p.businessId === ctx.businessId)
+    return mockProductsView(ctx.businessId)
       .filter((p) => !q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.barcode?.includes(q))
       .filter((p) => !opts?.brandId || p.brandId === opts.brandId)
       .filter((p) => !opts?.categoryId || p.categoryId === opts.categoryId)
@@ -215,17 +267,41 @@ const product: ProductRepository = {
   },
   async byId(ctx, id) {
     guard(ctx);
-    const p = getProductById(id);
-    return p && p.businessId === ctx.businessId ? p : null;
+    return mockProductsView(ctx.businessId).find((p) => p.id === id) ?? null;
   },
   async byBarcode(ctx, barcode) {
     guard(ctx);
-    const p = getProductByBarcode(barcode);
-    return p && p.businessId === ctx.businessId ? p : null;
+    return (
+      mockProductsView(ctx.businessId).find((p) => p.barcode === barcode) ?? null
+    );
   },
   async totalStock(ctx, productId) {
     guard(ctx);
     return totalStockForProduct(productId);
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const created: Product = {
+      ...input,
+      businessId: ctx.businessId,
+      id: mockGenId("prod"),
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraProducts.push(created);
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    productPatches[id] = { ...(productPatches[id] ?? {}), ...patch };
+    const found = mockProductsView(ctx.businessId).find((p) => p.id === id);
+    if (!found) throw new Error("Producto no encontrado");
+    return found;
+  },
+  async softDelete(ctx, id) {
+    guard(ctx);
+    deletedProductIds.add(id);
   },
 };
 
