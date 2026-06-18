@@ -1,18 +1,18 @@
-# Genera una PREVIEW_ADMIN_PASSWORD fuerte (cumple la política), la guarda en
+﻿# Genera una PREVIEW_ADMIN_PASSWORD fuerte (cumple la polÃ­tica), la guarda en
 # apps/web/.env.local, y la MUESTRA UNA VEZ en TU terminal para que la copies
-# (es la contraseña de login del admin Preview). NO se manda al chat ni a logs.
+# (es la contraseÃ±a de login del admin Preview). NO se manda al chat ni a logs.
 #
 # Uso (en tu terminal de Windows):
 #   powershell -ExecutionPolicy Bypass -File C:\dev\dermaland\scripts\gen-preview-password.ps1
 #
-# Política garantizada: 16 chars · mayúscula · minúscula · número · símbolo.
+# PolÃ­tica garantizada: 16 chars Â· mayÃºscula Â· minÃºscula Â· nÃºmero Â· sÃ­mbolo.
 
 $ErrorActionPreference = 'Stop'
 
 $envPath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\apps\web\.env.local'))
 if (-not (Test-Path -LiteralPath $envPath)) { Write-Host "[error] no existe $envPath" -ForegroundColor Red; exit 1 }
 
-# Conjuntos sin caracteres ambiguos (0/O/1/l/I) ni problemáticos para .env.
+# Conjuntos sin caracteres ambiguos (0/O/1/l/I) ni problemÃ¡ticos para .env.
 $upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
 $lower = 'abcdefghijkmnpqrstuvwxyz'
 $digit = '23456789'
@@ -42,8 +42,8 @@ if ($content -match $pattern) {
 Write-Host ""
 Write-Host "[ok] PREVIEW_ADMIN_PASSWORD generada y guardada en apps/web/.env.local." -ForegroundColor Green
 Write-Host ""
-Write-Host "GUARDALA — es tu contrasena de login del admin Preview:" -ForegroundColor Yellow
+Write-Host "GUARDALA â€” es tu contrasena de login del admin Preview:" -ForegroundColor Yellow
 Write-Host "    $pw" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "(Tambien la veras al iniciar sesion en el Preview con el email PREVIEW_ADMIN_EMAIL.)"
-Write-Host "Volve al chat de Claude y deci: password lista"
+Write-Host 'Vuelve al chat de Claude y di: password lista'
