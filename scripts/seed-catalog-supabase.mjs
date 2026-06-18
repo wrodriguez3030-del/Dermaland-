@@ -13,6 +13,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,11 +48,12 @@ async function main() {
   if (!url || !key || /replace/i.test(key)) die("faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY reales");
 
   // Importar @supabase/supabase-js dinámicamente desde apps/web/node_modules
+  // Usamos createRequire para resolver el entry point real del paquete (evita
+  // rutas hardcodeadas a dist/index.mjs que rompen si cambia el package.json).
   let createClient;
   try {
-    const supabaseEntry = path.join(
-      REPO_ROOT, "apps", "web", "node_modules", "@supabase", "supabase-js", "dist", "index.mjs",
-    );
+    const require = createRequire(pathToFileURL(path.join(REPO_ROOT, "apps", "web", "package.json")));
+    const supabaseEntry = require.resolve("@supabase/supabase-js");
     const mod = await import(pathToFileURL(supabaseEntry).href);
     createClient = mod.createClient;
   } catch (e) {
@@ -88,6 +90,9 @@ async function main() {
   ok(`laboratories upserted: ${Object.keys(labMap).length}`);
 
   // categorías sin parent primero, luego con parent
+  // Asume árbol de categorías de UN solo nivel (raíz → hijo). Si en el futuro
+  // hay nietos (hijo de hijo), este sort no garantiza que el padre exista en
+  // catMap antes de insertar el nieto; habría que ordenar topológicamente.
   const sorted = [...data.categories].sort((a, b) => (a.parentMockId ? 1 : 0) - (b.parentMockId ? 1 : 0));
   for (const c of sorted) {
     const { data: existing } = await sb.from("product_categories")
