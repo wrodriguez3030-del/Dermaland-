@@ -49,10 +49,10 @@ Leyenda: ✅ implementado · ⚠️ parcial / gated · ❌ no usa Supabase (loca
 | Roles / permisos | parcial (seed migraciones 0004/0005) | — | mock | ⚠️ datos seed en DB; gestión UI no migrada |
 | Auditoría | ✅ `audit.ts` | — | ❌ | ⚠️ repo listo; UI no migrada |
 | **Productos** |||||
-| Productos | ✅ `product.ts` | — | ❌ `product-store` (localStorage) | ❌ UI en localStorage |
-| Categorías | ✅ `catalog.ts` | — | ❌ | ❌ UI en localStorage |
-| Marcas | ✅ `catalog.ts` | — | ❌ | ❌ UI en localStorage |
-| Laboratorios | ✅ `catalog.ts` | — | ❌ | ❌ UI en localStorage |
+| Productos | ✅ `product.ts` | ✅ `/api/products` + `/[id]` (409 si no `supabase`) | ✅ hooks fetch al servidor + mutaciones API (gated) | ✅ **migrada 2026-06-18** (read+write vía API; fallback local; seed idempotente) |
+| Categorías | ✅ `catalog.ts` | ✅ `/api/categories` + `/[id]` (409 si no `supabase`) | ✅ hooks fetch al servidor + CRUD por modal (gated) | ✅ **migrada 2026-06-18** (read+write vía API; fallback local; seed idempotente) |
+| Marcas | ✅ `catalog.ts` | ✅ `/api/brands` + `/[id]` (409 si no `supabase`) | ✅ hooks fetch al servidor + CRUD por modal (gated) | ✅ **migrada 2026-06-18** (read+write vía API; fallback local; seed idempotente) |
+| Laboratorios | ✅ `catalog.ts` | ✅ `/api/laboratories` + `/[id]` (409 si no `supabase`) | ✅ hooks fetch al servidor + CRUD por modal (gated) | ✅ **migrada 2026-06-18** (read+write vía API; fallback local; seed idempotente) |
 | **Inventario** |||||
 | Stock por sucursal | ✅ `inventory.ts` / `warehouse.ts` | — | ❌ | ❌ UI en localStorage |
 | Lotes / vencimientos | ✅ `product.ts` (productLot) | — | ❌ `lot-store` | ❌ UI en localStorage |
@@ -134,8 +134,20 @@ hook cliente que hace fetch cuando el backend es `supabase`, con fallback local)
    producción (`mock`) intacta. Validado: typecheck ✅ · vitest 609/609 ✅ ·
    build ✅. Pendiente verificación end-to-end real (requiere MCP autenticado +
    `NEXT_PUBLIC_DATA_SOURCE=supabase` en Preview).
-2. **Productos + catálogos** (categorías/marcas/laboratorios) — repo listo;
-   faltan API routes + hooks.
+2. ~~**Productos + catálogos** (categorías/marcas/laboratorios) — repo listo;
+   faltan API routes + hooks.~~
+   ✅ **HECHO 2026-06-18.** Lecturas: `useProductsList` hace `fetch` a
+   `/api/products` cuando `NEXT_PUBLIC_DATA_SOURCE==="supabase"`, con fallback a
+   `localStorage`. Escrituras: wrappers `saveProduct`/`deleteProductAnywhere`
+   despachan a la API en modo supabase. Catálogos (marcas/categorías/labs):
+   hooks `useBrandsList`/`useCategoriesList`/`useLaboratoriesList` + mutaciones
+   `saveBrand`/`saveCategory`/`saveLaboratory` + CRUD completo por modal en
+   `/productos/marcas`, `/productos/categorias`, `/productos/laboratorios`. Seed
+   idempotente vía `/api/products?action=seed` (upsert por `sku`/nombre). Todo
+   gated por `NEXT_PUBLIC_DATA_SOURCE=supabase`: producción (`mock`) intacta.
+   Validado: typecheck ✅ · vitest 622/622 ✅ · build 98 páginas ✅. Pendiente
+   verificación end-to-end real (requiere MCP autenticado +
+   `NEXT_PUBLIC_DATA_SOURCE=supabase` en Preview).
 3. **Clientes** — repo listo; faltan API routes + hooks.
 4. **Inventario** (stock, lotes, movimientos, vencimientos) — repo listo; faltan
    API routes + hooks.
@@ -156,5 +168,5 @@ hook cliente que hace fetch cuando el backend es `supabase`, con fallback local)
 ## Validaciones ejecutadas (baseline)
 
 - `pnpm --filter web typecheck` → ✅ sin errores.
-- `pnpm --filter web exec vitest run` → ✅ **609/609** (50 archivos).
-- `pnpm --filter web build` → ✅ build de producción OK.
+- `pnpm --filter web exec vitest run` → ✅ **622/622** (52 archivos) — actualizado 2026-06-18 tras Tasks 1–12 (Productos+catálogos).
+- `pnpm --filter web build` → ✅ build de producción OK (98 páginas).
