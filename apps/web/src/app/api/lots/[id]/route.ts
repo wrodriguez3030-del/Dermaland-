@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
-import { getRepoContext } from "@/server/auth/context";
+import { getRepoContext, getSession } from "@/server/auth/context";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,11 @@ export async function PATCH(
 ): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await req.json();
     const { newQuantity, reason } = body as { newQuantity: number; reason?: string };
@@ -57,8 +62,8 @@ export async function PATCH(
       quantity: delta,
       reason: reason ?? "Ajuste manual",
       reference: lot.lotNumber,
-      userId: ctx.userId ?? "",
-      userName: body.userName ?? "",
+      userId: session.user.id,
+      userName: session.user.fullName,
     });
 
     return NextResponse.json({ lot });
