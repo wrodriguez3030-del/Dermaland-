@@ -144,7 +144,11 @@ function mockProductsView(businessId: string): Product[] {
   const extra = extraProducts
     .filter((p) => p.businessId === businessId)
     .map(applyPatch);
-  // extra primero para que aparezcan dentro del slice del limit en list()
+  // `extra` va primero a propósito: el `list` aplica slice(0, limit ?? 100) y
+  // el catálogo seed (Alegra) tiene cientos de filas; anteponer los productos
+  // creados en runtime garantiza que sean visibles. Nota: el orden resultante
+  // difiere del `order("name")` de Supabase — aceptable para el mock (los tests
+  // no asertan orden).
   return [...extra, ...base].filter((p) => !deletedProductIds.has(p.id));
 }
 
@@ -281,9 +285,10 @@ const product: ProductRepository = {
   },
   async create(ctx, input) {
     guard(ctx);
+    const { businessId: _ignoredBusinessId, ...rest } = input;
     const now = new Date().toISOString();
     const created: Product = {
-      ...input,
+      ...rest,
       businessId: ctx.businessId,
       id: mockGenId("prod"),
       createdAt: now,
@@ -294,6 +299,8 @@ const product: ProductRepository = {
   },
   async update(ctx, id, patch) {
     guard(ctx);
+    const exists = mockProductsView(ctx.businessId).some((p) => p.id === id);
+    if (!exists) throw new Error("Producto no encontrado");
     productPatches[id] = { ...(productPatches[id] ?? {}), ...patch };
     const found = mockProductsView(ctx.businessId).find((p) => p.id === id);
     if (!found) throw new Error("Producto no encontrado");
