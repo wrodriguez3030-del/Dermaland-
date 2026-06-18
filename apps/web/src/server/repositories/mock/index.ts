@@ -113,16 +113,26 @@ const business: BusinessRepository = {
 };
 
 const branch: BranchRepository = {
-  async list(ctx) {
+  async list(ctx, opts) {
     guard(ctx);
-    return mockBranches.filter((b) => b.businessId === ctx.businessId);
+    return mockBranches.filter(
+      (b) =>
+        b.businessId === ctx.businessId &&
+        (!opts?.activeOnly || b.status === "active"),
+    );
   },
   async byId(ctx, id) {
     guard(ctx);
     return mockBranches.find((b) => b.id === id && b.businessId === ctx.businessId) ?? null;
   },
   async create() {
-    throw new Error("create() no disponible en backend mock");
+    throw new Error("create() no disponible en backend mock — usa el store local");
+  },
+  async update() {
+    throw new Error("update() no disponible en backend mock — usa el store local");
+  },
+  async softDelete() {
+    throw new Error("softDelete() no disponible en backend mock — usa el store local");
   },
 };
 

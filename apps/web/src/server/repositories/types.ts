@@ -68,10 +68,18 @@ export interface BusinessRepository {
   update(ctx: RepoContext, patch: Partial<Business>): Promise<Business>;
 }
 
+export interface BranchListOptions {
+  /** Sólo sucursales activas (operación). Por defecto false = todas (admin). */
+  activeOnly?: boolean;
+}
+
 export interface BranchRepository {
-  list(ctx: RepoContext): Promise<Branch[]>;
+  list(ctx: RepoContext, opts?: BranchListOptions): Promise<Branch[]>;
   byId(ctx: RepoContext, id: ID): Promise<Branch | null>;
   create(ctx: RepoContext, branch: Omit<Branch, "id" | "createdAt" | "updatedAt">): Promise<Branch>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Branch>): Promise<Branch>;
+  /** Soft delete: marca `deleted_at`. No borra físicamente. */
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface WarehouseRepository {

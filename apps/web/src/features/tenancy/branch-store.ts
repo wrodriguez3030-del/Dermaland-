@@ -279,6 +279,37 @@ export function resetBranchesToSeed(): void {
   }
 }
 
+// ─── Backend de sucursales (local vs Supabase) ───────────────────────────────
+/**
+ * Modo del backend de sucursales:
+ *  - "local"    → este store (localStorage), por equipo (modo demo actual).
+ *  - "supabase" → fuente ÚNICA compartida vía /api/branches (RLS business_id).
+ *
+ * Se activa con `NEXT_PUBLIC_DATA_SOURCE=supabase` (build) + `DATA_SOURCE=
+ * supabase` (servidor) + credenciales Supabase válidas. Por defecto: local.
+ */
+export const BRANCH_BACKEND: "local" | "supabase" =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase"
+    ? "supabase"
+    : "local";
+
+/**
+ * Lee sucursales desde el servidor (Supabase) — fuente única compartida.
+ * Úsalo cuando `BRANCH_BACKEND === "supabase"`. En modo local seguir con
+ * `listActiveBranches()` / `listAllBranches()`.
+ */
+export async function fetchBranchesFromServer(
+  scope: "active" | "admin" = "active",
+): Promise<Branch[]> {
+  const res = await fetch(`/api/branches?scope=${scope}`, { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { branches: Branch[] }).branches;
+}
+
 // ─── Alias de fuente única (API explícita) ───────────────────────────────────
 /** Sucursales ACTIVAS (operación). Única fuente para selectores operativos. */
 export const getActiveBranches = listActiveBranches;
