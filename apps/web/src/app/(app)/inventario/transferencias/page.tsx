@@ -66,8 +66,8 @@ export default function TransferenciasPage() {
   return (
     <>
       <PageHeader
-        title="Transferencias entre almacenes"
-        description="Mueve stock entre almacenes y sucursales de forma auditable."
+        title="Transferencias entre sucursales"
+        description="Mueve stock entre sucursales de forma auditable."
         breadcrumbs={[
           { label: "Inventario", href: "/inventario" },
           { label: "Transferencias" },

@@ -60,8 +60,11 @@ export const mockBranches: Branch[] = [
     whatsapp: "+1 809-555-0102",
     email: "naco@dermaland.do",
     isPilot: false,
-    showOnWebsite: true,
-    status: "active",
+    showOnWebsite: false,
+    // Sucursal demo NO operativa: inactiva por defecto. No vende ni muestra
+    // stock operativo en productos/inventario/POS; solo aparece en
+    // Administración > Sucursales (badge "Inactiva") y en historial/reportes.
+    status: "inactive",
     createdAt: "2026-05-10T10:00:00Z",
     updatedAt: "2026-05-10T10:00:00Z",
   },

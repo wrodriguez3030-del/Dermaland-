@@ -77,6 +77,24 @@ export function listActiveBranches(): Branch[] {
   return listAllBranches().filter((b) => b.status === "active");
 }
 
+/**
+ * Set de IDs de sucursales ACTIVAS. Único filtro para vistas OPERATIVAS de
+ * inventario/productos: stock, lotes, vencimientos por sucursal. Las sucursales
+ * inactivas o eliminadas no muestran stock operativo (su historial vive en
+ * reportes). Respeta altas/bajas/ediciones locales (overrides en localStorage).
+ */
+export function listActiveBranchIds(): Set<string> {
+  return new Set(listActiveBranches().map((b) => b.id));
+}
+
+/** Filtra una lista de elementos con `branchId` a solo sucursales activas. */
+export function onlyActiveBranches<T extends { branchId: string }>(
+  items: T[],
+): T[] {
+  const ids = listActiveBranchIds();
+  return items.filter((i) => ids.has(i.branchId));
+}
+
 export function isBranchActive(id: string): boolean {
   return listActiveBranches().some((b) => b.id === id);
 }

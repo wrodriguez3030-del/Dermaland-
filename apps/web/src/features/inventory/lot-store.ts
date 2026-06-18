@@ -332,7 +332,7 @@ export function transferStock(input: TransferStockInput): TransferStockResult {
     return { ok: false, error: "La cantidad a transferir supera el stock disponible." };
   }
   if (origin.warehouseId === input.destWarehouseId) {
-    return { ok: false, error: "El almacén origen y destino no pueden ser iguales." };
+    return { ok: false, error: "La sucursal origen y destino no pueden ser iguales." };
   }
 
   // Descontar del origen.
@@ -369,7 +369,7 @@ export function transferStock(input: TransferStockInput): TransferStockResult {
     branchId: origin.branchId,
     type: "transfer_out",
     quantity: -input.quantity,
-    reason: input.notes || "Transferencia entre almacenes",
+    reason: input.notes || "Transferencia entre sucursales",
     reference: input.reference,
   });
   pushMovement({
@@ -379,7 +379,7 @@ export function transferStock(input: TransferStockInput): TransferStockResult {
     branchId: input.destBranchId,
     type: "transfer_in",
     quantity: input.quantity,
-    reason: input.notes || "Transferencia entre almacenes",
+    reason: input.notes || "Transferencia entre sucursales",
     reference: input.reference,
   });
 

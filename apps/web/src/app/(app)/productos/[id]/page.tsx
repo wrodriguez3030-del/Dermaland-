@@ -47,7 +47,6 @@ import {
 } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import {
-  availableStock,
   expiryStatus,
   listLotsByProduct,
   listMovementsByProduct,
@@ -58,6 +57,7 @@ import {
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
 import { ProductImage } from "@/features/products/components/product-image";
 import { useProduct, updateProduct } from "@/features/products/product-store";
+import { onlyActiveBranches } from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
 
 const expiryTone: Record<ExpiryStatus, "danger" | "warning" | "success"> = {
@@ -114,10 +114,14 @@ export default function ProductDetailPage() {
   const brand = getBrandById(product.brandId);
   const category = getCategoryById(product.categoryId);
   const laboratory = getLaboratoryById(product.laboratoryId);
-  const lots = listLotsByProduct(product.id);
-  const stock = availableStock(product.id);
+  // Vista operativa de producto: SOLO sucursales activas. Las inactivas o
+  // eliminadas no muestran stock/lotes aquí (su historial vive en reportes).
+  const lots = onlyActiveBranches(listLotsByProduct(product.id));
+  const stock = lots
+    .filter((l) => l.status === "available")
+    .reduce((s, l) => s + l.currentQuantity, 0);
   const movements = listMovementsByProduct(product.id);
-  const branchGroups = stockBranchSummary(product.id);
+  const branchGroups = onlyActiveBranches(stockBranchSummary(product.id));
   const hasLots = lots.length > 0;
   const requiresExpiry = true; // dermocosmética: todo lote lleva vencimiento
 
@@ -341,8 +345,8 @@ export default function ProductDetailPage() {
               Este producto no tiene stock cargado.
             </p>
             <p className="mx-auto mt-1 max-w-md text-xs opacity-70">
-              Agrega un lote para poder venderlo. El stock se registra por lote,
-              sucursal y almacén, con su fecha de vencimiento.
+              Agrega un lote para poder venderlo. El stock se registra por lote
+              y sucursal, con su fecha de vencimiento.
             </p>
             <Button size="sm" className="mt-4" onClick={() => setLotOpen(true)}>
               <PackagePlus className="h-4 w-4" /> Agregar primer lote
@@ -357,7 +361,7 @@ export default function ProductDetailPage() {
         <ol className="ml-4 list-decimal space-y-0.5 opacity-75">
           <li>Crea el producto (ya está creado).</li>
           <li>Agrega un lote con “Nuevo lote”.</li>
-          <li>Selecciona sucursal y almacén.</li>
+          <li>Selecciona la sucursal.</li>
           <li>Indica cantidad y fecha de vencimiento.</li>
           <li>Guarda — el stock queda disponible para vender.</li>
         </ol>

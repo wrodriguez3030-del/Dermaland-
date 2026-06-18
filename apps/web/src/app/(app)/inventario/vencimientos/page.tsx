@@ -55,9 +55,11 @@ export default function VencimientosPage() {
   const [branch, setBranch] = React.useState("");
   const [dayFilter, setDayFilter] = React.useState<DayFilter>("all");
 
-  const allLots = listAllLots().sort(
-    (a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt),
-  );
+  // Vencimientos operativos: solo lotes de sucursales ACTIVAS.
+  const activeBranchIds = new Set(activeBranches.map((b) => b.id));
+  const allLots = listAllLots()
+    .filter((l) => activeBranchIds.has(l.branchId))
+    .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt));
 
   const expired = allLots.filter((l) => daysUntil(l.expiresAt) < 0);
   const lt15 = allLots.filter((l) => {

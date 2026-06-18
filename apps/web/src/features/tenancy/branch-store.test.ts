@@ -7,6 +7,8 @@ import {
   deleteBranch,
   listAllBranches,
   listActiveBranches,
+  listActiveBranchIds,
+  onlyActiveBranches,
   listActiveWarehouses,
   isBranchActive,
   resolveBranchName,
@@ -147,6 +149,35 @@ describe("fuente única y reset (sincronización entre equipos)", () => {
     // Seed restaurado: la sucursal vuelve a su estado original.
     expect(getBranchById(mockBranches[0]!.id)?.status).toBe(mockBranches[0]!.status);
     expect(window.localStorage.getItem("dermaland.current-branch")).toBeNull();
+  });
+});
+
+describe("filtrado operativo por sucursal activa", () => {
+  it("la sucursal demo Naco viene INACTIVA en el seed", () => {
+    const naco = mockBranches.find((b) => b.id === "br_sd_naco");
+    expect(naco?.status).toBe("inactive");
+    expect(listActiveBranches().some((b) => b.id === "br_sd_naco")).toBe(false);
+    expect(listActiveBranchIds().has("br_sd_naco")).toBe(false);
+  });
+
+  it("listActiveBranchIds incluye solo activas (Santiago sí, Naco no)", () => {
+    const ids = listActiveBranchIds();
+    expect(ids.has("br_santiago")).toBe(true);
+    expect(ids.has("br_sd_naco")).toBe(false);
+  });
+
+  it("onlyActiveBranches excluye items de sucursales inactivas/eliminadas", () => {
+    const items = [
+      { branchId: "br_santiago", n: 1 },
+      { branchId: "br_sd_naco", n: 2 },
+      { branchId: "br_sd_piantini", n: 3 },
+    ];
+    expect(onlyActiveBranches(items).map((i) => i.n)).toEqual([1]);
+  });
+
+  it("al inactivar una sucursal, sus items dejan de ser operativos", () => {
+    setBranchActive("br_santiago", false);
+    expect(onlyActiveBranches([{ branchId: "br_santiago" }])).toHaveLength(0);
   });
 });
 
