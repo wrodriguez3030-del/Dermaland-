@@ -151,6 +151,7 @@ const groups: NavGroup[] = [
     label: "DGII",
     icon: FileText,
     items: [
+      { label: "Activar factura electrónica", href: "/dgii/activar" },
       { label: "Habilitación", href: "/dgii/habilitacion" },
       { label: "Configuración fiscal", href: "/dgii/configuracion" },
       { label: "Numeraciones", href: "/dgii/secuencias" },
