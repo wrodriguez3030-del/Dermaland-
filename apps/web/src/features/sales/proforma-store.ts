@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { Proforma } from "@/types";
 import { mockProformas } from "@/lib/mock-data/sales";
+import { reserveNext } from "@/features/dgii/numbering-store";
 
 /**
  * Store de proformas — MVP.
@@ -61,7 +62,14 @@ export function clearLocalProformas(): void {
 }
 
 export function generateProformaNumber(): string {
-  // Convención: PROF-{año}-{secuencia 5 dígitos basada en timestamp}
+  // Usa la numeración PROF configurada (ambiente mock) si está disponible;
+  // así el número respeta el rango/secuencia administrado en DGII > Numeraciones.
+  try {
+    const r = reserveNext("proforma", "mock");
+    if (r.ok) return r.formatted;
+  } catch {
+    /* sin numeración configurada → fallback */
+  }
   const year = new Date().getFullYear();
   const seq = String(Math.floor(Date.now() / 1000) % 100000).padStart(5, "0");
   return `PROF-${year}-${seq}`;

@@ -153,7 +153,7 @@ const groups: NavGroup[] = [
     items: [
       { label: "Habilitación", href: "/dgii/habilitacion" },
       { label: "Configuración fiscal", href: "/dgii/configuracion" },
-      { label: "Secuencias e-NCF", href: "/dgii/secuencias" },
+      { label: "Numeraciones", href: "/dgii/secuencias" },
       { label: "Facturas electrónicas", href: "/dgii/facturas" },
       { label: "Envíos", href: "/dgii/envios" },
       { label: "Certificado", href: "/dgii/certificado" },
