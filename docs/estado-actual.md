@@ -3,7 +3,25 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-05-29
+**Última actualización:** 2026-06-18
+
+## 2026-06-18 · R-SEC-01 Leaked Password Protection — riesgo aceptado (plan Free)
+
+- **Warning Supabase Security Advisor → Auth:** *Leaked password protection is
+  currently disabled.* Solo activable en **Supabase Pro+** (cruce HaveIBeenPwned).
+  **No se corrige con SQL ni migración** — es una feature de la capa Auth, se
+  activa en el Dashboard tras subir a Pro.
+- **Control compensatorio implementado:** política de contraseña fuerte
+  (`apps/web/src/lib/auth/password-policy.ts`): ≥12 chars, mayúscula, minúscula,
+  número, símbolo y rechazo de contraseñas comunes. Cableada en el script
+  `scripts/bootstrap-preview-supabase-user.mjs` (valida la password seed, nunca
+  la imprime) y disponible para formularios. Aviso interno en
+  `/admin/configuracion` (sección Seguridad).
+- **Estado:** riesgo aceptado en dev/preview; **bloqueante para producción SaaS
+  real** si no se sube a Pro o no se implementa mitigación equivalente.
+- **Documentación completa + checklist de upgrade a Pro:** `docs/security.md`.
+  No hay formulario de registro/cambio de contraseña en la app todavía (usuarios
+  por script); la utilidad queda lista para cuando se agregue.
 
 ## 2026-05-29 · Correcciones Supabase Security Advisor (migración 0008)
 

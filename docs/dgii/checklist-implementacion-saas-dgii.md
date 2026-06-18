@@ -142,6 +142,16 @@ Este documento es la guía operativa para implementar el módulo SaaS DGII e-CF 
   - Criterio: User A NO puede SELECT/INSERT en business B
   - Riesgo: Regresión silenciosa
 
+- [ ] **Leaked Password Protection (R-SEC-01) — solo Supabase Pro+**
+  - Responsable: Supabase/Seguridad
+  - Evidencia: `docs/security.md` (warning, mitigación, checklist Pro)
+  - Criterio: En Free, riesgo aceptado con control compensatorio (política de
+    contraseña fuerte en `lib/auth/password-policy.ts`); en producción SaaS
+    real, subir a Pro y activar *Authentication → Settings → Security → Leaked
+    Password Protection*, confirmar que el warning del Advisor desaparece
+  - Riesgo: Aceptar contraseñas comprometidas si se va a producción sin Pro ni
+    mitigación equivalente
+
 ---
 
 ## Checklist 5 — Vercel
