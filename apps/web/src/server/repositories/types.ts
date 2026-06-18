@@ -162,6 +162,17 @@ export interface ProductLotRepository {
   quarantine(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
   release(ctx: RepoContext, lotId: ID): Promise<void>;
   recall(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
+  /** Crea un lote nuevo con business_id del ctx (nunca del body). */
+  create(
+    ctx: RepoContext,
+    input: Omit<ProductLot, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ProductLot>;
+  /**
+   * Ajuste absoluto de stock: setea `current_quantity` al valor indicado.
+   * Devuelve el lote actualizado. El llamador es responsable de registrar
+   * el movimiento de inventario correspondiente.
+   */
+  adjustQuantity(ctx: RepoContext, lotId: ID, newQuantity: number): Promise<ProductLot>;
 }
 
 export interface InventoryMovementRepository {

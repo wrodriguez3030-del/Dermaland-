@@ -288,4 +288,50 @@ export const productLotRepository: ProductLotRepository = {
     if (insError)
       throw new SupabaseRepositoryError("productLot.recall:insert", insError);
   },
+
+  async create(ctx: RepoContext, input) {
+    const sb = await getClient("productLot.create");
+    const row: Record<string, unknown> = {
+      business_id: ctx.businessId,
+      branch_id: input.branchId,
+      product_id: input.productId,
+      warehouse_id: input.warehouseId,
+      warehouse_location_id: input.warehouseLocationId ?? null,
+      lot_number: input.lotNumber,
+      manufactured_at: input.manufacturedAt ?? null,
+      expires_at: input.expiresAt,
+      received_at: input.receivedAt,
+      initial_quantity: input.initialQuantity,
+      current_quantity: input.currentQuantity,
+      unit_cost: input.unitCost,
+      unit_price: input.unitPrice ?? null,
+      supplier_id: input.supplierId ?? null,
+      purchase_invoice: input.purchaseInvoice ?? null,
+      status: input.status ?? "available",
+      notes: input.notes ?? null,
+    };
+    const { data, error } = await sb
+      .from("product_lots")
+      .insert(row)
+      .select("*")
+      .single();
+    if (error) throw new SupabaseRepositoryError("productLot.create", error);
+    return productLotRowToTs(data);
+  },
+
+  async adjustQuantity(ctx: RepoContext, lotId: string, newQuantity: number) {
+    const sb = await getClient("productLot.adjustQuantity");
+    const { data, error } = await sb
+      .from("product_lots")
+      .update({
+        current_quantity: newQuantity,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("business_id", ctx.businessId)
+      .eq("id", lotId)
+      .select("*")
+      .single();
+    if (error) throw new SupabaseRepositoryError("productLot.adjustQuantity", error);
+    return productLotRowToTs(data);
+  },
 };

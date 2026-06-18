@@ -33,7 +33,7 @@ import type {
   WhatsappRepository,
 } from "../types";
 
-import type { Brand, Category, Laboratory, Product } from "@/types";
+import type { Brand, Category, Laboratory, Product, ProductLot } from "@/types";
 
 import {
   mockBranches,
@@ -130,6 +130,25 @@ export function __resetCatalogMockWrites(): void {
   extraLaboratories = [];
   deletedLaboratoryIds.clear();
   for (const k of Object.keys(laboratoryPatches)) delete laboratoryPatches[k];
+}
+
+// ─── Overlays de escritura para lotes ────────────────────────────────────────
+let extraLots: ProductLot[] = [];
+const lotQtyOverrides: Record<string, number> = {};
+
+export function __resetLotMockWrites(): void {
+  extraLots = [];
+  for (const k of Object.keys(lotQtyOverrides)) delete lotQtyOverrides[k];
+}
+
+function mockLotsView(businessId: string): ProductLot[] {
+  const applyQty = (l: ProductLot): ProductLot =>
+    lotQtyOverrides[l.id] !== undefined
+      ? { ...l, currentQuantity: lotQtyOverrides[l.id]! }
+      : l;
+  const base = mockProductLots.filter((l) => l.businessId === businessId).map(applyQty);
+  const extra = extraLots.filter((l) => l.businessId === businessId).map(applyQty);
+  return [...extra, ...base];
 }
 
 function mockProductsView(businessId: string): Product[] {
@@ -411,8 +430,7 @@ const product: ProductRepository = {
 const productLot: ProductLotRepository = {
   async list(ctx, opts) {
     guard(ctx);
-    return mockProductLots
-      .filter((l) => l.businessId === ctx.businessId)
+    return mockLotsView(ctx.businessId)
       .filter((l) => !opts?.productId || l.productId === opts.productId)
       .filter((l) => !opts?.status || l.status === opts.status)
       .filter((l) => {
@@ -423,7 +441,7 @@ const productLot: ProductLotRepository = {
   },
   async byId(ctx, id) {
     guard(ctx);
-    return mockProductLots.find((l) => l.id === id && l.businessId === ctx.businessId) ?? null;
+    return mockLotsView(ctx.businessId).find((l) => l.id === id) ?? null;
   },
   async selectFefo(ctx, productId) {
     guard(ctx);
@@ -437,6 +455,28 @@ const productLot: ProductLotRepository = {
   },
   async recall() {
     throw new Error("recall() requiere backend Supabase");
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const { businessId: _ignored, ...rest } = input;
+    const created: ProductLot = {
+      ...rest,
+      businessId: ctx.businessId,
+      id: mockGenId("lot"),
+      status: input.status ?? "available",
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraLots.push(created);
+    return created;
+  },
+  async adjustQuantity(ctx, lotId, newQuantity) {
+    guard(ctx);
+    const lot = mockLotsView(ctx.businessId).find((l) => l.id === lotId);
+    if (!lot) throw new Error(`Lote no encontrado: ${lotId}`);
+    lotQtyOverrides[lotId] = newQuantity;
+    return { ...lot, currentQuantity: newQuantity, updatedAt: new Date().toISOString() };
   },
 };
 
