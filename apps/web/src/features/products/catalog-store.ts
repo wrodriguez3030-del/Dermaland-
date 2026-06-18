@@ -70,7 +70,9 @@ function useCatalogList<T extends { id: string }>(
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };
-  }, [path, key, seed, overlay]);
+    // seed y overlay son constantes de módulo (estables); no van en deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, key]);
   return list;
 }
 
