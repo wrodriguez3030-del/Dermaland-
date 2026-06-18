@@ -14,6 +14,7 @@ import {
   Receipt,
   Wallet,
   CalendarClock,
+  Truck,
   BarChart3,
   Shield,
   MessageSquare,
@@ -73,6 +74,16 @@ const groups: NavGroup[] = [
       { label: "Devoluciones", href: "/devoluciones" },
       { label: "Notas de crédito", href: "/notas-credito" },
       { label: "Caja", href: "/caja" },
+    ],
+  },
+  {
+    label: "Compras",
+    icon: Truck,
+    items: [
+      { label: "Facturas de proveedores", href: "/compras/facturas-proveedores" },
+      { label: "Pagos / gastos", href: "/compras/pagos-gastos" },
+      { label: "Gastos menores", href: "/compras/gastos-menores" },
+      { label: "Pagos recurrentes", href: "/compras/pagos-recurrentes" },
     ],
   },
   {
