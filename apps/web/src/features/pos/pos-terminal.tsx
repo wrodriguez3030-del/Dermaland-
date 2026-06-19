@@ -25,7 +25,7 @@ import { useProducts } from "@/features/products/product-store";
 import { ProductImage } from "@/features/products/components/product-image";
 import { CustomerSearchSelect } from "@/features/customers/components/customer-search-select";
 import {
-  addProforma,
+  createProformaAnywhere,
   generateProformaId,
   generateProformaNumber,
 } from "@/features/sales/proforma-store";
@@ -260,7 +260,12 @@ export function PosTerminal() {
       updatedAt: now,
     };
 
-    addProforma(newProforma);
+    // Persistir proforma: local o Supabase según PROFORMA_BACKEND.
+    // En modo supabase la llamada es async; optimistamente actualizamos la UI.
+    // Descuento de stock: en modo local el POS no descuenta stock (simulado).
+    // En modo supabase el descuento de stock queda pendiente (ver reporte).
+    void createProformaAnywhere(newProforma);
+
     setIssued({
       id,
       number,

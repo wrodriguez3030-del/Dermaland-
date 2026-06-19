@@ -33,7 +33,7 @@ import type {
   WhatsappRepository,
 } from "../types";
 
-import type { Brand, Category, Customer, Laboratory, Product, ProductLot } from "@/types";
+import type { Brand, Category, Customer, Laboratory, Product, ProductLot, Proforma } from "@/types";
 
 import {
   mockBranches,
@@ -590,20 +590,58 @@ const customer: CustomerRepository = {
   },
 };
 
+// ─── Overlays de escritura para proformas ───────────────────────────────────
+let extraProformas: Proforma[] = [];
+const cancelledProformaIds = new Set<string>();
+const proformaPatches: Record<string, Partial<Proforma>> = {};
+
+export function __resetProformaMockWrites(): void {
+  extraProformas = [];
+  cancelledProformaIds.clear();
+  for (const k of Object.keys(proformaPatches)) delete proformaPatches[k];
+}
+
+function mockProformasView(businessId: string): Proforma[] {
+  const applyPatch = (p: Proforma): Proforma =>
+    proformaPatches[p.id] ? { ...p, ...proformaPatches[p.id] } : p;
+  const base = mockProformas.filter((p) => p.businessId === businessId).map(applyPatch);
+  const extra = extraProformas.filter((p) => p.businessId === businessId).map(applyPatch);
+  return [...extra, ...base];
+}
+
 const proforma: ProformaRepository = {
   async list(ctx) {
     guard(ctx);
-    return mockProformas.filter((p) => p.businessId === ctx.businessId);
+    return mockProformasView(ctx.businessId);
   },
   async byId(ctx, id) {
     guard(ctx);
-    const p = getProformaById(id);
-    return p && p.businessId === ctx.businessId ? p : null;
+    const all = mockProformasView(ctx.businessId);
+    return all.find((p) => p.id === id) ?? null;
   },
-  async create() {
-    throw new Error("create() requiere backend Supabase");
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const ts = Date.now().toString(36);
+    const rand = Math.random().toString(36).slice(2, 6);
+    const newProforma: Proforma = {
+      ...input,
+      id: `prof_mock_${ts}_${rand}`,
+      businessId: ctx.businessId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraProformas = [newProforma, ...extraProformas];
+    return newProforma;
   },
-  async cancel() {},
+  async cancel(ctx, id, reason) {
+    guard(ctx);
+    const all = mockProformasView(ctx.businessId);
+    const found = all.find((p) => p.id === id);
+    if (!found) throw new Error(`Proforma ${id} no encontrada`);
+    cancelledProformaIds.add(id);
+    proformaPatches[id] = { ...proformaPatches[id], status: "cancelled", notes: reason };
+  },
   async convertToEcf() {
     throw new Error("convertToEcf() requiere DGII activo y backend Supabase");
   },
