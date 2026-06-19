@@ -49,6 +49,14 @@ import type {
   WhatsappMessage,
   WhatsappTemplate,
 } from "@/types";
+import type {
+  SupplierInvoice,
+  Expense,
+  RecurringExpense,
+  CreateInvoiceInput,
+  CreateExpenseInput,
+  CreateRecurringInput,
+} from "@/features/purchases/compras-store";
 
 // ─── Read context ────────────────────────────────────────────────────────────
 //
@@ -210,6 +218,32 @@ export interface CustomerRepository {
   softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
+// ─── Purchases / Compras ─────────────────────────────────────────────────────
+
+export interface SupplierInvoiceRepository {
+  list(ctx: RepoContext, opts?: { branchId?: ID; status?: string }): Promise<SupplierInvoice[]>;
+  byId(ctx: RepoContext, id: ID): Promise<SupplierInvoice | null>;
+  create(ctx: RepoContext, input: CreateInvoiceInput & { businessId: ID }): Promise<SupplierInvoice>;
+  update(ctx: RepoContext, id: ID, patch: Partial<SupplierInvoice>): Promise<SupplierInvoice>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
+}
+
+export interface ExpenseRepository {
+  list(ctx: RepoContext, opts?: { branchId?: ID; petty?: boolean }): Promise<Expense[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Expense | null>;
+  create(ctx: RepoContext, input: CreateExpenseInput & { businessId: ID }): Promise<Expense>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Expense>): Promise<Expense>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
+}
+
+export interface RecurringExpenseRepository {
+  list(ctx: RepoContext): Promise<RecurringExpense[]>;
+  byId(ctx: RepoContext, id: ID): Promise<RecurringExpense | null>;
+  create(ctx: RepoContext, input: CreateRecurringInput & { businessId: ID }): Promise<RecurringExpense>;
+  update(ctx: RepoContext, id: ID, patch: Partial<RecurringExpense>): Promise<RecurringExpense>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
+}
+
 // ─── POS / Sales ────────────────────────────────────────────────────────────
 
 export interface ProformaRepository {
@@ -354,4 +388,7 @@ export interface Repositories {
   ai: AIRepository;
   apiV3: ApiV3Repository;
   dgii: DgiiRepository;
+  supplierInvoice: SupplierInvoiceRepository;
+  expense: ExpenseRepository;
+  recurringExpense: RecurringExpenseRepository;
 }

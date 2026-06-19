@@ -429,3 +429,111 @@ export function cashSessionRowToTs(
     updatedAt: row.updated_at,
   };
 }
+
+// ─── Purchases / Compras ─────────────────────────────────────────────────────
+
+import type {
+  SupplierInvoice,
+  SupplierInvoiceItem,
+  Expense,
+  RecurringExpense,
+  RecurringRun,
+} from "@/features/purchases/compras-store";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function supplierInvoiceItemRowToTs(row: Record<string, any>): SupplierInvoiceItem {
+  return {
+    productId: row.product_id ?? undefined,
+    name: row.name,
+    quantity: Number(row.quantity),
+    unitCost: Number(row.unit_cost),
+    itbis: Number(row.itbis),
+    total: Number(row.total),
+    lotNumber: row.lot_number ?? undefined,
+    expiresAt: row.expiration_date ?? undefined,
+    branchId: row.branch_id ?? undefined,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function supplierInvoiceRowToTs(row: Record<string, any>, items: SupplierInvoiceItem[] = []): SupplierInvoice {
+  return {
+    id: row.id,
+    businessId: row.business_id,
+    branchId: row.branch_id ?? "",
+    supplierName: row.supplier_name,
+    supplierRnc: row.supplier_rnc ?? undefined,
+    number: row.number,
+    ncf: row.ncf ?? undefined,
+    issueDate: row.issue_date,
+    dueDate: row.due_date ?? undefined,
+    paymentCondition: row.payment_condition ?? undefined,
+    items,
+    subtotal: Number(row.subtotal),
+    itbis: Number(row.itbis),
+    discount: Number(row.discount),
+    total: Number(row.total),
+    paid: Number(row.paid),
+    status: row.status,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function expenseRowToTs(row: Record<string, any>): Expense {
+  return {
+    id: row.id,
+    businessId: row.business_id,
+    branchId: row.branch_id ?? "",
+    date: row.expense_date,
+    category: row.category,
+    payee: row.payee ?? "",
+    concept: row.concept,
+    amount: Number(row.amount),
+    method: row.method,
+    last4: row.last4 ?? undefined,
+    reference: row.reference ?? undefined,
+    petty: Boolean(row.petty),
+    responsible: row.responsible ?? undefined,
+    status: row.status,
+    note: row.note ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function recurringRunRowToTs(row: Record<string, any>): RecurringRun {
+  return {
+    date: row.run_date,
+    amount: Number(row.amount),
+    expenseId: row.expense_id ?? undefined,
+    paidAt: row.paid_at ?? undefined,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function recurringExpenseRowToTs(row: Record<string, any>, runs: RecurringRun[] = []): RecurringExpense {
+  return {
+    id: row.id,
+    businessId: row.business_id,
+    branchId: row.branch_id ?? "",
+    name: row.name,
+    supplier: row.supplier ?? undefined,
+    category: row.category,
+    amount: Number(row.amount),
+    frequency: row.frequency,
+    payDay: row.pay_day ?? undefined,
+    startDate: row.start_date,
+    endDate: row.end_date ?? undefined,
+    method: row.method,
+    status: row.status,
+    note: row.note ?? undefined,
+    runs,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+

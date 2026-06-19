@@ -40,6 +40,7 @@ import {
 } from "./sales";
 import { userRepository } from "./user";
 import { warehouseRepository } from "./warehouse";
+import { supplierInvoiceRepository, expenseRepository, recurringExpenseRepository } from "./purchases";
 
 class NotImplementedError extends Error {
   constructor(method: string) {
@@ -111,4 +112,7 @@ export const supabaseRepositories: Repositories = {
   apiV3: { keys: stub("apiV3.keys"), webhooks: stub("apiV3.webhooks") },
   // El módulo DGII tiene implementación real Supabase en `./dgii.ts`.
   dgii: dgiiRepository,
+  supplierInvoice: supplierInvoiceRepository,
+  expense: expenseRepository,
+  recurringExpense: recurringExpenseRepository,
 };

@@ -95,6 +95,8 @@ import {
   mockWhatsappTemplates,
 } from "@/lib/mock-data/integrations";
 import { daysUntil } from "@/lib/utils/format";
+import type { SupplierInvoiceRepository, ExpenseRepository, RecurringExpenseRepository } from "../types";
+import type { SupplierInvoice, Expense, RecurringExpense } from "@/features/purchases/compras-store";
 
 const guard = (ctx: RepoContext) => {
   if (!ctx.businessId) throw new Error("RepoContext.businessId requerido");
@@ -609,6 +611,219 @@ function mockProformasView(businessId: string): Proforma[] {
   return [...extra, ...base];
 }
 
+// ─── Overlays de escritura para compras ──────────────────────────────────────
+let extraInvoices: SupplierInvoice[] = [];
+const deletedInvoiceIds = new Set<string>();
+const invoicePatches: Record<string, Partial<SupplierInvoice>> = {};
+
+let extraExpenses: Expense[] = [];
+const deletedExpenseIds = new Set<string>();
+const expensePatches: Record<string, Partial<Expense>> = {};
+
+let extraRecurring: RecurringExpense[] = [];
+const deletedRecurringIds = new Set<string>();
+const recurringPatches: Record<string, Partial<RecurringExpense>> = {};
+
+export function __resetPurchasesMockWrites(): void {
+  extraInvoices = [];
+  deletedInvoiceIds.clear();
+  for (const k of Object.keys(invoicePatches)) delete invoicePatches[k];
+  extraExpenses = [];
+  deletedExpenseIds.clear();
+  for (const k of Object.keys(expensePatches)) delete expensePatches[k];
+  extraRecurring = [];
+  deletedRecurringIds.clear();
+  for (const k of Object.keys(recurringPatches)) delete recurringPatches[k];
+}
+
+function mockInvoicesView(businessId: string): SupplierInvoice[] {
+  const applyPatch = (i: SupplierInvoice): SupplierInvoice =>
+    invoicePatches[i.id] ? { ...i, ...invoicePatches[i.id] } : i;
+  return extraInvoices
+    .filter((i) => i.businessId === businessId)
+    .map(applyPatch)
+    .filter((i) => !deletedInvoiceIds.has(i.id));
+}
+
+function mockExpensesView(businessId: string): Expense[] {
+  const applyPatch = (e: Expense): Expense =>
+    expensePatches[e.id] ? { ...e, ...expensePatches[e.id] } : e;
+  return extraExpenses
+    .filter((e) => e.businessId === businessId)
+    .map(applyPatch)
+    .filter((e) => !deletedExpenseIds.has(e.id));
+}
+
+function mockRecurringView(businessId: string): RecurringExpense[] {
+  const applyPatch = (r: RecurringExpense): RecurringExpense =>
+    recurringPatches[r.id] ? { ...r, ...recurringPatches[r.id] } : r;
+  return extraRecurring
+    .filter((r) => r.businessId === businessId)
+    .map(applyPatch)
+    .filter((r) => !deletedRecurringIds.has(r.id));
+}
+
+const supplierInvoice: SupplierInvoiceRepository = {
+  async list(ctx, opts) {
+    guard(ctx);
+    return mockInvoicesView(ctx.businessId)
+      .filter((i) => !opts?.branchId || i.branchId === opts.branchId)
+      .filter((i) => !opts?.status || i.status === opts.status)
+      .sort((a, b) => b.issueDate.localeCompare(a.issueDate));
+  },
+  async byId(ctx, id) {
+    guard(ctx);
+    return mockInvoicesView(ctx.businessId).find((i) => i.id === id) ?? null;
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const n = new Date().toISOString();
+    const subtotal = input.items.reduce((s, it) => s + it.quantity * it.unitCost, 0);
+    const itbis = input.items.reduce((s, it) => s + (it.itbis || 0), 0);
+    const discount = input.discount ?? 0;
+    const total = Math.max(0, subtotal + itbis - discount);
+    const created: SupplierInvoice = {
+      id: mockGenId("pinv"),
+      businessId: ctx.businessId,
+      branchId: input.branchId ?? "",
+      supplierName: input.supplierName.trim(),
+      supplierRnc: input.supplierRnc?.trim() || undefined,
+      number: input.number.trim(),
+      ncf: input.ncf?.trim() || undefined,
+      issueDate: input.issueDate,
+      dueDate: input.dueDate || undefined,
+      paymentCondition: input.paymentCondition || undefined,
+      items: input.items,
+      subtotal,
+      itbis,
+      discount,
+      total,
+      paid: 0,
+      status: input.status ?? "pendiente",
+      notes: input.notes || undefined,
+      createdAt: n,
+      updatedAt: n,
+    };
+    extraInvoices = [created, ...extraInvoices];
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    const exists = mockInvoicesView(ctx.businessId).some((i) => i.id === id);
+    if (!exists) throw new Error("Factura no encontrada");
+    invoicePatches[id] = { ...(invoicePatches[id] ?? {}), ...patch, updatedAt: new Date().toISOString() };
+    const found = mockInvoicesView(ctx.businessId).find((i) => i.id === id);
+    if (!found) throw new Error("Factura no encontrada");
+    return found;
+  },
+  async softDelete(ctx, id) {
+    guard(ctx);
+    deletedInvoiceIds.add(id);
+  },
+};
+
+const expense: ExpenseRepository = {
+  async list(ctx, opts) {
+    guard(ctx);
+    return mockExpensesView(ctx.businessId)
+      .filter((e) => opts?.branchId === undefined || e.branchId === opts.branchId)
+      .filter((e) => opts?.petty === undefined || e.petty === opts.petty)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  },
+  async byId(ctx, id) {
+    guard(ctx);
+    return mockExpensesView(ctx.businessId).find((e) => e.id === id) ?? null;
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const n = new Date().toISOString();
+    const needsLast4 = input.method === "tarjeta" || input.method === "transferencia";
+    const created: Expense = {
+      id: mockGenId("exp"),
+      businessId: ctx.businessId,
+      branchId: input.branchId ?? "",
+      date: input.date,
+      category: input.category,
+      payee: input.payee?.trim() ?? "",
+      concept: input.concept.trim(),
+      amount: input.amount,
+      method: input.method,
+      last4: needsLast4 ? (input.last4 ?? "").replace(/\D/g, "").slice(-4) || undefined : undefined,
+      reference: !needsLast4 ? input.reference?.trim() || undefined : undefined,
+      petty: !!input.petty,
+      responsible: input.responsible?.trim() || undefined,
+      status: "pagado",
+      note: input.note?.trim() || undefined,
+      createdAt: n,
+      updatedAt: n,
+    };
+    extraExpenses = [created, ...extraExpenses];
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    const exists = mockExpensesView(ctx.businessId).some((e) => e.id === id);
+    if (!exists) throw new Error("Gasto no encontrado");
+    expensePatches[id] = { ...(expensePatches[id] ?? {}), ...patch, updatedAt: new Date().toISOString() };
+    const found = mockExpensesView(ctx.businessId).find((e) => e.id === id);
+    if (!found) throw new Error("Gasto no encontrado");
+    return found;
+  },
+  async softDelete(ctx, id) {
+    guard(ctx);
+    deletedExpenseIds.add(id);
+  },
+};
+
+const recurringExpense: RecurringExpenseRepository = {
+  async list(ctx) {
+    guard(ctx);
+    return mockRecurringView(ctx.businessId).sort((a, b) => a.name.localeCompare(b.name));
+  },
+  async byId(ctx, id) {
+    guard(ctx);
+    return mockRecurringView(ctx.businessId).find((r) => r.id === id) ?? null;
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const n = new Date().toISOString();
+    const created: RecurringExpense = {
+      id: mockGenId("rec"),
+      businessId: ctx.businessId,
+      branchId: input.branchId ?? "",
+      name: input.name.trim(),
+      supplier: input.supplier?.trim() || undefined,
+      category: input.category,
+      amount: input.amount,
+      frequency: input.frequency,
+      payDay: input.payDay,
+      startDate: input.startDate,
+      endDate: input.endDate || undefined,
+      method: input.method,
+      status: "active",
+      note: input.note?.trim() || undefined,
+      runs: [],
+      createdAt: n,
+      updatedAt: n,
+    };
+    extraRecurring = [created, ...extraRecurring];
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    const exists = mockRecurringView(ctx.businessId).some((r) => r.id === id);
+    if (!exists) throw new Error("Pago recurrente no encontrado");
+    recurringPatches[id] = { ...(recurringPatches[id] ?? {}), ...patch, updatedAt: new Date().toISOString() };
+    const found = mockRecurringView(ctx.businessId).find((r) => r.id === id);
+    if (!found) throw new Error("Pago recurrente no encontrado");
+    return found;
+  },
+  async softDelete(ctx, id) {
+    guard(ctx);
+    deletedRecurringIds.add(id);
+  },
+};
+
 const proforma: ProformaRepository = {
   async list(ctx) {
     guard(ctx);
@@ -839,4 +1054,7 @@ export const mockRepositories: Repositories = {
   ai,
   apiV3,
   dgii,
+  supplierInvoice,
+  expense,
+  recurringExpense,
 };

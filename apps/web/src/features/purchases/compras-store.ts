@@ -167,6 +167,19 @@ function genId(p: string) {
 const now = () => new Date().toISOString();
 const onlyDigits = (s: string | undefined) => (s ?? "").replace(/\D/g, "").slice(-4);
 
+// ─── Backend gate (local vs Supabase) ────────────────────────────────────────
+export const PURCHASES_BACKEND: "local" | "supabase" =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase"
+    ? "supabase"
+    : "local";
+
+function notifyPurchasesChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(EVENT));
+  }
+}
+
 // ─── Facturas de proveedor ────────────────────────────────────────────────────
 
 export function listInvoices(): SupplierInvoice[] {
@@ -533,6 +546,283 @@ export function clearLocalPurchases() {
   write(K_INV, []);
   write(K_EXP, []);
   write(K_REC, []);
+}
+
+// ─── Fetch helpers (Supabase mode) ──────────────────────────────────────────
+
+export async function fetchInvoicesFromServer(): Promise<SupplierInvoice[]> {
+  const res = await fetch("/api/supplier-invoices", { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { invoices: SupplierInvoice[] }).invoices;
+}
+
+export async function fetchExpensesFromServer(petty?: boolean): Promise<Expense[]> {
+  const url = petty !== undefined
+    ? `/api/expenses?petty=${petty}`
+    : "/api/expenses";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { expenses: Expense[] }).expenses;
+}
+
+export async function fetchRecurringFromServer(): Promise<RecurringExpense[]> {
+  const res = await fetch("/api/recurring-expenses", { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { recurring: RecurringExpense[] }).recurring;
+}
+
+// ─── Unified wrappers (dispatch local vs supabase) ───────────────────────────
+
+export type InvoiceOpResult = InvoiceResult;
+
+export async function saveInvoice(
+  mode: "create" | "edit",
+  input: CreateInvoiceInput,
+  id?: string,
+): Promise<InvoiceResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      if (mode === "create") {
+        const res = await fetch("/api/supplier-invoices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        const body = (await res.json().catch(() => ({}))) as { invoice?: SupplierInvoice; error?: string };
+        if (!res.ok || !body.invoice) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+        notifyPurchasesChanged();
+        return { ok: true, invoice: body.invoice };
+      } else {
+        const res = await fetch(`/api/supplier-invoices/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        const body = (await res.json().catch(() => ({}))) as { invoice?: SupplierInvoice; error?: string };
+        if (!res.ok || !body.invoice) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+        notifyPurchasesChanged();
+        return { ok: true, invoice: body.invoice };
+      }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return mode === "create" ? createInvoice(input) : updateInvoice(id!, input as Partial<SupplierInvoice>);
+}
+
+export async function deleteInvoiceAnywhere(id: string): Promise<DeleteResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/supplier-invoices/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      }
+      notifyPurchasesChanged();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return deleteInvoice(id);
+}
+
+export async function saveExpense(
+  mode: "create" | "edit",
+  input: CreateExpenseInput,
+  id?: string,
+): Promise<ExpenseResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      if (mode === "create") {
+        const res = await fetch("/api/expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        const body = (await res.json().catch(() => ({}))) as { expense?: Expense; error?: string };
+        if (!res.ok || !body.expense) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+        notifyPurchasesChanged();
+        return { ok: true, expense: body.expense };
+      } else {
+        const res = await fetch(`/api/expenses/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        const body = (await res.json().catch(() => ({}))) as { expense?: Expense; error?: string };
+        if (!res.ok || !body.expense) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+        notifyPurchasesChanged();
+        return { ok: true, expense: body.expense };
+      }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return mode === "create" ? createExpense(input) : (() => {
+    const list = read<Expense>(K_EXP);
+    const i = list.findIndex((x) => x.id === id);
+    if (i < 0) return { ok: false, error: "Gasto no encontrado." } as ExpenseResult;
+    const next = { ...list[i]!, ...input, updatedAt: now() };
+    list[i] = next;
+    write(K_EXP, list);
+    return { ok: true, expense: next } as ExpenseResult;
+  })();
+}
+
+export async function deleteExpenseAnywhere(id: string): Promise<DeleteResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      }
+      notifyPurchasesChanged();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return deleteExpense(id);
+}
+
+export async function saveRecurring(
+  mode: "create" | "edit",
+  input: CreateRecurringInput,
+  id?: string,
+): Promise<RecurringResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      if (mode === "create") {
+        const res = await fetch("/api/recurring-expenses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        const body = (await res.json().catch(() => ({}))) as { recurring?: RecurringExpense; error?: string };
+        if (!res.ok || !body.recurring) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+        notifyPurchasesChanged();
+        return { ok: true, recurring: body.recurring };
+      } else {
+        const res = await fetch(`/api/recurring-expenses/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        });
+        const body = (await res.json().catch(() => ({}))) as { recurring?: RecurringExpense; error?: string };
+        if (!res.ok || !body.recurring) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+        notifyPurchasesChanged();
+        return { ok: true, recurring: body.recurring };
+      }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return mode === "create" ? createRecurring(input) : setRecurringActive(id!, true);
+}
+
+export async function deleteRecurringAnywhere(id: string): Promise<DeleteResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/recurring-expenses/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      }
+      notifyPurchasesChanged();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return deleteRecurring(id);
+}
+
+// ─── Hooks server-aware ──────────────────────────────────────────────────────
+
+export function useInvoices(): SupplierInvoice[] {
+  const [list, setList] = React.useState<SupplierInvoice[]>([]);
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (PURCHASES_BACKEND === "supabase") {
+        fetchInvoicesFromServer()
+          .then((invoices) => { if (alive) setList(invoices); })
+          .catch(() => { if (alive) setList(listInvoices()); });
+      } else {
+        setList(listInvoices());
+      }
+    };
+    window.addEventListener(EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  return list;
+}
+
+export function useExpenses(petty?: boolean): Expense[] {
+  const [list, setList] = React.useState<Expense[]>([]);
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (PURCHASES_BACKEND === "supabase") {
+        fetchExpensesFromServer(petty)
+          .then((expenses) => { if (alive) setList(expenses); })
+          .catch(() => { if (alive) setList(listExpenses(petty)); });
+      } else {
+        setList(listExpenses(petty));
+      }
+    };
+    window.addEventListener(EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [petty]);
+  return list;
+}
+
+export function useRecurring(): RecurringExpense[] {
+  const [list, setList] = React.useState<RecurringExpense[]>([]);
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (PURCHASES_BACKEND === "supabase") {
+        fetchRecurringFromServer()
+          .then((recurring) => { if (alive) setList(recurring); })
+          .catch(() => { if (alive) setList(listRecurring()); });
+      } else {
+        setList(listRecurring());
+      }
+    };
+    window.addEventListener(EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  return list;
 }
 
 // ─── Hook reactivo ──────────────────────────────────────────────────────────
