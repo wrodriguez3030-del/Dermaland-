@@ -208,10 +208,13 @@ export default function ClientesPage() {
                     <RowActions
                       viewHref={`/clientes/${c.id}`}
                       editHref={`/clientes/${c.id}/editar`}
-                      onDelete={() => {
-                        void deleteCustomerAnywhere(c.id).then(() => {
-                          toast.success("Cliente eliminado correctamente.");
-                        });
+                      onDelete={async () => {
+                        const res = await deleteCustomerAnywhere(c.id);
+                        if (!res.ok)
+                          toast.error(
+                            res.error ?? "No se pudo eliminar el cliente.",
+                          );
+                        else toast.success("Cliente eliminado correctamente.");
                       }}
                       entityName={`${c.firstName} ${c.lastName}`}
                     />
