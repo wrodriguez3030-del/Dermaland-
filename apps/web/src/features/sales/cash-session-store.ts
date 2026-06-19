@@ -205,51 +205,47 @@ export function useCashSessionHistory(): {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        if (CASH_BACKEND === "supabase") {
-          const data = await fetchSessionHistoryFromServer();
-          if (alive) {
-            setSessions(data);
-            setLoading(false);
-          }
-        } else {
-          // Importación dinámica para evitar circular en SSR
-          const { mockCashRegisterSessions } = await import(
-            "@/lib/mock-data/sales"
-          );
-          const sorted = [...mockCashRegisterSessions].sort(
-            (a, b) => +new Date(b.openedAt) - +new Date(a.openedAt),
-          );
-          if (alive) {
-            setSessions(sorted);
-            setLoading(false);
-          }
-        }
-      } catch (e) {
-        if (alive) {
-          setError((e as Error).message);
-          setLoading(false);
-        }
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (CASH_BACKEND === "supabase") {
+        const data = await fetchSessionHistoryFromServer();
+        setSessions(data);
+        setLoading(false);
+      } else {
+        // Importación dinámica para evitar circular en SSR
+        const { mockCashRegisterSessions } = await import(
+          "@/lib/mock-data/sales"
+        );
+        const sorted = [...mockCashRegisterSessions].sort(
+          (a, b) => +new Date(b.openedAt) - +new Date(a.openedAt),
+        );
+        setSessions(sorted);
+        setLoading(false);
       }
-    };
+    } catch (e) {
+      setError((e as Error).message);
+      setLoading(false);
+    }
+  }, []);
 
+  const handleChange = React.useCallback(() => {
+    void load();
+  }, [load]);
+
+  React.useEffect(() => {
     void load();
 
     if (typeof window !== "undefined") {
-      window.addEventListener(CHANGE_EVENT, () => void load());
+      window.addEventListener(CHANGE_EVENT, handleChange);
     }
     return () => {
-      alive = false;
       if (typeof window !== "undefined") {
-        window.removeEventListener(CHANGE_EVENT, () => void load());
+        window.removeEventListener(CHANGE_EVENT, handleChange);
       }
     };
-  }, []);
+  }, [load, handleChange]);
 
   return { sessions, loading, error };
 }

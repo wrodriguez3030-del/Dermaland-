@@ -24,7 +24,7 @@ import { useCashSessionHistory } from "@/features/sales/cash-session-store";
  * En modo `mock` carga el seed de mockCashRegisterSessions.
  */
 export default function HistorialCajaPage() {
-  const { sessions, loading } = useCashSessionHistory();
+  const { sessions, loading, error } = useCashSessionHistory();
 
   return (
     <>
@@ -37,6 +37,8 @@ export default function HistorialCajaPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 text-center text-sm opacity-60">Cargando historial…</div>
+          ) : error ? (
+            <div className="p-6 text-center text-sm text-rose-600">{error}</div>
           ) : sessions.length === 0 ? (
             <div className="p-6 text-center text-sm opacity-60">
               No hay sesiones de caja registradas.

@@ -428,9 +428,14 @@ export const cashRegisterRepository: CashRegisterRepository = {
       })
       .eq("business_id", ctx.businessId)
       .eq("id", sessionId)
+      .eq("status", "open")
       .select("*")
-      .single();
+      .maybeSingle();
     if (error) throw new SupabaseRepositoryError("cashRegister.close", error);
+    if (!data)
+      throw new SupabaseRepositoryError(
+        "cashRegister.close: la sesión no existe o ya fue cerrada",
+      );
     const proformaIds = await fetchProformaIdsForSession(
       sb,
       ctx.businessId,

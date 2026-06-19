@@ -14,13 +14,14 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Banknote, Lock, Receipt } from "lucide-react";
+import { Banknote, Receipt } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { mockProformas } from "@/lib/mock-data/sales";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { env } from "@/lib/env";
+import { AbrirCajaButton, CerrarCajaButton } from "./caja-actions";
 
 /**
  * Caja — página de sesión actual.
@@ -43,18 +44,44 @@ export default async function CajaPage() {
     ]);
     current = cur;
     closedSessions = hist;
-  } catch {
-    // En modo mock sin sesión activa, getRepoContext devuelve el mock context
-    // y repository.current() devuelve el seed. Si falla, queda null (sin sesión).
+  } catch (e) {
+    // Distinguir error de auth de "sin sesión":
+    // getRepoContext lanza "No autenticado" si no hay JWT válido.
+    // repository.current() puede lanzar errores de DB (no de auth).
+    // En cualquier caso registramos server-side y dejamos current=null.
+    const msg = (e as Error).message ?? String(e);
+    if (msg.includes("No autenticado")) {
+      // Error de auth — el layout de (app) debería haber redirigido antes.
+      // Registramos y dejamos la UI mostrar "Sin sesión" como fallback seguro.
+      console.error("[CajaPage] Error de autenticación:", msg);
+    } else {
+      // Error de repositorio/DB inesperado
+      console.error("[CajaPage] Error al cargar sesión de caja:", msg);
+    }
   }
 
   const closedOnly = closedSessions.filter((s) => s.status === "closed");
 
-  // Proformas de la sesión actual (solo en modo mock con seed)
-  const proformas =
-    env.DATA_SOURCE !== "supabase" && current
-      ? mockProformas.filter((p) => p.cashRegisterSessionId === current!.id)
-      : [];
+  // Proformas de la sesión actual — en supabase las cargamos del repositorio;
+  // en modo mock usamos el seed.
+  let proformas: import("@/types").Proforma[] = [];
+  if (current) {
+    if (env.DATA_SOURCE === "supabase") {
+      try {
+        const ctx = await getRepoContext();
+        const allProformas = await getRepositories().proforma.list(ctx);
+        proformas = allProformas.filter(
+          (p) => p.cashRegisterSessionId === current!.id,
+        );
+      } catch {
+        // Fallback a vacío si falla la carga de proformas (no bloquear la página)
+      }
+    } else {
+      proformas = mockProformas.filter(
+        (p) => p.cashRegisterSessionId === current!.id,
+      );
+    }
+  }
   const pendingEcf = proformas.filter(
     (p) => p.status === "pending_ecf" || p.status === "paid",
   );
@@ -66,12 +93,7 @@ export default async function CajaPage() {
           title="Caja"
           description="Sin sesión abierta. Abre caja con tu monto inicial para empezar a vender."
           breadcrumbs={[{ label: "Caja" }]}
-          actions={
-            <Button size="sm">
-              <Banknote className="h-4 w-4" />
-              Abrir caja
-            </Button>
-          }
+          actions={<AbrirCajaButton />}
         />
       </>
     );
@@ -90,12 +112,7 @@ export default async function CajaPage() {
                 Historial
               </Button>
             </Link>
-            <Link href="/caja/cierre">
-              <Button size="sm" variant="danger">
-                <Lock className="h-4 w-4" />
-                Cerrar caja
-              </Button>
-            </Link>
+            <CerrarCajaButton sessionId={current.id} />
           </>
         }
       />
@@ -234,7 +251,7 @@ export default async function CajaPage() {
                       {formatCurrency(s.expectedCash)}
                     </TD>
                     <TD className="text-right tabular-nums">
-                      {s.countedCash ? formatCurrency(s.countedCash) : "—"}
+                      {s.countedCash != null ? formatCurrency(s.countedCash) : "—"}
                     </TD>
                     <TD className="text-right tabular-nums">
                       {s.difference != null ? (
