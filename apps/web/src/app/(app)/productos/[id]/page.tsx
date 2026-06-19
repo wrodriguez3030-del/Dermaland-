@@ -12,6 +12,9 @@ import {
   Pencil,
   Power,
   PackageX,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -29,8 +32,12 @@ import {
   TR,
   TH,
   TD,
+  Input,
+  Textarea,
+  Label,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Modal } from "@/components/ui/modal";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -51,6 +58,9 @@ import {
   useProductLots,
   useProductMovements,
   summarizeLotsByBranch,
+  quarantineLotAnywhere,
+  releaseLotAnywhere,
+  recallLotAnywhere,
   type ExpiryStatus,
 } from "@/features/inventory/lot-store";
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
@@ -82,6 +92,9 @@ export default function ProductDetailPage() {
 
   const [lotOpen, setLotOpen] = React.useState(false);
   const [adjustLot, setAdjustLot] = React.useState<ProductLot | null>(null);
+  const [quarantineLot, setQuarantineLot] = React.useState<ProductLot | null>(null);
+  const [releaseLot, setReleaseLot] = React.useState<ProductLot | null>(null);
+  const [recallLot, setRecallLot] = React.useState<ProductLot | null>(null);
   const [confirmInactivate, setConfirmInactivate] = React.useState(false);
 
   if (!product) {
@@ -483,6 +496,36 @@ export default function ProductDetailPage() {
                                 icon: SlidersHorizontal,
                                 onClick: () => setAdjustLot(lot),
                               },
+                              ...(lot.status === "available"
+                                ? [
+                                    {
+                                      label: "Enviar a cuarentena",
+                                      icon: ShieldAlert,
+                                      onClick: () => setQuarantineLot(lot),
+                                    },
+                                    {
+                                      label: "Enviar a recall",
+                                      icon: AlertTriangle,
+                                      onClick: () => setRecallLot(lot),
+                                      destructive: true,
+                                    },
+                                  ]
+                                : []),
+                              ...(lot.status === "quarantine"
+                                ? [
+                                    {
+                                      label: "Liberar lote",
+                                      icon: ShieldCheck,
+                                      onClick: () => setReleaseLot(lot),
+                                    },
+                                    {
+                                      label: "Enviar a recall",
+                                      icon: AlertTriangle,
+                                      onClick: () => setRecallLot(lot),
+                                      destructive: true,
+                                    },
+                                  ]
+                                : []),
                             ]}
                           />
                         </TD>
@@ -575,6 +618,21 @@ export default function ProductDetailPage() {
         lot={adjustLot}
         productName={product.name}
       />
+      <LotQuarantineModal
+        lot={quarantineLot}
+        onClose={() => setQuarantineLot(null)}
+        onDone={() => setQuarantineLot(null)}
+      />
+      <LotReleaseModal
+        lot={releaseLot}
+        onClose={() => setReleaseLot(null)}
+        onDone={() => setReleaseLot(null)}
+      />
+      <LotRecallModal
+        lot={recallLot}
+        onClose={() => setRecallLot(null)}
+        onDone={() => setRecallLot(null)}
+      />
       <ConfirmDialog
         open={confirmInactivate}
         title="Inactivar producto"
@@ -588,6 +646,236 @@ export default function ProductDetailPage() {
           toast.success("Producto inactivado.");
         }}
       />
+      <toast.Toast />
+    </>
+  );
+}
+
+// ─── Modales de acción de lote ───────────────────────────────────────────────
+
+interface LotActionModalProps {
+  lot: ProductLot | null;
+  onClose: () => void;
+  onDone: () => void;
+}
+
+function LotQuarantineModal({ lot, onClose, onDone }: LotActionModalProps) {
+  const [reason, setReason] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const toast = useToast();
+
+  React.useEffect(() => {
+    if (!lot) return;
+    setReason("");
+    setError(null);
+  }, [lot]);
+
+  if (!lot) return null;
+
+  async function handleQuarantine() {
+    if (!reason.trim()) { setError("El motivo de cuarentena es obligatorio."); return; }
+    setLoading(true);
+    setError(null);
+    const res = await quarantineLotAnywhere(lot!.id, { reason: reason.trim() });
+    setLoading(false);
+    if (!res.ok) { setError(res.error); return; }
+    toast.success("Lote enviado a cuarentena.");
+    onDone();
+  }
+
+  return (
+    <>
+      <Modal
+        open={!!lot}
+        title="Enviar lote a cuarentena"
+        onClose={onClose}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancelar</Button>
+            <Button size="sm" onClick={handleQuarantine} disabled={loading}>
+              {loading ? "Procesando…" : "Enviar a cuarentena"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <p className="text-[color:var(--brand-fg)]/70">
+            Lote <span className="font-mono font-medium">{lot.lotNumber}</span> quedará bloqueado para venta hasta ser liberado.
+          </p>
+          <div className="space-y-1">
+            <Label htmlFor="qtn-reason">Motivo de cuarentena <span className="text-rose-600">*</span></Label>
+            <Textarea
+              id="qtn-reason"
+              placeholder="Indicá el motivo por el que este lote va a cuarentena…"
+              value={reason}
+              onChange={(e) => { setReason(e.target.value); setError(null); }}
+              rows={3}
+            />
+          </div>
+          {error && <p role="alert" className="text-xs text-rose-700 font-medium">{error}</p>}
+        </div>
+      </Modal>
+      <toast.Toast />
+    </>
+  );
+}
+
+function LotReleaseModal({ lot, onClose, onDone }: LotActionModalProps) {
+  const [reason, setReason] = React.useState("");
+  const [responsible, setResponsible] = React.useState("");
+  const [confirmed, setConfirmed] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const toast = useToast();
+
+  React.useEffect(() => {
+    if (!lot) return;
+    setReason("");
+    setResponsible("");
+    setConfirmed(false);
+    setError(null);
+  }, [lot]);
+
+  if (!lot) return null;
+
+  async function handleRelease() {
+    if (!reason.trim()) { setError("El motivo de liberación es obligatorio."); return; }
+    if (!confirmed) { setError("Confirmá que el lote fue revisado antes de liberarlo."); return; }
+    setLoading(true);
+    setError(null);
+    const res = await releaseLotAnywhere(lot!.id, { reason: reason.trim(), responsible: responsible.trim() || undefined });
+    setLoading(false);
+    if (!res.ok) { setError(res.error); return; }
+    toast.success("Lote liberado correctamente.");
+    onDone();
+  }
+
+  return (
+    <>
+      <Modal
+        open={!!lot}
+        title="Liberar lote de cuarentena"
+        onClose={onClose}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancelar</Button>
+            <Button size="sm" onClick={handleRelease} disabled={loading}>
+              {loading ? "Liberando…" : "Liberar lote"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <p className="text-[color:var(--brand-fg)]/70">
+            Lote <span className="font-mono font-medium">{lot.lotNumber}</span> volverá a estar disponible para venta.
+          </p>
+          <div className="space-y-1">
+            <Label htmlFor="rel-reason">Motivo de liberación <span className="text-rose-600">*</span></Label>
+            <Textarea
+              id="rel-reason"
+              placeholder="Describí el resultado de la inspección y por qué se libera el lote…"
+              value={reason}
+              onChange={(e) => { setReason(e.target.value); setError(null); }}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="rel-responsible">Responsable (opcional)</Label>
+            <Input
+              id="rel-responsible"
+              placeholder="Nombre del responsable de la revisión"
+              value={responsible}
+              onChange={(e) => setResponsible(e.target.value)}
+            />
+          </div>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-gray-300"
+              checked={confirmed}
+              onChange={(e) => { setConfirmed(e.target.checked); setError(null); }}
+              aria-label="Confirmar revisión del lote"
+            />
+            <span className="text-xs leading-relaxed">Confirmo que este lote fue revisado y puede volver a venderse.</span>
+          </label>
+          {error && <p role="alert" className="text-xs text-rose-700 font-medium">{error}</p>}
+        </div>
+      </Modal>
+      <toast.Toast />
+    </>
+  );
+}
+
+function LotRecallModal({ lot, onClose, onDone }: LotActionModalProps) {
+  const [reason, setReason] = React.useState("");
+  const [note, setNote] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const toast = useToast();
+
+  React.useEffect(() => {
+    if (!lot) return;
+    setReason("");
+    setNote("");
+    setError(null);
+  }, [lot]);
+
+  if (!lot) return null;
+
+  async function handleRecall() {
+    if (!reason.trim()) { setError("El motivo del recall es obligatorio."); return; }
+    setLoading(true);
+    setError(null);
+    const fullReason = note.trim() ? `${reason.trim()} — ${note.trim()}` : reason.trim();
+    const res = await recallLotAnywhere(lot!.id, { reason: fullReason });
+    setLoading(false);
+    if (!res.ok) { setError(res.error); return; }
+    toast.success("Lote enviado a recall correctamente.");
+    onDone();
+  }
+
+  return (
+    <>
+      <Modal
+        open={!!lot}
+        title="Enviar lote a recall"
+        onClose={onClose}
+        footer={
+          <>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancelar</Button>
+            <Button size="sm" variant="danger" onClick={handleRecall} disabled={loading}>
+              {loading ? "Procesando…" : "Confirmar recall"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          <p className="text-[color:var(--brand-fg)]/70">
+            Lote <span className="font-mono font-medium">{lot.lotNumber}</span> será retirado permanentemente de la venta.
+          </p>
+          <div className="space-y-1">
+            <Label htmlFor="rc-reason">Motivo del recall <span className="text-rose-600">*</span></Label>
+            <Textarea
+              id="rc-reason"
+              placeholder="Indicá el motivo por el que este lote debe ser retirado…"
+              value={reason}
+              onChange={(e) => { setReason(e.target.value); setError(null); }}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="rc-note">Nota adicional (opcional)</Label>
+            <Input
+              id="rc-note"
+              placeholder="Información adicional de contexto"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </div>
+          {error && <p role="alert" className="text-xs text-rose-700 font-medium">{error}</p>}
+        </div>
+      </Modal>
       <toast.Toast />
     </>
   );

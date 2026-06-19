@@ -490,6 +490,33 @@ export function recallLotLocal(lotId: string, reason: string): LotActionResult {
 }
 
 /**
+ * Envía un lote a cuarentena en local (status → "quarantine").
+ * Registra movimiento tipo `quarantine`.
+ */
+export function quarantineLotLocal(lotId: string, reason: string): LotActionResult {
+  if (!reason.trim()) return { ok: false, error: "Indica el motivo de cuarentena." };
+  const lot = listAllLots().find((l) => l.id === lotId);
+  if (!lot) return { ok: false, error: "Lote no encontrado." };
+
+  const statusOv = readStatusOverrides();
+  statusOv[lotId] = "quarantine";
+  safeWrite(KEY_STATUS, statusOv);
+
+  pushMovement({
+    productId: lot.productId,
+    lotId: lot.id,
+    warehouseId: lot.warehouseId,
+    branchId: lot.branchId,
+    type: "quarantine",
+    quantity: 0,
+    reason: reason.trim(),
+    reference: lot.lotNumber,
+  });
+
+  return { ok: true };
+}
+
+/**
  * Actualiza la nota/motivo de un lote en local.
  */
 export function updateLotNoteLocal(lotId: string, notes: string): LotActionResult {
@@ -788,6 +815,31 @@ export async function recallLotAnywhere(
   }
   try {
     const res = await fetch(`/api/lots/${lotId}/recall`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: opts.reason }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyInventoryChanged();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Wrapper gated: envía un lote a cuarentena vía API (supabase) o local. */
+export async function quarantineLotAnywhere(
+  lotId: string,
+  opts: { reason: string },
+): Promise<LotActionResult> {
+  if (LOT_BACKEND === "local") {
+    const res = quarantineLotLocal(lotId, opts.reason);
+    if (res.ok) notifyInventoryChanged();
+    return res;
+  }
+  try {
+    const res = await fetch(`/api/lots/${lotId}/quarantine`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: opts.reason }),

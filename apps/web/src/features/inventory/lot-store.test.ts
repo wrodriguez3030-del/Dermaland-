@@ -15,6 +15,8 @@ import {
   LOT_BACKEND,
   lotBlockReason,
   nextFefoLotForBranch,
+  quarantineLotAnywhere,
+  quarantineLotLocal,
   recallLotAnywhere,
   recallLotLocal,
   releaseLotAnywhere,
@@ -458,6 +460,110 @@ describe("updateLotNoteLocal", () => {
     const lot = listAllLots().find((l) => l.id === r.lot.id);
     expect(lot?.notes).toBe("Nuevo motivo de cuarentena");
     expect(lot?.status).toBe("available");
+  });
+});
+
+describe("quarantineLotLocal", () => {
+  function addAvailableLot(lotNumber = "QTN-01"): string {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber,
+      initialQuantity: 10,
+      expiresAt: future(180),
+    });
+    if (!r.ok) throw new Error("setup: addLot failed");
+    return r.lot.id;
+  }
+
+  it("rechaza sin motivo", () => {
+    const lotId = addAvailableLot();
+    const res = quarantineLotLocal(lotId, "");
+    expect(res.ok).toBe(false);
+  });
+
+  it("cambia status a quarantine", () => {
+    const lotId = addAvailableLot("QTN-02");
+    const res = quarantineLotLocal(lotId, "Temperatura fuera de rango");
+    expect(res.ok).toBe(true);
+    const lot = listAllLots().find((l) => l.id === lotId);
+    expect(lot?.status).toBe("quarantine");
+  });
+
+  it("registra movimiento tipo quarantine", () => {
+    const lotId = addAvailableLot("QTN-03");
+    quarantineLotLocal(lotId, "Daño en embalaje");
+    const moves = listMovementsByProduct(PID);
+    const qMove = moves.find((m) => m.type === "quarantine");
+    expect(qMove).toBeDefined();
+    expect(qMove?.reason).toContain("Daño en embalaje");
+  });
+
+  it("un lote en cuarentena no es vendible (sellableStockForBranch = 0)", () => {
+    const lotId = addAvailableLot("QTN-04");
+    quarantineLotLocal(lotId, "Sospecha contaminación");
+    const lots = listAllLots();
+    const sellable = sellableStockForBranch(lots, PID, "br_santiago");
+    expect(sellable).toBe(0);
+  });
+
+  it("un lote en cuarentena tiene lotBlockReason quarantine", () => {
+    const lotId = addAvailableLot("QTN-05");
+    quarantineLotLocal(lotId, "Control de calidad");
+    const lots = listAllLots();
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("quarantine");
+  });
+
+  it("liberar un lote en cuarentena lo vuelve available y vendible", () => {
+    const lotId = addAvailableLot("QTN-06");
+    quarantineLotLocal(lotId, "Sospecha inicial");
+    releaseLotLocal(lotId, "Revisión negativa — OK para venta");
+    const lots = listAllLots();
+    const lot = lots.find((l) => l.id === lotId);
+    expect(lot?.status).toBe("available");
+    expect(sellableStockForBranch(lots, PID, "br_santiago")).toBeGreaterThan(0);
+  });
+
+  it("recall de un lote lo marca recalled", () => {
+    const lotId = addAvailableLot("QTN-07");
+    recallLotLocal(lotId, "Defecto de fabricación confirmado");
+    const lot = listAllLots().find((l) => l.id === lotId);
+    expect(lot?.status).toBe("recalled");
+    const lots = listAllLots();
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("recall");
+  });
+});
+
+describe("quarantineLotAnywhere (modo local)", () => {
+  it("rechaza sin motivo", async () => {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "QANY-01",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    if (!r.ok) throw new Error("setup");
+    const res = await quarantineLotAnywhere(r.lot.id, { reason: "" });
+    expect(res.ok).toBe(false);
+  });
+
+  it("envía lote a cuarentena (modo local)", async () => {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "QANY-02",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    if (!r.ok) throw new Error("setup");
+    const res = await quarantineLotAnywhere(r.lot.id, { reason: "Inspección pendiente" });
+    expect(res.ok).toBe(true);
+    const lot = listAllLots().find((l) => l.id === r.lot.id);
+    expect(lot?.status).toBe("quarantine");
   });
 });
 
