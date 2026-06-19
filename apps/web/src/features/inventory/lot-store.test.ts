@@ -8,6 +8,7 @@ import {
   availableStock,
   clearLocalInventory,
   expiryStatus,
+  fefoLotsForBranch,
   listAllLots,
   listAllMovements,
   listLotsByProduct,
@@ -1087,5 +1088,124 @@ describe("Flujo completo: agregar stock → POS ve stock → vender → baja (ca
       expect(reason).not.toMatch(/almac[eé]n/i);
       expect(reason).not.toMatch(/warehouse/i);
     }
+  });
+});
+
+// ─── fefoLotsForBranch ────────────────────────────────────────────────────────
+
+describe("fefoLotsForBranch", () => {
+  it("devuelve solo lotes vendibles de la sucursal/producto pedidos", () => {
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 5 }),
+      makeLot({ id: "b", branchId: "br_sd_naco", currentQuantity: 3 }), // otra sucursal
+      makeLot({ id: "c", branchId: "br_santiago", currentQuantity: 0 }), // agotado
+    ];
+    const result = fefoLotsForBranch(lots, PID, "br_santiago");
+    expect(result.map((l) => l.id)).toEqual(["a"]);
+  });
+
+  it("ordena por vencimiento ascendente (FEFO)", () => {
+    const lots = [
+      makeLot({ id: "far", branchId: "br_santiago", currentQuantity: 4, expiresAt: future(200) }),
+      makeLot({ id: "near", branchId: "br_santiago", currentQuantity: 2, expiresAt: future(30) }),
+    ];
+    const result = fefoLotsForBranch(lots, PID, "br_santiago");
+    expect(result[0]!.id).toBe("near");
+    expect(result[1]!.id).toBe("far");
+  });
+
+  it("lote sin fecha de vencimiento (expiresAt='') es vendible y queda al final", () => {
+    const lots = [
+      makeLot({ id: "dated", branchId: "br_santiago", currentQuantity: 5, expiresAt: future(60) }),
+      {
+        ...makeLot({ id: "nodates", branchId: "br_santiago", currentQuantity: 3 }),
+        expiresAt: "", // sin fecha
+      },
+    ];
+    const result = fefoLotsForBranch(lots, PID, "br_santiago");
+    // Ambos son vendibles
+    expect(result).toHaveLength(2);
+    // El de con fecha va primero, el sin fecha al final
+    expect(result[0]!.id).toBe("dated");
+    expect(result[1]!.id).toBe("nodates");
+  });
+
+  it("excluye lotes vencidos aunque tengan cantidad", () => {
+    const past = new Date(); past.setDate(past.getDate() - 1);
+    const lots = [
+      makeLot({ id: "exp", branchId: "br_santiago", currentQuantity: 10, expiresAt: past.toISOString() }),
+      makeLot({ id: "ok", branchId: "br_santiago", currentQuantity: 2, expiresAt: future(30) }),
+    ];
+    const result = fefoLotsForBranch(lots, PID, "br_santiago");
+    expect(result.map((l) => l.id)).toEqual(["ok"]);
+  });
+
+  it("excluye lotes en cuarentena y recall", () => {
+    const lots = [
+      makeLot({ id: "q", branchId: "br_santiago", currentQuantity: 5, status: "quarantine" }),
+      makeLot({ id: "r", branchId: "br_santiago", currentQuantity: 5, status: "recalled" }),
+      makeLot({ id: "ok", branchId: "br_santiago", currentQuantity: 3 }),
+    ];
+    const result = fefoLotsForBranch(lots, PID, "br_santiago");
+    expect(result.map((l) => l.id)).toEqual(["ok"]);
+  });
+
+  it("devuelve array vacío si no hay lotes vendibles", () => {
+    const lots = [makeLot({ branchId: "br_sd_naco", currentQuantity: 5 })];
+    expect(fefoLotsForBranch(lots, PID, "br_santiago")).toEqual([]);
+  });
+});
+
+// ─── Descuento POS usa el array pasado (no listAllLots internamente) ──────────
+
+describe("descuento POS: usa el array pasado, no listAllLots()", () => {
+  it("fefoLotsForBranch opera sobre el array dado, no llama a listAllLots", () => {
+    // Si el store local está vacío pero pasamos un array con lotes, igual funciona.
+    // Esto valida que el POS en modo supabase no ignore los lotes reactivos.
+    clearLocalInventory();
+    const snapshotLots = [
+      makeLot({ id: "snap1", branchId: "br_santiago", currentQuantity: 8, expiresAt: future(90) }),
+    ];
+    // listAllLots() devuelve solo los seed + local (vacío en este caso para prod_test_inv)
+    const fromStore = listAllLots().filter((l) => l.productId === PID && l.branchId === "br_santiago");
+    expect(fromStore).toHaveLength(0); // store local vacío para este producto/sucursal
+
+    // fefoLotsForBranch con el snapshot externo devuelve el lote correcto
+    const result = fefoLotsForBranch(snapshotLots, PID, "br_santiago");
+    expect(result).toHaveLength(1);
+    expect(result[0]!.id).toBe("snap1");
+  });
+
+  it("lote sin vencimiento (expiresAt='') se descuenta correctamente en flujo multi-lote", () => {
+    // Simula el loop de finalizeCharge: tomar lots del render, iterar con fefoLotsForBranch
+    const noDateLot = {
+      ...makeLot({ id: "nd1", branchId: "br_santiago", currentQuantity: 5 }),
+      expiresAt: "",
+    };
+    const datedLot = makeLot({ id: "dt1", branchId: "br_santiago", currentQuantity: 3, expiresAt: future(30) });
+
+    const lots = [noDateLot, datedLot];
+    const fefo = fefoLotsForBranch(lots, PID, "br_santiago");
+
+    // Ambos deben estar presentes (lote sin fecha es vendible)
+    expect(fefo).toHaveLength(2);
+    // El con fecha va primero (FEFO), el sin fecha al final
+    expect(fefo[0]!.id).toBe("dt1");
+    expect(fefo[1]!.id).toBe("nd1");
+
+    // Simular descuento de 7 unidades (3 del primero, 4 del segundo)
+    let remaining = 7;
+    const taken: Array<{ id: string; take: number }> = [];
+    for (const lot of fefo) {
+      if (remaining <= 0) break;
+      const take = Math.min(remaining, lot.currentQuantity);
+      taken.push({ id: lot.id, take });
+      remaining -= take;
+    }
+    expect(remaining).toBe(0);
+    expect(taken).toEqual([
+      { id: "dt1", take: 3 },
+      { id: "nd1", take: 4 },
+    ]);
   });
 });

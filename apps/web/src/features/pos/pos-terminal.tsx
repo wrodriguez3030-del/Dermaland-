@@ -47,7 +47,7 @@ import {
   nextFefoLotForBranch,
   lotBlockReason,
   stockByBranchForProduct,
-  listAllLots,
+  fefoLotsForBranch,
   adjustStockAnywhere,
   type LotBlockReason,
 } from "@/features/inventory/lot-store";
@@ -335,6 +335,10 @@ export function PosTerminal() {
     setCart((prev) => prev.filter((l) => l.lotId !== lotId));
 
   const finalizeCharge = async (result: ChargeSaleResult) => {
+    if (!branchId) {
+      toast.error("Selecciona una sucursal.");
+      return;
+    }
     if (!canCharge) {
       toast.error(chargeBlockReason ?? "No se puede facturar.");
       return;
@@ -419,24 +423,15 @@ export function PosTerminal() {
       return;
     }
 
-    // Descontar stock por cada línea del carrito (FEFO, multi-lote)
+    // Descontar stock por cada línea del carrito (FEFO, multi-lote).
+    // Usamos el snapshot `lots` del render (reactivo: Supabase o local según DATA_SOURCE).
+    // No rellamamos listAllLots() entre líneas para mantener coherencia multi-línea.
+    // TODO: atomicidad — venta+descuento en endpoint /api/sales transaccional
     const stockErrors: string[] = [];
     for (const line of cart) {
       let remaining = line.quantity;
-      // Tomar los lotes sellables FEFO para esta sucursal/producto
-      const allCurrentLots = listAllLots();
-      const fefoLots = allCurrentLots
-        .filter(
-          (l) =>
-            l.productId === line.productId &&
-            l.branchId === branchId &&
-            l.status === "available" &&
-            l.currentQuantity > 0 &&
-            new Date(l.expiresAt) > new Date(),
-        )
-        .sort(
-          (a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime(),
-        );
+      // fefoLotsForBranch usa la misma regla que isLotSellable (incluye sin vencimiento).
+      const fefoLots = fefoLotsForBranch(lots, line.productId, branchId);
 
       for (const lot of fefoLots) {
         if (remaining <= 0) break;

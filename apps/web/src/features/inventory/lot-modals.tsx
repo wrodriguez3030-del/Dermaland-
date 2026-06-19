@@ -70,7 +70,9 @@ export function NewLotModal({
   const [missing, setMissing] = React.useState<Set<string>>(new Set());
   const [error, setError] = React.useState<string | null>(null);
 
-  // Resetear formulario cuando se abre el modal, restaurando la sucursal por defecto.
+  // Resetear formulario solo al ABRIR el modal (no al cambiar defaultBranchId en caliente).
+  // Depender también de defaultBranchId causaba que el formulario se borrara mientras
+  // el usuario lo llenaba si el padre actualizaba ese prop.
   React.useEffect(() => {
     if (open) {
       setBranchId(defaultBranchId ?? "");
@@ -83,7 +85,8 @@ export function NewLotModal({
       setMissing(new Set());
       setError(null);
     }
-  }, [open, defaultBranchId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const isMissing = (k: string) => missing.has(k);
 

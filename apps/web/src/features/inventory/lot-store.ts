@@ -960,6 +960,30 @@ export function stockByBranchForProduct(
 }
 
 /**
+ * Lista de lotes vendibles FEFO para un producto en una sucursal concreta.
+ *
+ * Misma regla que `isLotSellable` (disponible, no vencido, qty > 0).
+ * Ordenados por fecha de vencimiento ascendente; lotes sin fecha al final.
+ * Útil en `finalizeCharge` para descontar stock sin releer el store.
+ */
+export function fefoLotsForBranch(
+  lots: ProductLot[],
+  productId: string,
+  branchId: string,
+): ProductLot[] {
+  return lots
+    .filter((l) => l.productId === productId && l.branchId === branchId && isLotSellable(l))
+    .sort((a, b) => {
+      const aHasDate = !!a.expiresAt;
+      const bHasDate = !!b.expiresAt;
+      if (!aHasDate && !bHasDate) return 0;
+      if (!aHasDate) return 1; // sin fecha al final
+      if (!bHasDate) return -1;
+      return new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime();
+    });
+}
+
+/**
  * Próximo lote vendible FEFO (el más próximo a vencer) de un producto en una sucursal.
  * Retorna `null` si no hay lote vendible en esa sucursal.
  */
