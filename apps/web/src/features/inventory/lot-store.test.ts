@@ -9,6 +9,7 @@ import {
   clearLocalInventory,
   expiryStatus,
   listAllLots,
+  listAllMovements,
   listLotsByProduct,
   listMovementsByProduct,
   LOT_BACKEND,
@@ -514,5 +515,66 @@ describe("recallLotAnywhere (modo local)", () => {
     expect(res.ok).toBe(true);
     const lot = listAllLots().find((l) => l.id === r.lot.id);
     expect(lot?.status).toBe("recalled");
+  });
+});
+
+// ─── Movimientos gated (listAllMovements, listMovementsByProduct) ──────────────
+
+describe("listAllMovements (modo local)", () => {
+  it("devuelve los movimientos seed + los creados localmente", () => {
+    addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "MOV-01",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    const all = listAllMovements();
+    // El lote genera al menos 1 movimiento entry_purchase
+    expect(all.some((m) => m.type === "entry_purchase" && m.productId === PID)).toBe(true);
+  });
+});
+
+describe("listMovementsByProduct (modo local)", () => {
+  it("filtra solo movimientos del producto y los ordena desc por fecha", () => {
+    addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "MOV-02",
+      initialQuantity: 3,
+      expiresAt: future(100),
+    });
+    addLot({
+      productId: PID,
+      branchId: "br_sd_naco",
+      warehouseId: "wh_naco_main",
+      lotNumber: "MOV-03",
+      initialQuantity: 7,
+      expiresAt: future(100),
+    });
+    const moves = listMovementsByProduct(PID);
+    // Todos pertenecen al producto
+    expect(moves.every((m) => m.productId === PID)).toBe(true);
+    // Están en orden descendente
+    for (let i = 1; i < moves.length; i++) {
+      expect(+new Date(moves[i - 1]!.createdAt)).toBeGreaterThanOrEqual(
+        +new Date(moves[i]!.createdAt),
+      );
+    }
+  });
+
+  it("no devuelve movimientos de otro producto", () => {
+    addLot({
+      productId: "prod_otro",
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "OTHER-01",
+      initialQuantity: 2,
+      expiresAt: future(90),
+    });
+    const moves = listMovementsByProduct(PID);
+    expect(moves.every((m) => m.productId === PID)).toBe(true);
   });
 });

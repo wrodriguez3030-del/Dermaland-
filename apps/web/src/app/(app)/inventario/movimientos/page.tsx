@@ -22,7 +22,7 @@ import {
   useTableSort,
 } from "@/components/ui/sortable-table-header";
 import { getProductById } from "@/lib/mock-data/catalog";
-import { mockInventoryMovements } from "@/lib/mock-data/inventory-movements";
+import { useAllMovements } from "@/features/inventory/lot-store";
 import { formatDateTime } from "@/lib/utils/format";
 import type { InventoryMovement } from "@/types";
 
@@ -52,8 +52,9 @@ const comparators = {
 };
 
 export default function MovimientosPage() {
+  const allMovements = useAllMovements();
   const { sort, sorted, toggle } = useTableSort(
-    mockInventoryMovements,
+    allMovements,
     "date",
     "desc",
     comparators,

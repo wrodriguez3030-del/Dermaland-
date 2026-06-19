@@ -48,8 +48,8 @@ import {
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import {
   expiryStatus,
-  listMovementsByProduct,
   useProductLots,
+  useProductMovements,
   summarizeLotsByBranch,
   type ExpiryStatus,
 } from "@/features/inventory/lot-store";
@@ -78,6 +78,7 @@ export default function ProductDetailPage() {
   const product = useProduct(id);
   const toast = useToast();
   const allLots = useProductLots(id);
+  const movements = useProductMovements(id);
 
   const [lotOpen, setLotOpen] = React.useState(false);
   const [adjustLot, setAdjustLot] = React.useState<ProductLot | null>(null);
@@ -119,7 +120,6 @@ export default function ProductDetailPage() {
   const stock = lots
     .filter((l) => l.status === "available")
     .reduce((s, l) => s + l.currentQuantity, 0);
-  const movements = listMovementsByProduct(product.id);
   const branchGroups = onlyActiveBranches(summarizeLotsByBranch(allLots));
   const hasLots = lots.length > 0;
   const requiresExpiry = true; // dermocosmética: todo lote lleva vencimiento

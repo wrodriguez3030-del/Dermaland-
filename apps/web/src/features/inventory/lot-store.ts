@@ -611,6 +611,82 @@ export function useProductLots(productId: string): ProductLot[] {
   return list;
 }
 
+export async function fetchMovementsFromServer(opts?: {
+  productId?: string;
+  limit?: number;
+}): Promise<InventoryMovement[]> {
+  const params = new URLSearchParams();
+  if (opts?.productId) params.set("productId", opts.productId);
+  if (opts?.limit != null) params.set("limit", String(opts.limit));
+  const url = params.size ? `/api/movements?${params.toString()}` : "/api/movements";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { movements: InventoryMovement[] }).movements;
+}
+
+export function useAllMovements(limit?: number): InventoryMovement[] {
+  const [list, setList] = React.useState<InventoryMovement[]>(() =>
+    LOT_BACKEND === "supabase" ? [] : listAllMovements(),
+  );
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (LOT_BACKEND === "supabase") {
+        fetchMovementsFromServer({ limit })
+          .then((m) => { if (alive) setList(m); })
+          .catch(() => { if (alive) setList(listAllMovements()); });
+      } else {
+        setList(listAllMovements());
+      }
+    };
+    window.addEventListener(CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [limit]);
+  return list;
+}
+
+export function useProductMovements(productId: string): InventoryMovement[] {
+  const [list, setList] = React.useState<InventoryMovement[]>(() =>
+    LOT_BACKEND === "supabase" ? [] : listMovementsByProduct(productId),
+  );
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (LOT_BACKEND === "supabase") {
+        fetchMovementsFromServer({ productId })
+          .then((m) => {
+            if (alive) {
+              setList(
+                [...m].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
+              );
+            }
+          })
+          .catch(() => { if (alive) setList(listMovementsByProduct(productId)); });
+      } else {
+        setList(listMovementsByProduct(productId));
+      }
+    };
+    window.addEventListener(CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [productId]);
+  return list;
+}
+
 export async function addLotAnywhere(input: AddLotInput, requireExpiry = true): Promise<AddLotResult> {
   if (LOT_BACKEND === "local") {
     return addLot(input, requireExpiry);
