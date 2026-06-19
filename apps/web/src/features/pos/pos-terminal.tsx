@@ -51,7 +51,7 @@ import {
 } from "@/features/inventory/lot-store";
 import {
   useCurrentBranch,
-  listActiveBranchIds,
+  useActiveBranches,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
 
@@ -76,7 +76,8 @@ function blockReasonLabel(reason: LotBlockReason): string {
     case "quarantine": return "Lote en cuarentena";
     case "recall": return "Lote en recall";
     case "inactive-branch": return "Sucursal inactiva";
-    case "no-lot": return "Sin lote disponible";
+    case "depleted": return "Sin stock en esta sucursal";
+    case "no-lot": return "Sin lote registrado en esta sucursal";
   }
 }
 
@@ -151,7 +152,6 @@ export function PosTerminal() {
     documentKind: "proforma" | "invoice";
     documentLabel: string;
   } | null>(null);
-  const [warning, setWarning] = React.useState<string | null>(null);
   const [branchStockModal, setBranchStockModal] = React.useState<{
     productId: string;
     productName: string;
@@ -165,7 +165,11 @@ export function PosTerminal() {
 
   // ── Lotes reactivos (Supabase o local según NEXT_PUBLIC_DATA_SOURCE) ──────
   const lots = useAllLots();
-  const activeBranchIds = React.useMemo(() => listActiveBranchIds(), []);
+  const activeBranches = useActiveBranches();
+  const activeBranchIds = React.useMemo(
+    () => new Set(activeBranches.map((b) => b.id)),
+    [activeBranches],
+  );
 
   // Cuando se selecciona un cliente, preseleccionar su tipo de facturación
   // por defecto (consumo / credito_fiscal). Si no se especifica → consumo.
@@ -225,14 +229,16 @@ export function PosTerminal() {
     if (creditFiscalNeedsRnc)
       return "Crédito fiscal requiere un cliente con RNC válido.";
     // Verificar cada línea del carrito.
+    // Orden: primero razón del lote (cuarentena/recall/vencido/sin-lote/inactiva),
+    // luego cantidad vs stock vendible — igual que addProduct.
     for (const line of cart) {
-      const currentStock = sellableStockForBranch(lots, line.productId, branchId);
-      if (line.quantity > currentStock) {
-        return `No puedes facturar: la cantidad de "${line.productName}" supera el stock disponible en ${branchName} (disponible: ${currentStock}).`;
-      }
       const block = lotBlockReason(lots, line.productId, branchId, activeBranchIds);
       if (block) {
         return `No puedes facturar: "${line.productName}" — ${blockReasonLabel(block)}.`;
+      }
+      const currentStock = sellableStockForBranch(lots, line.productId, branchId);
+      if (line.quantity > currentStock) {
+        return `No puedes facturar: la cantidad de "${line.productName}" supera el stock disponible en ${branchName} (disponible: ${currentStock}).`;
       }
     }
     return null;
@@ -272,13 +278,7 @@ export function PosTerminal() {
       return;
     }
 
-    const days = daysUntil(lot.expiresAt);
-    if (days < 0) {
-      setWarning(`Lote ${lot.lotNumber} vencido — bloqueado para venta`);
-      setTimeout(() => setWarning(null), 3000);
-      return;
-    }
-
+    // nextFefoLotForBranch ya excluye lotes vencidos; no es necesario re-chequear.
     const stockInBranch = sellableStockForBranch(lots, productId, branchId);
 
     setCart((prev) => {
@@ -463,11 +463,6 @@ export function PosTerminal() {
           </div>
         )}
 
-        {warning && (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            <AlertTriangle className="h-4 w-4" /> {warning}
-          </div>
-        )}
 
         <div className="grid flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filtered.map((p) => {
@@ -749,7 +744,14 @@ export function PosTerminal() {
                           value={l.quantity}
                           onChange={(e) => {
                             const v = parseInt(e.target.value, 10);
-                            if (!isNaN(v) && v >= 1) updateQty(l.lotId, v);
+                            if (!isNaN(v) && v >= 1) {
+                              if (v > currentStock) {
+                                toast.error(`Solo hay ${currentStock} unidades disponibles en esta sucursal.`);
+                                updateQty(l.lotId, currentStock);
+                              } else {
+                                updateQty(l.lotId, v);
+                              }
+                            }
                           }}
                           className="w-10 bg-transparent text-center text-sm font-semibold tabular-nums outline-none"
                           aria-label="Cantidad"

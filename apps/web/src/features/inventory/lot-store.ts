@@ -927,11 +927,17 @@ export type LotBlockReason =
   | "quarantine"
   | "recall"
   | "no-lot"
+  | "depleted"
   | "inactive-branch";
 
 /**
  * Por qué no se puede vender un producto en una sucursal.
  * Retorna `null` si hay al menos un lote vendible.
+ *
+ * Distingue dos casos de "sin stock disponible":
+ *  - "no-lot"    → no existe NINGÚN lote del producto en esa sucursal.
+ *  - "depleted"  → hay lote(s) en la sucursal pero todos con qty 0 / agotados
+ *                  (status "available" pero currentQuantity === 0).
  */
 export function lotBlockReason(
   lots: ProductLot[],
@@ -939,6 +945,8 @@ export function lotBlockReason(
   branchId: string,
   activeBranchIds?: Set<string>,
 ): LotBlockReason | null {
+  // branchId vacío → aún cargando; no clasificar como inactiva.
+  if (!branchId) return null;
   if (activeBranchIds && !activeBranchIds.has(branchId)) {
     return "inactive-branch";
   }
@@ -954,5 +962,10 @@ export function lotBlockReason(
   if (productLots.some((l) => expiryStatus(l.expiresAt) === "expired")) return "expired";
   if (productLots.some((l) => l.status === "quarantine")) return "quarantine";
   if (productLots.some((l) => l.status === "recalled")) return "recall";
+
+  // Hay lotes en estado "available" pero con cantidad 0: agotados en sucursal.
+  if (productLots.some((l) => l.status === "available" && l.currentQuantity === 0)) {
+    return "depleted";
+  }
   return "no-lot";
 }

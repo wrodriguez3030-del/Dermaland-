@@ -741,6 +741,21 @@ describe("lotBlockReason", () => {
     const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 5 })];
     expect(lotBlockReason(lots, PID, "br_santiago", new Set())).toBe("inactive-branch");
   });
+
+  it("devuelve 'depleted' si hay lote(s) con qty 0 y status 'available'", () => {
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 0, status: "available" })];
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("depleted");
+  });
+
+  it("devuelve 'no-lot' si no hay NINGÚN lote del producto en la sucursal (aunque haya en otra)", () => {
+    const lots = [makeLot({ branchId: "br_sd_naco", currentQuantity: 10 })];
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("no-lot");
+  });
+
+  it("devuelve null si branchId es vacío (hydration — no clasificar como inactive-branch)", () => {
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 5 })];
+    expect(lotBlockReason(lots, PID, "", new Set(["br_santiago"]))).toBeNull();
+  });
 });
 
 describe("stockByBranchForProduct", () => {

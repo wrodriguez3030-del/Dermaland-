@@ -43,7 +43,7 @@ import {
 } from "@/features/inventory/lot-store";
 import {
   useCurrentBranch,
-  listActiveBranchIds,
+  useActiveBranches,
 } from "@/features/tenancy/branch-store";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
@@ -74,7 +74,11 @@ export default function ProductosPage() {
   const tick = useInventoryTick(); // refleja cambios de stock por lotes (modo local)
   const lots = useAllLots();
   const { branchId } = useCurrentBranch();
-  const activeBranchIds = React.useMemo(() => listActiveBranchIds(), []);
+  const activeBranches = useActiveBranches();
+  const activeBranchIds = React.useMemo(
+    () => new Set(activeBranches.map((b) => b.id)),
+    [activeBranches],
+  );
 
   const [q, setQ] = React.useState("");
   const [brand, setBrand] = React.useState("");
