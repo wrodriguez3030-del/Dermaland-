@@ -23,6 +23,9 @@ import { getRepoContext } from "@/server/auth/context";
 import { env } from "@/lib/env";
 import { AbrirCajaButton, CerrarCajaButton } from "./caja-actions";
 
+// Usa cookies/sesión (getRepoContext) en modo supabase → render dinámico.
+export const dynamic = "force-dynamic";
+
 /**
  * Caja — página de sesión actual.
  *
