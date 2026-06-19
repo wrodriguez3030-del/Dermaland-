@@ -13,13 +13,18 @@ import {
   listLotsByProduct,
   listMovementsByProduct,
   LOT_BACKEND,
+  lotBlockReason,
+  nextFefoLotForBranch,
   recallLotAnywhere,
   recallLotLocal,
   releaseLotAnywhere,
   releaseLotLocal,
+  sellableStockForBranch,
   stockByBranch,
   stockBranchSummary,
+  stockByBranchForProduct,
   summarizeLotsByBranch,
+  totalSellableStock,
   updateLotNoteLocal,
   validateLot,
 } from "./lot-store";
@@ -576,5 +581,191 @@ describe("listMovementsByProduct (modo local)", () => {
     });
     const moves = listMovementsByProduct(PID);
     expect(moves.every((m) => m.productId === PID)).toBe(true);
+  });
+});
+
+// ─── Helpers puros de stock por sucursal ─────────────────────────────────────
+
+function makeLot(overrides: Partial<{
+  id: string;
+  branchId: string;
+  productId: string;
+  currentQuantity: number;
+  status: "available" | "quarantine" | "recalled";
+  expiresAt: string;
+}> = {}): import("@/types").ProductLot {
+  return {
+    id: overrides.id ?? "lot_x",
+    businessId: "biz_1",
+    branchId: overrides.branchId ?? "br_santiago",
+    productId: overrides.productId ?? PID,
+    warehouseId: "wh_1",
+    lotNumber: overrides.id ?? "L1",
+    expiresAt: overrides.expiresAt ?? future(200),
+    receivedAt: new Date().toISOString(),
+    initialQuantity: overrides.currentQuantity ?? 10,
+    currentQuantity: overrides.currentQuantity ?? 10,
+    unitCost: 0,
+    status: overrides.status ?? "available",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+describe("sellableStockForBranch", () => {
+  it("devuelve 0 si no hay lotes en esa sucursal", () => {
+    const lots = [makeLot({ branchId: "br_sd_naco", currentQuantity: 10 })];
+    expect(sellableStockForBranch(lots, PID, "br_santiago")).toBe(0);
+  });
+
+  it("suma el stock vendible de la sucursal correcta", () => {
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 5 }),
+      makeLot({ id: "b", branchId: "br_santiago", currentQuantity: 7 }),
+      makeLot({ id: "c", branchId: "br_sd_naco", currentQuantity: 20 }),
+    ];
+    expect(sellableStockForBranch(lots, PID, "br_santiago")).toBe(12);
+  });
+
+  it("excluye lotes vencidos", () => {
+    const past = new Date();
+    past.setDate(past.getDate() - 1);
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 5, expiresAt: past.toISOString() }),
+      makeLot({ id: "b", branchId: "br_santiago", currentQuantity: 3 }),
+    ];
+    expect(sellableStockForBranch(lots, PID, "br_santiago")).toBe(3);
+  });
+
+  it("excluye lotes en cuarentena", () => {
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 10, status: "quarantine" }),
+      makeLot({ id: "b", branchId: "br_santiago", currentQuantity: 4 }),
+    ];
+    expect(sellableStockForBranch(lots, PID, "br_santiago")).toBe(4);
+  });
+
+  it("excluye lotes en recall", () => {
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 10, status: "recalled" }),
+    ];
+    expect(sellableStockForBranch(lots, PID, "br_santiago")).toBe(0);
+  });
+
+  it("excluye lotes con cantidad 0", () => {
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 0 }),
+      makeLot({ id: "b", branchId: "br_santiago", currentQuantity: 6 }),
+    ];
+    expect(sellableStockForBranch(lots, PID, "br_santiago")).toBe(6);
+  });
+});
+
+describe("totalSellableStock", () => {
+  it("suma solo sucursales activas", () => {
+    const activeBranchIds = new Set(["br_santiago"]);
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 8 }),
+      makeLot({ id: "b", branchId: "br_sd_naco", currentQuantity: 5 }),
+    ];
+    expect(totalSellableStock(lots, PID, activeBranchIds)).toBe(8);
+  });
+
+  it("suma todas las sucursales activas si hay varias", () => {
+    const activeBranchIds = new Set(["br_santiago", "br_sd_naco"]);
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 8 }),
+      makeLot({ id: "b", branchId: "br_sd_naco", currentQuantity: 5 }),
+    ];
+    expect(totalSellableStock(lots, PID, activeBranchIds)).toBe(13);
+  });
+
+  it("devuelve 0 si no hay sucursales activas", () => {
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 10 })];
+    expect(totalSellableStock(lots, PID, new Set())).toBe(0);
+  });
+});
+
+describe("nextFefoLotForBranch", () => {
+  it("devuelve el lote vendible más próximo a vencer", () => {
+    const lots = [
+      makeLot({ id: "far", branchId: "br_santiago", currentQuantity: 3, expiresAt: future(200) }),
+      makeLot({ id: "near", branchId: "br_santiago", currentQuantity: 2, expiresAt: future(45) }),
+    ];
+    const lot = nextFefoLotForBranch(lots, PID, "br_santiago");
+    expect(lot?.id).toBe("near");
+  });
+
+  it("devuelve null si no hay lotes vendibles en esa sucursal", () => {
+    const past = new Date(); past.setDate(past.getDate() - 1);
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 5, expiresAt: past.toISOString() }),
+    ];
+    expect(nextFefoLotForBranch(lots, PID, "br_santiago")).toBeNull();
+  });
+
+  it("devuelve null si la sucursal no tiene lotes", () => {
+    const lots = [makeLot({ branchId: "br_sd_naco", currentQuantity: 5 })];
+    expect(nextFefoLotForBranch(lots, PID, "br_santiago")).toBeNull();
+  });
+});
+
+describe("lotBlockReason", () => {
+  it("devuelve null si hay lote vendible", () => {
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 5 })];
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBeNull();
+  });
+
+  it("devuelve 'no-lot' si no hay lotes en la sucursal", () => {
+    const lots = [makeLot({ branchId: "br_sd_naco", currentQuantity: 5 })];
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("no-lot");
+  });
+
+  it("devuelve 'expired' si el único lote está vencido", () => {
+    const past = new Date(); past.setDate(past.getDate() - 1);
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 5, expiresAt: past.toISOString() })];
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("expired");
+  });
+
+  it("devuelve 'quarantine' si el lote está en cuarentena (y no vencido)", () => {
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 5, status: "quarantine" })];
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("quarantine");
+  });
+
+  it("devuelve 'recall' si el lote está en recall (y no vencido)", () => {
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 5, status: "recalled" })];
+    expect(lotBlockReason(lots, PID, "br_santiago")).toBe("recall");
+  });
+
+  it("devuelve 'inactive-branch' si la sucursal no está en activeBranchIds", () => {
+    const lots = [makeLot({ branchId: "br_santiago", currentQuantity: 5 })];
+    expect(lotBlockReason(lots, PID, "br_santiago", new Set())).toBe("inactive-branch");
+  });
+});
+
+describe("stockByBranchForProduct", () => {
+  it("agrupa por sucursal con available correcto", () => {
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 5 }),
+      makeLot({ id: "b", branchId: "br_santiago", currentQuantity: 3 }),
+      makeLot({ id: "c", branchId: "br_sd_naco", currentQuantity: 7 }),
+    ];
+    const rows = stockByBranchForProduct(lots, PID);
+    const stg = rows.find((r) => r.branchId === "br_santiago")!;
+    const naco = rows.find((r) => r.branchId === "br_sd_naco")!;
+    expect(stg.available).toBe(8);
+    expect(naco.available).toBe(7);
+  });
+
+  it("cuenta lotes vencidos separado de los disponibles", () => {
+    const past = new Date(); past.setDate(past.getDate() - 1);
+    const lots = [
+      makeLot({ id: "a", branchId: "br_santiago", currentQuantity: 5 }),
+      makeLot({ id: "b", branchId: "br_santiago", currentQuantity: 3, expiresAt: past.toISOString() }),
+    ];
+    const rows = stockByBranchForProduct(lots, PID);
+    const stg = rows.find((r) => r.branchId === "br_santiago")!;
+    expect(stg.available).toBe(5);
+    expect(stg.expired).toBe(1);
   });
 });

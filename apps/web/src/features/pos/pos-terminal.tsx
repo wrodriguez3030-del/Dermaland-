@@ -12,13 +12,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileText,
+  MapPin,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
 import {
   getProductById,
-  selectFefoLot,
-  totalStockForProduct,
 } from "@/lib/mock-data/catalog";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
@@ -41,6 +40,20 @@ import {
 } from "./components/charge-sale-modal";
 import { primaryPaymentMethod } from "./payment-validation";
 import { useToast } from "@/components/ui/toast";
+import {
+  useAllLots,
+  sellableStockForBranch,
+  totalSellableStock,
+  nextFefoLotForBranch,
+  lotBlockReason,
+  stockByBranchForProduct,
+  type LotBlockReason,
+} from "@/features/inventory/lot-store";
+import {
+  useCurrentBranch,
+  listActiveBranchIds,
+  resolveBranchName,
+} from "@/features/tenancy/branch-store";
 
 interface CartLine {
   productId: string;
@@ -53,6 +66,72 @@ interface CartLine {
   itbisRate: number;
   quantity: number;
   discount: number;
+  /** Stock vendible en la sucursal al momento de agregar al carrito. */
+  maxStock: number;
+}
+
+function blockReasonLabel(reason: LotBlockReason): string {
+  switch (reason) {
+    case "expired": return "Lote vencido";
+    case "quarantine": return "Lote en cuarentena";
+    case "recall": return "Lote en recall";
+    case "inactive-branch": return "Sucursal inactiva";
+    case "no-lot": return "Sin lote disponible";
+  }
+}
+
+/** Modal simple de stock por sucursal */
+function BranchStockModal({
+  open,
+  productName,
+  rows,
+  onClose,
+}: {
+  open: boolean;
+  productName: string;
+  rows: { branchId: string; available: number; lots: number; soon: number; expired: number }[];
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Stock por sucursal — {productName}</h3>
+          <button onClick={onClose} className="opacity-60 hover:opacity-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left text-xs opacity-60">
+              <th className="pb-2 font-medium">Sucursal</th>
+              <th className="pb-2 text-right font-medium">Disponible</th>
+              <th className="pb-2 text-right font-medium">Lotes</th>
+              <th className="pb-2 text-right font-medium">Por vencer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.branchId} className="border-b last:border-0">
+                <td className="py-2 font-medium">{resolveBranchName(r.branchId)}</td>
+                <td className={`py-2 text-right tabular-nums font-semibold ${r.available > 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                  {r.available}
+                </td>
+                <td className="py-2 text-right tabular-nums opacity-70">{r.lots}</td>
+                <td className={`py-2 text-right tabular-nums ${r.soon > 0 ? "text-amber-700" : "opacity-40"}`}>
+                  {r.soon > 0 ? r.soon : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <Button size="sm" variant="outline" className="mt-4 w-full" onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export function PosTerminal() {
@@ -73,6 +152,20 @@ export function PosTerminal() {
     documentLabel: string;
   } | null>(null);
   const [warning, setWarning] = React.useState<string | null>(null);
+  const [branchStockModal, setBranchStockModal] = React.useState<{
+    productId: string;
+    productName: string;
+  } | null>(null);
+
+  // ── Sucursal actual ────────────────────────────────────────────────────────
+  const { branchId: rawBranchId, branches } = useCurrentBranch();
+  // Si aún no se resolvió la sucursal (hydration), usar la primera activa.
+  const branchId = rawBranchId || branches[0]?.id || "";
+  const branchName = branches.find((b) => b.id === branchId)?.name ?? branchId;
+
+  // ── Lotes reactivos (Supabase o local según NEXT_PUBLIC_DATA_SOURCE) ──────
+  const lots = useAllLots();
+  const activeBranchIds = React.useMemo(() => listActiveBranchIds(), []);
 
   // Cuando se selecciona un cliente, preseleccionar su tipo de facturación
   // por defecto (consumo / credito_fiscal). Si no se especifica → consumo.
@@ -111,11 +204,6 @@ export function PosTerminal() {
         l.quantity,
     0,
   );
-  // Descuento global como % sobre el subtotal pre-ITBIS.
-  // El ITBIS se recalcula proporcionalmente sobre la base imponible
-  // descontada (taxableBase) — mantiene el ratio por línea aunque haya
-  // mezcla de tasas (0/16/18%). En producción validar contra reglas DGII
-  // (R-POS-01).
   const safePct = Math.min(100, Math.max(0, discountGlobalPercent));
   const globalDiscountAmount = subtotal * (safePct / 100);
   const taxableBase = Math.max(0, subtotal - globalDiscountAmount);
@@ -130,15 +218,57 @@ export function PosTerminal() {
       !customer.documentNumber ||
       customer.documentType !== "rnc");
 
-  const canCharge = cart.length > 0 && !creditFiscalNeedsRnc;
+  // ── Validación de carrito para Facturar ───────────────────────────────────
+  // Calcula la razón de bloqueo del botón Facturar (mensaje claro).
+  const chargeBlockReason = React.useMemo((): string | null => {
+    if (cart.length === 0) return "El carrito está vacío.";
+    if (creditFiscalNeedsRnc)
+      return "Crédito fiscal requiere un cliente con RNC válido.";
+    // Verificar cada línea del carrito.
+    for (const line of cart) {
+      const currentStock = sellableStockForBranch(lots, line.productId, branchId);
+      if (line.quantity > currentStock) {
+        return `No puedes facturar: la cantidad de "${line.productName}" supera el stock disponible en ${branchName} (disponible: ${currentStock}).`;
+      }
+      const block = lotBlockReason(lots, line.productId, branchId, activeBranchIds);
+      if (block) {
+        return `No puedes facturar: "${line.productName}" — ${blockReasonLabel(block)}.`;
+      }
+    }
+    return null;
+  }, [cart, creditFiscalNeedsRnc, lots, branchId, branchName, activeBranchIds]);
+
+  const canCharge = chargeBlockReason === null;
 
   const addProduct = (productId: string) => {
+    if (!branchId) {
+      toast.error("No hay sucursal seleccionada.");
+      return;
+    }
     const product = getProductById(productId);
     if (!product) return;
-    const lot = selectFefoLot(productId);
+
+    const lot = nextFefoLotForBranch(lots, productId, branchId);
     if (!lot) {
-      setWarning(`${product.name} sin stock disponible`);
-      setTimeout(() => setWarning(null), 2500);
+      // No hay lote vendible en esta sucursal — mostrar causa y stock en otras.
+      const totalStock = totalSellableStock(lots, productId, activeBranchIds);
+      if (totalStock > 0) {
+        const otherRows = stockByBranchForProduct(lots, productId)
+          .filter((r) => r.branchId !== branchId && r.available > 0 && activeBranchIds.has(r.branchId));
+        const otherList = otherRows
+          .map((r) => `${resolveBranchName(r.branchId)} (${r.available})`)
+          .join(", ");
+        toast.error(
+          `Este producto no tiene stock disponible en ${branchName}. Disponible en: ${otherList}.`,
+        );
+      } else {
+        const block = lotBlockReason(lots, productId, branchId, activeBranchIds);
+        if (block && block !== "no-lot") {
+          toast.error(`${product.name}: ${blockReasonLabel(block)} — bloqueado para venta.`);
+        } else {
+          toast.error(`${product.name}: Producto agotado.`);
+        }
+      }
       return;
     }
 
@@ -149,11 +279,19 @@ export function PosTerminal() {
       return;
     }
 
+    const stockInBranch = sellableStockForBranch(lots, productId, branchId);
+
     setCart((prev) => {
       const ix = prev.findIndex((l) => l.lotId === lot.id);
       if (ix >= 0) {
         const next = [...prev];
-        next[ix] = { ...next[ix]!, quantity: next[ix]!.quantity + 1 };
+        const line = next[ix]!;
+        const newQty = line.quantity + 1;
+        if (newQty > stockInBranch) {
+          toast.error(`Solo hay ${stockInBranch} unidades disponibles en ${branchName}.`);
+          return prev;
+        }
+        next[ix] = { ...line, quantity: newQty, maxStock: stockInBranch };
         return next;
       }
       return [
@@ -169,16 +307,24 @@ export function PosTerminal() {
           itbisRate: product.itbisRate,
           quantity: 1,
           discount: 0,
+          maxStock: stockInBranch,
         },
       ];
     });
     setSearch("");
   };
 
-  const updateQty = (lotId: string, delta: number) => {
+  const updateQty = (lotId: string, newQty: number) => {
     setCart((prev) =>
       prev
-        .map((l) => (l.lotId === lotId ? { ...l, quantity: l.quantity + delta } : l))
+        .map((l) => {
+          if (l.lotId !== lotId) return l;
+          if (newQty > l.maxStock) {
+            toast.error(`Solo hay ${l.maxStock} unidades disponibles en ${branchName}.`);
+            return { ...l, quantity: l.maxStock };
+          }
+          return { ...l, quantity: newQty };
+        })
         .filter((l) => l.quantity > 0),
     );
   };
@@ -187,7 +333,10 @@ export function PosTerminal() {
     setCart((prev) => prev.filter((l) => l.lotId !== lotId));
 
   const finalizeCharge = async (result: ChargeSaleResult) => {
-    if (!canCharge) return;
+    if (!canCharge) {
+      toast.error(chargeBlockReason ?? "No se puede facturar.");
+      return;
+    }
 
     const number = generateProformaNumber();
     const id = generateProformaId();
@@ -195,8 +344,6 @@ export function PosTerminal() {
     const amountReceived = result.amountReceived;
     const changeAmount = result.changeAmount;
     const paidTotal = result.payments.reduce((s, p) => s + p.amount, 0);
-    // El método primario decide el documento a emitir (en pago dividido se
-    // prioriza tarjeta → factura e-CF de consumo). Lógica fiscal MVP intacta.
     const primaryMethod = primaryPaymentMethod(result.payments);
     const resolved = resolveDocumentToIssue({
       billingType,
@@ -206,7 +353,7 @@ export function PosTerminal() {
     const newProforma: Proforma = {
       id,
       businessId: "biz_dermaland",
-      branchId: "br_santiago",
+      branchId,
       number,
       customerId: customer?.id,
       customerName: customer
@@ -262,10 +409,6 @@ export function PosTerminal() {
       updatedAt: now,
     };
 
-    // C3: Persistir proforma — esperamos el resultado antes de actualizar la UI.
-    // Si falla, mostramos error y NO limpiamos el carrito (la venta no se perdió).
-    // Descuento de stock: en modo local el POS no descuenta stock (simulado).
-    // En modo supabase el descuento de stock queda pendiente (ver reporte).
     const res = await createProformaAnywhere(newProforma);
     if (!res.ok) {
       toast.error(
@@ -313,6 +456,13 @@ export function PosTerminal() {
           </Button>
         </div>
 
+        {branchId && (
+          <div className="mx-4 mt-3 flex items-center gap-1.5 text-xs text-black/50">
+            <MapPin className="h-3 w-3" />
+            <span>Sucursal: <strong className="text-black/70">{branchName}</strong></span>
+          </div>
+        )}
+
         {warning && (
           <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             <AlertTriangle className="h-4 w-4" /> {warning}
@@ -321,14 +471,31 @@ export function PosTerminal() {
 
         <div className="grid flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filtered.map((p) => {
-            const stock = totalStockForProduct(p.id);
-            const lot = selectFefoLot(p.id);
-            const outOfStock = stock === 0;
+            const stockHere = branchId
+              ? sellableStockForBranch(lots, p.id, branchId)
+              : 0;
+            const totalStock = totalSellableStock(lots, p.id, activeBranchIds);
+            const lot = branchId
+              ? nextFefoLotForBranch(lots, p.id, branchId)
+              : null;
+            const outOfStockHere = stockHere === 0;
+            const availableElsewhere = outOfStockHere && totalStock > 0;
+            const fullyOut = totalStock === 0;
+            const block = outOfStockHere
+              ? lotBlockReason(lots, p.id, branchId, activeBranchIds)
+              : null;
+
             return (
               <button
                 key={p.id}
-                onClick={() => addProduct(p.id)}
-                disabled={outOfStock}
+                onClick={() => {
+                  if (availableElsewhere) {
+                    setBranchStockModal({ productId: p.id, productName: p.name });
+                  } else {
+                    addProduct(p.id);
+                  }
+                }}
+                disabled={fullyOut && !availableElsewhere}
                 className="group relative flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white text-left transition hover:border-[color:var(--brand-primary)] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label={`Agregar ${p.name}`}
               >
@@ -341,26 +508,42 @@ export function PosTerminal() {
                     rounded="md"
                     className="!h-full !w-full !rounded-none border-0 bg-transparent"
                   />
+                  {/* Badge de stock en esta sucursal */}
                   <span
                     className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      outOfStock
-                        ? "bg-rose-600 text-white"
-                        : stock <= p.minStock
+                      outOfStockHere
+                        ? availableElsewhere
+                          ? "bg-amber-500 text-black"
+                          : "bg-rose-600 text-white"
+                        : stockHere <= p.minStock
                           ? "bg-amber-500 text-black"
                           : "bg-emerald-600 text-white"
                     }`}
                   >
-                    {outOfStock ? "Agotado" : `${stock} unid.`}
+                    {outOfStockHere
+                      ? availableElsewhere
+                        ? "Otra sucursal"
+                        : block && block !== "no-lot"
+                          ? blockReasonLabel(block)
+                          : "Agotado"
+                      : `Disponible aquí: ${stockHere} unid.`}
                   </span>
-                  {lot && !outOfStock && daysUntil(lot.expiresAt) < 90 && (
+                  {lot && !outOfStockHere && daysUntil(lot.expiresAt) < 90 && (
                     <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-black">
                       FEFO
                     </span>
                   )}
-                  {outOfStock && (
+                  {outOfStockHere && !availableElsewhere && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                       <span className="rounded-md bg-rose-600 px-3 py-1 text-xs font-bold text-white">
-                        AGOTADO
+                        {fullyOut ? "Agotado" : block && block !== "no-lot" ? blockReasonLabel(block) : "Agotado en esta sucursal"}
+                      </span>
+                    </div>
+                  )}
+                  {availableElsewhere && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <span className="rounded-md bg-amber-500 px-2 py-1 text-[10px] font-bold text-black">
+                        Ver stock por sucursal
                       </span>
                     </div>
                   )}
@@ -375,7 +558,17 @@ export function PosTerminal() {
                   <div className="mt-auto pt-2 text-base font-semibold tabular-nums">
                     {formatCurrency(p.price)}
                   </div>
-                  {lot && !outOfStock && (
+                  {outOfStockHere && availableElsewhere && (
+                    <div className="text-[10px] text-amber-700">
+                      Disponible en otra sucursal
+                    </div>
+                  )}
+                  {outOfStockHere && fullyOut && (
+                    <div className="text-[10px] text-rose-600">
+                      Producto agotado.
+                    </div>
+                  )}
+                  {!outOfStockHere && lot && (
                     <div className="text-[10px] opacity-60">
                       Lote {lot.lotNumber} · vence {formatDate(lot.expiresAt)}
                     </div>
@@ -521,54 +714,70 @@ export function PosTerminal() {
             </div>
           )}
           <ul className="divide-y divide-black/5">
-            {cart.map((l) => (
-              <li key={l.lotId} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium leading-tight">
-                      {l.productName}
+            {cart.map((l) => {
+              const currentStock = sellableStockForBranch(lots, l.productId, branchId);
+              return (
+                <li key={l.lotId} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium leading-tight">
+                        {l.productName}
+                      </div>
+                      <div className="mt-0.5 font-mono text-[10px] opacity-60">
+                        Lote {l.lotNumber} · vence {formatDate(l.expiresAt)}
+                      </div>
+                      <div className="mt-1 text-xs opacity-70">
+                        {formatCurrency(l.unitPrice)} c/u · ITBIS {l.itbisRate}%
+                      </div>
+                      <div className="text-[10px] opacity-50">
+                        Disponible: {currentStock} unid.
+                      </div>
                     </div>
-                    <div className="mt-0.5 font-mono text-[10px] opacity-60">
-                      Lote {l.lotNumber} · vence {formatDate(l.expiresAt)}
-                    </div>
-                    <div className="mt-1 text-xs opacity-70">
-                      {formatCurrency(l.unitPrice)} c/u · ITBIS {l.itbisRate}%
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1 rounded-lg border border-black/10">
+                        <button
+                          onClick={() => updateQty(l.lotId, l.quantity - 1)}
+                          className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04]"
+                          aria-label="Disminuir cantidad"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          max={currentStock}
+                          value={l.quantity}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (!isNaN(v) && v >= 1) updateQty(l.lotId, v);
+                          }}
+                          className="w-10 bg-transparent text-center text-sm font-semibold tabular-nums outline-none"
+                          aria-label="Cantidad"
+                        />
+                        <button
+                          onClick={() => updateQty(l.lotId, l.quantity + 1)}
+                          disabled={l.quantity >= currentStock}
+                          className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04] disabled:opacity-30"
+                          aria-label="Aumentar cantidad"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="text-sm font-semibold tabular-nums">
+                        {formatCurrency(l.unitPrice * l.quantity)}
+                      </div>
+                      <button
+                        onClick={() => removeLine(l.lotId)}
+                        className="text-rose-600 hover:text-rose-800"
+                        aria-label="Quitar línea"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-1 rounded-lg border border-black/10">
-                      <button
-                        onClick={() => updateQty(l.lotId, -1)}
-                        className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04]"
-                        aria-label="Disminuir cantidad"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-8 text-center text-sm font-semibold tabular-nums">
-                        {l.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQty(l.lotId, 1)}
-                        className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04]"
-                        aria-label="Aumentar cantidad"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <div className="text-sm font-semibold tabular-nums">
-                      {formatCurrency(l.unitPrice * l.quantity)}
-                    </div>
-                    <button
-                      onClick={() => removeLine(l.lotId)}
-                      className="text-rose-600 hover:text-rose-800"
-                      aria-label="Quitar línea"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -621,14 +830,20 @@ export function PosTerminal() {
             <Button
               className="mt-4 w-full"
               size="lg"
-              onClick={() => setChargeOpen(true)}
+              onClick={() => {
+                if (!canCharge) {
+                  toast.error(chargeBlockReason ?? "No se puede facturar.");
+                  return;
+                }
+                setChargeOpen(true);
+              }}
               disabled={!canCharge}
             >
               Cobrar venta
             </Button>
-            {creditFiscalNeedsRnc && (
-              <p className="mt-1 text-center text-[11px] text-black/50">
-                Cliente sin RNC para crédito fiscal.
+            {!canCharge && chargeBlockReason && (
+              <p className="mt-1 text-center text-[11px] text-rose-600">
+                {chargeBlockReason}
               </p>
             )}
           </div>
@@ -645,6 +860,18 @@ export function PosTerminal() {
         onConfirm={finalizeCharge}
       />
       <toast.Toast />
+
+      {/* Modal de stock por sucursal */}
+      {branchStockModal && (
+        <BranchStockModal
+          open={true}
+          productName={branchStockModal.productName}
+          rows={stockByBranchForProduct(lots, branchStockModal.productId).filter(
+            (r) => activeBranchIds.has(r.branchId),
+          )}
+          onClose={() => setBranchStockModal(null)}
+        />
+      )}
     </div>
   );
 }

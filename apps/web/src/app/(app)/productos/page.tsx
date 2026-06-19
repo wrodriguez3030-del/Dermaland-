@@ -35,7 +35,16 @@ import {
   mockBrands,
   mockCategories,
 } from "@/lib/mock-data/catalog";
-import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
+import {
+  useAllLots,
+  useInventoryTick,
+  sellableStockForBranch,
+  totalSellableStock,
+} from "@/features/inventory/lot-store";
+import {
+  useCurrentBranch,
+  listActiveBranchIds,
+} from "@/features/tenancy/branch-store";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
 
@@ -62,7 +71,10 @@ const PAGE_SIZE = 50;
 export default function ProductosPage() {
   const products = useProducts();
   const toast = useToast();
-  const tick = useInventoryTick(); // refleja cambios de stock por lotes
+  const tick = useInventoryTick(); // refleja cambios de stock por lotes (modo local)
+  const lots = useAllLots();
+  const { branchId } = useCurrentBranch();
+  const activeBranchIds = React.useMemo(() => listActiveBranchIds(), []);
 
   const [q, setQ] = React.useState("");
   const [brand, setBrand] = React.useState("");
@@ -70,16 +82,16 @@ export default function ProductosPage() {
   const [status, setStatus] = React.useState<StatusFilter>("all");
   const [page, setPage] = React.useState(0);
 
-  // Mapa de stock disponible por producto (un solo recorrido de lotes).
+  // Mapa de stock total vendible por producto (todas las sucursales activas).
+  // Se recalcula cuando cambian los lotes (tick en modo local, lista en modo supabase).
   const stockMap = React.useMemo(() => {
     const m = new Map<string, number>();
-    for (const lot of listAllLots()) {
-      if (lot.status !== "available") continue;
-      m.set(lot.productId, (m.get(lot.productId) ?? 0) + lot.currentQuantity);
+    for (const pid of [...new Set(lots.map((l) => l.productId))]) {
+      m.set(pid, totalSellableStock(lots, pid, activeBranchIds));
     }
     return m;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick]);
+  }, [lots, tick, activeBranchIds]);
   // Sincronizar el lookup que usan los comparadores.
   stockLookup.clear();
   stockMap.forEach((v, k) => stockLookup.set(k, v));
@@ -269,7 +281,11 @@ export default function ProductosPage() {
             const brandObj = getBrandById(p.brandId);
             const category = getCategoryById(p.categoryId);
             const stock = stockMap.get(p.id) ?? 0;
+            const stockHere = branchId
+              ? sellableStockForBranch(lots, p.id, branchId)
+              : stock;
             const lowStock = stock <= p.minStock;
+            const noStockHere = branchId && stockHere === 0 && stock > 0;
             return (
               <TR key={p.id}>
                 <TD>
@@ -306,10 +322,17 @@ export default function ProductosPage() {
                   </span>
                 </TD>
                 <TD className="text-right tabular-nums">
-                  <span className={lowStock ? "text-amber-700 font-semibold" : ""}>
-                    {stock}
-                  </span>
-                  <span className="text-xs opacity-50"> / mín {p.minStock}</span>
+                  <div>
+                    <span className={lowStock ? "text-amber-700 font-semibold" : ""}>
+                      {stock}
+                    </span>
+                    <span className="text-xs opacity-50"> total · mín {p.minStock}</span>
+                  </div>
+                  {branchId && (
+                    <div className={`text-xs ${noStockHere ? "text-rose-600 font-medium" : "opacity-60"}`}>
+                      {stockHere} en esta sucursal
+                    </div>
+                  )}
                 </TD>
                 <TD className="text-right tabular-nums">
                   {formatCurrency(p.price)}
@@ -322,6 +345,7 @@ export default function ProductosPage() {
                       <Badge tone="neutral">Inactivo</Badge>
                     )}
                     {lowStock && <Badge tone="warning">Bajo stock</Badge>}
+                    {noStockHere && <Badge tone="danger">Sin stock en esta sucursal</Badge>}
                     {p.requiresPrescription && (
                       <Badge tone="purple">Receta</Badge>
                     )}

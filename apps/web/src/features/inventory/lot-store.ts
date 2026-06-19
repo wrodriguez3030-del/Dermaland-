@@ -821,3 +821,138 @@ export function summarizeLotsByBranch(lots: ProductLot[]): BranchStockSummary[] 
   }
   return [...map.values()];
 }
+
+// ─── Helpers PUROS de stock por sucursal (única fuente para POS y Productos) ──
+//
+// Estas funciones reciben los lotes ya cargados (de `useAllLots()`) para que
+// funcionen igual con datos de Supabase o locales, sin tocar el store interno.
+// Un lote es VENDIBLE en una sucursal si:
+//   - productId coincide
+//   - branchId === sucursal pedida
+//   - currentQuantity > 0
+//   - status === "available" (NO quarantine/recalled)
+//   - no está vencido (expiryStatus !== "expired")
+
+/** ¿Es este lote vendible (disponible para venta)? */
+function isLotSellable(lot: ProductLot): boolean {
+  return (
+    lot.currentQuantity > 0 &&
+    lot.status === "available" &&
+    expiryStatus(lot.expiresAt) !== "expired"
+  );
+}
+
+/**
+ * Stock vendible de un producto en una sucursal concreta.
+ * Suma todos los lotes vendibles de esa sucursal.
+ */
+export function sellableStockForBranch(
+  lots: ProductLot[],
+  productId: string,
+  branchId: string,
+): number {
+  return lots
+    .filter((l) => l.productId === productId && l.branchId === branchId && isLotSellable(l))
+    .reduce((s, l) => s + l.currentQuantity, 0);
+}
+
+/**
+ * Stock vendible total de un producto sumando todas las sucursales activas.
+ * `activeBranchIds` filtra solo sucursales en operación (excluye inactivas).
+ */
+export function totalSellableStock(
+  lots: ProductLot[],
+  productId: string,
+  activeBranchIds: Set<string>,
+): number {
+  return lots
+    .filter(
+      (l) =>
+        l.productId === productId &&
+        activeBranchIds.has(l.branchId) &&
+        isLotSellable(l),
+    )
+    .reduce((s, l) => s + l.currentQuantity, 0);
+}
+
+export interface BranchStockRow {
+  branchId: string;
+  available: number;
+  lots: number;
+  soon: number;
+  expired: number;
+}
+
+/**
+ * Resumen de stock por sucursal de un producto (solo sucursales que tienen lotes).
+ * `available` = suma vendible; `soon` = lotes próximos a vencer; `expired` = vencidos.
+ */
+export function stockByBranchForProduct(
+  lots: ProductLot[],
+  productId: string,
+): BranchStockRow[] {
+  const map = new Map<string, BranchStockRow>();
+  for (const lot of lots.filter((l) => l.productId === productId)) {
+    let row = map.get(lot.branchId);
+    if (!row) {
+      row = { branchId: lot.branchId, available: 0, lots: 0, soon: 0, expired: 0 };
+      map.set(lot.branchId, row);
+    }
+    row.lots += 1;
+    if (isLotSellable(lot)) row.available += lot.currentQuantity;
+    const st = expiryStatus(lot.expiresAt);
+    if (st === "expired") row.expired += 1;
+    else if (st === "soon") row.soon += 1;
+  }
+  return [...map.values()];
+}
+
+/**
+ * Próximo lote vendible FEFO (el más próximo a vencer) de un producto en una sucursal.
+ * Retorna `null` si no hay lote vendible en esa sucursal.
+ */
+export function nextFefoLotForBranch(
+  lots: ProductLot[],
+  productId: string,
+  branchId: string,
+): ProductLot | null {
+  const candidates = lots
+    .filter((l) => l.productId === productId && l.branchId === branchId && isLotSellable(l))
+    .sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime());
+  return candidates[0] ?? null;
+}
+
+export type LotBlockReason =
+  | "expired"
+  | "quarantine"
+  | "recall"
+  | "no-lot"
+  | "inactive-branch";
+
+/**
+ * Por qué no se puede vender un producto en una sucursal.
+ * Retorna `null` si hay al menos un lote vendible.
+ */
+export function lotBlockReason(
+  lots: ProductLot[],
+  productId: string,
+  branchId: string,
+  activeBranchIds?: Set<string>,
+): LotBlockReason | null {
+  if (activeBranchIds && !activeBranchIds.has(branchId)) {
+    return "inactive-branch";
+  }
+  const productLots = lots.filter(
+    (l) => l.productId === productId && l.branchId === branchId,
+  );
+  if (productLots.length === 0) return "no-lot";
+
+  // Si hay alguno vendible → no hay bloqueo.
+  if (productLots.some(isLotSellable)) return null;
+
+  // Clasificar el bloqueo más relevante.
+  if (productLots.some((l) => expiryStatus(l.expiresAt) === "expired")) return "expired";
+  if (productLots.some((l) => l.status === "quarantine")) return "quarantine";
+  if (productLots.some((l) => l.status === "recalled")) return "recall";
+  return "no-lot";
+}
