@@ -890,3 +890,202 @@ describe("stockByBranchForProduct", () => {
     expect(stg.expired).toBe(1);
   });
 });
+
+// ─── Tests Tarea 5: Flujo completo ISDIN + descuento de stock ─────────────────
+
+describe("Flujo completo: agregar stock → POS ve stock → vender → baja (caso ISDIN)", () => {
+  const ISDIN_ID = "prod_isdin_test";
+  const BR_NACO = "br_sd_naco";
+  const BR_STG = "br_santiago";
+
+  it("T5.1: agregar stock crea lote vendible para la sucursal elegida", async () => {
+    const r = await addLotAnywhere({
+      productId: ISDIN_ID,
+      branchId: BR_NACO,
+      warehouseId: "wh_naco_main",
+      lotNumber: "ISDIN-001",
+      initialQuantity: 10,
+      expiresAt: future(365),
+      unitCost: 1500,
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const lots = listAllLots();
+    expect(sellableStockForBranch(lots, ISDIN_ID, BR_NACO)).toBe(10);
+  });
+
+  it("T5.2: POS ve el stock agregado en esa sucursal", async () => {
+    const r = await addLotAnywhere({
+      productId: ISDIN_ID,
+      branchId: BR_NACO,
+      warehouseId: "wh_naco_main",
+      lotNumber: "ISDIN-002",
+      initialQuantity: 10,
+      expiresAt: future(365),
+    });
+    expect(r.ok).toBe(true);
+    const lots = listAllLots();
+    expect(sellableStockForBranch(lots, ISDIN_ID, BR_NACO)).toBeGreaterThan(0);
+    const lot = nextFefoLotForBranch(lots, ISDIN_ID, BR_NACO);
+    expect(lot).not.toBeNull();
+  });
+
+  it("T5.3: stock de otra sucursal NO se ve como disponible en la sucursal actual", async () => {
+    const r = await addLotAnywhere({
+      productId: ISDIN_ID,
+      branchId: BR_NACO,
+      warehouseId: "wh_naco_main",
+      lotNumber: "ISDIN-003",
+      initialQuantity: 10,
+      expiresAt: future(365),
+    });
+    expect(r.ok).toBe(true);
+    const lots = listAllLots();
+    // En Santiago no hay stock de ISDIN (solo en Naco)
+    expect(sellableStockForBranch(lots, ISDIN_ID, BR_STG)).toBe(0);
+    // El bloqueo es "no-lot" en Santiago
+    expect(lotBlockReason(lots, ISDIN_ID, BR_STG)).toBe("no-lot");
+  });
+
+  it("T5.4: listado muestra 'aquí' vs 'total' por separado (helpers)", async () => {
+    const r1 = await addLotAnywhere({
+      productId: ISDIN_ID,
+      branchId: BR_NACO,
+      warehouseId: "wh_naco_main",
+      lotNumber: "ISDIN-004A",
+      initialQuantity: 10,
+      expiresAt: future(365),
+    });
+    const r2 = await addLotAnywhere({
+      productId: ISDIN_ID,
+      branchId: BR_STG,
+      warehouseId: "wh_stg_main",
+      lotNumber: "ISDIN-004B",
+      initialQuantity: 5,
+      expiresAt: future(365),
+    });
+    expect(r1.ok).toBe(true);
+    expect(r2.ok).toBe(true);
+    const lots = listAllLots();
+    const activeBranchIds = new Set([BR_NACO, BR_STG]);
+    const aquiNaco = sellableStockForBranch(lots, ISDIN_ID, BR_NACO);
+    const total = totalSellableStock(lots, ISDIN_ID, activeBranchIds);
+    expect(aquiNaco).toBe(10);
+    expect(total).toBe(15); // 10 + 5
+  });
+
+  it("T5.5: vender DESCUENTA stock (FEFO; currentQuantity baja)", async () => {
+    // Agregar 10 unidades en BR_NACO
+    const r = await addLotAnywhere({
+      productId: ISDIN_ID,
+      branchId: BR_NACO,
+      warehouseId: "wh_naco_main",
+      lotNumber: "ISDIN-005",
+      initialQuantity: 10,
+      expiresAt: future(365),
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const lotId = r.lot.id;
+
+    // Simular descuento de 1 unidad (como hace el POS al facturar)
+    const lots = listAllLots();
+    const lot = lots.find((l) => l.id === lotId);
+    expect(lot).toBeDefined();
+    const adjResult = await adjustStockAnywhere({
+      lotId: lot!.id,
+      productId: ISDIN_ID,
+      warehouseId: lot!.warehouseId,
+      branchId: lot!.branchId,
+      newQuantity: lot!.currentQuantity - 1,
+      reason: "Venta TEST-001",
+    });
+    expect(adjResult.ok).toBe(true);
+
+    // Verificar que bajó a 9
+    const lotsAfter = listAllLots();
+    expect(sellableStockForBranch(lotsAfter, ISDIN_ID, BR_NACO)).toBe(9);
+    // Y que hay movimiento de descuento
+    const moves = listMovementsByProduct(ISDIN_ID);
+    const saleMove = moves.find((m) => m.reason?.includes("Venta TEST-001"));
+    expect(saleMove).toBeDefined();
+    expect(saleMove?.quantity).toBe(-1);
+    expect(saleMove?.type).toBe("adjustment_negative");
+  });
+
+  it("T5.6: checkout bloquea con mensaje si no hay stock vendible", () => {
+    const lots = listAllLots(); // sin lotes para ISDIN en BR_STG
+    // No hay stock de ISDIN en BR_STG, lotBlockReason devuelve no-lot
+    const block = lotBlockReason(lots, ISDIN_ID, BR_STG);
+    expect(block).toBe("no-lot");
+    // sellableStock = 0
+    expect(sellableStockForBranch(lots, ISDIN_ID, BR_STG)).toBe(0);
+  });
+
+  it("T5.6b: permite venta cuando hay stock vendible (sellableStock > 0)", async () => {
+    const r = await addLotAnywhere({
+      productId: ISDIN_ID,
+      branchId: BR_NACO,
+      warehouseId: "wh_naco_main",
+      lotNumber: "ISDIN-006",
+      initialQuantity: 5,
+      expiresAt: future(365),
+    });
+    expect(r.ok).toBe(true);
+    const lots = listAllLots();
+    const block = lotBlockReason(lots, ISDIN_ID, BR_NACO);
+    expect(block).toBeNull(); // sin bloqueo
+    expect(sellableStockForBranch(lots, ISDIN_ID, BR_NACO)).toBeGreaterThan(0);
+  });
+
+  it("T5.7: cuarentena/vencido/recall no son vendibles; liberar cuarentena vuelve vendible", () => {
+    const past = new Date(); past.setDate(past.getDate() - 1);
+
+    // Lote vencido
+    const expiredLot = makeLot({ id: "isd_exp", branchId: BR_NACO, productId: ISDIN_ID, currentQuantity: 5, expiresAt: past.toISOString() });
+    expect(sellableStockForBranch([expiredLot], ISDIN_ID, BR_NACO)).toBe(0);
+
+    // Lote en cuarentena
+    const quarLot = makeLot({ id: "isd_qtr", branchId: BR_NACO, productId: ISDIN_ID, currentQuantity: 5, status: "quarantine" });
+    expect(sellableStockForBranch([quarLot], ISDIN_ID, BR_NACO)).toBe(0);
+
+    // Lote en recall
+    const recLot = makeLot({ id: "isd_rcl", branchId: BR_NACO, productId: ISDIN_ID, currentQuantity: 5, status: "recalled" });
+    expect(sellableStockForBranch([recLot], ISDIN_ID, BR_NACO)).toBe(0);
+
+    // Liberar cuarentena → vendible
+    const r = addLot({
+      productId: ISDIN_ID,
+      branchId: BR_NACO,
+      warehouseId: "wh_naco_main",
+      lotNumber: "ISD-QTN",
+      initialQuantity: 8,
+      expiresAt: future(200),
+    });
+    if (!r.ok) throw new Error("setup");
+    quarantineLotLocal(r.lot.id, "Control");
+    expect(sellableStockForBranch(listAllLots(), ISDIN_ID, BR_NACO)).toBe(0);
+    releaseLotLocal(r.lot.id, "Revisión OK");
+    expect(sellableStockForBranch(listAllLots(), ISDIN_ID, BR_NACO)).toBe(8);
+  });
+
+  it("T5.8: FEFO elige el lote más próximo a vencer", () => {
+    const near = makeLot({ id: "isd_near", branchId: BR_NACO, productId: ISDIN_ID, currentQuantity: 3, expiresAt: future(30) });
+    const far = makeLot({ id: "isd_far", branchId: BR_NACO, productId: ISDIN_ID, currentQuantity: 6, expiresAt: future(365) });
+    const lot = nextFefoLotForBranch([far, near], ISDIN_ID, BR_NACO);
+    expect(lot?.id).toBe("isd_near");
+  });
+
+  it("T5.9: sin texto warehouse/almacén ni 'Naco' como literal operativo en helpers puros", () => {
+    // Los nombres de sucursales son resueltos en la UI, los helpers puros solo usan IDs
+    // Verificar que lotBlockReason / sellableStockForBranch no producen strings con warehouse
+    const lots = [makeLot({ branchId: "br_sd_naco", productId: ISDIN_ID, currentQuantity: 5 })];
+    const reason = lotBlockReason(lots, ISDIN_ID, BR_STG);
+    // reason es un código interno, no un label con "almacén"
+    expect(typeof reason === "string" || reason === null).toBe(true);
+    if (reason) {
+      expect(reason).not.toMatch(/almac[eé]n/i);
+      expect(reason).not.toMatch(/warehouse/i);
+    }
+  });
+});

@@ -45,7 +45,6 @@ import {
   getCategoryById,
   getLaboratoryById,
 } from "@/lib/mock-data/catalog";
-import { getBranchById } from "@/lib/mock-data/tenancy";
 import {
   formatCurrency,
   formatDate,
@@ -66,7 +65,7 @@ import {
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
 import { ProductImage } from "@/features/products/components/product-image";
 import { useProduct, updateProduct } from "@/features/products/product-store";
-import { onlyActiveBranches } from "@/features/tenancy/branch-store";
+import { onlyActiveBranches, useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
 
 const expiryTone: Record<ExpiryStatus, "danger" | "warning" | "success"> = {
@@ -89,6 +88,7 @@ export default function ProductDetailPage() {
   const toast = useToast();
   const allLots = useProductLots(id);
   const movements = useProductMovements(id);
+  const { branchId: currentBranchId } = useCurrentBranch();
 
   const [lotOpen, setLotOpen] = React.useState(false);
   const [adjustLot, setAdjustLot] = React.useState<ProductLot | null>(null);
@@ -166,7 +166,7 @@ export default function ProductDetailPage() {
               </Button>
             </Link>
             <Button size="sm" onClick={() => setLotOpen(true)}>
-              <PackagePlus className="h-4 w-4" /> Nuevo lote
+              <PackagePlus className="h-4 w-4" /> Agregar stock
             </Button>
           </>
         }
@@ -176,7 +176,7 @@ export default function ProductDetailPage() {
       <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <QuickAction
           icon={PackagePlus}
-          label="Nuevo lote"
+          label="Agregar stock"
           onClick={() => setLotOpen(true)}
         />
         <QuickAction
@@ -400,7 +400,7 @@ export default function ProductDetailPage() {
                 {branchGroups.map((g) => (
                   <TR key={g.branchId}>
                     <TD className="font-medium">
-                      {getBranchById(g.branchId)?.name ?? g.branchId}
+                      {resolveBranchName(g.branchId)}
                     </TD>
                     <TD className="text-right tabular-nums">{g.lots}</TD>
                     <TD className="text-right tabular-nums font-medium">
@@ -470,7 +470,7 @@ export default function ProductDetailPage() {
                           <div className="font-mono text-xs">{lot.lotNumber}</div>
                         </TD>
                         <TD className="text-xs opacity-70">
-                          {getBranchById(lot.branchId)?.name ?? lot.branchId}
+                          {resolveBranchName(lot.branchId)}
                         </TD>
                         <TD className="text-right tabular-nums">
                           {lot.initialQuantity}
@@ -611,6 +611,7 @@ export default function ProductDetailPage() {
         productId={product.id}
         productName={product.name}
         requireExpiry={requiresExpiry}
+        defaultBranchId={currentBranchId || undefined}
       />
       <AdjustStockModal
         open={adjustLot !== null}

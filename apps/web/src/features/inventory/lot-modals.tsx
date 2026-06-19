@@ -4,11 +4,11 @@ import * as React from "react";
 import { AlertTriangle, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
-import { getBranchById } from "@/lib/mock-data/tenancy";
 import { addLotAnywhere, adjustStockAnywhere } from "@/features/inventory/lot-store";
 import {
   listActiveBranches,
   defaultWarehouseForBranch,
+  resolveBranchName,
 } from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
 
@@ -46,6 +46,8 @@ interface NewLotModalProps {
   /** Si el producto exige fecha de vencimiento. */
   requireExpiry?: boolean;
   onCreated?: () => void;
+  /** Sucursal pre-seleccionada (la sucursal activa del usuario). */
+  defaultBranchId?: string;
 }
 
 export function NewLotModal({
@@ -55,9 +57,10 @@ export function NewLotModal({
   productName,
   requireExpiry = true,
   onCreated,
+  defaultBranchId,
 }: NewLotModalProps) {
   const toast = useToast();
-  const [branchId, setBranchId] = React.useState("");
+  const [branchId, setBranchId] = React.useState(defaultBranchId ?? "");
   const [lotNumber, setLotNumber] = React.useState("");
   const [quantity, setQuantity] = React.useState("");
   const [expiresAt, setExpiresAt] = React.useState("");
@@ -67,12 +70,27 @@ export function NewLotModal({
   const [missing, setMissing] = React.useState<Set<string>>(new Set());
   const [error, setError] = React.useState<string | null>(null);
 
+  // Resetear formulario cuando se abre el modal, restaurando la sucursal por defecto.
+  React.useEffect(() => {
+    if (open) {
+      setBranchId(defaultBranchId ?? "");
+      setLotNumber("");
+      setQuantity("");
+      setExpiresAt("");
+      setUnitCost("");
+      setSupplier("");
+      setNotes("");
+      setMissing(new Set());
+      setError(null);
+    }
+  }, [open, defaultBranchId]);
+
   const isMissing = (k: string) => missing.has(k);
 
   if (!open) return null;
 
   const reset = () => {
-    setBranchId("");
+    setBranchId(defaultBranchId ?? "");
     setLotNumber("");
     setQuantity("");
     setExpiresAt("");
@@ -105,7 +123,7 @@ export function NewLotModal({
       setError(r.error);
       return;
     }
-    toast.success(`Lote ${r.lot.lotNumber} agregado · ${r.lot.currentQuantity} u.`);
+    toast.success(`Stock agregado: ${r.lot.currentQuantity} unidades en lote ${r.lot.lotNumber}.`);
     reset();
     onCreated?.();
     onClose();
@@ -118,14 +136,13 @@ export function NewLotModal({
           <PackagePlus className="h-5 w-5" />
         </span>
         <div>
-          <h2 className="text-base font-semibold">Nuevo lote</h2>
+          <h2 className="text-base font-semibold">Agregar stock al producto</h2>
           <p className="text-xs opacity-60">{productName}</p>
         </div>
       </div>
 
       <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-        El stock se agrega por <strong>lote y sucursal</strong>. El producto
-        existe globalmente, pero las existencias viven en cada sucursal.
+        El stock se agrega por <strong>lote</strong>. El producto existe globalmente, pero las existencias viven en cada sucursal.
       </div>
 
       {error && (
@@ -213,7 +230,7 @@ export function NewLotModal({
           Cancelar
         </Button>
         <Button type="button" size="sm" onClick={submit}>
-          Guardar lote
+          Guardar stock
         </Button>
       </div>
     </Overlay>
@@ -273,8 +290,6 @@ export function AdjustStockModal({
     onClose();
   };
 
-  const branch = getBranchById(lot.branchId);
-
   return (
     <Overlay onClose={onClose}>
       <div className="flex items-center gap-3">
@@ -290,7 +305,7 @@ export function AdjustStockModal({
       </div>
 
       <div className="mt-3 text-xs opacity-70">
-        {branch?.name ?? lot.branchId} · cantidad actual{" "}
+        {resolveBranchName(lot.branchId)} · cantidad actual{" "}
         <strong>{lot.currentQuantity}</strong>
       </div>
 

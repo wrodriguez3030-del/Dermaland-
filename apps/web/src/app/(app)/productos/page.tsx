@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Plus, Power, RotateCcw, Upload, X } from "lucide-react";
+import { PackagePlus, Plus, Power, RotateCcw, Upload, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -45,6 +45,7 @@ import {
   useCurrentBranch,
   useActiveBranches,
 } from "@/features/tenancy/branch-store";
+import { NewLotModal } from "@/features/inventory/lot-modals";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
 
@@ -85,6 +86,7 @@ export default function ProductosPage() {
   const [category, setCategory] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
   const [page, setPage] = React.useState(0);
+  const [addStockProduct, setAddStockProduct] = React.useState<{ id: string; name: string } | null>(null);
 
   // Mapa de stock total vendible por producto (todas las sucursales activas).
   // Se recalcula cuando cambian los lotes (tick en modo local, lista en modo supabase).
@@ -326,15 +328,17 @@ export default function ProductosPage() {
                   </span>
                 </TD>
                 <TD className="text-right tabular-nums">
-                  <div>
-                    <span className={lowStock ? "text-amber-700 font-semibold" : ""}>
-                      {stock}
-                    </span>
-                    <span className="text-xs opacity-50"> total · mín {p.minStock}</span>
-                  </div>
-                  {branchId && (
-                    <div className={`text-xs ${noStockHere ? "text-rose-600 font-medium" : "opacity-60"}`}>
-                      {stockHere} en esta sucursal
+                  {branchId ? (
+                    <div>
+                      <span className={stockHere === 0 && stock > 0 ? "text-amber-700 font-semibold" : stockHere === 0 ? "text-rose-600 font-semibold" : ""}>
+                        {stockHere} aquí
+                      </span>
+                      <span className="text-xs opacity-50"> · {stock} total · mín {p.minStock}</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className={lowStock ? "text-amber-700 font-semibold" : ""}>{stock}</span>
+                      <span className="text-xs opacity-50"> total · mín {p.minStock}</span>
                     </div>
                   )}
                 </TD>
@@ -349,7 +353,8 @@ export default function ProductosPage() {
                       <Badge tone="neutral">Inactivo</Badge>
                     )}
                     {lowStock && <Badge tone="warning">Bajo stock</Badge>}
-                    {noStockHere && <Badge tone="danger">Sin stock en esta sucursal</Badge>}
+                    {stock === 0 && <Badge tone="danger">Agotado</Badge>}
+                    {stock > 0 && noStockHere && <Badge tone="warning">Sin stock aquí</Badge>}
                     {p.requiresPrescription && (
                       <Badge tone="purple">Receta</Badge>
                     )}
@@ -366,6 +371,11 @@ export default function ProductosPage() {
                     }}
                     entityName={p.name}
                     customActions={[
+                      {
+                        label: "Agregar stock",
+                        icon: PackagePlus,
+                        onClick: () => setAddStockProduct({ id: p.id, name: p.name }),
+                      },
                       p.active
                         ? {
                             label: "Inactivar",
@@ -420,6 +430,16 @@ export default function ProductosPage() {
             </Button>
           </div>
         </div>
+      )}
+      {addStockProduct && (
+        <NewLotModal
+          open={true}
+          onClose={() => setAddStockProduct(null)}
+          productId={addStockProduct.id}
+          productName={addStockProduct.name}
+          defaultBranchId={branchId || undefined}
+          requireExpiry={true}
+        />
       )}
       <toast.Toast />
     </>

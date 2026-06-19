@@ -47,6 +47,8 @@ import {
   nextFefoLotForBranch,
   lotBlockReason,
   stockByBranchForProduct,
+  listAllLots,
+  adjustStockAnywhere,
   type LotBlockReason,
 } from "@/features/inventory/lot-store";
 import {
@@ -415,6 +417,56 @@ export function PosTerminal() {
         res.error ?? "No se pudo emitir la venta. Revisá la conexión e intentá de nuevo.",
       );
       return;
+    }
+
+    // Descontar stock por cada línea del carrito (FEFO, multi-lote)
+    const stockErrors: string[] = [];
+    for (const line of cart) {
+      let remaining = line.quantity;
+      // Tomar los lotes sellables FEFO para esta sucursal/producto
+      const allCurrentLots = listAllLots();
+      const fefoLots = allCurrentLots
+        .filter(
+          (l) =>
+            l.productId === line.productId &&
+            l.branchId === branchId &&
+            l.status === "available" &&
+            l.currentQuantity > 0 &&
+            new Date(l.expiresAt) > new Date(),
+        )
+        .sort(
+          (a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime(),
+        );
+
+      for (const lot of fefoLots) {
+        if (remaining <= 0) break;
+        const take = Math.min(remaining, lot.currentQuantity);
+        const adjResult = await adjustStockAnywhere({
+          lotId: lot.id,
+          productId: line.productId,
+          warehouseId: lot.warehouseId,
+          branchId: lot.branchId,
+          newQuantity: lot.currentQuantity - take,
+          reason: `Venta ${number}`,
+        });
+        if (!adjResult.ok) {
+          stockErrors.push(
+            `No se pudo descontar stock de ${line.productName} (lote ${lot.lotNumber}): ${adjResult.error}`,
+          );
+        } else {
+          remaining -= take;
+        }
+      }
+      if (remaining > 0) {
+        stockErrors.push(
+          `Stock insuficiente para completar el descuento de ${line.productName} (faltan ${remaining} unidades).`,
+        );
+      }
+    }
+    if (stockErrors.length > 0) {
+      toast.error(
+        `Venta emitida, pero hay errores en el descuento de stock:\n${stockErrors.join("\n")}`,
+      );
     }
 
     setIssued({

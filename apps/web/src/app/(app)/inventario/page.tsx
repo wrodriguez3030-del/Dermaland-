@@ -19,11 +19,11 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
-import { Boxes, AlertTriangle, ShieldAlert, X } from "lucide-react";
+import { Boxes, AlertTriangle, PackagePlus, ShieldAlert, X } from "lucide-react";
 import { getBrandById, mockProducts } from "@/lib/mock-data/catalog";
-import { getBranchById } from "@/lib/mock-data/tenancy";
 import { useAllLots } from "@/features/inventory/lot-store";
-import { onlyActiveBranches } from "@/features/tenancy/branch-store";
+import { onlyActiveBranches, useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
+import { NewLotModal } from "@/features/inventory/lot-modals";
 import { formatCurrency } from "@/lib/utils/format";
 import type { ProductLot } from "@/types";
 
@@ -31,8 +31,10 @@ function InventarioContent() {
   const params = useSearchParams();
   const branch = params.get("branch") ?? "";
   const allLots = onlyActiveBranches(useAllLots());
+  const { branchId } = useCurrentBranch();
+  const [addStockProduct, setAddStockProduct] = React.useState<{ id: string; name: string } | null>(null);
 
-  const branchName = branch ? getBranchById(branch)?.name : undefined;
+  const branchName = branch ? resolveBranchName(branch) : undefined;
 
   const rows = mockProducts
     .map((p) => {
@@ -174,6 +176,13 @@ function InventarioContent() {
                         viewHref={`/productos/${p.id}`}
                         editHref={`/productos/${p.id}/editar`}
                         canDelete={false}
+                        customActions={[
+                          {
+                            label: "Agregar stock",
+                            icon: PackagePlus,
+                            onClick: () => setAddStockProduct({ id: p.id, name: p.name }),
+                          },
+                        ]}
                       />
                     </TD>
                   </TR>
@@ -183,6 +192,16 @@ function InventarioContent() {
           </Table>
         </CardContent>
       </Card>
+      {addStockProduct && (
+        <NewLotModal
+          open={true}
+          onClose={() => setAddStockProduct(null)}
+          productId={addStockProduct.id}
+          productName={addStockProduct.name}
+          defaultBranchId={branchId || undefined}
+          requireExpiry={true}
+        />
+      )}
     </>
   );
 }
