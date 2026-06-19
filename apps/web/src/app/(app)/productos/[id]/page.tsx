@@ -48,10 +48,9 @@ import {
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import {
   expiryStatus,
-  listLotsByProduct,
   listMovementsByProduct,
-  stockBranchSummary,
-  useInventoryTick,
+  useProductLots,
+  summarizeLotsByBranch,
   type ExpiryStatus,
 } from "@/features/inventory/lot-store";
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
@@ -78,7 +77,7 @@ export default function ProductDetailPage() {
   const id = params?.id ?? "";
   const product = useProduct(id);
   const toast = useToast();
-  useInventoryTick(); // re-render al cambiar lotes/movimientos
+  const allLots = useProductLots(id);
 
   const [lotOpen, setLotOpen] = React.useState(false);
   const [adjustLot, setAdjustLot] = React.useState<ProductLot | null>(null);
@@ -116,12 +115,12 @@ export default function ProductDetailPage() {
   const laboratory = getLaboratoryById(product.laboratoryId);
   // Vista operativa de producto: SOLO sucursales activas. Las inactivas o
   // eliminadas no muestran stock/lotes aquí (su historial vive en reportes).
-  const lots = onlyActiveBranches(listLotsByProduct(product.id));
+  const lots = onlyActiveBranches(allLots);
   const stock = lots
     .filter((l) => l.status === "available")
     .reduce((s, l) => s + l.currentQuantity, 0);
   const movements = listMovementsByProduct(product.id);
-  const branchGroups = onlyActiveBranches(stockBranchSummary(product.id));
+  const branchGroups = onlyActiveBranches(summarizeLotsByBranch(allLots));
   const hasLots = lots.length > 0;
   const requiresExpiry = true; // dermocosmética: todo lote lleva vencimiento
 

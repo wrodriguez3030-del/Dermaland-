@@ -5,7 +5,7 @@ import { AlertTriangle, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { getBranchById } from "@/lib/mock-data/tenancy";
-import { addLot, adjustStock } from "@/features/inventory/lot-store";
+import { addLotAnywhere, adjustStockAnywhere } from "@/features/inventory/lot-store";
 import {
   listActiveBranches,
   defaultWarehouseForBranch,
@@ -83,9 +83,9 @@ export function NewLotModal({
     setError(null);
   };
 
-  const submit = () => {
+  const submit = async () => {
     setError(null);
-    const r = addLot(
+    const r = await addLotAnywhere(
       {
         productId,
         branchId,
@@ -252,9 +252,9 @@ export function AdjustStockModal({
 
   if (!open || !lot) return null;
 
-  const submit = () => {
+  const submit = async () => {
     setError(null);
-    const r = adjustStock({
+    const r = await adjustStockAnywhere({
       lotId: lot.id,
       productId: lot.productId,
       warehouseId: lot.warehouseId,

@@ -22,7 +22,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Boxes, AlertTriangle, ShieldAlert, X } from "lucide-react";
 import { getBrandById, mockProducts } from "@/lib/mock-data/catalog";
 import { getBranchById } from "@/lib/mock-data/tenancy";
-import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
+import { useAllLots } from "@/features/inventory/lot-store";
 import { onlyActiveBranches } from "@/features/tenancy/branch-store";
 import { formatCurrency } from "@/lib/utils/format";
 import type { ProductLot } from "@/types";
@@ -30,12 +30,9 @@ import type { ProductLot } from "@/types";
 function InventarioContent() {
   const params = useSearchParams();
   const branch = params.get("branch") ?? "";
-  useInventoryTick();
+  const allLots = onlyActiveBranches(useAllLots());
 
   const branchName = branch ? getBranchById(branch)?.name : undefined;
-  // Inventario operativo: solo lotes de sucursales ACTIVAS (las inactivas/
-  // eliminadas no muestran stock operativo; su historial vive en reportes).
-  const allLots = onlyActiveBranches(listAllLots());
 
   const rows = mockProducts
     .map((p) => {

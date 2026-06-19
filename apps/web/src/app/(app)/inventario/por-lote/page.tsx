@@ -21,7 +21,7 @@ import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import { Badge } from "@/components/ui";
 import { ProductImage } from "@/features/products/components/product-image";
-import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
+import { useAllLots } from "@/features/inventory/lot-store";
 import {
   resolveBranchName,
   onlyActiveBranches,
@@ -29,9 +29,9 @@ import {
 
 export default function StockPorLotePage() {
   const toast = useToast();
-  useInventoryTick();
+  const lots = useAllLots();
   // Stock operativo: solo lotes de sucursales ACTIVAS.
-  const sorted = onlyActiveBranches([...listAllLots()]).sort(
+  const sorted = onlyActiveBranches([...lots]).sort(
     (a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt),
   );
   return (

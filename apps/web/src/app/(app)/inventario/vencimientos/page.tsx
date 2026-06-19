@@ -28,9 +28,8 @@ import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { daysUntil, formatDate } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import {
-  listAllLots,
+  useAllLots,
   expiryStatus,
-  useInventoryTick,
   type ExpiryStatus,
 } from "@/features/inventory/lot-store";
 
@@ -50,14 +49,14 @@ const tone: Record<ExpiryStatus, "danger" | "warning" | "success"> = {
 type DayFilter = "all" | "expired" | "30" | "60" | "90";
 
 export default function VencimientosPage() {
-  useInventoryTick();
   const activeBranches = useActiveBranches();
   const [branch, setBranch] = React.useState("");
   const [dayFilter, setDayFilter] = React.useState<DayFilter>("all");
+  const rawLots = useAllLots();
 
   // Vencimientos operativos: solo lotes de sucursales ACTIVAS.
   const activeBranchIds = new Set(activeBranches.map((b) => b.id));
-  const allLots = listAllLots()
+  const allLots = rawLots
     .filter((l) => activeBranchIds.has(l.branchId))
     .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt));
 

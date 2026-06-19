@@ -66,7 +66,7 @@ export async function PATCH(
       userName: session.user.fullName,
     });
 
-    return NextResponse.json({ lot });
+    return NextResponse.json({ lot, delta });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }

@@ -575,10 +575,10 @@ export async function adjustStockAnywhere(input: AdjustStockInput): Promise<Adju
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ newQuantity: input.newQuantity, reason: input.reason }),
     });
-    const body = (await res.json().catch(() => ({}))) as { lot?: ProductLot; error?: string };
+    const body = (await res.json().catch(() => ({}))) as { lot?: ProductLot; delta?: number; error?: string };
     if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
     notifyInventoryChanged();
-    return { ok: true, delta: 0 };
+    return { ok: true, delta: typeof body.delta === "number" ? body.delta : 0 };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
