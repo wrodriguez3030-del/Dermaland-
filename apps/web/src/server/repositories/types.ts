@@ -205,6 +205,9 @@ export interface CustomerRepository {
   byId(ctx: RepoContext, id: ID): Promise<Customer | null>;
   notes(ctx: RepoContext, customerId: ID): Promise<CustomerNote[]>;
   create(ctx: RepoContext, customer: Omit<Customer, "id" | "createdAt" | "updatedAt">): Promise<Customer>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Customer>): Promise<Customer>;
+  /** Soft delete: marca `deleted_at`. No borra físicamente. */
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 // ─── POS / Sales ────────────────────────────────────────────────────────────

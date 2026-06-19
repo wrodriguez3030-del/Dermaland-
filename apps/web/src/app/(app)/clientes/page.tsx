@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sortable-table-header";
 import { useToast } from "@/components/ui/toast";
 import {
-  deleteCustomer,
+  deleteCustomerAnywhere,
   useCustomers,
 } from "@/features/customers/customer-store";
 import { skinTypeLabel } from "@/features/customers/billing";
@@ -209,8 +209,9 @@ export default function ClientesPage() {
                       viewHref={`/clientes/${c.id}`}
                       editHref={`/clientes/${c.id}/editar`}
                       onDelete={() => {
-                        deleteCustomer(c.id);
-                        toast.success("Cliente eliminado correctamente.");
+                        void deleteCustomerAnywhere(c.id).then(() => {
+                          toast.success("Cliente eliminado correctamente.");
+                        });
                       }}
                       entityName={`${c.firstName} ${c.lastName}`}
                     />

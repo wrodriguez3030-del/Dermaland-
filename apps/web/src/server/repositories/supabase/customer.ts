@@ -102,4 +102,49 @@ export const customerRepository: CustomerRepository = {
     if (error) throw new SupabaseRepositoryError("customer.create", error);
     return clientRowToTs(data);
   },
+
+  async update(ctx: RepoContext, id: string, patch: Partial<Customer>) {
+    const sb = await getClient("customer.update");
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.firstName !== undefined) row.first_name = patch.firstName;
+    if (patch.lastName !== undefined) row.last_name = patch.lastName;
+    if (patch.documentType !== undefined) row.document_type = patch.documentType ?? null;
+    if (patch.documentNumber !== undefined) row.document_number = patch.documentNumber ?? null;
+    if (patch.phone !== undefined) row.phone = patch.phone ?? null;
+    if (patch.whatsapp !== undefined) row.whatsapp = patch.whatsapp ?? null;
+    if (patch.email !== undefined) row.email = patch.email ?? null;
+    if (patch.birthDate !== undefined) row.birth_date = patch.birthDate ?? null;
+    if (patch.address !== undefined) row.address = patch.address ?? null;
+    if (patch.city !== undefined) row.city = patch.city ?? null;
+    if (patch.province !== undefined) row.province = patch.province ?? null;
+    if (patch.source !== undefined) row.source = patch.source;
+    if (patch.tags !== undefined) row.tags = patch.tags ?? [];
+    if (patch.defaultBillingType !== undefined) row.default_billing_type = patch.defaultBillingType;
+    if (patch.skinType !== undefined) row.skin_type = patch.skinType;
+    if (patch.notes !== undefined) row.notes = patch.notes ?? null;
+    if (patch.consents !== undefined) row.consents = patch.consents ?? [];
+    if (patch.totalSpent !== undefined) row.total_spent = patch.totalSpent;
+    if (patch.totalOrders !== undefined) row.total_orders = patch.totalOrders;
+    if (patch.lastVisitAt !== undefined) row.last_visit_at = patch.lastVisitAt ?? null;
+    const { data, error } = await sb
+      .from("clients")
+      .update(row)
+      .eq("business_id", ctx.businessId)
+      .eq("id", id)
+      .is("deleted_at", null)
+      .select("*")
+      .single();
+    if (error) throw new SupabaseRepositoryError("customer.update", error);
+    return clientRowToTs(data);
+  },
+
+  async softDelete(ctx: RepoContext, id: string) {
+    const sb = await getClient("customer.softDelete");
+    const { error } = await sb
+      .from("clients")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("business_id", ctx.businessId)
+      .eq("id", id);
+    if (error) throw new SupabaseRepositoryError("customer.softDelete", error);
+  },
 };

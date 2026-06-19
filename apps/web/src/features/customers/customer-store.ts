@@ -17,6 +17,21 @@ import {
   normalizePhone,
 } from "./utils/duplicate-detection";
 
+// ─── Backend de clientes (local vs Supabase) ─────────────────────────────────
+/**
+ * Modo del backend de clientes:
+ *  - "local"    → este store (localStorage), por equipo (modo demo actual).
+ *  - "supabase" → fuente ÚNICA compartida vía /api/customers (RLS business_id).
+ *
+ * Se activa con `NEXT_PUBLIC_DATA_SOURCE=supabase` (build) + `DATA_SOURCE=
+ * supabase` (servidor) + credenciales Supabase válidas. Por defecto: local.
+ */
+export const CUSTOMER_BACKEND: "local" | "supabase" =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase"
+    ? "supabase"
+    : "local";
+
 /**
  * Customer store — MVP.
  *
@@ -394,30 +409,257 @@ export function isSoftDeleted(id: string): boolean {
   return readSoftDeleted().includes(id);
 }
 
+// ─── Backend (servidor Supabase) ─────────────────────────────────────────────
+
+/** Notifica a los hooks que los clientes cambiaron (local y servidor). */
+function notifyCustomersChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  }
+}
+
+/**
+ * Lee clientes desde el servidor (Supabase) — fuente única compartida.
+ * Úsalo cuando `CUSTOMER_BACKEND === "supabase"`. En modo local seguir con
+ * `listAllCustomers()`.
+ */
+export async function fetchCustomersFromServer(search?: string): Promise<Customer[]> {
+  const url = search
+    ? `/api/customers?search=${encodeURIComponent(search)}`
+    : "/api/customers";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { customers: Customer[] }).customers;
+}
+
+/** Alta de cliente vía API compartida. Devuelve el mismo shape que el local. */
+async function createCustomerOnServer(
+  input: CreateCustomerInput,
+  options: { force?: boolean } = {},
+): Promise<CreateCustomerResult> {
+  const missing: string[] = [];
+  if (!input.firstName?.trim()) missing.push("firstName");
+  if (!input.lastName?.trim()) missing.push("lastName");
+  if (!input.phone?.trim() && !input.whatsapp?.trim()) missing.push("phoneOrWhatsapp");
+  if (missing.length > 0) {
+    return { ok: false, error: "Complete los campos requeridos.", missingFields: missing };
+  }
+  // Detección de duplicados client-side contra los datos del servidor.
+  if (!options.force) {
+    try {
+      const existing = await fetchCustomersFromServer();
+      const businessId = input.businessId ?? mockBusiness.id;
+      const dup = findPotentialDuplicateClients(
+        {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          phone: input.phone,
+          whatsapp: input.whatsapp,
+          email: input.email,
+          documentNumber: input.documentNumber,
+          birthDate: input.birthDate,
+          businessId,
+        },
+        existing,
+      );
+      if (dup.isDuplicate) {
+        return { ok: false, error: "Este cliente ya fue registrado.", duplicate: dup };
+      }
+    } catch {
+      // Si el fetch falla, continuar sin detección de duplicados remota.
+    }
+  }
+  try {
+    const now = new Date().toISOString();
+    const payload = {
+      businessId: input.businessId ?? mockBusiness.id,
+      customerNumber: "",
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      documentType: input.documentType,
+      documentNumber: input.documentNumber?.trim() || undefined,
+      phone: input.phone?.trim() || undefined,
+      whatsapp: input.whatsapp?.trim() || undefined,
+      email: input.email?.trim() || undefined,
+      birthDate: input.birthDate || undefined,
+      address: input.address?.trim() || undefined,
+      city: input.city?.trim() || undefined,
+      province: input.province?.trim() || undefined,
+      source: input.source ?? "manual",
+      tags: input.tags ?? [],
+      defaultBillingType: input.defaultBillingType,
+      skinType: input.skinType,
+      totalSpent: 0,
+      totalOrders: 0,
+      notes: input.notes?.trim() || undefined,
+      consents: input.consents ?? [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    const res = await fetch("/api/customers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      customer?: Customer;
+      error?: string;
+    };
+    if (!res.ok || !body.customer) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    }
+    notifyCustomersChanged();
+    return { ok: true, customer: body.customer };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Edición de cliente vía API compartida. */
+async function updateCustomerOnServer(
+  id: string,
+  patch: UpdateCustomerInput,
+  options: { force?: boolean } = {},
+): Promise<UpdateCustomerResult> {
+  // Validación mínima local antes de ir al servidor.
+  if (!options.force) {
+    try {
+      const existing = await fetchCustomersFromServer();
+      const base = existing.find((c) => c.id === id);
+      if (base) {
+        const merged = { ...base, ...patch };
+        const dup = findPotentialDuplicateClients(
+          {
+            firstName: merged.firstName ?? "",
+            lastName: merged.lastName ?? "",
+            phone: merged.phone,
+            whatsapp: merged.whatsapp,
+            email: merged.email,
+            documentNumber: merged.documentNumber,
+            birthDate: merged.birthDate,
+            businessId: merged.businessId,
+          },
+          existing,
+          { excludeClientId: id },
+        );
+        if (dup.isDuplicate) {
+          return {
+            ok: false,
+            error: "Hay otro cliente con los mismos datos.",
+            duplicate: dup,
+          };
+        }
+      }
+    } catch {
+      // Si el fetch falla, continuar sin detección de duplicados remota.
+    }
+  }
+  try {
+    const res = await fetch(`/api/customers/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      customer?: Customer;
+      error?: string;
+    };
+    if (!res.ok || !body.customer) {
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    }
+    notifyCustomersChanged();
+    return { ok: true, customer: body.customer };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Baja (soft delete) de cliente vía API compartida. */
+async function softDeleteCustomerOnServer(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`/api/customers/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    }
+    notifyCustomersChanged();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ─── Mutaciones unificadas (despachan local vs supabase) ─────────────────────
+// Las páginas/formularios llaman a estas: en modo local conservan el camino
+// síncrono (envuelto en promesa), en modo supabase pegan a la API compartida.
+
+export async function saveCustomer(
+  mode: "create" | "edit",
+  input: CreateCustomerInput,
+  id?: string,
+  options: { force?: boolean } = {},
+): Promise<CreateCustomerResult | UpdateCustomerResult> {
+  if (CUSTOMER_BACKEND === "supabase") {
+    return mode === "create"
+      ? createCustomerOnServer(input, options)
+      : updateCustomerOnServer(id!, input as UpdateCustomerInput, options);
+  }
+  return mode === "create"
+    ? createCustomer(input, options)
+    : updateCustomer(id!, input as UpdateCustomerInput, options);
+}
+
+export async function deleteCustomerAnywhere(id: string): Promise<{ ok: boolean; error?: string }> {
+  if (CUSTOMER_BACKEND === "supabase") {
+    return softDeleteCustomerOnServer(id);
+  }
+  return deleteCustomer(id);
+}
+
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
 /**
- * Hook reactivo: devuelve la lista combinada (mock + local) y se re-renderiza
- * cuando se crea/edita/elimina un cliente en cualquier tab.
+ * Hook reactivo: devuelve la lista de clientes y se re-renderiza cuando
+ * cambia (create/edit/delete en cualquier tab).
  *
- * **Hidratación segura:** el estado inicial es sólo `mockCustomers` (lo que
- * el servidor también ve, sin `window`). El merge con `localStorage` y la
- * aplicación de soft-deletes ocurren dentro de `useEffect`, garantizando
- * que SSR y primer render cliente devuelvan exactamente el mismo HTML
- * antes de la hidratación. Sin esto, editar un seed (que persiste en
- * localStorage como override) provocaría "Hydration failed" porque el
- * server seguiría mostrando el seed original.
+ * En modo supabase el estado inicial parte vacío y se llena con el fetch;
+ * en modo local parte del seed+localStorage de inmediato.
+ *
+ * **Hidratación segura (modo local):** el estado inicial es sólo
+ * `mockCustomers` (lo que el servidor también ve, sin `window`). El merge
+ * con `localStorage` y la aplicación de soft-deletes ocurren dentro de
+ * `useEffect`, garantizando que SSR y primer render cliente devuelvan
+ * exactamente el mismo HTML antes de la hidratación.
  */
 export function useCustomers(): Customer[] {
-  const [list, setList] = React.useState<Customer[]>(mockCustomers);
+  const [list, setList] = React.useState<Customer[]>(() =>
+    CUSTOMER_BACKEND === "supabase" ? [] : mockCustomers,
+  );
 
   React.useEffect(() => {
-    const refresh = () => setList(listAllCustomers());
+    let alive = true;
+    const refresh = () => {
+      if (CUSTOMER_BACKEND === "supabase") {
+        fetchCustomersFromServer()
+          .then((customers) => {
+            if (alive) setList(customers);
+          })
+          .catch(() => {
+            // Fallback: si la API falla (sesión/red/RLS), no romper la UI.
+            if (alive) setList(listAllCustomers());
+          });
+      } else {
+        setList(listAllCustomers());
+      }
+    };
     window.addEventListener(CHANGE_EVENT, refresh);
     window.addEventListener("storage", refresh);
-    // Refrescar al montar para incluir locales y soft-deletes.
     refresh();
     return () => {
+      alive = false;
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };

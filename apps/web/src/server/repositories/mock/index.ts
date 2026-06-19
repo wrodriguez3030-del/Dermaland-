@@ -33,7 +33,7 @@ import type {
   WhatsappRepository,
 } from "../types";
 
-import type { Brand, Category, Laboratory, Product, ProductLot } from "@/types";
+import type { Brand, Category, Customer, Laboratory, Product, ProductLot } from "@/types";
 
 import {
   mockBranches,
@@ -130,6 +130,29 @@ export function __resetCatalogMockWrites(): void {
   extraLaboratories = [];
   deletedLaboratoryIds.clear();
   for (const k of Object.keys(laboratoryPatches)) delete laboratoryPatches[k];
+}
+
+// ─── Overlays de escritura para clientes ─────────────────────────────────────
+let extraCustomers: Customer[] = [];
+const deletedCustomerIds = new Set<string>();
+const customerPatches: Record<string, Partial<Customer>> = {};
+
+export function __resetCustomerMockWrites(): void {
+  extraCustomers = [];
+  deletedCustomerIds.clear();
+  for (const k of Object.keys(customerPatches)) delete customerPatches[k];
+}
+
+function mockCustomersView(businessId: string): Customer[] {
+  const applyPatch = (c: Customer): Customer =>
+    customerPatches[c.id] ? { ...c, ...customerPatches[c.id] } : c;
+  const base = mockCustomers
+    .filter((c) => c.businessId === businessId)
+    .map(applyPatch);
+  const extra = extraCustomers
+    .filter((c) => c.businessId === businessId)
+    .map(applyPatch);
+  return [...extra, ...base].filter((c) => !deletedCustomerIds.has(c.id));
 }
 
 // ─── Overlays de escritura para lotes ────────────────────────────────────────
@@ -526,22 +549,44 @@ const customer: CustomerRepository = {
   async list(ctx, opts) {
     guard(ctx);
     const q = (opts?.search ?? "").toLowerCase();
-    return mockCustomers
-      .filter((c) => c.businessId === ctx.businessId)
-      .filter((c) => !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q))
+    return mockCustomersView(ctx.businessId)
+      .filter((c) => !q || `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) || (c.phone ?? "").includes(q))
       .filter((c) => !opts?.tag || c.tags.includes(opts.tag));
   },
   async byId(ctx, id) {
     guard(ctx);
-    const c = getCustomerById(id);
-    return c && c.businessId === ctx.businessId ? c : null;
+    return mockCustomersView(ctx.businessId).find((c) => c.id === id) ?? null;
   },
   async notes(ctx, customerId) {
     guard(ctx);
     return getCustomerNotes(customerId);
   },
-  async create() {
-    throw new Error("create() requiere backend Supabase");
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const created: Customer = {
+      ...input,
+      businessId: ctx.businessId,
+      id: mockGenId("cust"),
+      customerNumber: input.customerNumber ?? `CLI-${Math.floor(100000 + Math.random() * 900000)}`,
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraCustomers.push(created);
+    return created;
+  },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    const exists = mockCustomersView(ctx.businessId).some((c) => c.id === id);
+    if (!exists) throw new Error("Cliente no encontrado");
+    customerPatches[id] = { ...(customerPatches[id] ?? {}), ...patch, updatedAt: new Date().toISOString() };
+    const found = mockCustomersView(ctx.businessId).find((c) => c.id === id);
+    if (!found) throw new Error("Cliente no encontrado");
+    return found;
+  },
+  async softDelete(ctx, id) {
+    guard(ctx);
+    deletedCustomerIds.add(id);
   },
 };
 
