@@ -235,12 +235,12 @@ export default function NuevaTransferenciaPage() {
 
           {!origin ? (
             <div className="px-4 py-10 text-center text-sm opacity-60">
-              Selecciona primero el almacén origen para ver los lotes
+              Selecciona primero la sucursal origen para ver los lotes
               disponibles.
             </div>
           ) : availableLots.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm opacity-60">
-              El almacén origen no tiene lotes disponibles para transferir.
+              La sucursal origen no tiene lotes disponibles para transferir.
             </div>
           ) : (
             <Table>

@@ -8,7 +8,6 @@ import { Badge, Button, Card } from "@/components/ui";
 import { RowActions } from "@/components/ui/row-actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import {
   useBranches,
   setBranchActiveAnywhere,
@@ -29,7 +28,7 @@ export default function SucursalesPage() {
     <>
       <PageHeader
         title="Sucursales"
-        description="Sedes físicas del negocio. Cada sucursal tiene sus propios almacenes, caja y configuración fiscal."
+        description="Sedes físicas del negocio. Cada sucursal tiene su propio inventario, caja y configuración fiscal."
         breadcrumbs={[{ label: "Administración" }, { label: "Sucursales" }]}
         actions={
           canManage ? (
@@ -74,7 +73,6 @@ export default function SucursalesPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {branches.map((b) => {
-          const warehouses = mockWarehouses.filter((w) => w.branchId === b.id);
           return (
             <Card key={b.id} className="overflow-hidden">
               <div className="flex items-start justify-between gap-3 p-5">
@@ -159,16 +157,6 @@ export default function SucursalesPage() {
                     Email
                   </dt>
                   <dd className="opacity-80">{b.email ?? "—"}</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="w-20 shrink-0 text-xs uppercase tracking-wider opacity-50">
-                    Almacenes
-                  </dt>
-                  <dd className="opacity-80">
-                    {warehouses.length === 0
-                      ? "—"
-                      : warehouses.map((w) => w.code).join(", ")}
-                  </dd>
                 </div>
                 <div className="flex gap-2">
                   <dt className="w-20 shrink-0 text-xs uppercase tracking-wider opacity-50">

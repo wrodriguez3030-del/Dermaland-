@@ -16,7 +16,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
-import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import { mockUsers } from "@/lib/mock-data/users";
 import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
 import {
@@ -67,7 +66,6 @@ export default function SucursalDetailPage() {
     );
   }
 
-  const warehouses = mockWarehouses.filter((w) => w.branchId === branch.id);
   const branchLots = listAllLots().filter((l) => l.branchId === branch.id);
   const users = mockUsers.filter((u) => u.branchIds?.includes(branch.id));
   const deps = branchDependencies(branch.id);
@@ -199,36 +197,6 @@ export default function SucursalDetailPage() {
           </Card>
         )}
       </div>
-
-      {/* Almacenes */}
-      <Card className="mb-6">
-        <CardContent>
-          <div className="mb-3 text-sm font-semibold">
-            Almacenes ({warehouses.length})
-          </div>
-          {warehouses.length === 0 ? (
-            <p className="text-sm opacity-60">Sin almacenes asociados.</p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {warehouses.map((w) => (
-                <li
-                  key={w.id}
-                  className="flex items-center justify-between rounded-lg border border-black/10 px-3 py-2"
-                >
-                  <span>
-                    {w.name} <span className="opacity-50">· {w.code}</span>
-                    {w.isMain && (
-                      <Badge tone="primary" className="ml-2">
-                        Principal
-                      </Badge>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Inventario asociado */}
       <Card className="mb-6">

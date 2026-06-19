@@ -497,7 +497,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
 
           <FormSection
             title="Inventario"
-            description="Mínimos para alertas. Stock real se gestiona por lote y almacén."
+            description="Mínimos para alertas. El stock real se controla por sucursal, lote y fecha de vencimiento."
           >
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
@@ -546,7 +546,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           {mode === "create" && (
             <FormSection
               title="Lote inicial (opcional)"
-              description="El stock vive por lote, sucursal y almacén. Puedes cargar el primer lote ahora o después desde el detalle del producto."
+              description="El stock vive por lote y sucursal. Puedes cargar el primer lote ahora o después desde el detalle del producto."
             >
               <label className="flex items-center gap-2">
                 <input

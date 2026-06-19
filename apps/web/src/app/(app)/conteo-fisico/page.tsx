@@ -69,7 +69,7 @@ export default function ConteoFisicoPage() {
     <>
       <PageHeader
         title="Conteo físico"
-        description="Sesiones de conteo por sucursal y almacén. Acumulación por escaneos — entrada manual solo con permiso."
+        description="Sesiones de conteo por sucursal. Acumulación por escaneos — entrada manual solo con permiso."
         breadcrumbs={[{ label: "Conteo físico" }]}
         actions={
           <Link href="/conteo-fisico/nuevo">
@@ -92,7 +92,7 @@ export default function ConteoFisicoPage() {
                 <SortableTH sortKey="countNumber" state={sort} onClick={toggle}>
                   Conteo
                 </SortableTH>
-                <TH>Sucursal / Almacén</TH>
+                <TH>Sucursal</TH>
                 <TH>Tipo</TH>
                 <SortableTH sortKey="status" state={sort} onClick={toggle}>
                   Estado

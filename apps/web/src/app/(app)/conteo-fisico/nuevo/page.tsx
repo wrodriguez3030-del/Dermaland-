@@ -13,7 +13,6 @@ import {
 import { FormSection } from "@/components/ui/filter-bar";
 import {
   listActiveBranches,
-  listActiveWarehouses,
 } from "@/features/tenancy/branch-store";
 import { mockUsers } from "@/lib/mock-data/users";
 
@@ -41,7 +40,7 @@ export default function NuevoConteoPage() {
         <CardContent>
           <FormSection
             title="Alcance"
-            description="Sucursal, almacén y tipo de conteo."
+            description="Sucursal y tipo de conteo."
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -54,20 +53,11 @@ export default function NuevoConteoPage() {
                   ))}
                 </Select>
               </div>
-              <div>
-                <Label>Almacén *</Label>
-                <Select>
-                  {listActiveWarehouses().map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              {/* warehouseId se mapea internamente a defaultWarehouseForBranch(branchId) — no visible al usuario */}
               <div>
                 <Label>Tipo de conteo</Label>
                 <Select defaultValue="partial">
-                  <option value="full">Total — todo el almacén</option>
+                  <option value="full">Total — toda la sucursal</option>
                   <option value="partial">Parcial — categoría/góndola</option>
                   <option value="spot">Spot — productos específicos</option>
                 </Select>
