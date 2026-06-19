@@ -8,12 +8,18 @@ import {
   availableStock,
   clearLocalInventory,
   expiryStatus,
+  listAllLots,
   listLotsByProduct,
   listMovementsByProduct,
   LOT_BACKEND,
+  recallLotAnywhere,
+  recallLotLocal,
+  releaseLotAnywhere,
+  releaseLotLocal,
   stockByBranch,
   stockBranchSummary,
   summarizeLotsByBranch,
+  updateLotNoteLocal,
   validateLot,
 } from "./lot-store";
 
@@ -351,5 +357,162 @@ describe("summarizeLotsByBranch", () => {
 
   it("devuelve array vacío para lista vacía", () => {
     expect(summarizeLotsByBranch([])).toEqual([]);
+  });
+});
+
+// ─── Cuarentena: release / recall / updateNote ────────────────────────────────
+
+describe("releaseLotLocal", () => {
+  function addQuarantineLot(): string {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "QT-01",
+      initialQuantity: 10,
+      expiresAt: future(180),
+    });
+    if (!r.ok) throw new Error("setup: addLot failed");
+    // Forzar status quarantine via localStorage key (simula estado inicial)
+    const key = "dermaland.lots.status";
+    const ov = JSON.parse(window.localStorage.getItem(key) ?? "{}") as Record<string, string>;
+    ov[r.lot.id] = "quarantine";
+    window.localStorage.setItem(key, JSON.stringify(ov));
+    return r.lot.id;
+  }
+
+  it("rechaza sin motivo", () => {
+    const lotId = addQuarantineLot();
+    const res = releaseLotLocal(lotId, "");
+    expect(res.ok).toBe(false);
+  });
+
+  it("libera lote y cambia status a available", () => {
+    const lotId = addQuarantineLot();
+    const res = releaseLotLocal(lotId, "Revisión OK");
+    expect(res.ok).toBe(true);
+    const lot = listAllLots().find((l) => l.id === lotId);
+    expect(lot?.status).toBe("available");
+  });
+
+  it("registra movimiento de liberación", () => {
+    const lotId = addQuarantineLot();
+    releaseLotLocal(lotId, "Revisión OK");
+    const moves = listMovementsByProduct(PID);
+    const relMove = moves.find((m) => m.type === "release");
+    expect(relMove).toBeDefined();
+    expect(relMove?.reason).toContain("Revisión OK");
+  });
+});
+
+describe("recallLotLocal", () => {
+  function addAvailableLot(): string {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "RC-01",
+      initialQuantity: 5,
+      expiresAt: future(200),
+    });
+    if (!r.ok) throw new Error("setup: addLot failed");
+    return r.lot.id;
+  }
+
+  it("rechaza sin motivo", () => {
+    const lotId = addAvailableLot();
+    const res = recallLotLocal(lotId, "");
+    expect(res.ok).toBe(false);
+  });
+
+  it("envía lote a recalled y registra movimiento", () => {
+    const lotId = addAvailableLot();
+    const res = recallLotLocal(lotId, "Contaminación detectada");
+    expect(res.ok).toBe(true);
+    const lot = listAllLots().find((l) => l.id === lotId);
+    expect(lot?.status).toBe("recalled");
+    const moves = listMovementsByProduct(PID);
+    const recallMove = moves.find((m) => m.reason?.includes("Contaminación"));
+    expect(recallMove).toBeDefined();
+  });
+});
+
+describe("updateLotNoteLocal", () => {
+  it("actualiza la nota del lote sin cambiar status", () => {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "NOTE-01",
+      initialQuantity: 3,
+      expiresAt: future(90),
+    });
+    if (!r.ok) throw new Error("setup");
+    updateLotNoteLocal(r.lot.id, "Nuevo motivo de cuarentena");
+    const lot = listAllLots().find((l) => l.id === r.lot.id);
+    expect(lot?.notes).toBe("Nuevo motivo de cuarentena");
+    expect(lot?.status).toBe("available");
+  });
+});
+
+describe("releaseLotAnywhere (modo local)", () => {
+  it("rechaza sin motivo", async () => {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "ANYW-01",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    if (!r.ok) throw new Error("setup");
+    const res = await releaseLotAnywhere(r.lot.id, { reason: "" });
+    expect(res.ok).toBe(false);
+  });
+
+  it("libera lote (modo local)", async () => {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "ANYW-02",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    if (!r.ok) throw new Error("setup");
+    const res = await releaseLotAnywhere(r.lot.id, { reason: "Todo OK" });
+    expect(res.ok).toBe(true);
+  });
+});
+
+describe("recallLotAnywhere (modo local)", () => {
+  it("rechaza sin motivo", async () => {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "RECALL-01",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    if (!r.ok) throw new Error("setup");
+    const res = await recallLotAnywhere(r.lot.id, { reason: "" });
+    expect(res.ok).toBe(false);
+  });
+
+  it("marca lote como recalled (modo local)", async () => {
+    const r = addLot({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "RECALL-02",
+      initialQuantity: 5,
+      expiresAt: future(120),
+    });
+    if (!r.ok) throw new Error("setup");
+    const res = await recallLotAnywhere(r.lot.id, { reason: "Defecto de fabricación" });
+    expect(res.ok).toBe(true);
+    const lot = listAllLots().find((l) => l.id === r.lot.id);
+    expect(lot?.status).toBe("recalled");
   });
 });

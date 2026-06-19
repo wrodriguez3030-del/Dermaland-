@@ -24,6 +24,8 @@ import { mockBusiness } from "@/lib/mock-data/tenancy";
 
 const KEY_LOTS = "dermaland.lots";
 const KEY_QTY = "dermaland.lots.qty";
+const KEY_STATUS = "dermaland.lots.status";
+const KEY_NOTES = "dermaland.lots.notes";
 const KEY_MOVES = "dermaland.movements";
 const CHANGE_EVENT = "dermaland:inventory-changed";
 
@@ -58,6 +60,16 @@ function readQtyOverrides(): Record<string, number> {
   return v && typeof v === "object" ? v : {};
 }
 
+function readStatusOverrides(): Record<string, ProductLot["status"]> {
+  const v = safeRead<Record<string, ProductLot["status"]>>(KEY_STATUS, {});
+  return v && typeof v === "object" ? v : {};
+}
+
+function readNotesOverrides(): Record<string, string> {
+  const v = safeRead<Record<string, string>>(KEY_NOTES, {});
+  return v && typeof v === "object" ? v : {};
+}
+
 function readNewMoves(): InventoryMovement[] {
   const v = safeRead<InventoryMovement[]>(KEY_MOVES, []);
   return Array.isArray(v) ? v : [];
@@ -65,15 +77,20 @@ function readNewMoves(): InventoryMovement[] {
 
 // ─── Lectura ────────────────────────────────────────────────────────────────
 
-/** Todos los lotes (seed + nuevos), con `currentQuantity` ajustado. */
+/** Todos los lotes (seed + nuevos), con `currentQuantity`, `status` y `notes` ajustados. */
 export function listAllLots(): ProductLot[] {
-  const overrides = readQtyOverrides();
-  const seed = mockProductLots.map((l) =>
-    overrides[l.id] != null ? { ...l, currentQuantity: overrides[l.id]! } : l,
-  );
-  const local = readNewLots().map((l) =>
-    overrides[l.id] != null ? { ...l, currentQuantity: overrides[l.id]! } : l,
-  );
+  const qtyOv = readQtyOverrides();
+  const statusOv = readStatusOverrides();
+  const notesOv = readNotesOverrides();
+  function applyOverrides(l: ProductLot): ProductLot {
+    const patch: Partial<ProductLot> = {};
+    if (qtyOv[l.id] != null) patch.currentQuantity = qtyOv[l.id];
+    if (statusOv[l.id] != null) patch.status = statusOv[l.id];
+    if (notesOv[l.id] != null) patch.notes = notesOv[l.id];
+    return Object.keys(patch).length ? { ...l, ...patch } : l;
+  }
+  const seed = mockProductLots.map(applyOverrides);
+  const local = readNewLots().map(applyOverrides);
   return [...seed, ...local];
 }
 
@@ -407,7 +424,81 @@ function pushMovement(
 export function clearLocalInventory(): void {
   safeWrite(KEY_LOTS, []);
   safeWrite(KEY_QTY, {});
+  safeWrite(KEY_STATUS, {});
+  safeWrite(KEY_NOTES, {});
   safeWrite(KEY_MOVES, []);
+}
+
+// ─── Cuarentena: liberar / recall ─────────────────────────────────────────────
+
+export type LotActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Libera un lote de cuarentena en local (status → "available").
+ * Registra movimiento `quarantine_release`.
+ */
+export function releaseLotLocal(lotId: string, reason: string): LotActionResult {
+  if (!reason.trim()) return { ok: false, error: "Indica el motivo de liberación." };
+  const lot = listAllLots().find((l) => l.id === lotId);
+  if (!lot) return { ok: false, error: "Lote no encontrado." };
+
+  const statusOv = readStatusOverrides();
+  statusOv[lotId] = "available";
+  safeWrite(KEY_STATUS, statusOv);
+
+  pushMovement({
+    productId: lot.productId,
+    lotId: lot.id,
+    warehouseId: lot.warehouseId,
+    branchId: lot.branchId,
+    type: "release",
+    quantity: 0,
+    reason: reason.trim(),
+    reference: lot.lotNumber,
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Envía un lote a recall en local (status → "recalled").
+ * Registra movimiento `lot_recalled`.
+ */
+export function recallLotLocal(lotId: string, reason: string): LotActionResult {
+  if (!reason.trim()) return { ok: false, error: "Indica el motivo del recall." };
+  const lot = listAllLots().find((l) => l.id === lotId);
+  if (!lot) return { ok: false, error: "Lote no encontrado." };
+
+  const statusOv = readStatusOverrides();
+  statusOv[lotId] = "recalled";
+  safeWrite(KEY_STATUS, statusOv);
+
+  pushMovement({
+    productId: lot.productId,
+    lotId: lot.id,
+    warehouseId: lot.warehouseId,
+    branchId: lot.branchId,
+    type: "expiry",
+    quantity: 0,
+    reason: reason.trim(),
+    reference: lot.lotNumber,
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Actualiza la nota/motivo de un lote en local.
+ */
+export function updateLotNoteLocal(lotId: string, notes: string): LotActionResult {
+  const lot = listAllLots().find((l) => l.id === lotId);
+  if (!lot) return { ok: false, error: "Lote no encontrado." };
+  const notesOv = readNotesOverrides();
+  notesOv[lotId] = notes;
+  safeWrite(KEY_NOTES, notesOv);
+  return { ok: true };
 }
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────
@@ -579,6 +670,56 @@ export async function adjustStockAnywhere(input: AdjustStockInput): Promise<Adju
     if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
     notifyInventoryChanged();
     return { ok: true, delta: typeof body.delta === "number" ? body.delta : 0 };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Wrapper gated: libera un lote vía API (supabase) o local. */
+export async function releaseLotAnywhere(
+  lotId: string,
+  opts: { reason: string; responsible?: string },
+): Promise<LotActionResult> {
+  if (LOT_BACKEND === "local") {
+    const res = releaseLotLocal(lotId, opts.reason);
+    if (res.ok) notifyInventoryChanged();
+    return res;
+  }
+  try {
+    const res = await fetch(`/api/lots/${lotId}/release`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: opts.reason, responsible: opts.responsible }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyInventoryChanged();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Wrapper gated: envía un lote a recall vía API (supabase) o local. */
+export async function recallLotAnywhere(
+  lotId: string,
+  opts: { reason: string },
+): Promise<LotActionResult> {
+  if (LOT_BACKEND === "local") {
+    const res = recallLotLocal(lotId, opts.reason);
+    if (res.ok) notifyInventoryChanged();
+    return res;
+  }
+  try {
+    const res = await fetch(`/api/lots/${lotId}/recall`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: opts.reason }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyInventoryChanged();
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
