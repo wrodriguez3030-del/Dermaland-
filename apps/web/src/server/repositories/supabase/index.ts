@@ -40,7 +40,7 @@ import {
 } from "./sales";
 import { userRepository } from "./user";
 import { warehouseRepository } from "./warehouse";
-import { supplierInvoiceRepository, expenseRepository, recurringExpenseRepository } from "./purchases";
+import { supplierInvoiceRepository, expenseRepository, recurringExpenseRepository, supplierRepository, expenseCategoryRepository } from "./purchases";
 
 class NotImplementedError extends Error {
   constructor(method: string) {
@@ -115,4 +115,6 @@ export const supabaseRepositories: Repositories = {
   supplierInvoice: supplierInvoiceRepository,
   expense: expenseRepository,
   recurringExpense: recurringExpenseRepository,
+  supplier: supplierRepository,
+  expenseCategory: expenseCategoryRepository,
 };

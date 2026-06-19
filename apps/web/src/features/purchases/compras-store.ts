@@ -773,6 +773,129 @@ export async function deleteRecurringAnywhere(id: string): Promise<DeleteResult>
   return deleteRecurring(id);
 }
 
+// ─── Acciones secundarias server-aware ───────────────────────────────────────
+
+export async function voidInvoiceAnywhere(id: string): Promise<PayResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/supplier-invoices/${id}/void`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      notifyPurchasesChanged();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return voidInvoice(id);
+}
+
+export async function registerPaymentAnywhere(
+  id: string,
+  amount: number,
+  method: PaymentMethod,
+): Promise<PayResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/supplier-invoices/${id}/pay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, method }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      notifyPurchasesChanged();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return registerInvoicePayment(id, amount, method);
+}
+
+export async function voidExpenseAnywhere(id: string): Promise<DeleteResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/expenses/${id}/void`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      notifyPurchasesChanged();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return voidExpense(id);
+}
+
+export async function setRecurringActiveAnywhere(
+  id: string,
+  active: boolean,
+): Promise<RecurringResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/recurring-expenses/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: active ? "active" : "inactive" }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { recurring?: RecurringExpense; error?: string };
+      if (!res.ok || !body.recurring) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      notifyPurchasesChanged();
+      return { ok: true, recurring: body.recurring };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return setRecurringActive(id, active);
+}
+
+export async function generateRunAnywhere(id: string): Promise<ExpenseResult> {
+  if (PURCHASES_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/recurring-expenses/${id}/run`, { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { expense?: Expense; error?: string };
+      if (!res.ok || !body.expense) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      notifyPurchasesChanged();
+      return { ok: true, expense: body.expense };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return generateRecurringRun(id);
+}
+
+// ─── Lookups: suppliers y expense_categories ─────────────────────────────────
+
+export interface SupplierLookup {
+  id: string;
+  name: string;
+  rnc?: string;
+}
+
+export interface ExpenseCategoryLookup {
+  id: string;
+  name: string;
+}
+
+export async function fetchSuppliersFromServer(): Promise<SupplierLookup[]> {
+  const res = await fetch("/api/suppliers", { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { suppliers: SupplierLookup[] }).suppliers;
+}
+
+export async function fetchExpenseCategoriesFromServer(): Promise<ExpenseCategoryLookup[]> {
+  const res = await fetch("/api/expense-categories", { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { categories: ExpenseCategoryLookup[] }).categories;
+}
+
 // ─── Hooks server-aware ──────────────────────────────────────────────────────
 
 export function useInvoices(): SupplierInvoice[] {
@@ -848,6 +971,45 @@ export function useRecurring(): RecurringExpense[] {
     };
   }, []);
   return list;
+}
+
+// ─── Hooks lookups server-aware ──────────────────────────────────────────────
+
+/**
+ * Devuelve los proveedores desde Supabase (modo supabase) o lista vacía
+ * con fallback local (modo local). En modo local los proveedores se eligen
+ * manualmente por nombre en el formulario; el hook solo es relevante en prod.
+ */
+export function useSuppliers(): SupplierLookup[] {
+  const [list, setList] = React.useState<SupplierLookup[]>([]);
+  React.useEffect(() => {
+    if (PURCHASES_BACKEND !== "supabase") return;
+    let alive = true;
+    fetchSuppliersFromServer()
+      .then((suppliers) => { if (alive) setList(suppliers); })
+      .catch(() => { /* silencioso: modo supabase sin datos = [] */ });
+    return () => { alive = false; };
+  }, []);
+  return list;
+}
+
+/**
+ * Devuelve las categorías de gasto desde Supabase (modo supabase).
+ * En modo local devuelve las categorías hard-coded de EXPENSE_CATEGORIES.
+ */
+export function useExpenseCategories(): string[] {
+  const [serverCats, setServerCats] = React.useState<string[] | null>(null);
+  React.useEffect(() => {
+    if (PURCHASES_BACKEND !== "supabase") return;
+    let alive = true;
+    fetchExpenseCategoriesFromServer()
+      .then((cats) => { if (alive) setServerCats(cats.map((c) => c.name)); })
+      .catch(() => { /* fallback a EXPENSE_CATEGORIES */ });
+    return () => { alive = false; };
+  }, []);
+  // En modo supabase: usa las del servidor (o fallback a hardcoded si no hay).
+  // En modo local: siempre hardcoded.
+  return serverCats ?? EXPENSE_CATEGORIES;
 }
 
 // ─── Hook reactivo ──────────────────────────────────────────────────────────

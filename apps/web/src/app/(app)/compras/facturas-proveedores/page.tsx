@@ -27,8 +27,8 @@ import { getBranchById } from "@/lib/mock-data/tenancy";
 import {
   useInvoices,
   comprasSummary,
-  registerInvoicePayment,
-  voidInvoice,
+  registerPaymentAnywhere,
+  voidInvoiceAnywhere,
   deleteInvoiceAnywhere,
   type InvoiceStatus,
 } from "@/features/purchases/compras-store";
@@ -154,8 +154,8 @@ export default function FacturasProveedoresPage() {
                               disabled: !pending,
                               disabledReason:
                                 inv.status === "pagada" ? "Factura pagada." : "No aplica.",
-                              onClick: () => {
-                                const r = registerInvoicePayment(inv.id, inv.total - inv.paid, "transferencia");
+                              onClick: async () => {
+                                const r = await registerPaymentAnywhere(inv.id, inv.total - inv.paid, "transferencia");
                                 if (!r.ok) toast.error(r.error);
                                 else toast.success("Pago registrado.");
                               },
@@ -170,9 +170,10 @@ export default function FacturasProveedoresPage() {
                               destructive: true,
                               disabled: inv.status === "anulada",
                               disabledReason: "Ya está anulada.",
-                              onClick: () => {
-                                voidInvoice(inv.id);
-                                toast.success("Factura anulada.");
+                              onClick: async () => {
+                                const r = await voidInvoiceAnywhere(inv.id);
+                                if (!r.ok) toast.error(r.error);
+                                else toast.success("Factura anulada.");
                               },
                               confirm: {
                                 title: "Anular factura",

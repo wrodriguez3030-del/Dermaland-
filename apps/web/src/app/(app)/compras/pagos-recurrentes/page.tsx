@@ -23,8 +23,8 @@ import { formatCurrency } from "@/lib/utils/format";
 import { getBranchById } from "@/lib/mock-data/tenancy";
 import {
   useRecurring,
-  setRecurringActive,
-  generateRecurringRun,
+  setRecurringActiveAnywhere,
+  generateRunAnywhere,
   deleteRecurringAnywhere,
   comprasSummary,
 } from "@/features/purchases/compras-store";
@@ -108,8 +108,16 @@ export default function PagosRecurrentesPage() {
                         <RowActions
                           canView={false}
                           canEdit={false}
-                          onActivate={active ? undefined : () => { setRecurringActive(r.id, true); toast.success(`${r.name} activado.`); }}
-                          onDeactivate={active ? () => { setRecurringActive(r.id, false); toast.success(`${r.name} inactivado.`); } : undefined}
+                          onActivate={active ? undefined : async () => {
+                            const res = await setRecurringActiveAnywhere(r.id, true);
+                            if (!res.ok) toast.error(res.error);
+                            else toast.success(`${r.name} activado.`);
+                          }}
+                          onDeactivate={active ? async () => {
+                            const res = await setRecurringActiveAnywhere(r.id, false);
+                            if (!res.ok) toast.error(res.error);
+                            else toast.success(`${r.name} inactivado.`);
+                          } : undefined}
                           onDelete={async () => {
                             const res = await deleteRecurringAnywhere(r.id);
                             if (!res.ok) toast.error(res.error);
@@ -122,8 +130,8 @@ export default function PagosRecurrentesPage() {
                               icon: RefreshCw,
                               disabled: !active,
                               disabledReason: "Está inactivo.",
-                              onClick: () => {
-                                const res = generateRecurringRun(r.id);
+                              onClick: async () => {
+                                const res = await generateRunAnywhere(r.id);
                                 if (!res.ok) toast.error(res.error);
                                 else toast.success(`Pago de ${r.name} generado.`);
                               },

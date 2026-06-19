@@ -3,12 +3,18 @@ import type {
   SupplierInvoiceRepository,
   ExpenseRepository,
   RecurringExpenseRepository,
+  SupplierRepository,
+  ExpenseCategoryRepository,
+  Supplier,
+  ExpenseCategory,
   RepoContext,
 } from "../types";
 import type {
   SupplierInvoice,
   Expense,
   RecurringExpense,
+  RecurringRun,
+  PaymentMethod,
   CreateInvoiceInput,
   CreateExpenseInput,
   CreateRecurringInput,
@@ -184,6 +190,20 @@ export const supplierInvoiceRepository: SupplierInvoiceRepository = {
       .eq("id", id);
     if (error) throw new SupabaseRepositoryError("supplierInvoice.softDelete", error);
   },
+
+  async void(ctx: RepoContext, id: string) {
+    return supplierInvoiceRepository.update(ctx, id, { status: "anulada" });
+  },
+
+  async registerPayment(ctx: RepoContext, id: string, amount: number, _method: PaymentMethod) {
+    const inv = await supplierInvoiceRepository.byId(ctx, id);
+    if (!inv) throw new Error("Factura no encontrada.");
+    if (inv.status === "anulada") throw new Error("La factura está anulada.");
+    if (!(amount > 0)) throw new Error("El monto debe ser mayor a 0.");
+    const paid = Math.min(inv.total, inv.paid + amount);
+    const status = paid >= inv.total ? "pagada" : "parcial";
+    return supplierInvoiceRepository.update(ctx, id, { paid, status });
+  },
 };
 
 // ─── Expenses ────────────────────────────────────────────────────────────────
@@ -285,6 +305,10 @@ export const expenseRepository: ExpenseRepository = {
       .eq("business_id", ctx.businessId)
       .eq("id", id);
     if (error) throw new SupabaseRepositoryError("expense.softDelete", error);
+  },
+
+  async void(ctx: RepoContext, id: string) {
+    return expenseRepository.update(ctx, id, { status: "anulado" });
   },
 };
 
@@ -404,5 +428,142 @@ export const recurringExpenseRepository: RecurringExpenseRepository = {
       .eq("business_id", ctx.businessId)
       .eq("id", id);
     if (error) throw new SupabaseRepositoryError("recurringExpense.softDelete", error);
+  },
+
+  async setActive(ctx: RepoContext, id: string, active: boolean) {
+    return recurringExpenseRepository.update(ctx, id, { status: active ? "active" : "inactive" });
+  },
+
+  async generateRun(ctx: RepoContext, id: string) {
+    const r = await recurringExpenseRepository.byId(ctx, id);
+    if (!r) throw new Error("Pago recurrente no encontrado.");
+    if (r.status !== "active") throw new Error("El pago recurrente está inactivo.");
+
+    // Crear el gasto asociado.
+    const expense = await expenseRepository.create(ctx, {
+      businessId: ctx.businessId,
+      date: new Date().toISOString().slice(0, 10),
+      category: r.category,
+      payee: r.supplier ?? r.name,
+      concept: `${r.name} (recurrente)`,
+      amount: r.amount,
+      method: r.method,
+      branchId: r.branchId,
+      note: "Generado desde pago recurrente",
+    });
+
+    // Insertar la corrida en recurring_expense_runs.
+    const sb = await getClient("recurringExpense.generateRun");
+    const runRow = {
+      recurring_id: id,
+      run_date: new Date().toISOString().slice(0, 10),
+      amount: r.amount,
+      expense_id: expense.id,
+      paid_at: new Date().toISOString(),
+    };
+    const { data: runData, error: runError } = await (sb as any)
+      .from("recurring_expense_runs")
+      .insert(runRow)
+      .select("*")
+      .single();
+    if (runError) throw new SupabaseRepositoryError("recurringExpense.generateRun", runError);
+
+    const run: RecurringRun = {
+      date: runData.run_date as string,
+      amount: runData.amount as number,
+      expenseId: runData.expense_id as string ?? undefined,
+      paidAt: runData.paid_at as string ?? undefined,
+    };
+    return { expense, run };
+  },
+};
+
+// ─── Suppliers ────────────────────────────────────────────────────────────────
+
+export const supplierRepository: SupplierRepository = {
+  async list(ctx: RepoContext) {
+    const sb = await getClient("supplier.list");
+    const { data, error } = await (sb as any)
+      .from("suppliers")
+      .select("*")
+      .eq("business_id", ctx.businessId)
+      .is("deleted_at", null)
+      .order("name", { ascending: true });
+    if (error) throw new SupabaseRepositoryError("supplier.list", error);
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      businessId: r.business_id as string,
+      name: r.name as string,
+      rnc: (r.rnc as string) ?? undefined,
+      phone: (r.phone as string) ?? undefined,
+      email: (r.email as string) ?? undefined,
+      createdAt: r.created_at as string,
+      updatedAt: r.updated_at as string,
+    } satisfies Supplier));
+  },
+
+  async create(ctx: RepoContext, input: { name: string; rnc?: string; phone?: string; email?: string }) {
+    const sb = await getClient("supplier.create");
+    const { data, error } = await (sb as any)
+      .from("suppliers")
+      .insert({
+        business_id: ctx.businessId,
+        name: input.name.trim(),
+        rnc: input.rnc?.trim() ?? null,
+        phone: input.phone?.trim() ?? null,
+        email: input.email?.trim() ?? null,
+      })
+      .select("*")
+      .single();
+    if (error) throw new SupabaseRepositoryError("supplier.create", error);
+    return {
+      id: data.id as string,
+      businessId: data.business_id as string,
+      name: data.name as string,
+      rnc: (data.rnc as string) ?? undefined,
+      phone: (data.phone as string) ?? undefined,
+      email: (data.email as string) ?? undefined,
+      createdAt: data.created_at as string,
+      updatedAt: data.updated_at as string,
+    } satisfies Supplier;
+  },
+};
+
+// ─── ExpenseCategories ────────────────────────────────────────────────────────
+
+export const expenseCategoryRepository: ExpenseCategoryRepository = {
+  async list(ctx: RepoContext) {
+    const sb = await getClient("expenseCategory.list");
+    const { data, error } = await (sb as any)
+      .from("expense_categories")
+      .select("*")
+      .eq("business_id", ctx.businessId)
+      .order("name", { ascending: true });
+    if (error) throw new SupabaseRepositoryError("expenseCategory.list", error);
+    return (data ?? []).map((r: Record<string, unknown>) => ({
+      id: r.id as string,
+      businessId: r.business_id as string,
+      name: r.name as string,
+      createdAt: r.created_at as string,
+    } satisfies ExpenseCategory));
+  },
+
+  async create(ctx: RepoContext, input: { name: string }) {
+    const sb = await getClient("expenseCategory.create");
+    const { data, error } = await (sb as any)
+      .from("expense_categories")
+      .insert({
+        business_id: ctx.businessId,
+        name: input.name.trim(),
+      })
+      .select("*")
+      .single();
+    if (error) throw new SupabaseRepositoryError("expenseCategory.create", error);
+    return {
+      id: data.id as string,
+      businessId: data.business_id as string,
+      name: data.name as string,
+      createdAt: data.created_at as string,
+    } satisfies ExpenseCategory;
   },
 };

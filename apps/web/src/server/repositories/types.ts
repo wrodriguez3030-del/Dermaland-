@@ -53,10 +53,32 @@ import type {
   SupplierInvoice,
   Expense,
   RecurringExpense,
+  RecurringRun,
+  PaymentMethod,
   CreateInvoiceInput,
   CreateExpenseInput,
   CreateRecurringInput,
 } from "@/features/purchases/compras-store";
+
+// ─── Suppliers / ExpenseCategories ──────────────────────────────────────────
+
+export interface Supplier {
+  id: ID;
+  businessId: ID;
+  name: string;
+  rnc?: string;
+  phone?: string;
+  email?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseCategory {
+  id: ID;
+  businessId: ID;
+  name: string;
+  createdAt: string;
+}
 
 // ─── Read context ────────────────────────────────────────────────────────────
 //
@@ -226,6 +248,10 @@ export interface SupplierInvoiceRepository {
   create(ctx: RepoContext, input: CreateInvoiceInput & { businessId: ID }): Promise<SupplierInvoice>;
   update(ctx: RepoContext, id: ID, patch: Partial<SupplierInvoice>): Promise<SupplierInvoice>;
   softDelete(ctx: RepoContext, id: ID): Promise<void>;
+  /** Marca la factura como anulada (status → "anulada"). */
+  void(ctx: RepoContext, id: ID): Promise<SupplierInvoice>;
+  /** Registra un pago parcial o total sobre la factura. Actualiza paid+status. */
+  registerPayment(ctx: RepoContext, id: ID, amount: number, method: PaymentMethod): Promise<SupplierInvoice>;
 }
 
 export interface ExpenseRepository {
@@ -234,6 +260,8 @@ export interface ExpenseRepository {
   create(ctx: RepoContext, input: CreateExpenseInput & { businessId: ID }): Promise<Expense>;
   update(ctx: RepoContext, id: ID, patch: Partial<Expense>): Promise<Expense>;
   softDelete(ctx: RepoContext, id: ID): Promise<void>;
+  /** Marca el gasto como anulado (status → "anulado"). */
+  void(ctx: RepoContext, id: ID): Promise<Expense>;
 }
 
 export interface RecurringExpenseRepository {
@@ -242,6 +270,24 @@ export interface RecurringExpenseRepository {
   create(ctx: RepoContext, input: CreateRecurringInput & { businessId: ID }): Promise<RecurringExpense>;
   update(ctx: RepoContext, id: ID, patch: Partial<RecurringExpense>): Promise<RecurringExpense>;
   softDelete(ctx: RepoContext, id: ID): Promise<void>;
+  /** Activa o desactiva el pago recurrente. */
+  setActive(ctx: RepoContext, id: ID, active: boolean): Promise<RecurringExpense>;
+  /** Genera el gasto del período: crea un Expense y registra la corrida. */
+  generateRun(ctx: RepoContext, id: ID): Promise<{ expense: Expense; run: RecurringRun }>;
+}
+
+// ─── Suppliers lookup ─────────────────────────────────────────────────────────
+
+export interface SupplierRepository {
+  list(ctx: RepoContext): Promise<Supplier[]>;
+  create(ctx: RepoContext, input: { name: string; rnc?: string; phone?: string; email?: string }): Promise<Supplier>;
+}
+
+// ─── ExpenseCategory lookup ───────────────────────────────────────────────────
+
+export interface ExpenseCategoryRepository {
+  list(ctx: RepoContext): Promise<ExpenseCategory[]>;
+  create(ctx: RepoContext, input: { name: string }): Promise<ExpenseCategory>;
 }
 
 // ─── POS / Sales ────────────────────────────────────────────────────────────
@@ -391,4 +437,6 @@ export interface Repositories {
   supplierInvoice: SupplierInvoiceRepository;
   expense: ExpenseRepository;
   recurringExpense: RecurringExpenseRepository;
+  supplier: SupplierRepository;
+  expenseCategory: ExpenseCategoryRepository;
 }

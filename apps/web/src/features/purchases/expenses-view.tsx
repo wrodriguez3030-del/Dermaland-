@@ -26,7 +26,7 @@ import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { getBranchById, mockBranches } from "@/lib/mock-data/tenancy";
 import {
   useExpenses,
-  voidExpense,
+  voidExpenseAnywhere,
   deleteExpenseAnywhere,
   EXPENSE_CATEGORIES,
   type Expense,
@@ -171,9 +171,10 @@ export function ExpensesView({ petty }: { petty: boolean }) {
                             destructive: true,
                             disabled: e.status === "anulado",
                             disabledReason: "Ya está anulado.",
-                            onClick: () => {
-                              voidExpense(e.id);
-                              toast.success("Gasto anulado.");
+                            onClick: async () => {
+                              const r = await voidExpenseAnywhere(e.id);
+                              if (!r.ok) toast.error(r.error);
+                              else toast.success("Gasto anulado.");
                             },
                             confirm: {
                               title: "Anular gasto",

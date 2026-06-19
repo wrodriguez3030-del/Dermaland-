@@ -95,8 +95,16 @@ import {
   mockWhatsappTemplates,
 } from "@/lib/mock-data/integrations";
 import { daysUntil } from "@/lib/utils/format";
-import type { SupplierInvoiceRepository, ExpenseRepository, RecurringExpenseRepository } from "../types";
-import type { SupplierInvoice, Expense, RecurringExpense } from "@/features/purchases/compras-store";
+import type {
+  SupplierInvoiceRepository,
+  ExpenseRepository,
+  RecurringExpenseRepository,
+  SupplierRepository,
+  ExpenseCategoryRepository,
+  Supplier,
+  ExpenseCategory,
+} from "../types";
+import type { SupplierInvoice, Expense, RecurringExpense, RecurringRun } from "@/features/purchases/compras-store";
 
 const guard = (ctx: RepoContext) => {
   if (!ctx.businessId) throw new Error("RepoContext.businessId requerido");
@@ -720,6 +728,20 @@ const supplierInvoice: SupplierInvoiceRepository = {
     guard(ctx);
     deletedInvoiceIds.add(id);
   },
+  async void(ctx, id) {
+    guard(ctx);
+    return supplierInvoice.update(ctx, id, { status: "anulada" });
+  },
+  async registerPayment(ctx, id, amount) {
+    guard(ctx);
+    const inv = await supplierInvoice.byId(ctx, id);
+    if (!inv) throw new Error("Factura no encontrada.");
+    if (inv.status === "anulada") throw new Error("La factura está anulada.");
+    if (!(amount > 0)) throw new Error("El monto debe ser mayor a 0.");
+    const paid = Math.min(inv.total, inv.paid + amount);
+    const status = paid >= inv.total ? "pagada" : "parcial";
+    return supplierInvoice.update(ctx, id, { paid, status });
+  },
 };
 
 const expense: ExpenseRepository = {
@@ -773,6 +795,10 @@ const expense: ExpenseRepository = {
     guard(ctx);
     deletedExpenseIds.add(id);
   },
+  async void(ctx, id) {
+    guard(ctx);
+    return expense.update(ctx, id, { status: "anulado" });
+  },
 };
 
 const recurringExpense: RecurringExpenseRepository = {
@@ -821,6 +847,37 @@ const recurringExpense: RecurringExpenseRepository = {
   async softDelete(ctx, id) {
     guard(ctx);
     deletedRecurringIds.add(id);
+  },
+  async setActive(ctx, id, active) {
+    guard(ctx);
+    return recurringExpense.update(ctx, id, { status: active ? "active" : "inactive" });
+  },
+  async generateRun(ctx, id) {
+    guard(ctx);
+    const r = await recurringExpense.byId(ctx, id);
+    if (!r) throw new Error("Pago recurrente no encontrado.");
+    if (r.status !== "active") throw new Error("El pago recurrente está inactivo.");
+    const n = new Date().toISOString();
+    const createdExpense = await expense.create(ctx, {
+      businessId: ctx.businessId,
+      date: n.slice(0, 10),
+      category: r.category,
+      payee: r.supplier ?? r.name,
+      concept: `${r.name} (recurrente)`,
+      amount: r.amount,
+      method: r.method,
+      branchId: r.branchId,
+      note: "Generado desde pago recurrente",
+    });
+    const run: RecurringRun = {
+      date: n.slice(0, 10),
+      amount: r.amount,
+      expenseId: createdExpense.id,
+      paidAt: n,
+    };
+    const existingRuns = r.runs ?? [];
+    await recurringExpense.update(ctx, id, { runs: [run, ...existingRuns] });
+    return { expense: createdExpense, run };
   },
 };
 
@@ -1030,6 +1087,70 @@ const dgii: DgiiRepository = {
   },
 };
 
+// ─── Overlays de escritura para suppliers / expense_categories ───────────────
+let extraSuppliers: Supplier[] = [];
+const supplierPatches: Record<string, Partial<Supplier>> = {};
+
+let extraExpenseCategories: ExpenseCategory[] = [];
+
+export function __resetLookupsMockWrites(): void {
+  extraSuppliers = [];
+  for (const k of Object.keys(supplierPatches)) delete supplierPatches[k];
+  extraExpenseCategories = [];
+}
+
+function mockSuppliersView(businessId: string): Supplier[] {
+  return extraSuppliers
+    .filter((s) => s.businessId === businessId)
+    .map((s) => supplierPatches[s.id] ? { ...s, ...supplierPatches[s.id] } : s);
+}
+
+function mockExpenseCategoriesView(businessId: string): ExpenseCategory[] {
+  return extraExpenseCategories.filter((c) => c.businessId === businessId);
+}
+
+const supplier: SupplierRepository = {
+  async list(ctx) {
+    guard(ctx);
+    return mockSuppliersView(ctx.businessId).sort((a, b) => a.name.localeCompare(b.name));
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const n = new Date().toISOString();
+    const created: Supplier = {
+      id: mockGenId("sup"),
+      businessId: ctx.businessId,
+      name: input.name.trim(),
+      rnc: input.rnc?.trim() || undefined,
+      phone: input.phone?.trim() || undefined,
+      email: input.email?.trim() || undefined,
+      createdAt: n,
+      updatedAt: n,
+    };
+    extraSuppliers = [created, ...extraSuppliers];
+    return created;
+  },
+};
+
+const expenseCategory: ExpenseCategoryRepository = {
+  async list(ctx) {
+    guard(ctx);
+    return mockExpenseCategoriesView(ctx.businessId).sort((a, b) => a.name.localeCompare(b.name));
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const n = new Date().toISOString();
+    const created: ExpenseCategory = {
+      id: mockGenId("ecat"),
+      businessId: ctx.businessId,
+      name: input.name.trim(),
+      createdAt: n,
+    };
+    extraExpenseCategories = [created, ...extraExpenseCategories];
+    return created;
+  },
+};
+
 export const mockRepositories: Repositories = {
   business,
   branch,
@@ -1057,4 +1178,6 @@ export const mockRepositories: Repositories = {
   supplierInvoice,
   expense,
   recurringExpense,
+  supplier,
+  expenseCategory,
 };
