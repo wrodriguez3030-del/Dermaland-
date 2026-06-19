@@ -25,12 +25,11 @@ import { FileText, Plus, Coins, Wallet, Ban, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { getBranchById } from "@/lib/mock-data/tenancy";
 import {
-  listInvoices,
+  useInvoices,
   comprasSummary,
   registerInvoicePayment,
   voidInvoice,
-  deleteInvoice,
-  usePurchasesTick,
+  deleteInvoiceAnywhere,
   type InvoiceStatus,
 } from "@/features/purchases/compras-store";
 import { InvoiceModal } from "@/features/purchases/compras-modals";
@@ -45,13 +44,12 @@ const statusTone: Record<InvoiceStatus, "success" | "warning" | "info" | "danger
 };
 
 export default function FacturasProveedoresPage() {
-  usePurchasesTick();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState("all");
 
-  const invoices = listInvoices();
+  const invoices = useInvoices();
   const summary = comprasSummary();
   const rows = invoices.filter((i) => {
     if (status !== "all" && i.status !== status) return false;
@@ -143,8 +141,8 @@ export default function FacturasProveedoresPage() {
                         <RowActions
                           canView={false}
                           canEdit={false}
-                          onDelete={() => {
-                            const r = deleteInvoice(inv.id);
+                          onDelete={async () => {
+                            const r = await deleteInvoiceAnywhere(inv.id);
                             if (!r.ok) toast.error(r.error);
                             else toast.success("Factura eliminada.");
                           }}

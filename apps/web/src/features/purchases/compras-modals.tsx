@@ -7,9 +7,9 @@ import { useToast } from "@/components/ui/toast";
 import { listActiveBranches } from "@/features/tenancy/branch-store";
 import { mockProducts } from "@/lib/mock-data/catalog";
 import {
-  createExpense,
-  createInvoice,
-  createRecurring,
+  saveExpense,
+  saveInvoice,
+  saveRecurring,
   EXPENSE_CATEGORIES,
   type Frequency,
   type PaymentMethod,
@@ -99,8 +99,8 @@ export function ExpenseModal({
   if (!open) return null;
   const needsLast4 = method === "tarjeta" || method === "transferencia";
 
-  const submit = () => {
-    const r = createExpense({
+  const submit = async () => {
+    const r = await saveExpense("create", {
       date,
       category,
       payee,
@@ -226,8 +226,8 @@ export function RecurringModal({ open, onClose }: { open: boolean; onClose: () =
 
   if (!open) return null;
 
-  const submit = () => {
-    const r = createRecurring({
+  const submit = async () => {
+    const r = await saveRecurring("create", {
       name,
       supplier: supplier || undefined,
       category,
@@ -357,7 +357,7 @@ export function InvoiceModal({ open, onClose }: { open: boolean; onClose: () => 
     0,
   );
 
-  const submit = () => {
+  const submit = async () => {
     const items: SupplierInvoiceItem[] = rows
       .filter((r) => (r.name.trim() || r.productId) && Number(r.quantity) > 0)
       .map((r) => {
@@ -377,7 +377,7 @@ export function InvoiceModal({ open, onClose }: { open: boolean; onClose: () => 
           branchId,
         };
       });
-    const r = createInvoice({
+    const r = await saveInvoice("create", {
       supplierName,
       supplierRnc,
       number,

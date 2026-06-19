@@ -22,12 +22,11 @@ import { Plus, Repeat, RefreshCw, Coins } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
 import { getBranchById } from "@/lib/mock-data/tenancy";
 import {
-  listRecurring,
+  useRecurring,
   setRecurringActive,
   generateRecurringRun,
-  deleteRecurring,
+  deleteRecurringAnywhere,
   comprasSummary,
-  usePurchasesTick,
 } from "@/features/purchases/compras-store";
 import { RecurringModal } from "@/features/purchases/compras-modals";
 
@@ -40,10 +39,9 @@ const freqLabel: Record<string, string> = {
 };
 
 export default function PagosRecurrentesPage() {
-  usePurchasesTick();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
-  const rows = listRecurring();
+  const rows = useRecurring();
   const summary = comprasSummary();
   const totalMensual = rows
     .filter((r) => r.status === "active" && r.frequency === "mensual")
@@ -112,8 +110,8 @@ export default function PagosRecurrentesPage() {
                           canEdit={false}
                           onActivate={active ? undefined : () => { setRecurringActive(r.id, true); toast.success(`${r.name} activado.`); }}
                           onDeactivate={active ? () => { setRecurringActive(r.id, false); toast.success(`${r.name} inactivado.`); } : undefined}
-                          onDelete={() => {
-                            const res = deleteRecurring(r.id);
+                          onDelete={async () => {
+                            const res = await deleteRecurringAnywhere(r.id);
                             if (!res.ok) toast.error(res.error);
                             else toast.success("Pago recurrente eliminado.");
                           }}

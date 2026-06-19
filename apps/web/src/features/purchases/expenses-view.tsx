@@ -25,11 +25,10 @@ import { Plus, Wallet, Coins, Ban, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { getBranchById, mockBranches } from "@/lib/mock-data/tenancy";
 import {
-  listExpenses,
+  useExpenses,
   voidExpense,
-  deleteExpense,
+  deleteExpenseAnywhere,
   EXPENSE_CATEGORIES,
-  usePurchasesTick,
   type Expense,
 } from "@/features/purchases/compras-store";
 import { ExpenseModal } from "@/features/purchases/compras-modals";
@@ -43,14 +42,13 @@ const methodLabel: Record<string, string> = {
 };
 
 export function ExpensesView({ petty }: { petty: boolean }) {
-  usePurchasesTick();
   const toast = useToast();
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [category, setCategory] = React.useState("all");
   const [branch, setBranch] = React.useState("all");
 
-  const all = listExpenses(petty);
+  const all = useExpenses(petty);
   const rows = all.filter((e) => {
     if (category !== "all" && e.category !== category) return false;
     if (branch !== "all" && e.branchId !== branch) return false;
@@ -160,8 +158,8 @@ export function ExpensesView({ petty }: { petty: boolean }) {
                       <RowActions
                         canView={false}
                         canEdit={false}
-                        onDelete={() => {
-                          const r = deleteExpense(e.id);
+                        onDelete={async () => {
+                          const r = await deleteExpenseAnywhere(e.id);
                           if (!r.ok) toast.error(r.error);
                           else toast.success("Gasto eliminado.");
                         }}
