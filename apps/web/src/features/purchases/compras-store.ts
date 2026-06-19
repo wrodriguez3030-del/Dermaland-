@@ -466,6 +466,31 @@ export function setRecurringActive(id: string, active: boolean): RecurringResult
   return { ok: true, recurring: list[i]! };
 }
 
+export function updateRecurring(id: string, patch: CreateRecurringInput): RecurringResult {
+  if (!patch.name?.trim()) return { ok: false, error: "El nombre es obligatorio." };
+  if (!(patch.amount > 0)) return { ok: false, error: "El monto debe ser mayor a 0." };
+  const list = read<RecurringExpense>(K_REC);
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0) return { ok: false, error: "Pago recurrente no encontrado." };
+  list[i] = {
+    ...list[i]!,
+    name: patch.name.trim(),
+    supplier: patch.supplier?.trim() || undefined,
+    category: patch.category,
+    amount: patch.amount,
+    frequency: patch.frequency,
+    payDay: patch.payDay,
+    startDate: patch.startDate,
+    endDate: patch.endDate || undefined,
+    branchId: patch.branchId,
+    method: patch.method,
+    note: patch.note?.trim() || undefined,
+    updatedAt: now(),
+  };
+  write(K_REC, list);
+  return { ok: true, recurring: list[i]! };
+}
+
 /** Genera el gasto del período: crea un Expense y registra la corrida. */
 export function generateRecurringRun(id: string): ExpenseResult {
   const r = getRecurring(id);
@@ -728,7 +753,7 @@ export async function saveRecurring(
       return { ok: false, error: (e as Error).message };
     }
   }
-  return mode === "create" ? createRecurring(input) : setRecurringActive(id!, true);
+  return mode === "create" ? createRecurring(input) : updateRecurring(id!, input);
 }
 
 export async function deleteRecurringAnywhere(id: string): Promise<DeleteResult> {

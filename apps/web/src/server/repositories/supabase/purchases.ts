@@ -73,7 +73,8 @@ export const supplierInvoiceRepository: SupplierInvoiceRepository = {
     const { data: itemsData, error: itemsError } = await (sb as any)
       .from("supplier_invoice_items")
       .select("*")
-      .eq("invoice_id", id);
+      .eq("invoice_id", id)
+      .eq("business_id", ctx.businessId);
     if (itemsError) throw new SupabaseRepositoryError("supplierInvoice.byIdItems", itemsError);
     const items = (itemsData ?? []).map(supplierInvoiceItemRowToTs);
     return supplierInvoiceRowToTs(data, items);
@@ -132,10 +133,13 @@ export const supplierInvoiceRepository: SupplierInvoiceRepository = {
       if (itemsError) throw new SupabaseRepositoryError("supplierInvoice.createItems", itemsError);
     }
 
-    const items = input.items.map((it) => ({
-      ...it,
-      total: it.quantity * it.unitCost + (it.itbis || 0),
-    }));
+    const { data: itemsData, error: itemsReadError } = await (sb as any)
+      .from("supplier_invoice_items")
+      .select("*")
+      .eq("invoice_id", data.id)
+      .eq("business_id", ctx.businessId);
+    if (itemsReadError) throw new SupabaseRepositoryError("supplierInvoice.createItemsRead", itemsReadError);
+    const items = (itemsData ?? []).map(supplierInvoiceItemRowToTs);
     return supplierInvoiceRowToTs(data, items);
   },
 

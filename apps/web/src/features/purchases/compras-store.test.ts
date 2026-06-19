@@ -10,6 +10,7 @@ import {
   listExpenses,
   deleteExpense,
   createRecurring,
+  updateRecurring,
   setRecurringActive,
   generateRecurringRun,
   deleteRecurring,
@@ -204,6 +205,35 @@ describe("pagos recurrentes", () => {
     if (!r.ok) throw new Error("setup");
     setRecurringActive(r.recurring.id, false);
     expect(generateRecurringRun(r.recurring.id).ok).toBe(false);
+  });
+
+  it("updateRecurring aplica el patch completo (nombre/monto/frecuencia)", () => {
+    const r = createRecurring({
+      name: "Servicioviejo",
+      category: "Software",
+      amount: 1000,
+      frequency: "mensual",
+      startDate: "2026-01-01",
+      branchId: BR,
+      method: "tarjeta",
+    });
+    if (!r.ok) throw new Error("setup");
+    const upd = updateRecurring(r.recurring.id, {
+      name: "ServicioNuevo",
+      category: "Mercadeo",
+      amount: 2500,
+      frequency: "trimestral",
+      startDate: "2026-03-01",
+      branchId: BR,
+      method: "transferencia",
+    });
+    expect(upd.ok).toBe(true);
+    if (upd.ok) {
+      expect(upd.recurring.name).toBe("ServicioNuevo");
+      expect(upd.recurring.amount).toBe(2500);
+      expect(upd.recurring.frequency).toBe("trimestral");
+      expect(upd.recurring.category).toBe("Mercadeo");
+    }
   });
 
   it("bloquea eliminar recurrente con corridas", () => {
