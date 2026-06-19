@@ -192,6 +192,18 @@ export const proformaRepository: ProformaRepository = {
 
     const proformaId = inserted.id as string;
 
+    // C2: compensating cleanup — si falla la inserción de items o payments,
+    // borramos la proforma recién creada para no dejarla huérfana.
+    // Esto NO es una transacción real (no hay rollback atómico); es compensación
+    // best-effort. Para atomicidad real se requeriría una RPC/función Postgres.
+    const rollbackProforma = async () => {
+      await sb
+        .from("proformas")
+        .delete()
+        .eq("id", proformaId)
+        .eq("business_id", ctx.businessId);
+    };
+
     // Items
     if (proforma.items?.length) {
       const itemRows = proforma.items.map((it, idx) => ({
@@ -213,8 +225,10 @@ export const proformaRepository: ProformaRepository = {
         kind: "product",
       }));
       const { error: iErr } = await sb.from("proforma_items").insert(itemRows);
-      if (iErr)
+      if (iErr) {
+        await rollbackProforma();
         throw new SupabaseRepositoryError("proforma.create:items", iErr);
+      }
     }
 
     // Payments
@@ -231,8 +245,10 @@ export const proformaRepository: ProformaRepository = {
       const { error: pErr } = await sb
         .from("proforma_payments")
         .insert(payRows);
-      if (pErr)
+      if (pErr) {
+        await rollbackProforma();
         throw new SupabaseRepositoryError("proforma.create:payments", pErr);
+      }
     }
 
     // Re-hidratamos para devolver el agregado completo con IDs reales.
@@ -253,7 +269,9 @@ export const proformaRepository: ProformaRepository = {
 
   async cancel(ctx: RepoContext, id: string, reason: string) {
     const sb = await getClient("proforma.cancel");
-    const { error } = await sb
+    // C1: usar .select("id").maybeSingle() para detectar que la fila existe y
+    // pertenece al tenant antes de aceptar silenciosamente 0 filas afectadas.
+    const { data, error } = await sb
       .from("proformas")
       .update({
         status: "cancelled",
@@ -261,8 +279,11 @@ export const proformaRepository: ProformaRepository = {
         updated_at: new Date().toISOString(),
       })
       .eq("business_id", ctx.businessId)
-      .eq("id", id);
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
     if (error) throw new SupabaseRepositoryError("proforma.cancel", error);
+    if (!data) throw new Error("Proforma no encontrada o no pertenece al negocio");
   },
 
   async convertToEcf(_ctx: RepoContext, _id: string) {

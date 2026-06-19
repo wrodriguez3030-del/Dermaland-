@@ -213,12 +213,14 @@ export async function cancelProformaAnywhere(
     }
   }
   // Modo local: actualizar en localStorage
+  // C6: devolver error si el id no existe en lugar de ok silencioso.
   const list = readLocal();
   const idx = list.findIndex((p) => p.id === id);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx]!, status: "cancelled", notes: reason };
-    writeLocal(list);
+  if (idx === -1) {
+    return { ok: false, error: "Proforma no encontrada." };
   }
+  list[idx] = { ...list[idx]!, status: "cancelled", notes: reason };
+  writeLocal(list);
   return { ok: true };
 }
 

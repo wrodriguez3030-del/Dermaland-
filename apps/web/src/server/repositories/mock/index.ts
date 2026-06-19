@@ -592,12 +592,12 @@ const customer: CustomerRepository = {
 
 // ─── Overlays de escritura para proformas ───────────────────────────────────
 let extraProformas: Proforma[] = [];
-const cancelledProformaIds = new Set<string>();
+// C7: cancelledProformaIds eliminado — era write-only (nunca leído);
+// los patches ya cubren el cancel (status: "cancelled" en proformaPatches).
 const proformaPatches: Record<string, Partial<Proforma>> = {};
 
 export function __resetProformaMockWrites(): void {
   extraProformas = [];
-  cancelledProformaIds.clear();
   for (const k of Object.keys(proformaPatches)) delete proformaPatches[k];
 }
 
@@ -639,7 +639,6 @@ const proforma: ProformaRepository = {
     const all = mockProformasView(ctx.businessId);
     const found = all.find((p) => p.id === id);
     if (!found) throw new Error(`Proforma ${id} no encontrada`);
-    cancelledProformaIds.add(id);
     proformaPatches[id] = { ...proformaPatches[id], status: "cancelled", notes: reason };
   },
   async convertToEcf() {

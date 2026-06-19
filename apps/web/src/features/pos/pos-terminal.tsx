@@ -40,6 +40,7 @@ import {
   type ChargeSaleResult,
 } from "./components/charge-sale-modal";
 import { primaryPaymentMethod } from "./payment-validation";
+import { useToast } from "@/components/ui/toast";
 
 interface CartLine {
   productId: string;
@@ -56,6 +57,7 @@ interface CartLine {
 
 export function PosTerminal() {
   const customers = useCustomers();
+  const toast = useToast();
   const [search, setSearch] = React.useState("");
   const [cart, setCart] = React.useState<CartLine[]>([]);
   const [customerId, setCustomerId] = React.useState<string | "">("");
@@ -184,7 +186,7 @@ export function PosTerminal() {
   const removeLine = (lotId: string) =>
     setCart((prev) => prev.filter((l) => l.lotId !== lotId));
 
-  const finalizeCharge = (result: ChargeSaleResult) => {
+  const finalizeCharge = async (result: ChargeSaleResult) => {
     if (!canCharge) return;
 
     const number = generateProformaNumber();
@@ -260,11 +262,17 @@ export function PosTerminal() {
       updatedAt: now,
     };
 
-    // Persistir proforma: local o Supabase según PROFORMA_BACKEND.
-    // En modo supabase la llamada es async; optimistamente actualizamos la UI.
+    // C3: Persistir proforma — esperamos el resultado antes de actualizar la UI.
+    // Si falla, mostramos error y NO limpiamos el carrito (la venta no se perdió).
     // Descuento de stock: en modo local el POS no descuenta stock (simulado).
     // En modo supabase el descuento de stock queda pendiente (ver reporte).
-    void createProformaAnywhere(newProforma);
+    const res = await createProformaAnywhere(newProforma);
+    if (!res.ok) {
+      toast.error(
+        res.error ?? "No se pudo emitir la venta. Revisá la conexión e intentá de nuevo.",
+      );
+      return;
+    }
 
     setIssued({
       id,
@@ -636,6 +644,7 @@ export function PosTerminal() {
         billingType={billingType}
         onConfirm={finalizeCharge}
       />
+      <toast.Toast />
     </div>
   );
 }

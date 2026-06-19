@@ -3,6 +3,20 @@ import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 
+// C4: helper para mapear errores de autenticación a 401 vs errores genéricos a 400.
+function errorStatus(e: unknown): 400 | 401 {
+  const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
+  if (
+    msg.includes("auth") ||
+    msg.includes("no autenticado") ||
+    msg.includes("session") ||
+    msg.includes("jwt")
+  ) {
+    return 401;
+  }
+  return 400;
+}
+
 /**
  * Proforma individual: GET (byId) y PATCH (cancel).
  *
@@ -38,7 +52,7 @@ export async function GET(
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: (e as Error).message }, { status: errorStatus(e) });
   }
 }
 
@@ -63,6 +77,6 @@ export async function PATCH(
       { status: 400 },
     );
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: (e as Error).message }, { status: errorStatus(e) });
   }
 }
