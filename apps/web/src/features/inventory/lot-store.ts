@@ -426,3 +426,181 @@ export function useInventoryTick(): number {
   }, []);
   return tick;
 }
+
+// ─── Backend (local vs Supabase) ─────────────────────────────────────────────
+
+/**
+ * Modo del backend de lotes/inventario:
+ *  - "local"    → este store (localStorage), por equipo (modo demo actual).
+ *  - "supabase" → fuente ÚNICA compartida vía /api/lots (RLS business_id).
+ *
+ * Se activa con `NEXT_PUBLIC_DATA_SOURCE=supabase`.
+ */
+export const LOT_BACKEND: "local" | "supabase" =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase"
+    ? "supabase"
+    : "local";
+
+function notifyInventoryChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  }
+}
+
+export async function fetchLotsFromServer(productId?: string): Promise<ProductLot[]> {
+  const url = productId ? `/api/lots?productId=${encodeURIComponent(productId)}` : "/api/lots";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { lots: ProductLot[] }).lots;
+}
+
+export function useAllLots(): ProductLot[] {
+  const [list, setList] = React.useState<ProductLot[]>(() =>
+    LOT_BACKEND === "supabase" ? [] : listAllLots(),
+  );
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (LOT_BACKEND === "supabase") {
+        fetchLotsFromServer()
+          .then((l) => { if (alive) setList(l); })
+          .catch(() => { if (alive) setList(listAllLots()); });
+      } else {
+        setList(listAllLots());
+      }
+    };
+    window.addEventListener(CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  return list;
+}
+
+export function useProductLots(productId: string): ProductLot[] {
+  const [list, setList] = React.useState<ProductLot[]>(() =>
+    LOT_BACKEND === "supabase" ? [] : listLotsByProduct(productId),
+  );
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (LOT_BACKEND === "supabase") {
+        fetchLotsFromServer(productId)
+          .then((l) => {
+            if (alive) {
+              setList(
+                [...l].sort(
+                  (a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime(),
+                ),
+              );
+            }
+          })
+          .catch(() => { if (alive) setList(listLotsByProduct(productId)); });
+      } else {
+        setList(listLotsByProduct(productId));
+      }
+    };
+    window.addEventListener(CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [productId]);
+  return list;
+}
+
+export async function addLotAnywhere(input: AddLotInput, requireExpiry = true): Promise<AddLotResult> {
+  if (LOT_BACKEND === "local") {
+    return addLot(input, requireExpiry);
+  }
+  // supabase path
+  const missing = validateLot(input, requireExpiry);
+  if (missing.length > 0) {
+    return { ok: false, error: "Complete los campos requeridos del lote.", missingFields: missing };
+  }
+  try {
+    const payload = {
+      productId: input.productId,
+      branchId: input.branchId,
+      warehouseId: input.warehouseId,
+      lotNumber: input.lotNumber,
+      initialQuantity: input.initialQuantity,
+      currentQuantity: input.initialQuantity,
+      expiresAt: input.expiresAt,
+      receivedAt: new Date().toISOString(),
+      unitCost: input.unitCost ?? 0,
+      status: "available",
+      supplierId: input.supplierId,
+      notes: input.notes,
+    };
+    const res = await fetch("/api/lots", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = (await res.json().catch(() => ({}))) as { lot?: ProductLot; error?: string };
+    if (!res.ok || !body.lot) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyInventoryChanged();
+    return { ok: true, lot: body.lot };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function adjustStockAnywhere(input: AdjustStockInput): Promise<AdjustResult> {
+  if (LOT_BACKEND === "local") {
+    return adjustStock(input);
+  }
+  // supabase path
+  if (!(typeof input.newQuantity === "number" && input.newQuantity >= 0)) {
+    return { ok: false, error: "La nueva cantidad debe ser 0 o mayor." };
+  }
+  if (!input.reason?.trim()) {
+    return { ok: false, error: "Indica el motivo del ajuste." };
+  }
+  try {
+    const res = await fetch(`/api/lots/${input.lotId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ newQuantity: input.newQuantity, reason: input.reason }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { lot?: ProductLot; error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyInventoryChanged();
+    return { ok: true, delta: 0 };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * Variante PURA de `stockBranchSummary` que recibe los lotes ya cargados.
+ * Útil para páginas que computan desde los hooks reactivos.
+ */
+export function summarizeLotsByBranch(lots: ProductLot[]): BranchStockSummary[] {
+  const map = new Map<string, BranchStockSummary>();
+  for (const lot of lots) {
+    let g = map.get(lot.branchId);
+    if (!g) {
+      g = { branchId: lot.branchId, lots: 0, available: 0, expired: 0, soon: 0 };
+      map.set(lot.branchId, g);
+    }
+    g.lots += 1;
+    if (lot.status === "available") g.available += lot.currentQuantity;
+    const st = expiryStatus(lot.expiresAt);
+    if (st === "expired") g.expired += 1;
+    else if (st === "soon") g.soon += 1;
+  }
+  return [...map.values()];
+}

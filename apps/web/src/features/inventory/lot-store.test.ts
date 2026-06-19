@@ -2,14 +2,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   addLot,
+  addLotAnywhere,
   adjustStock,
+  adjustStockAnywhere,
   availableStock,
   clearLocalInventory,
   expiryStatus,
   listLotsByProduct,
   listMovementsByProduct,
+  LOT_BACKEND,
   stockByBranch,
   stockBranchSummary,
+  summarizeLotsByBranch,
   validateLot,
 } from "./lot-store";
 
@@ -209,5 +213,143 @@ describe("producto sin lote", () => {
   it("no tiene lotes ni stock (UI debe mostrar 'Agregar primer lote')", () => {
     expect(listLotsByProduct("prod_sin_lote")).toHaveLength(0);
     expect(availableStock("prod_sin_lote")).toBe(0);
+  });
+});
+
+// ─── Capa cliente gated (LOT_BACKEND, addLotAnywhere, adjustStockAnywhere, summarizeLotsByBranch) ───
+
+describe("LOT_BACKEND", () => {
+  it('es "local" cuando NEXT_PUBLIC_DATA_SOURCE no es supabase', () => {
+    expect(LOT_BACKEND).toBe("local");
+  });
+});
+
+describe("addLotAnywhere (modo local)", () => {
+  it("agrega lote al store local y aparece en listLotsByProduct", async () => {
+    const r = await addLotAnywhere({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "ANY-01",
+      initialQuantity: 15,
+      expiresAt: future(180),
+      unitCost: 50,
+    });
+    expect(r.ok).toBe(true);
+    const lots = listLotsByProduct(PID);
+    expect(lots.some((l) => l.lotNumber === "ANY-01")).toBe(true);
+    expect(availableStock(PID)).toBeGreaterThanOrEqual(15);
+  });
+
+  it("falla sin campos requeridos", async () => {
+    const r = await addLotAnywhere({
+      productId: PID,
+      branchId: "",
+      warehouseId: "",
+      lotNumber: "",
+      initialQuantity: 0,
+      expiresAt: "",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.missingFields?.length).toBeGreaterThan(0);
+  });
+});
+
+describe("adjustStockAnywhere (modo local)", () => {
+  it("ajusta la cantidad del lote via el wrapper", async () => {
+    const add = await addLotAnywhere({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "ANY-02",
+      initialQuantity: 10,
+      expiresAt: future(180),
+    });
+    expect(add.ok).toBe(true);
+    if (!add.ok) return;
+    const adj = await adjustStockAnywhere({
+      lotId: add.lot.id,
+      productId: PID,
+      warehouseId: "wh_stg_main",
+      branchId: "br_santiago",
+      newQuantity: 7,
+      reason: "Conteo físico",
+    });
+    expect(adj.ok).toBe(true);
+    expect(availableStock(PID)).toBe(7);
+  });
+
+  it("falla sin motivo", async () => {
+    const add = await addLotAnywhere({
+      productId: PID,
+      branchId: "br_santiago",
+      warehouseId: "wh_stg_main",
+      lotNumber: "ANY-03",
+      initialQuantity: 5,
+      expiresAt: future(180),
+    });
+    if (!add.ok) throw new Error("setup");
+    const adj = await adjustStockAnywhere({
+      lotId: add.lot.id,
+      productId: PID,
+      warehouseId: "wh_stg_main",
+      branchId: "br_santiago",
+      newQuantity: 3,
+      reason: "",
+    });
+    expect(adj.ok).toBe(false);
+  });
+});
+
+describe("summarizeLotsByBranch", () => {
+  it("agrupa lotes por sucursal con conteo de available y expired", () => {
+    const past = new Date();
+    past.setDate(past.getDate() - 1);
+    const lots = [
+      {
+        id: "lot_a",
+        businessId: "biz_1",
+        branchId: "br_santiago",
+        productId: PID,
+        warehouseId: "wh_1",
+        lotNumber: "A",
+        expiresAt: future(200),
+        receivedAt: new Date().toISOString(),
+        initialQuantity: 10,
+        currentQuantity: 10,
+        unitCost: 0,
+        status: "available" as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: "lot_b",
+        businessId: "biz_1",
+        branchId: "br_santiago",
+        productId: PID,
+        warehouseId: "wh_1",
+        lotNumber: "B",
+        expiresAt: past.toISOString(),
+        receivedAt: new Date().toISOString(),
+        initialQuantity: 5,
+        currentQuantity: 5,
+        unitCost: 0,
+        status: "available" as const,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    const summary = summarizeLotsByBranch(lots);
+    expect(summary).toHaveLength(1);
+    const stg = summary[0]!;
+    expect(stg.branchId).toBe("br_santiago");
+    expect(stg.lots).toBe(2);
+    expect(stg.available).toBe(15); // both are "available" status
+    expect(stg.expired).toBe(1);
+    expect(stg.soon).toBe(0);
+  });
+
+  it("devuelve array vacío para lista vacía", () => {
+    expect(summarizeLotsByBranch([])).toEqual([]);
   });
 });
