@@ -2,6 +2,13 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Marca de build para verificar qué commit está vivo en cada deployment.
+  // Se pasa en el deploy con `--build-env SOURCE_SHA=$(git rev-parse --short HEAD)`
+  // y queda inlineada en el bundle (la expone /api/health como `build`).
+  // No es un secreto y NO toca las env vars de Production.
+  env: {
+    APP_BUILD_SHA: process.env.SOURCE_SHA ?? "dev",
+  },
   // Paquetes server-side que NO se deben bundlear por el Next.js compiler:
   //  - `pdfkit` carga métricas de fuentes (.afm) vía `fs.readFileSync` con
   //    paths relativos a su node_modules — el bundler los rompería.
