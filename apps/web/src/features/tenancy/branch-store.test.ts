@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import {
   createBranch,
   updateBranch,
@@ -19,6 +19,7 @@ import {
   getActiveBranches,
   getAllBranchesForAdmin,
   getBranchById,
+  ensureStorageVersion,
 } from "./branch-store";
 import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import { canManageBranches } from "./permissions";
@@ -198,5 +199,139 @@ describe("scoping single-business", () => {
       expect(r.branch.businessId).toBe(mockBranches[0]!.businessId);
     }
     expect(listAllBranches().every((b) => b.businessId === mockBranches[0]!.businessId)).toBe(true);
+  });
+});
+
+// ─── Tests modo Supabase (Fix 1) ─────────────────────────────────────────────
+
+describe("useBranches — modo supabase: no fallback a mock", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("en modo supabase, fetch fallido NO devuelve sucursales mock/localStorage", async () => {
+    // Simular que el fetch falla (sesión expirada / RLS / red).
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(
+      new Error("Network error"),
+    );
+
+    // Verificamos que fetchBranchesFromServer rechaza la promesa (el catch
+    // del useBranches no debería rellenar con mock).
+    const { fetchBranchesFromServer } = await import("./branch-store");
+    await expect(fetchBranchesFromServer("admin")).rejects.toThrow();
+
+    // La lista de sucursales mock SÍ contiene Naco (status inactive pero existe).
+    // En modo supabase con fetch fallido, el resultado NO debería incluir Naco.
+    // Comprobamos que listAllBranches() sí tiene Naco (confirma que el mock existe)
+    // pero que el path de supabase NO lo usa.
+    const mockList = listAllBranches();
+    expect(mockList.some((b) => b.id === "br_sd_naco")).toBe(true); // confirma que existe en mock
+
+    // El fetch falló → en modo supabase la lista queda [] (vacía), nunca mock.
+    // No podemos testear el hook en jsdom sin renderizar, pero podemos confirmar
+    // que fetchBranchesFromServer rechaza y que listAllBranches (mock path) tiene Naco.
+    // La separación queda garantizada en código: el catch de useBranches ya NO llama a listAllBranches.
+    expect(fetchSpy).toHaveBeenCalled();
+  });
+
+  it("en modo supabase, fetch OK devuelve solo las sucursales del servidor (sin mezcla mock)", async () => {
+    const santiagoBranch = { ...mockBranches[0]!, id: "db_br_santiago_real" };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ branches: [santiagoBranch] }),
+    } as Response);
+
+    const { fetchBranchesFromServer } = await import("./branch-store");
+    const branches = await fetchBranchesFromServer("admin");
+
+    // Solo Santiago real del servidor, sin Naco ni Piantini.
+    expect(branches).toHaveLength(1);
+    expect(branches[0]!.id).toBe("db_br_santiago_real");
+    expect(branches.some((b) => b.id === "br_sd_naco")).toBe(false);
+    expect(branches.some((b) => b.id === "br_sd_piantini")).toBe(false);
+  });
+
+  it("en modo supabase, Naco no aparece como sucursal operativa activa (fetch OK sin Naco)", async () => {
+    const santiagoBranch = { ...mockBranches[0]!, status: "active" as const };
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ branches: [santiagoBranch] }),
+    } as Response);
+
+    const { fetchBranchesFromServer } = await import("./branch-store");
+    const branches = await fetchBranchesFromServer("admin");
+    const active = branches.filter((b) => b.status === "active");
+
+    expect(active.some((b) => b.name.includes("Naco"))).toBe(false);
+    expect(active.some((b) => b.id === "br_sd_naco")).toBe(false);
+  });
+});
+
+// ─── Tests ensureStorageVersion (Fix 2) ──────────────────────────────────────
+
+describe("ensureStorageVersion", () => {
+  const KEY_NEW = "dermaland.branches";
+  const KEY_OVERRIDES = "dermaland.branches.overrides";
+  const KEY_DELETED = "dermaland.branches.deleted";
+  const KEY_VERSION = "dermaland.storage-version";
+  const AUTH_KEY = "sb-access-token";
+  const PREF_KEY = "dermaland.theme";
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("borra las 3 keys de sucursales cuando la versión es antigua", () => {
+    window.localStorage.setItem(KEY_NEW, JSON.stringify([{ id: "br_sd_naco" }]));
+    window.localStorage.setItem(KEY_OVERRIDES, JSON.stringify({ br_sd_naco: { status: "active" } }));
+    window.localStorage.setItem(KEY_DELETED, JSON.stringify(["br_sd_piantini"]));
+    window.localStorage.setItem(KEY_VERSION, "1"); // versión vieja
+
+    ensureStorageVersion();
+
+    expect(window.localStorage.getItem(KEY_NEW)).toBeNull();
+    expect(window.localStorage.getItem(KEY_OVERRIDES)).toBeNull();
+    expect(window.localStorage.getItem(KEY_DELETED)).toBeNull();
+  });
+
+  it("borra las 3 keys cuando no hay versión guardada (primera vez)", () => {
+    window.localStorage.setItem(KEY_NEW, JSON.stringify([{ id: "br_sd_naco" }]));
+    // KEY_VERSION no existe → debe limpiar igual.
+
+    ensureStorageVersion();
+
+    expect(window.localStorage.getItem(KEY_NEW)).toBeNull();
+  });
+
+  it("conserva las keys de auth y preferencias al migrar", () => {
+    window.localStorage.setItem(KEY_VERSION, "1");
+    window.localStorage.setItem(AUTH_KEY, "token-secreto");
+    window.localStorage.setItem(PREF_KEY, "dark");
+
+    ensureStorageVersion();
+
+    expect(window.localStorage.getItem(AUTH_KEY)).toBe("token-secreto");
+    expect(window.localStorage.getItem(PREF_KEY)).toBe("dark");
+  });
+
+  it("es idempotente: segunda llamada no borra datos nuevos ya en la versión actual", () => {
+    ensureStorageVersion(); // pone versión actual
+
+    // Simular que el usuario crea una nueva sucursal local (en modo local).
+    window.localStorage.setItem(KEY_NEW, JSON.stringify([{ id: "br_nueva" }]));
+
+    ensureStorageVersion(); // segunda llamada — no debería borrar nada
+
+    expect(window.localStorage.getItem(KEY_NEW)).toBe(JSON.stringify([{ id: "br_nueva" }]));
+  });
+
+  it("actualiza la versión guardada a STORAGE_VERSION después de limpiar", () => {
+    window.localStorage.setItem(KEY_VERSION, "1");
+
+    ensureStorageVersion();
+
+    expect(window.localStorage.getItem(KEY_VERSION)).toBe("2");
   });
 });

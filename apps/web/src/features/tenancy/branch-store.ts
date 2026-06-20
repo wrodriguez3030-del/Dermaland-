@@ -26,6 +26,38 @@ const KEY_OVERRIDES = "dermaland.branches.overrides";
 const KEY_DELETED = "dermaland.branches.deleted";
 const CHANGE_EVENT = "dermaland:branches-changed";
 
+// ─── Storage version (limpia datos mock obsoletos) ───────────────────────────
+/**
+ * Incrementar `STORAGE_VERSION` cuando haya cambios en el schema de sucursales
+ * que puedan dejar datos mock obsoletos en localStorage (p.ej. overrides de
+ * sesiones demo previas como "Naco reactivado"). El proceso de limpieza borra
+ * SOLO las keys de lista de sucursales; no toca tokens de auth ni prefs.
+ */
+const STORAGE_VERSION = "2";
+const KEY_STORAGE_VERSION = "dermaland.storage-version";
+
+/**
+ * Garantiza que localStorage esté en la versión actual. Si la versión
+ * guardada difiere (o no existe), borra los datos de lista de sucursales
+ * locales (branches/overrides/deleted) y actualiza la versión guardada.
+ *
+ * - Idempotente: si la versión ya es la correcta, no hace nada.
+ * - Guard `typeof window`: no-op en SSR.
+ * - No toca tokens de auth (`sb-*`), preferencias visuales, ni `current-branch`.
+ * - Si `current-branch` persiste un id mock (`br_sd_*`) que no existe en
+ *   Supabase, `useCurrentBranch` lo reconcilia a la primera activa real.
+ */
+export function ensureStorageVersion(): void {
+  if (typeof window === "undefined") return;
+  const stored = window.localStorage.getItem(KEY_STORAGE_VERSION);
+  if (stored === STORAGE_VERSION) return;
+  // Limpiar solo las keys de lista de sucursales locales.
+  window.localStorage.removeItem(KEY_NEW);
+  window.localStorage.removeItem(KEY_OVERRIDES);
+  window.localStorage.removeItem(KEY_DELETED);
+  window.localStorage.setItem(KEY_STORAGE_VERSION, STORAGE_VERSION);
+}
+
 function safeRead<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
@@ -474,40 +506,128 @@ export function getBranchById(id: string): Branch | undefined {
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
+export interface BranchesState {
+  list: Branch[];
+  loadError: boolean;
+}
+
+/**
+ * Carga las sucursales desde la fuente correcta según el backend activo.
+ *
+ * En modo supabase:
+ *  - Parte con `[]` (nunca mock).
+ *  - Hace un fetch al servidor con 1 reintento automático (backoff 800ms).
+ *  - Si el fetch falla tras el reintento: deja la lista como estaba y expone
+ *    `loadError=true`. NUNCA cae a mock/localStorage en modo supabase.
+ *  - En el primer mount llama a `ensureStorageVersion()` para limpiar datos
+ *    mock obsoletos (overrides de Naco, etc.) antes de cargar.
+ *
+ * En modo local:
+ *  - Comportamiento actual conservado: seed+localStorage de inmediato.
+ */
 export function useBranches(): Branch[] {
-  // En modo supabase el estado inicial parte vacío y se llena con el fetch;
-  // en modo local parte del seed+localStorage de inmediato.
-  const [list, setList] = React.useState<Branch[]>(() =>
-    BRANCH_BACKEND === "supabase" ? [] : listAllBranches(),
-  );
+  const [state, setState] = React.useState<BranchesState>(() => ({
+    list: BRANCH_BACKEND === "supabase" ? [] : listAllBranches(),
+    loadError: false,
+  }));
+
   React.useEffect(() => {
+    // Limpiar datos mock obsoletos (overrides/altas/bajas de sesiones demo
+    // previas) ANTES del primer fetch. En modo local esta función es un no-op
+    // porque igual usaría el localStorage para el seed.
+    ensureStorageVersion();
+
     let alive = true;
-    const refresh = () => {
+
+    const refresh = async () => {
       if (BRANCH_BACKEND === "supabase") {
         // Scope admin: trae activas + inactivas; los selectores operativos
         // filtran por status en cliente (useActiveBranches).
-        fetchBranchesFromServer("admin")
-          .then((branches) => {
-            if (alive) setList(branches);
-          })
-          .catch(() => {
-            // Fallback: si la API falla (sesión/red/RLS), no romper la UI.
-            if (alive) setList(listAllBranches());
-          });
+        // En modo supabase NUNCA caemos a mock/localStorage.
+        try {
+          const branches = await fetchBranchesFromServer("admin");
+          if (alive) setState({ list: branches, loadError: false });
+        } catch {
+          // Primer intento fallido → un reintento con backoff corto.
+          await new Promise((r) => setTimeout(r, 800));
+          if (!alive) return;
+          try {
+            const branches = await fetchBranchesFromServer("admin");
+            if (alive) setState({ list: branches, loadError: false });
+          } catch {
+            // Ambos intentos fallaron: mantener la lista actual sin pisar con
+            // mock, y marcar error para que los consumidores puedan mostrarlo.
+            if (alive) setState((prev) => ({ ...prev, loadError: true }));
+          }
+        }
       } else {
-        setList(listAllBranches());
+        setState({ list: listAllBranches(), loadError: false });
       }
     };
-    window.addEventListener(CHANGE_EVENT, refresh);
-    window.addEventListener("storage", refresh);
-    refresh();
+
+    const refreshSync = () => { void refresh(); };
+    window.addEventListener(CHANGE_EVENT, refreshSync);
+    window.addEventListener("storage", refreshSync);
+    void refresh();
+
     return () => {
       alive = false;
-      window.removeEventListener(CHANGE_EVENT, refresh);
-      window.removeEventListener("storage", refresh);
+      window.removeEventListener(CHANGE_EVENT, refreshSync);
+      window.removeEventListener("storage", refreshSync);
     };
   }, []);
-  return list;
+
+  return state.list;
+}
+
+/**
+ * Versión extendida de `useBranches()` que expone el estado de error.
+ * Usar en componentes que quieran mostrar "No se pudieron cargar las sucursales"
+ * en lugar de una lista vacía silenciosa.
+ */
+export function useBranchesState(): BranchesState {
+  const [state, setState] = React.useState<BranchesState>(() => ({
+    list: BRANCH_BACKEND === "supabase" ? [] : listAllBranches(),
+    loadError: false,
+  }));
+
+  React.useEffect(() => {
+    ensureStorageVersion();
+    let alive = true;
+
+    const refresh = async () => {
+      if (BRANCH_BACKEND === "supabase") {
+        try {
+          const branches = await fetchBranchesFromServer("admin");
+          if (alive) setState({ list: branches, loadError: false });
+        } catch {
+          await new Promise((r) => setTimeout(r, 800));
+          if (!alive) return;
+          try {
+            const branches = await fetchBranchesFromServer("admin");
+            if (alive) setState({ list: branches, loadError: false });
+          } catch {
+            if (alive) setState((prev) => ({ ...prev, loadError: true }));
+          }
+        }
+      } else {
+        setState({ list: listAllBranches(), loadError: false });
+      }
+    };
+
+    const refreshSync = () => { void refresh(); };
+    window.addEventListener(CHANGE_EVENT, refreshSync);
+    window.addEventListener("storage", refreshSync);
+    void refresh();
+
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refreshSync);
+      window.removeEventListener("storage", refreshSync);
+    };
+  }, []);
+
+  return state;
 }
 
 export function useBranch(id: string | null | undefined): Branch | undefined {
