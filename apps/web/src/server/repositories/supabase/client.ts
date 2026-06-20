@@ -61,8 +61,11 @@ export function failRepo(method: string, error: unknown): never {
     );
   }
   if (code === "23503") {
+    // 23503 cubre dos casos: borrar un catálogo en uso, y crear/editar con una
+    // referencia (marca/categoría/lab) inexistente. Mensaje neutral a la
+    // operación para no decir "no se puede eliminar" en un alta/edición.
     throw new UserFacingRepositoryError(
-      "No se puede eliminar: está en uso por otros registros.",
+      "No se pudo completar: hay una referencia inválida o el registro está en uso por otros registros.",
     );
   }
   throw new SupabaseRepositoryError(method, error);
