@@ -9,6 +9,7 @@ import {
   clearLocalProducts,
   saveProduct,
   deleteProductAnywhere,
+  setProductActiveAnywhere,
   PRODUCT_BACKEND,
 } from "./product-store";
 import { mockProducts } from "@/lib/mock-data/catalog";
@@ -103,5 +104,16 @@ describe("product-store wrappers (modo local)", () => {
     const del = await deleteProductAnywhere(created.product.id);
     expect(del.ok).toBe(true);
     expect(listAllProducts().some((p) => p.id === created.product.id)).toBe(false);
+  });
+});
+
+describe("setProductActiveAnywhere (modo local)", () => {
+  it("inactiva un producto del seed vía override local", async () => {
+    const all = listAllProducts();
+    const target = all[0]!;
+    const res = await setProductActiveAnywhere(target.id, false);
+    expect(res.ok).toBe(true);
+    const after = listAllProducts().find((p) => p.id === target.id);
+    expect(after?.active).toBe(false);
   });
 });

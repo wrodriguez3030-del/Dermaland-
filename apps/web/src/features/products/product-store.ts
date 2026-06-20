@@ -322,6 +322,22 @@ export async function saveProduct(
   return r.ok && found ? { ok: true, product: found } : { ok: false, error: "No se pudo actualizar el producto." };
 }
 
+/**
+ * Activa/inactiva un producto, despachando local vs servidor según el backend.
+ * Paralelo a `setBranchActiveAnywhere`. En supabase hace PATCH parcial.
+ */
+export async function setProductActiveAnywhere(
+  id: string,
+  active: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  if (PRODUCT_BACKEND === "supabase") {
+    const r = await updateProductOnServer(id, { active });
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  }
+  const r = updateProduct(id, { active });
+  return { ok: r.ok };
+}
+
 export async function deleteProductAnywhere(id: string): Promise<{ ok: boolean; error?: string }> {
   if (PRODUCT_BACKEND === "supabase") {
     try {

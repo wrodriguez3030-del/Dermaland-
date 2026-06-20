@@ -25,9 +25,10 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { ProductImage } from "@/features/products/components/product-image";
 import {
-  deleteProduct,
-  updateProduct,
+  deleteProductAnywhere,
+  setProductActiveAnywhere,
   useProducts,
+  PRODUCT_BACKEND,
 } from "@/features/products/product-store";
 import {
   getBrandById,
@@ -180,6 +181,12 @@ export default function ProductosPage() {
           </>
         }
       />
+
+      <div className={`mb-4 rounded-xl border px-4 py-2.5 text-xs ${PRODUCT_BACKEND === "local" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+        {PRODUCT_BACKEND === "local"
+          ? "Los cambios se guardan en este equipo (modo demo, sin Supabase)."
+          : "Los productos son una fuente única compartida (Supabase). Los cambios se ven en todos los equipos."}
+      </div>
 
       <FilterBar className="mb-4">
         <SearchInput
@@ -365,9 +372,10 @@ export default function ProductosPage() {
                   <RowActions
                     viewHref={`/productos/${p.id}`}
                     editHref={`/productos/${p.id}/editar`}
-                    onDelete={() => {
-                      deleteProduct(p.id);
-                      toast.success("Producto eliminado correctamente.");
+                    onDelete={async () => {
+                      const res = await deleteProductAnywhere(p.id);
+                      if (!res.ok) toast.error(res.error ?? "No se pudo eliminar.");
+                      else toast.success("Producto eliminado correctamente.");
                     }}
                     entityName={p.name}
                     customActions={[
@@ -380,9 +388,10 @@ export default function ProductosPage() {
                         ? {
                             label: "Inactivar",
                             icon: Power,
-                            onClick: () => {
-                              updateProduct(p.id, { active: false });
-                              toast.success(`${p.name} inactivado.`);
+                            onClick: async () => {
+                              const res = await setProductActiveAnywhere(p.id, false);
+                              if (!res.ok) toast.error(res.error ?? "No se pudo inactivar.");
+                              else toast.success(`${p.name} inactivado.`);
                             },
                             confirm: {
                               title: "Inactivar producto",
@@ -392,9 +401,10 @@ export default function ProductosPage() {
                         : {
                             label: "Reactivar",
                             icon: RotateCcw,
-                            onClick: () => {
-                              updateProduct(p.id, { active: true });
-                              toast.success(`${p.name} reactivado.`);
+                            onClick: async () => {
+                              const res = await setProductActiveAnywhere(p.id, true);
+                              if (!res.ok) toast.error(res.error ?? "No se pudo reactivar.");
+                              else toast.success(`${p.name} reactivado.`);
                             },
                           },
                     ]}
