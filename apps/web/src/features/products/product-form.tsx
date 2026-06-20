@@ -27,7 +27,7 @@ import {
 } from "@/features/products/product-store";
 import { addLot } from "@/features/inventory/lot-store";
 import {
-  listActiveBranches,
+  useActiveBranches,
   defaultWarehouseForBranch,
 } from "@/features/tenancy/branch-store";
 import type { Product } from "@/types";
@@ -49,6 +49,7 @@ interface ProductFormProps {
 export function ProductForm({ mode, product }: ProductFormProps) {
   const router = useRouter();
   const toast = useToast();
+  const activeBranches = useActiveBranches();
 
   const brands = useBrandsList();
   const categories = useCategoriesList();
@@ -569,7 +570,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       className={isMissing("branchId") ? "border-rose-400" : undefined}
                     >
                       <option value="">— Selecciona —</option>
-                      {listActiveBranches().map((b) => (
+                      {activeBranches.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
                         </option>

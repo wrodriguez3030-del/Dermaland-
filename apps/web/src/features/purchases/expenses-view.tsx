@@ -23,7 +23,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { Plus, Wallet, Coins, Ban, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
-import { getBranchById, mockBranches } from "@/lib/mock-data/tenancy";
+import { getBranchById } from "@/lib/mock-data/tenancy";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 import {
   useExpenses,
   voidExpenseAnywhere,
@@ -43,6 +44,7 @@ const methodLabel: Record<string, string> = {
 
 export function ExpensesView({ petty }: { petty: boolean }) {
   const toast = useToast();
+  const activeBranches = useActiveBranches();
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [category, setCategory] = React.useState("all");
@@ -106,7 +108,7 @@ export function ExpensesView({ petty }: { petty: boolean }) {
         </Select>
         <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
           <option value="all">Todas las sucursales</option>
-          {mockBranches.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+          {activeBranches.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
         </Select>
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={() => { setQ(""); setCategory("all"); setBranch("all"); }}>

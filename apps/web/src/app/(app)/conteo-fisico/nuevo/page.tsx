@@ -12,11 +12,12 @@ import {
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
 import {
-  listActiveBranches,
+  useActiveBranches,
 } from "@/features/tenancy/branch-store";
 import { mockUsers } from "@/lib/mock-data/users";
 
 export default function NuevoConteoPage() {
+  const branches = useActiveBranches();
   return (
     <>
       <PageHeader
@@ -46,7 +47,7 @@ export default function NuevoConteoPage() {
               <div>
                 <Label>Sucursal *</Label>
                 <Select>
-                  {listActiveBranches().map((b) => (
+                  {branches.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>

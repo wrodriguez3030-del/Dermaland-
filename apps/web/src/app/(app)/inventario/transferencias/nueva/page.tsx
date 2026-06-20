@@ -23,7 +23,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
-  listActiveBranches,
+  useActiveBranches,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
 import { getProductById } from "@/lib/mock-data/catalog";
@@ -43,6 +43,7 @@ export default function NuevaTransferenciaPage() {
   const router = useRouter();
   const toast = useToast();
   useInventoryTick();
+  const branches = useActiveBranches();
 
   const [origin, setOrigin] = React.useState("");
   const [destination, setDestination] = React.useState("");
@@ -169,7 +170,7 @@ export default function NuevaTransferenciaPage() {
                 }}
               >
                 <option value="">— Selecciona —</option>
-                {listActiveBranches().map((b) => (
+                {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
                   </option>
@@ -183,7 +184,7 @@ export default function NuevaTransferenciaPage() {
                 onChange={(e) => setDestination(e.target.value)}
               >
                 <option value="">— Selecciona —</option>
-                {listActiveBranches()
+                {branches
                   .filter((b) => b.id !== origin)
                   .map((b) => (
                     <option key={b.id} value={b.id}>

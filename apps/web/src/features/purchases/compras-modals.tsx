@@ -4,7 +4,7 @@ import * as React from "react";
 import { AlertTriangle, Plus, Trash2, FileText, Wallet, Repeat } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
-import { listActiveBranches } from "@/features/tenancy/branch-store";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { mockProducts } from "@/lib/mock-data/catalog";
 import {
   saveExpense,
@@ -82,7 +82,7 @@ export function ExpenseModal({
   petty?: boolean;
 }) {
   const toast = useToast();
-  const branches = listActiveBranches();
+  const branches = useActiveBranches();
   const [date, setDate] = React.useState(today());
   const [category, setCategory] = React.useState(EXPENSE_CATEGORIES[0]!);
   const [payee, setPayee] = React.useState("");
@@ -210,7 +210,7 @@ const FREQS: { value: Frequency; label: string }[] = [
 
 export function RecurringModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast();
-  const branches = listActiveBranches();
+  const branches = useActiveBranches();
   const [name, setName] = React.useState("");
   const [supplier, setSupplier] = React.useState("");
   const [category, setCategory] = React.useState(EXPENSE_CATEGORIES[0]!);
@@ -334,7 +334,7 @@ const emptyRow = (): Row => ({
 
 export function InvoiceModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const toast = useToast();
-  const branches = listActiveBranches();
+  const branches = useActiveBranches();
   const [supplierName, setSupplierName] = React.useState("");
   const [supplierRnc, setSupplierRnc] = React.useState("");
   const [number, setNumber] = React.useState("");

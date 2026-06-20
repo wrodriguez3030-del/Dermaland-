@@ -335,3 +335,38 @@ describe("ensureStorageVersion", () => {
     expect(window.localStorage.getItem(KEY_VERSION)).toBe("2");
   });
 });
+
+// ─── Tests no-import guard: selectores operativos no usan mock ───────────────
+// Verifican a nivel de fuente que los selectores operativos listados NO importan
+// listActiveBranches ni mockBranches directamente. En modo supabase esas fuentes
+// son locales/mock; el hook useActiveBranches trae sucursales reales del servidor.
+
+import * as fs from "fs";
+import * as path from "path";
+
+describe("no-import guard: selectores operativos usan useActiveBranches (no mock)", () => {
+  // __dirname = apps/web/src/features/tenancy → go 3 levels up to apps/web
+  const appRoot = path.resolve(__dirname, "../../../");
+
+  const operationalFiles = [
+    "features/purchases/compras-modals.tsx",
+    "app/(app)/inventario/transferencias/page.tsx",
+    "app/(app)/inventario/transferencias/nueva/page.tsx",
+    "features/inventory/lot-modals.tsx",
+    "app/(app)/conteo-fisico/nuevo/page.tsx",
+    "features/products/product-form.tsx",
+    "app/(app)/inventario/cuarentena/page.tsx",
+    "features/purchases/expenses-view.tsx",
+  ];
+
+  for (const relPath of operationalFiles) {
+    const fullPath = path.join(appRoot, "src", relPath);
+    it(`${relPath} no importa listActiveBranches ni mockBranches directo`, () => {
+      const source = fs.readFileSync(fullPath, "utf-8");
+      expect(source).not.toMatch(/\blistActiveBranches\b/);
+      // mockBranches importado desde @/lib/mock-data/tenancy es el leak que
+      // se cerró en expenses-view; comprobamos que ya no aparece en imports.
+      expect(source).not.toMatch(/import[^;]*mockBranches[^;]*from[^;]*mock-data\/tenancy/);
+    });
+  }
+});

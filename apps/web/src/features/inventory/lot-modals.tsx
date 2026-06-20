@@ -6,7 +6,7 @@ import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { addLotAnywhere, adjustStockAnywhere } from "@/features/inventory/lot-store";
 import {
-  listActiveBranches,
+  useActiveBranches,
   defaultWarehouseForBranch,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
@@ -60,6 +60,7 @@ export function NewLotModal({
   defaultBranchId,
 }: NewLotModalProps) {
   const toast = useToast();
+  const branches = useActiveBranches();
   const [branchId, setBranchId] = React.useState(defaultBranchId ?? "");
   const [lotNumber, setLotNumber] = React.useState("");
   const [quantity, setQuantity] = React.useState("");
@@ -164,7 +165,7 @@ export function NewLotModal({
             className={isMissing("branchId") ? "border-rose-400" : undefined}
           >
             <option value="">— Selecciona —</option>
-            {listActiveBranches().map((b) => (
+            {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>

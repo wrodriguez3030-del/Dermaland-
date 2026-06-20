@@ -29,7 +29,7 @@ import {
 } from "@/features/inventory/lot-store";
 import {
   resolveBranchName,
-  listActiveBranches,
+  useActiveBranches,
 } from "@/features/tenancy/branch-store";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { formatDate } from "@/lib/utils/format";
@@ -58,6 +58,7 @@ function ReleaseLotModal({ lot, onClose, onDone }: ReleaseLotModalProps) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const toast = useToast();
+  const activeBranches = useActiveBranches();
 
   React.useEffect(() => {
     if (!lot) return;
@@ -71,7 +72,7 @@ function ReleaseLotModal({ lot, onClose, onDone }: ReleaseLotModalProps) {
 
   const p = getProductById(lot.productId);
   const branchName = resolveBranchName(lot.branchId);
-  const activeBranchIds = new Set(listActiveBranches().map((b) => b.id));
+  const activeBranchIds = new Set(activeBranches.map((b) => b.id));
   const isExpired = expiryStatus(lot.expiresAt) === "expired";
   const isInactiveBranch = !activeBranchIds.has(lot.branchId);
   const isZeroQty = lot.currentQuantity === 0;

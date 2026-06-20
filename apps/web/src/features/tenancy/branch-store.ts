@@ -512,7 +512,9 @@ export interface BranchesState {
 }
 
 /**
- * Carga las sucursales desde la fuente correcta según el backend activo.
+ * Versión extendida del hook de sucursales que expone el estado de error.
+ * Usar en componentes que quieran mostrar "No se pudieron cargar las sucursales"
+ * en lugar de una lista vacía silenciosa.
  *
  * En modo supabase:
  *  - Parte con `[]` (nunca mock).
@@ -525,7 +527,7 @@ export interface BranchesState {
  * En modo local:
  *  - Comportamiento actual conservado: seed+localStorage de inmediato.
  */
-export function useBranches(): Branch[] {
+export function useBranchesState(): BranchesState {
   const [state, setState] = React.useState<BranchesState>(() => ({
     list: BRANCH_BACKEND === "supabase" ? [] : listAllBranches(),
     loadError: false,
@@ -536,7 +538,6 @@ export function useBranches(): Branch[] {
     // previas) ANTES del primer fetch. En modo local esta función es un no-op
     // porque igual usaría el localStorage para el seed.
     ensureStorageVersion();
-
     let alive = true;
 
     const refresh = async () => {
@@ -577,57 +578,15 @@ export function useBranches(): Branch[] {
     };
   }, []);
 
-  return state.list;
+  return state;
 }
 
 /**
- * Versión extendida de `useBranches()` que expone el estado de error.
- * Usar en componentes que quieran mostrar "No se pudieron cargar las sucursales"
- * en lugar de una lista vacía silenciosa.
+ * Hook reactivo de sucursales — lista plana. Usa `useBranchesState` como base.
+ * Para acceder al error de carga, usa `useBranchesState()` directamente.
  */
-export function useBranchesState(): BranchesState {
-  const [state, setState] = React.useState<BranchesState>(() => ({
-    list: BRANCH_BACKEND === "supabase" ? [] : listAllBranches(),
-    loadError: false,
-  }));
-
-  React.useEffect(() => {
-    ensureStorageVersion();
-    let alive = true;
-
-    const refresh = async () => {
-      if (BRANCH_BACKEND === "supabase") {
-        try {
-          const branches = await fetchBranchesFromServer("admin");
-          if (alive) setState({ list: branches, loadError: false });
-        } catch {
-          await new Promise((r) => setTimeout(r, 800));
-          if (!alive) return;
-          try {
-            const branches = await fetchBranchesFromServer("admin");
-            if (alive) setState({ list: branches, loadError: false });
-          } catch {
-            if (alive) setState((prev) => ({ ...prev, loadError: true }));
-          }
-        }
-      } else {
-        setState({ list: listAllBranches(), loadError: false });
-      }
-    };
-
-    const refreshSync = () => { void refresh(); };
-    window.addEventListener(CHANGE_EVENT, refreshSync);
-    window.addEventListener("storage", refreshSync);
-    void refresh();
-
-    return () => {
-      alive = false;
-      window.removeEventListener(CHANGE_EVENT, refreshSync);
-      window.removeEventListener("storage", refreshSync);
-    };
-  }, []);
-
-  return state;
+export function useBranches(): Branch[] {
+  return useBranchesState().list;
 }
 
 export function useBranch(id: string | null | undefined): Branch | undefined {

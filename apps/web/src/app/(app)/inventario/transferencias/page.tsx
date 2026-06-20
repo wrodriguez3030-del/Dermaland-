@@ -22,7 +22,7 @@ import { ArrowRightLeft, Plus, X } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
 import { formatDate } from "@/lib/utils/format";
 import {
-  listActiveBranches,
+  useActiveBranches,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
 import {
@@ -32,6 +32,7 @@ import {
 
 export default function TransferenciasPage() {
   useTransfersTick();
+  const branches = useActiveBranches();
   const all = listTransfers();
 
   const [q, setQ] = React.useState("");
@@ -90,7 +91,7 @@ export default function TransferenciasPage() {
         />
         <Select value={origin} onChange={(e) => setOrigin(e.target.value)}>
           <option value="">Origen: todas</option>
-          {listActiveBranches().map((b) => (
+          {branches.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
             </option>
@@ -101,7 +102,7 @@ export default function TransferenciasPage() {
           onChange={(e) => setDestination(e.target.value)}
         >
           <option value="">Destino: todas</option>
-          {listActiveBranches().map((b) => (
+          {branches.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
             </option>
