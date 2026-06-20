@@ -4,7 +4,7 @@ import type {
   ProductRepository,
   RepoContext,
 } from "../types";
-import { SupabaseRepositoryError, getClient } from "./client";
+import { SupabaseRepositoryError, failRepo, getClient } from "./client";
 import { productLotRowToTs, productRowToTs } from "./mappers";
 
 export const productRepository: ProductRepository = {
@@ -110,7 +110,7 @@ export const productRepository: ProductRepository = {
       sellable: input.sellable,
     };
     const { data, error } = await sb.from("products").insert(row).select("*").single();
-    if (error) throw new SupabaseRepositoryError("product.create", error);
+    if (error) throw failRepo("product.create", error);
     return productRowToTs(data);
   },
 
@@ -148,7 +148,7 @@ export const productRepository: ProductRepository = {
       .eq("id", id)
       .select("*")
       .single();
-    if (error) throw new SupabaseRepositoryError("product.update", error);
+    if (error) throw failRepo("product.update", error);
     return productRowToTs(data);
   },
 

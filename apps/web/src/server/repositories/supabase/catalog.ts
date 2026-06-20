@@ -5,7 +5,7 @@ import type {
   LaboratoryRepository,
   RepoContext,
 } from "../types";
-import { SupabaseRepositoryError, getClient } from "./client";
+import { SupabaseRepositoryError, failRepo, getClient } from "./client";
 import { brandRowToTs, categoryRowToTs, laboratoryRowToTs } from "./mappers";
 
 export const brandRepository: BrandRepository = {
@@ -39,7 +39,7 @@ export const brandRepository: BrandRepository = {
       .insert({ business_id: ctx.businessId, name: input.name })
       .select("*")
       .single();
-    if (error) throw new SupabaseRepositoryError("brand.create", error);
+    if (error) throw failRepo("brand.create", error);
     return brandRowToTs(data);
   },
 
@@ -51,7 +51,7 @@ export const brandRepository: BrandRepository = {
       .from("brands").update(row)
       .eq("business_id", ctx.businessId).eq("id", id)
       .select("*").single();
-    if (error) throw new SupabaseRepositoryError("brand.update", error);
+    if (error) throw failRepo("brand.update", error);
     return brandRowToTs(data);
   },
 
@@ -60,7 +60,7 @@ export const brandRepository: BrandRepository = {
     const { error } = await sb
       .from("brands").delete()
       .eq("business_id", ctx.businessId).eq("id", id);
-    if (error) throw new SupabaseRepositoryError("brand.delete", error);
+    if (error) throw failRepo("brand.delete", error);
   },
 };
 
@@ -87,7 +87,7 @@ export const categoryRepository: CategoryRepository = {
         description: input.description ?? null,
       })
       .select("*").single();
-    if (error) throw new SupabaseRepositoryError("category.create", error);
+    if (error) throw failRepo("category.create", error);
     return categoryRowToTs(data);
   },
 
@@ -101,7 +101,7 @@ export const categoryRepository: CategoryRepository = {
       .from("product_categories").update(row)
       .eq("business_id", ctx.businessId).eq("id", id)
       .select("*").single();
-    if (error) throw new SupabaseRepositoryError("category.update", error);
+    if (error) throw failRepo("category.update", error);
     return categoryRowToTs(data);
   },
 
@@ -110,7 +110,7 @@ export const categoryRepository: CategoryRepository = {
     const { error } = await sb
       .from("product_categories").delete()
       .eq("business_id", ctx.businessId).eq("id", id);
-    if (error) throw new SupabaseRepositoryError("category.delete", error);
+    if (error) throw failRepo("category.delete", error);
   },
 };
 
@@ -132,7 +132,7 @@ export const laboratoryRepository: LaboratoryRepository = {
       .from("laboratories")
       .insert({ business_id: ctx.businessId, name: input.name, country: input.country ?? null })
       .select("*").single();
-    if (error) throw new SupabaseRepositoryError("laboratory.create", error);
+    if (error) throw failRepo("laboratory.create", error);
     return laboratoryRowToTs(data);
   },
 
@@ -145,7 +145,7 @@ export const laboratoryRepository: LaboratoryRepository = {
       .from("laboratories").update(row)
       .eq("business_id", ctx.businessId).eq("id", id)
       .select("*").single();
-    if (error) throw new SupabaseRepositoryError("laboratory.update", error);
+    if (error) throw failRepo("laboratory.update", error);
     return laboratoryRowToTs(data);
   },
 
@@ -154,6 +154,6 @@ export const laboratoryRepository: LaboratoryRepository = {
     const { error } = await sb
       .from("laboratories").delete()
       .eq("business_id", ctx.businessId).eq("id", id);
-    if (error) throw new SupabaseRepositoryError("laboratory.delete", error);
+    if (error) throw failRepo("laboratory.delete", error);
   },
 };
