@@ -14,7 +14,7 @@ import {
   Receipt,
   Wallet,
   CalendarClock,
-  HeartPulse,
+  Truck,
   BarChart3,
   Shield,
   MessageSquare,
@@ -27,6 +27,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
+
+/** Logo configurado de la empresa; si no hay, cae al logo oficial. */
+const brandLogo = mockBusiness.logoUrl ?? "/brand/dermaland-logo.svg";
 
 interface NavItem {
   label: string;
@@ -73,6 +77,16 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    label: "Compras",
+    icon: Truck,
+    items: [
+      { label: "Facturas de proveedores", href: "/compras/facturas-proveedores" },
+      { label: "Pagos / gastos", href: "/compras/pagos-gastos" },
+      { label: "Gastos menores", href: "/compras/gastos-menores" },
+      { label: "Pagos recurrentes", href: "/compras/pagos-recurrentes" },
+    ],
+  },
+  {
     label: "Productos",
     icon: Pill,
     items: [
@@ -89,7 +103,7 @@ const groups: NavGroup[] = [
       { label: "Stock actual", href: "/inventario" },
       { label: "Stock por lote", href: "/inventario/por-lote" },
       { label: "Movimientos", href: "/inventario/movimientos" },
-      { label: "Almacenes", href: "/inventario/almacenes" },
+      { label: "Transferencias", href: "/inventario/transferencias" },
       { label: "Vencimientos", href: "/inventario/vencimientos" },
       { label: "Bajo stock", href: "/inventario/bajo-stock" },
       { label: "Cuarentena", href: "/inventario/cuarentena" },
@@ -148,9 +162,10 @@ const groups: NavGroup[] = [
     label: "DGII",
     icon: FileText,
     items: [
+      { label: "Activar factura electrónica", href: "/dgii/activar" },
       { label: "Habilitación", href: "/dgii/habilitacion" },
       { label: "Configuración fiscal", href: "/dgii/configuracion" },
-      { label: "Secuencias e-NCF", href: "/dgii/secuencias" },
+      { label: "Numeraciones", href: "/dgii/secuencias" },
       { label: "Facturas electrónicas", href: "/dgii/facturas" },
       { label: "Envíos", href: "/dgii/envios" },
       { label: "Certificado", href: "/dgii/certificado" },
@@ -188,19 +203,16 @@ export function Sidebar({ className }: { className?: string }) {
     >
       <Link
         href="/"
-        className="flex items-center gap-2 px-5 py-5 border-b border-black/5"
+        className="flex items-center gap-2.5 px-5 py-5 border-b border-black/5"
       >
-        <span
-          aria-hidden
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-[color:var(--brand-primary)] text-white"
-        >
-          <HeartPulse className="h-5 w-5" />
-        </span>
-        <div>
-          <div className="text-sm font-semibold leading-tight">DermaLand</div>
-          <div className="text-[10px] uppercase tracking-wider opacity-50">
-            Plataforma SaaS
-          </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={brandLogo}
+          alt={mockBusiness.commercialName}
+          className="h-9 w-9 shrink-0 object-contain"
+        />
+        <div className="text-base font-semibold leading-tight">
+          {mockBusiness.commercialName}
         </div>
       </Link>
 
@@ -280,9 +292,9 @@ function SidebarGroup({
                 <Link
                   href={item.href}
                   className={cn(
-                    "block rounded-md px-2 py-1.5 text-xs",
+                    "block rounded-md px-2 py-1.5 text-xs transition",
                     active
-                      ? "bg-[color:var(--brand-primary)]/10 font-medium text-[color:var(--brand-accent)]"
+                      ? "bg-[color:var(--brand-primary)]/12 font-medium text-[color:var(--brand-accent)] shadow-[inset_2px_0_0_var(--brand-primary)]"
                       : "text-black/60 hover:bg-black/[0.03] hover:text-[color:var(--brand-fg)]",
                   )}
                 >

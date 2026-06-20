@@ -10,6 +10,17 @@ export const mockBusiness: Business = {
   whatsapp: "+1 809-226-5252",
   email: "dermalandrd@gmail.com",
   instagramUrl: "https://www.instagram.com/dermalandrd",
+  // Eslogan y bio confirmados del perfil público de Instagram (@dermalandrd).
+  slogan: "Venta de Productos Dermatológicos",
+  description:
+    "Venta de productos dermatológicos y dermocosmética en República Dominicana.",
+  // Dirección fiscal/sede tomada de los datos ya existentes en el sistema
+  // (emisor e-CF y sucursal piloto Santiago). NO proviene de Instagram.
+  address: "Calle E. León Jiménez No. 47, Esq. Mayagüez, Reparto del Este",
+  city: "Santiago de los Caballeros",
+  province: "Santiago",
+  // website: pendiente — no hay link verificable en la bio de Instagram.
+  logoUrl: "/brand/dermaland-logo.svg",
   dgiiEnabled: false,
   planId: "plan_business",
   status: "active",
@@ -49,8 +60,11 @@ export const mockBranches: Branch[] = [
     whatsapp: "+1 809-555-0102",
     email: "naco@dermaland.do",
     isPilot: false,
-    showOnWebsite: true,
-    status: "active",
+    showOnWebsite: false,
+    // Sucursal demo NO operativa: inactiva por defecto. No vende ni muestra
+    // stock operativo en productos/inventario/POS; solo aparece en
+    // Administración > Sucursales (badge "Inactiva") y en historial/reportes.
+    status: "inactive",
     createdAt: "2026-05-10T10:00:00Z",
     updatedAt: "2026-05-10T10:00:00Z",
   },

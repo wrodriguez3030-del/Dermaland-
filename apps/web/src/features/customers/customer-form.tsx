@@ -34,9 +34,8 @@ import {
   type DuplicateDetectionResult,
 } from "@/features/customers/utils/duplicate-detection";
 import {
-  createCustomer,
   listAllCustomers,
-  updateCustomer,
+  saveCustomer,
   useCustomers,
 } from "@/features/customers/customer-store";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
@@ -283,7 +282,7 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
       (x): x is { templateId: string; grantedAt: string } => Boolean(x),
     );
 
-  const performSave = (force: boolean) => {
+  const performSave = async (force: boolean) => {
     setSubmitting(true);
     setErrorBanner(null);
 
@@ -308,10 +307,12 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
       businessId: initial?.businessId ?? mockBusiness.id,
     };
 
-    const result =
-      mode === "edit" && initial
-        ? updateCustomer(initial.id, payload, { force })
-        : createCustomer(payload, { force });
+    const result = await saveCustomer(
+      mode === "edit" && initial ? "edit" : "create",
+      payload,
+      mode === "edit" && initial ? initial.id : undefined,
+      { force },
+    );
 
     setSubmitting(false);
 
@@ -343,12 +344,12 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    performSave(false);
+    void performSave(false);
   };
 
   const handleSaveAnyway = () => {
     setShowDupModal(false);
-    performSave(true);
+    void performSave(true);
   };
 
   const isMissing = (field: string) => missingFields.has(field);

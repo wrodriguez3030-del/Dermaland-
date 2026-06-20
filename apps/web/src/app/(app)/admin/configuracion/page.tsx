@@ -163,6 +163,30 @@ export default function ConfiguracionPage() {
               </div>
             </div>
           </FormSection>
+
+          <FormSection
+            title="Seguridad"
+            description="Políticas de acceso y protección de credenciales."
+          >
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <Badge tone="warning">Pendiente por plan</Badge>
+                <div>
+                  <p className="font-medium">
+                    Leaked Password Protection requiere Supabase Pro.
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-80">
+                    En plan Free, Supabase Auth no puede bloquear automáticamente
+                    contraseñas comprometidas (HaveIBeenPwned). Mitigación activa:
+                    contraseña fuerte obligatoria (12+ caracteres, mayúscula,
+                    minúscula, número y símbolo) y rechazo de contraseñas comunes.
+                    Antes de producción SaaS real, subir a Pro y activarla. Ver
+                    <code className="mx-1">docs/security.md</code> (R-SEC-01).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </FormSection>
         </CardContent>
       </Card>
     </>

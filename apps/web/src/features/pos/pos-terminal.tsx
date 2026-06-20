@@ -9,36 +9,53 @@ import {
   Plus,
   Minus,
   ScanBarcode,
-  CreditCard,
-  Banknote,
-  Wallet,
   CheckCircle2,
   AlertTriangle,
   FileText,
-  ReceiptText,
+  MapPin,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
 import {
   getProductById,
-  selectFefoLot,
-  totalStockForProduct,
 } from "@/lib/mock-data/catalog";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
 import { ProductImage } from "@/features/products/components/product-image";
 import { CustomerSearchSelect } from "@/features/customers/components/customer-search-select";
 import {
-  addProforma,
+  createProformaAnywhere,
   generateProformaId,
   generateProformaNumber,
 } from "@/features/sales/proforma-store";
 import { resolveDocumentToIssue } from "@/features/sales/document-resolver";
-import type { DefaultBillingType, PaymentMethod, Proforma } from "@/types";
+import type { DefaultBillingType, Proforma } from "@/types";
 import {
   billingTypeEcf,
   billingTypeLabel,
 } from "@/features/customers/billing";
+import {
+  ChargeSaleModal,
+  type ChargeSaleResult,
+} from "./components/charge-sale-modal";
+import { primaryPaymentMethod } from "./payment-validation";
+import { useToast } from "@/components/ui/toast";
+import {
+  useAllLots,
+  sellableStockForBranch,
+  totalSellableStock,
+  nextFefoLotForBranch,
+  lotBlockReason,
+  stockByBranchForProduct,
+  fefoLotsForBranch,
+  adjustStockAnywhere,
+  type LotBlockReason,
+} from "@/features/inventory/lot-store";
+import {
+  useCurrentBranch,
+  useActiveBranches,
+  resolveBranchName,
+} from "@/features/tenancy/branch-store";
 
 interface CartLine {
   productId: string;
@@ -51,43 +68,83 @@ interface CartLine {
   itbisRate: number;
   quantity: number;
   discount: number;
+  /** Stock vendible en la sucursal al momento de agregar al carrito. */
+  maxStock: number;
 }
 
-/**
- * Métodos de pago expuestos en el selector visual (los 3 más usados en
- * mostrador). Procesadores específicos (`azul`, `cardnet`, `visanet`,
- * `paypal`, `manual`, `other`) caen en `card`/`transfer`/`cash` para el MVP;
- * el detalle queda para una integración futura.
- */
-type PrimaryPaymentMethod = Extract<PaymentMethod, "cash" | "card" | "transfer">;
+function blockReasonLabel(reason: LotBlockReason): string {
+  switch (reason) {
+    case "expired": return "Lote vencido";
+    case "quarantine": return "Lote en cuarentena";
+    case "recall": return "Lote en recall";
+    case "inactive-branch": return "Sucursal inactiva";
+    case "depleted": return "Sin stock en esta sucursal";
+    case "no-lot": return "Sin lote registrado en esta sucursal";
+  }
+}
 
-const PRIMARY_PAYMENT_METHODS: ReadonlyArray<{
-  value: PrimaryPaymentMethod;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-}> = [
-  { value: "cash", label: "Efectivo", icon: Banknote, description: "DOP en mano" },
-  { value: "card", label: "Tarjeta", icon: CreditCard, description: "Crédito / débito" },
-  {
-    value: "transfer",
-    label: "Transferencia",
-    icon: Wallet,
-    description: "Bancaria / app",
-  },
-];
+/** Modal simple de stock por sucursal */
+function BranchStockModal({
+  open,
+  productName,
+  rows,
+  onClose,
+}: {
+  open: boolean;
+  productName: string;
+  rows: { branchId: string; available: number; lots: number; soon: number; expired: number }[];
+  onClose: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Stock por sucursal — {productName}</h3>
+          <button onClick={onClose} className="opacity-60 hover:opacity-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left text-xs opacity-60">
+              <th className="pb-2 font-medium">Sucursal</th>
+              <th className="pb-2 text-right font-medium">Disponible</th>
+              <th className="pb-2 text-right font-medium">Lotes</th>
+              <th className="pb-2 text-right font-medium">Por vencer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.branchId} className="border-b last:border-0">
+                <td className="py-2 font-medium">{resolveBranchName(r.branchId)}</td>
+                <td className={`py-2 text-right tabular-nums font-semibold ${r.available > 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                  {r.available}
+                </td>
+                <td className="py-2 text-right tabular-nums opacity-70">{r.lots}</td>
+                <td className={`py-2 text-right tabular-nums ${r.soon > 0 ? "text-amber-700" : "opacity-40"}`}>
+                  {r.soon > 0 ? r.soon : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <Button size="sm" variant="outline" className="mt-4 w-full" onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function PosTerminal() {
   const customers = useCustomers();
+  const toast = useToast();
   const [search, setSearch] = React.useState("");
   const [cart, setCart] = React.useState<CartLine[]>([]);
   const [customerId, setCustomerId] = React.useState<string | "">("");
   const [discountGlobalPercent, setDiscountGlobalPercent] = React.useState(0);
-  // null = aún sin elegir → ningún botón resaltado, submit deshabilitado.
-  const [paymentMethod, setPaymentMethod] = React.useState<PrimaryPaymentMethod | null>(
-    null,
-  );
-  const [paymentAmount, setPaymentAmount] = React.useState<string>("");
+  const [chargeOpen, setChargeOpen] = React.useState(false);
   const [billingType, setBillingType] =
     React.useState<DefaultBillingType>("consumo");
   const [issued, setIssued] = React.useState<{
@@ -97,7 +154,24 @@ export function PosTerminal() {
     documentKind: "proforma" | "invoice";
     documentLabel: string;
   } | null>(null);
-  const [warning, setWarning] = React.useState<string | null>(null);
+  const [branchStockModal, setBranchStockModal] = React.useState<{
+    productId: string;
+    productName: string;
+  } | null>(null);
+
+  // ── Sucursal actual ────────────────────────────────────────────────────────
+  const { branchId: rawBranchId, branches } = useCurrentBranch();
+  // Si aún no se resolvió la sucursal (hydration), usar la primera activa.
+  const branchId = rawBranchId || branches[0]?.id || "";
+  const branchName = branches.find((b) => b.id === branchId)?.name ?? branchId;
+
+  // ── Lotes reactivos (Supabase o local según NEXT_PUBLIC_DATA_SOURCE) ──────
+  const lots = useAllLots();
+  const activeBranches = useActiveBranches();
+  const activeBranchIds = React.useMemo(
+    () => new Set(activeBranches.map((b) => b.id)),
+    [activeBranches],
+  );
 
   // Cuando se selecciona un cliente, preseleccionar su tipo de facturación
   // por defecto (consumo / credito_fiscal). Si no se especifica → consumo.
@@ -125,6 +199,44 @@ export function PosTerminal() {
       .slice(0, 24);
   }, [search, products]);
 
+  // ── Banner: sucursal sin stock ────────────────────────────────────────────
+  // Calculado sobre los productos filtrados para no iterar todo el catálogo.
+  // "noBranchStock" → ningún producto visible tiene stock en la sucursal actual
+  // pero sí existe stock en otra sucursal activa.
+  // "noStockAnywhere" → no hay stock vendible en ninguna sucursal activa.
+  const { noBranchStock, noStockAnywhere, alternativeBranchName } =
+    React.useMemo(() => {
+      if (!branchId || filtered.length === 0) {
+        return { noBranchStock: false, noStockAnywhere: false, alternativeBranchName: "" };
+      }
+      let anyHere = false;
+      let anyElsewhere = false;
+      let altBranchId = "";
+      for (const p of filtered) {
+        const here = sellableStockForBranch(lots, p.id, branchId);
+        if (here > 0) { anyHere = true; break; }
+        if (!anyElsewhere) {
+          const rows = stockByBranchForProduct(lots, p.id).filter(
+            (r) => r.branchId !== branchId && r.available > 0 && activeBranchIds.has(r.branchId),
+          );
+          if (rows.length > 0) {
+            anyElsewhere = true;
+            altBranchId = rows[0]!.branchId;
+          }
+        }
+      }
+      if (anyHere) return { noBranchStock: false, noStockAnywhere: false, alternativeBranchName: "" };
+      const totalOverAllProducts = filtered.reduce(
+        (s, p) => s + totalSellableStock(lots, p.id, activeBranchIds),
+        0,
+      );
+      return {
+        noBranchStock: anyElsewhere,
+        noStockAnywhere: totalOverAllProducts === 0,
+        alternativeBranchName: altBranchId ? resolveBranchName(altBranchId) : "",
+      };
+    }, [branchId, filtered, lots, activeBranchIds]);
+
   const subtotal = cart.reduce(
     (s, l) => s + (l.unitPrice / (1 + l.itbisRate / 100)) * l.quantity - l.discount,
     0,
@@ -136,11 +248,6 @@ export function PosTerminal() {
         l.quantity,
     0,
   );
-  // Descuento global como % sobre el subtotal pre-ITBIS.
-  // El ITBIS se recalcula proporcionalmente sobre la base imponible
-  // descontada (taxableBase) — mantiene el ratio por línea aunque haya
-  // mezcla de tasas (0/16/18%). En producción validar contra reglas DGII
-  // (R-POS-01).
   const safePct = Math.min(100, Math.max(0, discountGlobalPercent));
   const globalDiscountAmount = subtotal * (safePct / 100);
   const taxableBase = Math.max(0, subtotal - globalDiscountAmount);
@@ -155,37 +262,76 @@ export function PosTerminal() {
       !customer.documentNumber ||
       customer.documentType !== "rnc");
 
-  // Resolver del documento a emitir.
-  const resolved = React.useMemo(
-    () => resolveDocumentToIssue({ billingType, paymentMethod }),
-    [billingType, paymentMethod],
-  );
+  // ── Validación de carrito para Facturar ───────────────────────────────────
+  // Calcula la razón de bloqueo del botón Facturar (mensaje claro).
+  const chargeBlockReason = React.useMemo((): string | null => {
+    if (cart.length === 0) return "El carrito está vacío.";
+    if (creditFiscalNeedsRnc)
+      return "Crédito fiscal requiere un cliente con RNC válido.";
+    // Verificar cada línea del carrito.
+    // Orden: primero razón del lote (cuarentena/recall/vencido/sin-lote/inactiva),
+    // luego cantidad vs stock vendible — igual que addProduct.
+    for (const line of cart) {
+      const block = lotBlockReason(lots, line.productId, branchId, activeBranchIds);
+      if (block) {
+        return `No puedes facturar: "${line.productName}" — ${blockReasonLabel(block)}.`;
+      }
+      const currentStock = sellableStockForBranch(lots, line.productId, branchId);
+      if (line.quantity > currentStock) {
+        return `No puedes facturar: la cantidad de "${line.productName}" supera el stock disponible en ${branchName} (disponible: ${currentStock}).`;
+      }
+    }
+    return null;
+  }, [cart, creditFiscalNeedsRnc, lots, branchId, branchName, activeBranchIds]);
 
-  const canSubmit =
-    cart.length > 0 && paymentMethod !== null && !creditFiscalNeedsRnc;
+  const canCharge = chargeBlockReason === null;
 
   const addProduct = (productId: string) => {
+    if (!branchId) {
+      toast.error("No hay sucursal seleccionada.");
+      return;
+    }
     const product = getProductById(productId);
     if (!product) return;
-    const lot = selectFefoLot(productId);
+
+    const lot = nextFefoLotForBranch(lots, productId, branchId);
     if (!lot) {
-      setWarning(`${product.name} sin stock disponible`);
-      setTimeout(() => setWarning(null), 2500);
+      // No hay lote vendible en esta sucursal — mostrar causa y stock en otras.
+      const totalStock = totalSellableStock(lots, productId, activeBranchIds);
+      if (totalStock > 0) {
+        const otherRows = stockByBranchForProduct(lots, productId)
+          .filter((r) => r.branchId !== branchId && r.available > 0 && activeBranchIds.has(r.branchId));
+        const otherList = otherRows
+          .map((r) => `${resolveBranchName(r.branchId)} (${r.available})`)
+          .join(", ");
+        toast.error(
+          `Sin stock en ${branchName}. Disponible en: ${otherList}.`,
+        );
+      } else {
+        const block = lotBlockReason(lots, productId, branchId, activeBranchIds);
+        if (block && block !== "no-lot") {
+          toast.error(`${product.name}: ${blockReasonLabel(block)} — bloqueado para venta.`);
+        } else {
+          toast.error(`${product.name}: Producto agotado.`);
+        }
+      }
       return;
     }
 
-    const days = daysUntil(lot.expiresAt);
-    if (days < 0) {
-      setWarning(`Lote ${lot.lotNumber} vencido — bloqueado para venta`);
-      setTimeout(() => setWarning(null), 3000);
-      return;
-    }
+    // nextFefoLotForBranch ya excluye lotes vencidos; no es necesario re-chequear.
+    const stockInBranch = sellableStockForBranch(lots, productId, branchId);
 
     setCart((prev) => {
       const ix = prev.findIndex((l) => l.lotId === lot.id);
       if (ix >= 0) {
         const next = [...prev];
-        next[ix] = { ...next[ix]!, quantity: next[ix]!.quantity + 1 };
+        const line = next[ix]!;
+        const newQty = line.quantity + 1;
+        if (newQty > stockInBranch) {
+          toast.error(`Solo hay ${stockInBranch} unidades disponibles en ${branchName}.`);
+          return prev;
+        }
+        next[ix] = { ...line, quantity: newQty, maxStock: stockInBranch };
         return next;
       }
       return [
@@ -201,16 +347,24 @@ export function PosTerminal() {
           itbisRate: product.itbisRate,
           quantity: 1,
           discount: 0,
+          maxStock: stockInBranch,
         },
       ];
     });
     setSearch("");
   };
 
-  const updateQty = (lotId: string, delta: number) => {
+  const updateQty = (lotId: string, newQty: number) => {
     setCart((prev) =>
       prev
-        .map((l) => (l.lotId === lotId ? { ...l, quantity: l.quantity + delta } : l))
+        .map((l) => {
+          if (l.lotId !== lotId) return l;
+          if (newQty > l.maxStock) {
+            toast.error(`Solo hay ${l.maxStock} unidades disponibles en ${branchName}.`);
+            return { ...l, quantity: l.maxStock };
+          }
+          return { ...l, quantity: newQty };
+        })
         .filter((l) => l.quantity > 0),
     );
   };
@@ -218,19 +372,32 @@ export function PosTerminal() {
   const removeLine = (lotId: string) =>
     setCart((prev) => prev.filter((l) => l.lotId !== lotId));
 
-  const issue = () => {
-    if (!canSubmit || paymentMethod === null) return;
+  const finalizeCharge = async (result: ChargeSaleResult) => {
+    if (!branchId) {
+      toast.error("Selecciona una sucursal.");
+      return;
+    }
+    if (!canCharge) {
+      toast.error(chargeBlockReason ?? "No se puede facturar.");
+      return;
+    }
 
     const number = generateProformaNumber();
     const id = generateProformaId();
     const now = new Date().toISOString();
-    const amountReceived = Number(paymentAmount) > 0 ? Number(paymentAmount) : total;
-    const changeAmount = Math.max(0, amountReceived - total);
+    const amountReceived = result.amountReceived;
+    const changeAmount = result.changeAmount;
+    const paidTotal = result.payments.reduce((s, p) => s + p.amount, 0);
+    const primaryMethod = primaryPaymentMethod(result.payments);
+    const resolved = resolveDocumentToIssue({
+      billingType,
+      paymentMethod: primaryMethod,
+    });
 
     const newProforma: Proforma = {
       id,
       businessId: "biz_dermaland",
-      branchId: "br_santiago",
+      branchId,
       number,
       customerId: customer?.id,
       customerName: customer
@@ -260,20 +427,20 @@ export function PosTerminal() {
       discount: globalDiscountAmount,
       itbis: scaledItbis,
       total,
-      status: amountReceived >= total ? "paid" : "issued",
-      payments: [
-        {
-          id: `pay_${Date.now()}`,
-          proformaId: id,
-          method: paymentMethod,
-          amount: Math.min(amountReceived, total),
-          userId: "usr_cashier_1",
-          userName: "Rosa Peralta",
-          createdAt: now,
-        },
-      ],
-      paid: Math.min(amountReceived, total),
-      balance: Math.max(0, total - amountReceived),
+      status: paidTotal >= total ? "paid" : "issued",
+      payments: result.payments.map((p, i) => ({
+        id: `pay_${Date.now()}_${i}`,
+        proformaId: id,
+        method: p.method,
+        amount: p.amount,
+        ...(p.last4 ? { last4: p.last4 } : {}),
+        ...(p.reference ? { reference: p.reference } : {}),
+        userId: "usr_cashier_1",
+        userName: "Rosa Peralta",
+        createdAt: now,
+      })),
+      paid: Math.min(paidTotal, total),
+      balance: Math.max(0, total - paidTotal),
       discountPercent: discountGlobalPercent,
       discountAmount: globalDiscountAmount,
       billingType,
@@ -286,7 +453,55 @@ export function PosTerminal() {
       updatedAt: now,
     };
 
-    addProforma(newProforma);
+    const res = await createProformaAnywhere(newProforma);
+    if (!res.ok) {
+      toast.error(
+        res.error ?? "No se pudo emitir la venta. Revisá la conexión e intentá de nuevo.",
+      );
+      return;
+    }
+
+    // Descontar stock por cada línea del carrito (FEFO, multi-lote).
+    // Usamos el snapshot `lots` del render (reactivo: Supabase o local según DATA_SOURCE).
+    // No rellamamos listAllLots() entre líneas para mantener coherencia multi-línea.
+    // TODO: atomicidad — venta+descuento en endpoint /api/sales transaccional
+    const stockErrors: string[] = [];
+    for (const line of cart) {
+      let remaining = line.quantity;
+      // fefoLotsForBranch usa la misma regla que isLotSellable (incluye sin vencimiento).
+      const fefoLots = fefoLotsForBranch(lots, line.productId, branchId);
+
+      for (const lot of fefoLots) {
+        if (remaining <= 0) break;
+        const take = Math.min(remaining, lot.currentQuantity);
+        const adjResult = await adjustStockAnywhere({
+          lotId: lot.id,
+          productId: line.productId,
+          warehouseId: lot.warehouseId,
+          branchId: lot.branchId,
+          newQuantity: lot.currentQuantity - take,
+          reason: `Venta ${number}`,
+        });
+        if (!adjResult.ok) {
+          stockErrors.push(
+            `No se pudo descontar stock de ${line.productName} (lote ${lot.lotNumber}): ${adjResult.error}`,
+          );
+        } else {
+          remaining -= take;
+        }
+      }
+      if (remaining > 0) {
+        stockErrors.push(
+          `Stock insuficiente para completar el descuento de ${line.productName} (faltan ${remaining} unidades).`,
+        );
+      }
+    }
+    if (stockErrors.length > 0) {
+      toast.error(
+        `Venta emitida, pero hay errores en el descuento de stock:\n${stockErrors.join("\n")}`,
+      );
+    }
+
     setIssued({
       id,
       number,
@@ -297,8 +512,7 @@ export function PosTerminal() {
     setCart([]);
     setDiscountGlobalPercent(0);
     setCustomerId("");
-    setPaymentAmount("");
-    setPaymentMethod(null);
+    setChargeOpen(false);
   };
 
   return (
@@ -327,22 +541,65 @@ export function PosTerminal() {
           </Button>
         </div>
 
-        {warning && (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            <AlertTriangle className="h-4 w-4" /> {warning}
+        {branchId && (
+          <div className="mx-4 mt-3 flex items-center gap-1.5 text-xs text-black/50">
+            <MapPin className="h-3 w-3" />
+            <span>Sucursal: <strong className="text-black/70">{branchName}</strong></span>
+          </div>
+        )}
+
+        {/* ── Banner: sin stock en esta sucursal ──────────────────────────── */}
+        {noBranchStock && (
+          <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <div className="flex-1">
+              <span>
+                No hay stock en <strong>{branchName}</strong>.{" "}
+                {alternativeBranchName && (
+                  <>Hay stock en <strong>{alternativeBranchName}</strong>. </>
+                )}
+                Cambiá de sucursal o usá{" "}
+                <strong>&quot;Agregar stock&quot;</strong> en un producto.
+              </span>
+            </div>
+          </div>
+        )}
+        {noStockAnywhere && !noBranchStock && (
+          <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-black/10 bg-black/[0.03] p-3 text-xs text-black/60">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Aún no hay stock cargado. Usá <strong>&quot;Agregar stock&quot;</strong> en un producto.
+            </span>
           </div>
         )}
 
         <div className="grid flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filtered.map((p) => {
-            const stock = totalStockForProduct(p.id);
-            const lot = selectFefoLot(p.id);
-            const outOfStock = stock === 0;
+            const stockHere = branchId
+              ? sellableStockForBranch(lots, p.id, branchId)
+              : 0;
+            const totalStock = totalSellableStock(lots, p.id, activeBranchIds);
+            const lot = branchId
+              ? nextFefoLotForBranch(lots, p.id, branchId)
+              : null;
+            const outOfStockHere = stockHere === 0;
+            const availableElsewhere = outOfStockHere && totalStock > 0;
+            const fullyOut = totalStock === 0;
+            const block = outOfStockHere
+              ? lotBlockReason(lots, p.id, branchId, activeBranchIds)
+              : null;
+
             return (
               <button
                 key={p.id}
-                onClick={() => addProduct(p.id)}
-                disabled={outOfStock}
+                onClick={() => {
+                  if (availableElsewhere) {
+                    setBranchStockModal({ productId: p.id, productName: p.name });
+                  } else {
+                    addProduct(p.id);
+                  }
+                }}
+                disabled={fullyOut && !availableElsewhere}
                 className="group relative flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white text-left transition hover:border-[color:var(--brand-primary)] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label={`Agregar ${p.name}`}
               >
@@ -355,26 +612,62 @@ export function PosTerminal() {
                     rounded="md"
                     className="!h-full !w-full !rounded-none border-0 bg-transparent"
                   />
+                  {/* Badge de stock en esta sucursal */}
                   <span
                     className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      outOfStock
-                        ? "bg-rose-600 text-white"
-                        : stock <= p.minStock
+                      outOfStockHere
+                        ? availableElsewhere
+                          ? "bg-amber-500 text-black"
+                          : block && block !== "no-lot" && block !== "depleted"
+                            ? "bg-orange-500 text-black"
+                            : "bg-rose-600 text-white"
+                        : stockHere <= p.minStock
                           ? "bg-amber-500 text-black"
                           : "bg-emerald-600 text-white"
                     }`}
+                    title={outOfStockHere && block ? blockReasonLabel(block) : undefined}
                   >
-                    {outOfStock ? "Agotado" : `${stock} unid.`}
+                    {outOfStockHere
+                      ? availableElsewhere
+                        ? "Sin stock aquí"
+                        : block === "quarantine"
+                          ? "En cuarentena"
+                          : block === "expired"
+                            ? "Vencido"
+                            : block === "recall"
+                              ? "Recall"
+                              : "Agotado"
+                      : `${stockHere} unid. aquí`}
                   </span>
-                  {lot && !outOfStock && daysUntil(lot.expiresAt) < 90 && (
+                  {lot && !outOfStockHere && daysUntil(lot.expiresAt) < 90 && (
                     <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-black">
                       FEFO
                     </span>
                   )}
-                  {outOfStock && (
+                  {outOfStockHere && !availableElsewhere && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <span className="rounded-md bg-rose-600 px-3 py-1 text-xs font-bold text-white">
-                        AGOTADO
+                      <span
+                        className={`rounded-md px-3 py-1 text-xs font-bold text-white ${
+                          block === "quarantine" || block === "recall"
+                            ? "bg-orange-600"
+                            : "bg-rose-600"
+                        }`}
+                        title={block ? blockReasonLabel(block) : undefined}
+                      >
+                        {block === "quarantine"
+                          ? "En cuarentena"
+                          : block === "expired"
+                            ? "Vencido"
+                            : block === "recall"
+                              ? "Recall"
+                              : "Agotado"}
+                      </span>
+                    </div>
+                  )}
+                  {availableElsewhere && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <span className="rounded-md bg-amber-500 px-2 py-1 text-[10px] font-bold text-black">
+                        Ver stock por sucursal
                       </span>
                     </div>
                   )}
@@ -389,7 +682,22 @@ export function PosTerminal() {
                   <div className="mt-auto pt-2 text-base font-semibold tabular-nums">
                     {formatCurrency(p.price)}
                   </div>
-                  {lot && !outOfStock && (
+                  {outOfStockHere && availableElsewhere && (
+                    <div className="text-[10px] text-amber-700">
+                      Disponible en otra sucursal
+                    </div>
+                  )}
+                  {outOfStockHere && !availableElsewhere && block && block !== "no-lot" && block !== "depleted" && (
+                    <div className="text-[10px] text-orange-700">
+                      {blockReasonLabel(block)}
+                    </div>
+                  )}
+                  {outOfStockHere && fullyOut && (!block || block === "no-lot" || block === "depleted") && (
+                    <div className="text-[10px] text-rose-600">
+                      Sin stock en ninguna sucursal.
+                    </div>
+                  )}
+                  {!outOfStockHere && lot && (
                     <div className="text-[10px] opacity-60">
                       Lote {lot.lotNumber} · vence {formatDate(lot.expiresAt)}
                     </div>
@@ -535,54 +843,77 @@ export function PosTerminal() {
             </div>
           )}
           <ul className="divide-y divide-black/5">
-            {cart.map((l) => (
-              <li key={l.lotId} className="px-4 py-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium leading-tight">
-                      {l.productName}
+            {cart.map((l) => {
+              const currentStock = sellableStockForBranch(lots, l.productId, branchId);
+              return (
+                <li key={l.lotId} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium leading-tight">
+                        {l.productName}
+                      </div>
+                      <div className="mt-0.5 font-mono text-[10px] opacity-60">
+                        Lote {l.lotNumber} · vence {formatDate(l.expiresAt)}
+                      </div>
+                      <div className="mt-1 text-xs opacity-70">
+                        {formatCurrency(l.unitPrice)} c/u · ITBIS {l.itbisRate}%
+                      </div>
+                      <div className="text-[10px] opacity-50">
+                        Disponible: {currentStock} unid.
+                      </div>
                     </div>
-                    <div className="mt-0.5 font-mono text-[10px] opacity-60">
-                      Lote {l.lotNumber} · vence {formatDate(l.expiresAt)}
-                    </div>
-                    <div className="mt-1 text-xs opacity-70">
-                      {formatCurrency(l.unitPrice)} c/u · ITBIS {l.itbisRate}%
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1 rounded-lg border border-black/10">
+                        <button
+                          onClick={() => updateQty(l.lotId, l.quantity - 1)}
+                          className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04]"
+                          aria-label="Disminuir cantidad"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          max={currentStock}
+                          value={l.quantity}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (!isNaN(v) && v >= 1) {
+                              if (v > currentStock) {
+                                toast.error(`Solo hay ${currentStock} unidades disponibles en esta sucursal.`);
+                                updateQty(l.lotId, currentStock);
+                              } else {
+                                updateQty(l.lotId, v);
+                              }
+                            }
+                          }}
+                          className="w-10 bg-transparent text-center text-sm font-semibold tabular-nums outline-none"
+                          aria-label="Cantidad"
+                        />
+                        <button
+                          onClick={() => updateQty(l.lotId, l.quantity + 1)}
+                          disabled={l.quantity >= currentStock}
+                          className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04] disabled:opacity-30"
+                          aria-label="Aumentar cantidad"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="text-sm font-semibold tabular-nums">
+                        {formatCurrency(l.unitPrice * l.quantity)}
+                      </div>
+                      <button
+                        onClick={() => removeLine(l.lotId)}
+                        className="text-rose-600 hover:text-rose-800"
+                        aria-label="Quitar línea"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-1 rounded-lg border border-black/10">
-                      <button
-                        onClick={() => updateQty(l.lotId, -1)}
-                        className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04]"
-                        aria-label="Disminuir cantidad"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-8 text-center text-sm font-semibold tabular-nums">
-                        {l.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQty(l.lotId, 1)}
-                        className="flex h-7 w-7 items-center justify-center hover:bg-black/[0.04]"
-                        aria-label="Aumentar cantidad"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <div className="text-sm font-semibold tabular-nums">
-                      {formatCurrency(l.unitPrice * l.quantity)}
-                    </div>
-                    <button
-                      onClick={() => removeLine(l.lotId)}
-                      className="text-rose-600 hover:text-rose-800"
-                      aria-label="Quitar línea"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -632,100 +963,51 @@ export function PosTerminal() {
               </div>
             </div>
 
-            {/* ── Selector de método de pago (sin default seleccionado) ── */}
-            <div className="mt-4">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-medium opacity-70">
-                  Método de pago
-                </span>
-                {paymentMethod === null && (
-                  <span className="text-[10px] text-amber-700">
-                    selecciona uno
-                  </span>
-                )}
-              </div>
-              <div
-                className="grid grid-cols-3 gap-2"
-                role="radiogroup"
-                aria-label="Método de pago"
-              >
-                {PRIMARY_PAYMENT_METHODS.map(({ value, label, icon: Icon }) => {
-                  const active = paymentMethod === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setPaymentMethod(value)}
-                      className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition ${
-                        active
-                          ? "border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/10 text-[color:var(--brand-primary)] shadow-sm"
-                          : "border-black/10 bg-white text-black/60 hover:border-black/25 hover:text-black/80"
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <input
-              type="number"
-              placeholder={`Recibido (${formatCurrency(total)})`}
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              className="mt-3 h-10 w-full rounded-lg border border-black/10 px-3 text-sm"
-              aria-label="Monto recibido"
-            />
-
-            {/* ── Indicador de documento a emitir ── */}
-            <div
-              className={`mt-3 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
-                paymentMethod === null
-                  ? "border-black/10 bg-black/[0.02] text-black/60"
-                  : resolved.documentKind === "invoice"
-                    ? "border-violet-200 bg-violet-50 text-violet-900"
-                    : "border-blue-200 bg-blue-50 text-blue-900"
-              }`}
-            >
-              {resolved.documentKind === "invoice" ? (
-                <FileText className="mt-0.5 h-4 w-4 shrink-0" />
-              ) : (
-                <ReceiptText className="mt-0.5 h-4 w-4 shrink-0" />
-              )}
-              <div className="min-w-0">
-                <div className="font-semibold">Documento a emitir</div>
-                <div className="truncate">
-                  {paymentMethod === null
-                    ? "—"
-                    : resolved.label}
-                </div>
-              </div>
-            </div>
-
             <Button
-              className="mt-3 w-full"
+              className="mt-4 w-full"
               size="lg"
-              onClick={issue}
-              disabled={!canSubmit}
+              onClick={() => {
+                if (!canCharge) {
+                  toast.error(chargeBlockReason ?? "No se puede facturar.");
+                  return;
+                }
+                setChargeOpen(true);
+              }}
+              disabled={!canCharge}
             >
-              {resolved.buttonLabel}
+              Cobrar venta
             </Button>
-            {!canSubmit && cart.length > 0 && (
-              <p className="mt-1 text-center text-[11px] text-black/50">
-                {creditFiscalNeedsRnc
-                  ? "Cliente sin RNC para crédito fiscal."
-                  : paymentMethod === null
-                    ? "Selecciona método de pago para continuar."
-                    : ""}
+            {!canCharge && chargeBlockReason && (
+              <p className="mt-1 text-center text-[11px] text-rose-600">
+                {chargeBlockReason}
               </p>
             )}
           </div>
         )}
       </div>
+
+      <ChargeSaleModal
+        open={chargeOpen}
+        onClose={() => setChargeOpen(false)}
+        subtotal={subtotal}
+        itbis={scaledItbis}
+        total={total}
+        billingType={billingType}
+        onConfirm={finalizeCharge}
+      />
+      <toast.Toast />
+
+      {/* Modal de stock por sucursal */}
+      {branchStockModal && (
+        <BranchStockModal
+          open={true}
+          productName={branchStockModal.productName}
+          rows={stockByBranchForProduct(lots, branchStockModal.productId).filter(
+            (r) => activeBranchIds.has(r.branchId),
+          )}
+          onClose={() => setBranchStockModal(null)}
+        />
+      )}
     </div>
   );
 }

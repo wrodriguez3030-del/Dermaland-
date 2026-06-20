@@ -68,17 +68,29 @@ export function Receipt80mm({
     >
       {/* HEADER */}
       <div className="text-center">
+        {mockBusiness.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mockBusiness.logoUrl}
+            alt={mockBusiness.commercialName}
+            className="mx-auto mb-1 h-12 w-12 object-contain"
+          />
+        )}
         <div className="text-[14px] font-bold leading-tight">
           {mockBusiness.commercialName.toUpperCase()}
         </div>
         <div className="text-[10px]">
           {branch?.name ?? "Sucursal principal"}
         </div>
-        {branch?.address && (
-          <div className="text-[10px] leading-tight">{branch.address}</div>
+        {(branch?.address ?? mockBusiness.address) && (
+          <div className="text-[10px] leading-tight">
+            {branch?.address ?? mockBusiness.address}
+          </div>
         )}
-        {branch?.phone && (
-          <div className="text-[10px]">Tel. {branch.phone}</div>
+        {(branch?.phone ?? mockBusiness.phone) && (
+          <div className="text-[10px]">
+            Tel. {branch?.phone ?? mockBusiness.phone}
+          </div>
         )}
         <div className="text-[10px]">
           RNC {mockBusiness.rnc} · {mockBusiness.legalName}
@@ -210,13 +222,16 @@ export function Receipt80mm({
       <div className="text-center text-[10px]">
         <div className="mb-1">{totalQty} artículo(s)</div>
         <div className="font-bold">¡Gracias por su compra!</div>
-        <div className="mt-2">DermaLand · Cuidado dermatológico</div>
+        {mockBusiness.slogan && (
+          <div className="mt-2">
+            {mockBusiness.commercialName} · {mockBusiness.slogan}
+          </div>
+        )}
         {mockBusiness.whatsapp && (
           <div>WhatsApp {mockBusiness.whatsapp}</div>
         )}
-        {mockBusiness.instagramUrl && (
-          <div>@dermalandrd</div>
-        )}
+        {mockBusiness.email && <div>{mockBusiness.email}</div>}
+        {mockBusiness.instagramUrl && <div>@dermalandrd</div>}
         <div className="mt-2 text-[9px] opacity-70">
           {proforma.status === "converted_to_ecf"
             ? "Comprobante fiscal electrónico (e-CF) generado."

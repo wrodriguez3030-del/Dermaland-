@@ -1,0 +1,121 @@
+{
+  "generatedAt": "2026-06-16",
+  "method": "external-url-link",
+  "notes": "Imágenes referenciadas por URL externa (no descargadas al repo). Cada URL verificada con curl (HTTP 200 + content-type image/*) el 2026-06-16. imageStatus='linked' indica enlace externo. Riesgo conocido: link rot — reverificar periódicamente.",
+  "totals": {
+    "linked": 12,
+    "not_found": 0,
+    "needs_review": 0
+  },
+  "products": [
+    {
+      "id": "prod_lrp_001",
+      "name": "La Roche-Posay Toleriane Sensitive Crema 40 ml",
+      "imageUrl": "https://static.beautytocare.com/cdn-cgi/image/width=1600,height=1600,f=auto/media/catalog/product//l/a/la-roche-posay-toleriane-sensitive-cream-40ml_1.jpg",
+      "imageSourceUrl": "https://www.caretobeauty.com/us/la-roche-posay-toleriane-sensitive-cream-40ml/",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_eu_002",
+      "name": "Eucerin Sun Protection Pigment Control SPF 50+ 50 ml",
+      "imageUrl": "https://static.beautytocare.com/cdn-cgi/image/width=1600,height=1600,f=auto/media/catalog/product//e/u/eucerin-sun-pigment-control-sun-fluid-spf50-50ml_1.jpg",
+      "imageSourceUrl": "https://www.caretobeauty.com/us/eucerin-sun-pigment-control-sun-fluid-spf50-50ml/",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_ses_003",
+      "name": "Sesderma C-VIT Sérum Liposomal 30 ml",
+      "imageUrl": "https://static.beautytocare.com/cdn-cgi/image/width=1600,height=1600,f=auto/media/catalog/product//s/e/sesderma-c-vit-serum-liposomal-30ml_1.jpg",
+      "imageSourceUrl": "https://www.caretobeauty.com/us/sesderma-c-vit-serum-liposomal-30ml/",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_uri_004",
+      "name": "Uriage Bariéderm Cica-Crema reparadora 100 ml",
+      "imageUrl": "https://cdn1.costatic.com/img/product/400/668be898bf1c7/uriage-bariederm-cica-p24730.jpg",
+      "imageSourceUrl": "https://www.cocooncenter.co.uk/uriage-bariederm-cica-repairing-cream-100ml/28071.html",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_isd_005",
+      "name": "ISDIN Fotoprotector Fusion Water SPF 50 50 ml",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-9xjhkkb3r4/products/289/images/9851/isdin-fusion-water-magic-spf50-50-ml__96881.1741615925.386.513.jpg?c=2",
+      "imageSourceUrl": "https://skincolor.net/isdin-fusion-water-magic-spf50-50-ml/",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_avn_006",
+      "name": "Avène Cleanance Gel Limpiador 200 ml",
+      "imageUrl": "https://static.thcdn.com/productimg/original/13277516-2005343993762189.jpg",
+      "imageSourceUrl": "https://www.dermstore.com/p/avene-cleanance-cleansing-gel-200ml/13277516/",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_bio_007",
+      "name": "Bioderma Sensibio H2O Agua micelar 500 ml",
+      "imageUrl": "https://dermotiendashopping.com/cdn/shop/files/DSC05004.jpg?v=1770130936&width=3840",
+      "imageSourceUrl": "https://dermotiendashopping.com/products/bioderma-sensibio-h2o-500ml",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_cer_008",
+      "name": "CeraVe Limpiador Hidratante 236 ml",
+      "imageUrl": "https://dermotiendashopping.com/cdn/shop/files/3337875597180_1.png?v=1765834526&width=3840",
+      "imageSourceUrl": "https://dermotiendashopping.com/products/cerave-limpiador-hidratante-236ml",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/png"
+    },
+    {
+      "id": "prod_vch_009",
+      "name": "Vichy Mineral 89 Booster hidratante 50 ml",
+      "imageUrl": "https://frenchpharmacy.com/cdn/shop/products/Vichy_Mineral89_large.jpg?v=1560977334",
+      "imageSourceUrl": "https://frenchpharmacy.com/products/vichy-mineral-89-daily-booster",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_hlc_010",
+      "name": "Heliocare 360º Oral Cápsulas 30 unid.",
+      "imageUrl": "https://farmaciadermedica.com/cdn/shop/products/cantabria-labs-heliocare-360-capsulas_1024x.jpg?v=1750478352",
+      "imageSourceUrl": "https://farmaciadermedica.com/products/heliocare-360-oral-30-capsulas",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_acm_011",
+      "name": "ACM Sebionex Gel limpiador 200 ml",
+      "imageUrl": "https://pielfarmaceutica.com/cdn/shop/files/download_51ccc435-5810-489a-9839-178cd66c42b0.jpg?v=1712164717&width=1946",
+      "imageSourceUrl": "https://pielfarmaceutica.com/products/acm-sebionex-gel-limpiador-x-200ml",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg"
+    },
+    {
+      "id": "prod_isi_012",
+      "name": "Isispharma Ruboril Expert Sérum Anti-Rojeces 30 ml",
+      "imageUrl": "https://www.soin-et-nature.com/media/cache/shop_product_large_thumbnail/products/4/7/5/9/7/47597.jpg",
+      "imageSourceUrl": "https://www.soin-et-nature.com/en/25407-isispharma-ruboril-expert-intense-concentrated-anti-redness-care-15ml.html",
+      "imageStatus": "linked",
+      "httpStatus": 200,
+      "contentType": "image/jpeg",
+      "notes": "La marca no vende un 'serum' de 30 ml exacto; se usó la imagen del Ruboril Expert Intense (sérum concentrado anti-rojeces), la variante sérum más cercana."
+    }
+  ]
+}

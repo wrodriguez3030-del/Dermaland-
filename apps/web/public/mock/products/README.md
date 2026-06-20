@@ -2,23 +2,28 @@
 
 Carpeta servida estáticamente por Next.js bajo `/mock/products/*`.
 
-Las rutas usadas en `mockProducts` (ver `src/lib/mock-data/catalog.ts`) apuntan
-aquí:
+## Estado actual (2026-06-16)
 
-- `lrp-toleriane.jpg`
-- `eucerin-pigment-spf50.jpg`
-- `sesderma-cvit-serum.jpg`
-- `isdin-fusion-water.jpg`
-- _(añadir más a medida que el cliente entregue fotos reales)_
+Los 12 productos del seed (`src/lib/mock-data/catalog.ts`) **ya no usan archivos
+locales**: cada `imageUrl` apunta a una **URL externa** de la imagen real del
+producto (CDN de fabricante/retailer), con `imageSourceUrl` para auditoría e
+`imageStatus: "linked"`.
 
-Si no existe la imagen, el componente `<ProductImage>` renderiza un placeholder
-con las iniciales del producto sobre fondo de marca — la app no se rompe.
+- Todas las URLs fueron verificadas (HTTP 200 + `content-type: image/*`).
+- Reporte auditable: `data/product-image-import-report.json`.
+- Riesgo conocido: **link rot** (el CDN externo puede retirar la imagen). Si una
+  imagen desaparece, `<ProductImage>` cae al placeholder con iniciales — la app
+  no se rompe. Reverificar con el reporte cuando haga falta.
 
-## Cómo agregar una imagen real
+## Cómo agregar / reemplazar una imagen
 
-1. Convertir a JPG / PNG / WebP, máximo 800×800 px, peso < 200 KB.
-2. Copiar al filename exacto que apunta el seed.
-3. Reload — Next sirve los assets en hot-reload.
+**Opción A — URL externa (lo que se usa hoy):** poné la URL directa de la imagen
+en `imageUrl`, su página de origen en `imageSourceUrl` e `imageStatus: "linked"`.
+Verificá antes que la URL devuelve `200 image/*`.
+
+**Opción B — archivo local:** convertir a JPG/PNG/WebP (máx. 800×800 px, < 200 KB),
+copiar a esta carpeta como `/mock/products/<slug>.<ext>` y apuntar `imageUrl` a esa
+ruta con `imageStatus: "downloaded"`.
 
 ## Producción
 

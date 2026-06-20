@@ -6,10 +6,11 @@ import type {
   ProductLot,
 } from "@/types";
 import { mockBusiness } from "./tenancy";
+import { importedBrands, importedProducts } from "./catalog-imported";
 
 const now = "2026-05-05T09:00:00Z";
 
-export const mockBrands: Brand[] = [
+const seedBrands: Brand[] = [
   { id: "br_sesderma", businessId: mockBusiness.id, name: "SESDERMA", productCount: 83, createdAt: now, updatedAt: now },
   { id: "br_eucerin", businessId: mockBusiness.id, name: "EUCERIN", productCount: 63, createdAt: now, updatedAt: now },
   { id: "br_uriage", businessId: mockBusiness.id, name: "URIAGE", productCount: 62, createdAt: now, updatedAt: now },
@@ -23,6 +24,12 @@ export const mockBrands: Brand[] = [
   { id: "br_heliocare", businessId: mockBusiness.id, name: "HELIOCARE", productCount: 24, createdAt: now, updatedAt: now },
   { id: "br_cerave", businessId: mockBusiness.id, name: "CERAVE", productCount: 21, createdAt: now, updatedAt: now },
   { id: "br_filorga", businessId: mockBusiness.id, name: "FILORGA", productCount: 16, createdAt: now, updatedAt: now },
+];
+
+/** Marcas del seed + marcas importadas del Excel (dedupe por id). */
+export const mockBrands: Brand[] = [
+  ...seedBrands,
+  ...importedBrands.filter((b) => !seedBrands.some((s) => s.id === b.id)),
 ];
 
 export const mockLaboratories: Laboratory[] = [
@@ -70,8 +77,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 8,
     maxStock: 60,
-    imageUrl: "/mock/products/lrp-toleriane.jpg",
+    imageUrl: "https://static.beautytocare.com/cdn-cgi/image/width=1600,height=1600,f=auto/media/catalog/product//l/a/la-roche-posay-toleriane-sensitive-cream-40ml_1.jpg",
     imageAlt: "La Roche-Posay Toleriane Sensitive Crema 40 ml",
+    imageSourceUrl: "https://www.caretobeauty.com/us/la-roche-posay-toleriane-sensitive-cream-40ml/",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -96,8 +105,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 10,
     maxStock: 80,
-    imageUrl: "/mock/products/eucerin-pigment-spf50.jpg",
+    imageUrl: "https://static.beautytocare.com/cdn-cgi/image/width=1600,height=1600,f=auto/media/catalog/product//e/u/eucerin-sun-pigment-control-sun-fluid-spf50-50ml_1.jpg",
     imageAlt: "Eucerin Sun Protection Pigment Control SPF 50+ 50 ml",
+    imageSourceUrl: "https://www.caretobeauty.com/us/eucerin-sun-pigment-control-sun-fluid-spf50-50ml/",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -121,8 +132,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 5,
     maxStock: 40,
-    imageUrl: "/mock/products/sesderma-cvit-serum.jpg",
+    imageUrl: "https://static.beautytocare.com/cdn-cgi/image/width=1600,height=1600,f=auto/media/catalog/product//s/e/sesderma-c-vit-serum-liposomal-30ml_1.jpg",
     imageAlt: "Sesderma C-VIT Sérum Liposomal 30 ml",
+    imageSourceUrl: "https://www.caretobeauty.com/us/sesderma-c-vit-serum-liposomal-30ml/",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -145,6 +158,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 6,
     maxStock: 30,
+    imageUrl: "https://cdn1.costatic.com/img/product/400/668be898bf1c7/uriage-bariederm-cica-p24730.jpg",
+    imageAlt: "Uriage Bariéderm Cica-Crema reparadora 100 ml",
+    imageSourceUrl: "https://www.cocooncenter.co.uk/uriage-bariederm-cica-repairing-cream-100ml/28071.html",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -166,8 +183,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 12,
     maxStock: 100,
-    imageUrl: "/mock/products/isdin-fusion-water.jpg",
+    imageUrl: "https://cdn11.bigcommerce.com/s-9xjhkkb3r4/products/289/images/9851/isdin-fusion-water-magic-spf50-50-ml__96881.1741615925.386.513.jpg?c=2",
     imageAlt: "ISDIN Fotoprotector Fusion Water SPF 50 50 ml",
+    imageSourceUrl: "https://skincolor.net/isdin-fusion-water-magic-spf50-50-ml/",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -190,6 +209,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 8,
     maxStock: 50,
+    imageUrl: "https://static.thcdn.com/productimg/original/13277516-2005343993762189.jpg",
+    imageAlt: "Avène Cleanance Gel Limpiador 200 ml",
+    imageSourceUrl: "https://www.dermstore.com/p/avene-cleanance-cleansing-gel-200ml/13277516/",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -211,6 +234,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 10,
     maxStock: 60,
+    imageUrl: "https://dermotiendashopping.com/cdn/shop/files/DSC05004.jpg?v=1770130936&width=3840",
+    imageAlt: "Bioderma Sensibio H2O Agua micelar 500 ml",
+    imageSourceUrl: "https://dermotiendashopping.com/products/bioderma-sensibio-h2o-500ml",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -233,6 +260,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 12,
     maxStock: 80,
+    imageUrl: "https://dermotiendashopping.com/cdn/shop/files/3337875597180_1.png?v=1765834526&width=3840",
+    imageAlt: "CeraVe Limpiador Hidratante 236 ml",
+    imageSourceUrl: "https://dermotiendashopping.com/products/cerave-limpiador-hidratante-236ml",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -254,6 +285,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 5,
     maxStock: 35,
+    imageUrl: "https://frenchpharmacy.com/cdn/shop/products/Vichy_Mineral89_large.jpg?v=1560977334",
+    imageAlt: "Vichy Mineral 89 Booster hidratante 50 ml",
+    imageSourceUrl: "https://frenchpharmacy.com/products/vichy-mineral-89-daily-booster",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -274,6 +309,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 4,
     maxStock: 25,
+    imageUrl: "https://farmaciadermedica.com/cdn/shop/products/cantabria-labs-heliocare-360-capsulas_1024x.jpg?v=1750478352",
+    imageAlt: "Heliocare 360º Oral Cápsulas 30 unidades",
+    imageSourceUrl: "https://farmaciadermedica.com/products/heliocare-360-oral-30-capsulas",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -294,6 +333,10 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 6,
     maxStock: 30,
+    imageUrl: "https://pielfarmaceutica.com/cdn/shop/files/download_51ccc435-5810-489a-9839-178cd66c42b0.jpg?v=1712164717&width=1946",
+    imageAlt: "ACM Sebionex Gel limpiador 200 ml",
+    imageSourceUrl: "https://pielfarmaceutica.com/products/acm-sebionex-gel-limpiador-x-200ml",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
@@ -314,17 +357,24 @@ const baseProducts: Omit<Product, "createdAt" | "updatedAt" | "businessId">[] = 
     itbisRate: 18,
     minStock: 4,
     maxStock: 22,
+    imageUrl: "https://www.soin-et-nature.com/media/cache/shop_product_large_thumbnail/products/4/7/5/9/7/47597.jpg",
+    imageAlt: "Isispharma Ruboril Expert Sérum Anti-Rojeces 30 ml",
+    imageSourceUrl: "https://www.soin-et-nature.com/en/25407-isispharma-ruboril-expert-intense-concentrated-anti-redness-care-15ml.html",
+    imageStatus: "linked",
     active: true,
     sellable: true,
   },
 ];
 
-export const mockProducts: Product[] = baseProducts.map((p) => ({
+const seedProducts: Product[] = baseProducts.map((p) => ({
   ...p,
   businessId: mockBusiness.id,
   createdAt: now,
   updatedAt: now,
 }));
+
+/** Productos del seed (12 detallados) + catálogo importado del Excel. */
+export const mockProducts: Product[] = [...seedProducts, ...importedProducts];
 
 const day = (offsetDays: number) => {
   const d = new Date("2026-05-05T00:00:00Z");

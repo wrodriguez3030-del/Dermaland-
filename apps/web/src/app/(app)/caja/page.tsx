@@ -14,24 +14,80 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Banknote, Lock, Receipt } from "lucide-react";
+import { Banknote, Receipt } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
-import {
-  getCurrentSession,
-  mockCashRegisterSessions,
-  mockProformas,
-} from "@/lib/mock-data/sales";
+import { mockProformas } from "@/lib/mock-data/sales";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import { getRepositories } from "@/server/repositories";
+import { getRepoContext } from "@/server/auth/context";
+import { env } from "@/lib/env";
+import { AbrirCajaButton, CerrarCajaButton } from "./caja-actions";
 
-export default function CajaPage() {
-  const current = getCurrentSession();
-  const proformas = mockProformas.filter(
-    (p) => p.cashRegisterSessionId === current?.id,
-  );
+// Usa cookies/sesión (getRepoContext) en modo supabase → render dinámico.
+export const dynamic = "force-dynamic";
+
+/**
+ * Caja — página de sesión actual.
+ *
+ * En modo `supabase` la sesión activa se lee desde el repositorio Supabase
+ * con RLS por business_id del JWT. En modo `mock` se usa el seed de
+ * mock-data (comportamiento anterior, sin cambios).
+ */
+export default async function CajaPage() {
+  // Obtener sesión actual via repositorio (Supabase o mock según DATA_SOURCE).
+  let current: import("@/types").CashRegisterSession | null = null;
+  let closedSessions: import("@/types").CashRegisterSession[] = [];
+
+  try {
+    const ctx = await getRepoContext();
+    const repo = getRepositories().cashRegister;
+    const [cur, hist] = await Promise.all([
+      repo.current(ctx),
+      repo.history(ctx, 10),
+    ]);
+    current = cur;
+    closedSessions = hist;
+  } catch (e) {
+    // Distinguir error de auth de "sin sesión":
+    // getRepoContext lanza "No autenticado" si no hay JWT válido.
+    // repository.current() puede lanzar errores de DB (no de auth).
+    // En cualquier caso registramos server-side y dejamos current=null.
+    const msg = (e as Error).message ?? String(e);
+    if (msg.includes("No autenticado")) {
+      // Error de auth — el layout de (app) debería haber redirigido antes.
+      // Registramos y dejamos la UI mostrar "Sin sesión" como fallback seguro.
+      console.error("[CajaPage] Error de autenticación:", msg);
+    } else {
+      // Error de repositorio/DB inesperado
+      console.error("[CajaPage] Error al cargar sesión de caja:", msg);
+    }
+  }
+
+  const closedOnly = closedSessions.filter((s) => s.status === "closed");
+
+  // Proformas de la sesión actual — en supabase las cargamos del repositorio;
+  // en modo mock usamos el seed.
+  let proformas: import("@/types").Proforma[] = [];
+  if (current) {
+    if (env.DATA_SOURCE === "supabase") {
+      try {
+        const ctx = await getRepoContext();
+        const allProformas = await getRepositories().proforma.list(ctx);
+        proformas = allProformas.filter(
+          (p) => p.cashRegisterSessionId === current!.id,
+        );
+      } catch {
+        // Fallback a vacío si falla la carga de proformas (no bloquear la página)
+      }
+    } else {
+      proformas = mockProformas.filter(
+        (p) => p.cashRegisterSessionId === current!.id,
+      );
+    }
+  }
   const pendingEcf = proformas.filter(
     (p) => p.status === "pending_ecf" || p.status === "paid",
   );
-  const closed = mockCashRegisterSessions.filter((s) => s.status === "closed");
 
   if (!current) {
     return (
@@ -40,12 +96,7 @@ export default function CajaPage() {
           title="Caja"
           description="Sin sesión abierta. Abre caja con tu monto inicial para empezar a vender."
           breadcrumbs={[{ label: "Caja" }]}
-          actions={
-            <Button size="sm">
-              <Banknote className="h-4 w-4" />
-              Abrir caja
-            </Button>
-          }
+          actions={<AbrirCajaButton />}
         />
       </>
     );
@@ -64,12 +115,7 @@ export default function CajaPage() {
                 Historial
               </Button>
             </Link>
-            <Link href="/caja/cierre">
-              <Button size="sm" variant="danger">
-                <Lock className="h-4 w-4" />
-                Cerrar caja
-              </Button>
-            </Link>
+            <CerrarCajaButton sessionId={current.id} />
           </>
         }
       />
@@ -108,34 +154,40 @@ export default function CajaPage() {
             </p>
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
-              <THead>
-                <TR>
-                  <TH className="w-10"></TH>
-                  <TH>Proforma</TH>
-                  <TH>Cliente</TH>
-                  <TH className="text-right">Total</TH>
-                  <TH>Tipo sugerido</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {pendingEcf.map((p) => (
-                  <TR key={p.id}>
-                    <TD>
-                      <input type="checkbox" defaultChecked={p.status === "pending_ecf"} />
-                    </TD>
-                    <TD className="font-mono text-xs">{p.number}</TD>
-                    <TD className="text-sm">{p.customerName}</TD>
-                    <TD className="text-right tabular-nums">{formatCurrency(p.total)}</TD>
-                    <TD>
-                      <Badge tone={p.status === "pending_ecf" ? "warning" : "info"}>
-                        {p.status === "pending_ecf" ? "e-CF 31 (Crédito Fiscal)" : "e-CF 32 (Consumo)"}
-                      </Badge>
-                    </TD>
+            {pendingEcf.length === 0 ? (
+              <div className="p-6 text-center text-sm opacity-60">
+                No hay proformas pendientes de conversión a e-CF en esta sesión.
+              </div>
+            ) : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH className="w-10"></TH>
+                    <TH>Proforma</TH>
+                    <TH>Cliente</TH>
+                    <TH className="text-right">Total</TH>
+                    <TH>Tipo sugerido</TH>
                   </TR>
-                ))}
-              </TBody>
-            </Table>
+                </THead>
+                <TBody>
+                  {pendingEcf.map((p) => (
+                    <TR key={p.id}>
+                      <TD>
+                        <input type="checkbox" defaultChecked={p.status === "pending_ecf"} />
+                      </TD>
+                      <TD className="font-mono text-xs">{p.number}</TD>
+                      <TD className="text-sm">{p.customerName}</TD>
+                      <TD className="text-right tabular-nums">{formatCurrency(p.total)}</TD>
+                      <TD>
+                        <Badge tone={p.status === "pending_ecf" ? "warning" : "info"}>
+                          {p.status === "pending_ecf" ? "e-CF 31 (Crédito Fiscal)" : "e-CF 32 (Consumo)"}
+                        </Badge>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -171,57 +223,59 @@ export default function CajaPage() {
         </Card>
       </div>
 
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Sesiones cerradas recientes</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <THead>
-              <TR>
-                <TH>Sesión</TH>
-                <TH>Cajero</TH>
-                <TH>Apertura</TH>
-                <TH>Cierre</TH>
-                <TH className="text-right">Esperado</TH>
-                <TH className="text-right">Contado</TH>
-                <TH className="text-right">Diferencia</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {closed.map((s) => (
-                <TR key={s.id}>
-                  <TD className="font-mono text-xs">{s.sessionNumber}</TD>
-                  <TD className="text-sm">{s.cashierName}</TD>
-                  <TD className="text-xs">{formatDateTime(s.openedAt)}</TD>
-                  <TD className="text-xs">
-                    {s.closedAt ? formatDateTime(s.closedAt) : "—"}
-                  </TD>
-                  <TD className="text-right tabular-nums">
-                    {formatCurrency(s.expectedCash)}
-                  </TD>
-                  <TD className="text-right tabular-nums">
-                    {s.countedCash ? formatCurrency(s.countedCash) : "—"}
-                  </TD>
-                  <TD className="text-right tabular-nums">
-                    {s.difference != null ? (
-                      <span
-                        className={
-                          s.difference < 0 ? "text-rose-700" : "text-emerald-700"
-                        }
-                      >
-                        {formatCurrency(s.difference)}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TD>
+      {closedOnly.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Sesiones cerradas recientes</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Sesión</TH>
+                  <TH>Cajero</TH>
+                  <TH>Apertura</TH>
+                  <TH>Cierre</TH>
+                  <TH className="text-right">Esperado</TH>
+                  <TH className="text-right">Contado</TH>
+                  <TH className="text-right">Diferencia</TH>
                 </TR>
-              ))}
-            </TBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </THead>
+              <TBody>
+                {closedOnly.map((s) => (
+                  <TR key={s.id}>
+                    <TD className="font-mono text-xs">{s.sessionNumber}</TD>
+                    <TD className="text-sm">{s.cashierName}</TD>
+                    <TD className="text-xs">{formatDateTime(s.openedAt)}</TD>
+                    <TD className="text-xs">
+                      {s.closedAt ? formatDateTime(s.closedAt) : "—"}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {formatCurrency(s.expectedCash)}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {s.countedCash != null ? formatCurrency(s.countedCash) : "—"}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {s.difference != null ? (
+                        <span
+                          className={
+                            s.difference < 0 ? "text-rose-700" : "text-emerald-700"
+                          }
+                        >
+                          {formatCurrency(s.difference)}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

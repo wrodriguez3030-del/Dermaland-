@@ -16,6 +16,17 @@ export interface Business extends Audited, SoftDeletable {
   whatsapp?: string;
   email?: string;
   instagramUrl?: string;
+  /** Sitio web público o link en bio (opcional). */
+  website?: string;
+  /** Dirección física de la empresa (usada en recibos y comprobantes). */
+  address?: string;
+  city?: string;
+  province?: string;
+  /** Eslogan comercial corto. */
+  slogan?: string;
+  /** Descripción / bio comercial breve. */
+  description?: string;
+  /** URL o ruta del logo institucional (PNG/SVG). */
   logoUrl?: string;
   dgiiEnabled: boolean;
   planId: ID;
@@ -170,10 +181,32 @@ export interface Product extends Audited, SoftDeletable, BusinessScoped {
   imageAlt?: string | null;
   /** URL de origen (sitio oficial / distribuidor) — usada para auditoría y reimport. */
   imageSourceUrl?: string | null;
-  /** Estado de la importación de imagen del producto. */
-  imageStatus?: "downloaded" | "needs_review" | "not_found" | "error" | null;
+  /**
+   * Estado de la importación de imagen del producto.
+   * `linked` = imagen externa referenciada por URL (no descargada al repo).
+   */
+  imageStatus?: "downloaded" | "linked" | "needs_review" | "not_found" | "error" | null;
   active: boolean;
   sellable: boolean;
+  // ── Enriquecimiento comercial (opcional, para vender mejor) ──
+  /** Nombre corto para listas/POS. */
+  shortName?: string;
+  /** Contenido/tamaño (p. ej. "40 ml", "30 cápsulas"). */
+  content?: string;
+  /** Uso del producto (limpieza, protección solar, despigmentante…). */
+  useType?: string;
+  /** Tipo de piel ideal. */
+  skinType?: string;
+  /** Beneficios principales (bullets cortos). */
+  benefits?: string[];
+  /** Modo de uso simple. */
+  modeOfUse?: string;
+  /** Momento de uso: día / noche / ambos. */
+  timeOfUse?: "dia" | "noche" | "ambos";
+  /** Tip de venta para el personal. */
+  salesTip?: string;
+  /** Palabras clave para búsqueda interna. */
+  keywords?: string[];
 }
 
 export type LotStatus =
@@ -423,7 +456,14 @@ export interface Payment {
   proformaId: ID;
   method: PaymentMethod;
   amount: number;
+  /** Referencia de texto corta (p. ej. "otro método"). */
   reference?: string;
+  /**
+   * Últimos 4 dígitos de la tarjeta o referencia de transferencia, como
+   * referencia administrativa. NUNCA se guarda el número completo, CVV ni
+   * vencimiento.
+   */
+  last4?: string;
   userId: ID;
   userName: string;
   createdAt: string;

@@ -47,6 +47,37 @@ contra la normativa DGII vigente al 100%**. Hay zonas grises:
 
 ---
 
+## R-SEC-01 · Leaked Password Protection no disponible en plan Free
+
+**Fecha:** 2026-05-29
+**Severidad:** Baja-Media · Aceptable temporalmente para MVP/preview ·
+**No aceptable para producción SaaS real**
+**Dueño:** upgrade de plan antes de go-live.
+
+- **Warning (Supabase Security Advisor):** Leaked Password Protection Disabled (Auth).
+- **Causa:** la feature (chequeo de contraseñas filtradas contra
+  HaveIBeenPwned, k-anonymity) está disponible **solo en Supabase Pro+**.
+  No se puede activar por migración SQL ni en plan Free.
+- **Impacto:** no hay protección adicional automática contra el uso de
+  contraseñas ya filtradas en brechas conocidas. Resto de avisos del
+  Advisor ya corregidos (ver migraciones 0008/0009 y
+  `docs/estado-actual.md`).
+
+### Mitigación temporal (mientras siga en Free)
+
+1. **Exigir contraseñas fuertes** (mín. 12 chars, mayús/minús/número/símbolo
+   — ya en política de `production-checklist.md` Auth P2).
+2. **No reutilizar passwords** entre cuentas/entornos.
+3. **Rotar credenciales seed** (p. ej. `PREVIEW_ADMIN_PASSWORD`) periódicamente
+   y tras cada handoff.
+4. **Activar MFA/TOTP** donde aplique (obligatorio para `admin`/`super_admin`).
+5. **Upgrade a Supabase Pro** y activar el toggle en Authentication →
+   Settings → Security **antes de producción SaaS real**.
+
+> No se crean más migraciones por este warning: es config de plan, no de SQL.
+
+---
+
 ## R-FIS-02 · Secuencia DGII / e-CF aún no integrada
 
 **Fecha:** 2026-05-07

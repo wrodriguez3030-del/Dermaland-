@@ -1,3 +1,5 @@
+"use client";
+
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Card,
@@ -9,10 +11,13 @@ import {
   Textarea,
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
-import { mockBranches, mockWarehouses } from "@/lib/mock-data/tenancy";
+import {
+  useActiveBranches,
+} from "@/features/tenancy/branch-store";
 import { mockUsers } from "@/lib/mock-data/users";
 
 export default function NuevoConteoPage() {
+  const branches = useActiveBranches();
   return (
     <>
       <PageHeader
@@ -36,33 +41,24 @@ export default function NuevoConteoPage() {
         <CardContent>
           <FormSection
             title="Alcance"
-            description="Sucursal, almacén y tipo de conteo."
+            description="Sucursal y tipo de conteo."
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label>Sucursal *</Label>
                 <Select>
-                  {mockBranches.map((b) => (
+                  {branches.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
                   ))}
                 </Select>
               </div>
-              <div>
-                <Label>Almacén *</Label>
-                <Select>
-                  {mockWarehouses.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              {/* warehouseId se mapea internamente a defaultWarehouseForBranch(branchId) — no visible al usuario */}
               <div>
                 <Label>Tipo de conteo</Label>
                 <Select defaultValue="partial">
-                  <option value="full">Total — todo el almacén</option>
+                  <option value="full">Total — toda la sucursal</option>
                   <option value="partial">Parcial — categoría/góndola</option>
                   <option value="spot">Spot — productos específicos</option>
                 </Select>

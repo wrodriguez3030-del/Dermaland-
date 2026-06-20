@@ -49,6 +49,36 @@ import type {
   WhatsappMessage,
   WhatsappTemplate,
 } from "@/types";
+import type {
+  SupplierInvoice,
+  Expense,
+  RecurringExpense,
+  RecurringRun,
+  PaymentMethod,
+  CreateInvoiceInput,
+  CreateExpenseInput,
+  CreateRecurringInput,
+} from "@/features/purchases/compras-store";
+
+// ─── Suppliers / ExpenseCategories ──────────────────────────────────────────
+
+export interface Supplier {
+  id: ID;
+  businessId: ID;
+  name: string;
+  rnc?: string;
+  phone?: string;
+  email?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExpenseCategory {
+  id: ID;
+  businessId: ID;
+  name: string;
+  createdAt: string;
+}
 
 // ─── Read context ────────────────────────────────────────────────────────────
 //
@@ -68,10 +98,18 @@ export interface BusinessRepository {
   update(ctx: RepoContext, patch: Partial<Business>): Promise<Business>;
 }
 
+export interface BranchListOptions {
+  /** Sólo sucursales activas (operación). Por defecto false = todas (admin). */
+  activeOnly?: boolean;
+}
+
 export interface BranchRepository {
-  list(ctx: RepoContext): Promise<Branch[]>;
+  list(ctx: RepoContext, opts?: BranchListOptions): Promise<Branch[]>;
   byId(ctx: RepoContext, id: ID): Promise<Branch | null>;
   create(ctx: RepoContext, branch: Omit<Branch, "id" | "createdAt" | "updatedAt">): Promise<Branch>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Branch>): Promise<Branch>;
+  /** Soft delete: marca `deleted_at`. No borra físicamente. */
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface WarehouseRepository {
@@ -97,14 +135,30 @@ export interface AuditRepository {
 export interface BrandRepository {
   list(ctx: RepoContext): Promise<Brand[]>;
   byId(ctx: RepoContext, id: ID): Promise<Brand | null>;
+  create(ctx: RepoContext, input: { name: string }): Promise<Brand>;
+  update(ctx: RepoContext, id: ID, patch: { name?: string }): Promise<Brand>;
+  delete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface CategoryRepository {
   list(ctx: RepoContext): Promise<Category[]>;
+  create(
+    ctx: RepoContext,
+    input: { name: string; parentId?: ID | null; description?: string },
+  ): Promise<Category>;
+  update(
+    ctx: RepoContext,
+    id: ID,
+    patch: { name?: string; parentId?: ID | null; description?: string },
+  ): Promise<Category>;
+  delete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface LaboratoryRepository {
   list(ctx: RepoContext): Promise<Laboratory[]>;
+  create(ctx: RepoContext, input: { name: string; country?: string }): Promise<Laboratory>;
+  update(ctx: RepoContext, id: ID, patch: { name?: string; country?: string }): Promise<Laboratory>;
+  delete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface ProductRepository {
@@ -118,6 +172,12 @@ export interface ProductRepository {
   byId(ctx: RepoContext, id: ID): Promise<Product | null>;
   byBarcode(ctx: RepoContext, barcode: string): Promise<Product | null>;
   totalStock(ctx: RepoContext, productId: ID): Promise<number>;
+  create(
+    ctx: RepoContext,
+    input: Omit<Product, "id" | "createdAt" | "updatedAt" | "deletedAt">,
+  ): Promise<Product>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Product>): Promise<Product>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
 export interface ProductLotRepository {
@@ -132,6 +192,17 @@ export interface ProductLotRepository {
   quarantine(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
   release(ctx: RepoContext, lotId: ID): Promise<void>;
   recall(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
+  /** Crea un lote nuevo con business_id del ctx (nunca del body). */
+  create(
+    ctx: RepoContext,
+    input: Omit<ProductLot, "id" | "createdAt" | "updatedAt">,
+  ): Promise<ProductLot>;
+  /**
+   * Ajuste absoluto de stock: setea `current_quantity` al valor indicado.
+   * Devuelve el lote actualizado. El llamador es responsable de registrar
+   * el movimiento de inventario correspondiente.
+   */
+  adjustQuantity(ctx: RepoContext, lotId: ID, newQuantity: number): Promise<ProductLot>;
 }
 
 export interface InventoryMovementRepository {
@@ -164,6 +235,59 @@ export interface CustomerRepository {
   byId(ctx: RepoContext, id: ID): Promise<Customer | null>;
   notes(ctx: RepoContext, customerId: ID): Promise<CustomerNote[]>;
   create(ctx: RepoContext, customer: Omit<Customer, "id" | "createdAt" | "updatedAt">): Promise<Customer>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Customer>): Promise<Customer>;
+  /** Soft delete: marca `deleted_at`. No borra físicamente. */
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
+}
+
+// ─── Purchases / Compras ─────────────────────────────────────────────────────
+
+export interface SupplierInvoiceRepository {
+  list(ctx: RepoContext, opts?: { branchId?: ID; status?: string }): Promise<SupplierInvoice[]>;
+  byId(ctx: RepoContext, id: ID): Promise<SupplierInvoice | null>;
+  create(ctx: RepoContext, input: CreateInvoiceInput & { businessId: ID }): Promise<SupplierInvoice>;
+  update(ctx: RepoContext, id: ID, patch: Partial<SupplierInvoice>): Promise<SupplierInvoice>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
+  /** Marca la factura como anulada (status → "anulada"). */
+  void(ctx: RepoContext, id: ID): Promise<SupplierInvoice>;
+  /** Registra un pago parcial o total sobre la factura. Actualiza paid+status. */
+  registerPayment(ctx: RepoContext, id: ID, amount: number, method: PaymentMethod): Promise<SupplierInvoice>;
+}
+
+export interface ExpenseRepository {
+  list(ctx: RepoContext, opts?: { branchId?: ID; petty?: boolean }): Promise<Expense[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Expense | null>;
+  create(ctx: RepoContext, input: CreateExpenseInput & { businessId: ID }): Promise<Expense>;
+  update(ctx: RepoContext, id: ID, patch: Partial<Expense>): Promise<Expense>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
+  /** Marca el gasto como anulado (status → "anulado"). */
+  void(ctx: RepoContext, id: ID): Promise<Expense>;
+}
+
+export interface RecurringExpenseRepository {
+  list(ctx: RepoContext): Promise<RecurringExpense[]>;
+  byId(ctx: RepoContext, id: ID): Promise<RecurringExpense | null>;
+  create(ctx: RepoContext, input: CreateRecurringInput & { businessId: ID }): Promise<RecurringExpense>;
+  update(ctx: RepoContext, id: ID, patch: Partial<RecurringExpense>): Promise<RecurringExpense>;
+  softDelete(ctx: RepoContext, id: ID): Promise<void>;
+  /** Activa o desactiva el pago recurrente. */
+  setActive(ctx: RepoContext, id: ID, active: boolean): Promise<RecurringExpense>;
+  /** Genera el gasto del período: crea un Expense y registra la corrida. */
+  generateRun(ctx: RepoContext, id: ID): Promise<{ expense: Expense; run: RecurringRun }>;
+}
+
+// ─── Suppliers lookup ─────────────────────────────────────────────────────────
+
+export interface SupplierRepository {
+  list(ctx: RepoContext): Promise<Supplier[]>;
+  create(ctx: RepoContext, input: { name: string; rnc?: string; phone?: string; email?: string }): Promise<Supplier>;
+}
+
+// ─── ExpenseCategory lookup ───────────────────────────────────────────────────
+
+export interface ExpenseCategoryRepository {
+  list(ctx: RepoContext): Promise<ExpenseCategory[]>;
+  create(ctx: RepoContext, input: { name: string }): Promise<ExpenseCategory>;
 }
 
 // ─── POS / Sales ────────────────────────────────────────────────────────────
@@ -310,4 +434,9 @@ export interface Repositories {
   ai: AIRepository;
   apiV3: ApiV3Repository;
   dgii: DgiiRepository;
+  supplierInvoice: SupplierInvoiceRepository;
+  expense: ExpenseRepository;
+  recurringExpense: RecurringExpenseRepository;
+  supplier: SupplierRepository;
+  expenseCategory: ExpenseCategoryRepository;
 }

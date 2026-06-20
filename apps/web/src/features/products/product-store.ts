@@ -213,16 +213,170 @@ export function clearLocalProducts(): void {
   safeWrite(KEY_DELETED, []);
 }
 
+// ─── Backend (local vs Supabase) ─────────────────────────────────────────────
+/**
+ * Modo del backend de productos:
+ *  - "local"    → este store (localStorage), por equipo (modo demo actual).
+ *  - "supabase" → fuente ÚNICA compartida vía /api/products (RLS business_id).
+ *
+ * Se activa con `NEXT_PUBLIC_DATA_SOURCE=supabase` (build) + `DATA_SOURCE=
+ * supabase` (servidor) + credenciales Supabase válidas. Por defecto: local.
+ */
+export const PRODUCT_BACKEND: "local" | "supabase" =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase"
+    ? "supabase"
+    : "local";
+
+function notifyProductsChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+  }
+}
+
+export async function fetchProductsFromServer(): Promise<Product[]> {
+  const res = await fetch(`/api/products?limit=1000`, { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { products: Product[] }).products;
+}
+
+function createInputToServerPayload(input: CreateProductInput) {
+  return {
+    businessId: input.businessId ?? "",
+    sku: input.sku.trim(),
+    barcode: input.barcode?.trim() || undefined,
+    name: input.name.trim(),
+    description: input.description?.trim() || undefined,
+    brandId: input.brandId,
+    laboratoryId: input.laboratoryId,
+    categoryId: input.categoryId,
+    unit: input.unit?.trim() || "unidad",
+    pharmaceuticalForm: input.pharmaceuticalForm,
+    presentation: input.presentation?.trim() || undefined,
+    activeIngredient: input.activeIngredient?.trim() || undefined,
+    concentration: input.concentration?.trim() || undefined,
+    requiresPrescription: !!input.requiresPrescription,
+    controlled: !!input.controlled,
+    cost: input.cost ?? 0,
+    price: input.price,
+    itbisRate: input.itbisRate ?? 18,
+    minStock: input.minStock ?? 0,
+    maxStock: input.maxStock ?? 0,
+    imageUrl: input.imageUrl ?? null,
+    active: input.active ?? true,
+    sellable: input.sellable ?? true,
+  };
+}
+
+async function createProductOnServer(input: CreateProductInput): Promise<CreateProductResult> {
+  const missing: string[] = [];
+  if (!input.sku?.trim()) missing.push("sku");
+  if (!input.name?.trim()) missing.push("name");
+  if (input.price == null || Number.isNaN(input.price)) missing.push("price");
+  if (missing.length) return { ok: false, error: "Complete los campos requeridos.", missingFields: missing };
+  try {
+    const res = await fetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(createInputToServerPayload(input)),
+    });
+    const body = (await res.json().catch(() => ({}))) as { product?: Product; error?: string };
+    if (!res.ok || !body.product) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyProductsChanged();
+    return { ok: true, product: body.product };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+async function updateProductOnServer(id: string, patch: Partial<Product>): Promise<CreateProductResult> {
+  try {
+    const res = await fetch(`/api/products/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const body = (await res.json().catch(() => ({}))) as { product?: Product; error?: string };
+    if (!res.ok || !body.product) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyProductsChanged();
+    return { ok: true, product: body.product };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function saveProduct(
+  mode: "create" | "edit",
+  input: CreateProductInput,
+  id?: string,
+): Promise<CreateProductResult> {
+  if (PRODUCT_BACKEND === "supabase") {
+    return mode === "create" ? createProductOnServer(input) : updateProductOnServer(id!, input as Partial<Product>);
+  }
+  if (mode === "create") return createProduct(input);
+  const r = updateProduct(id!, input as Partial<Product>);
+  const found = getProductByIdFromStore(id!);
+  return r.ok && found ? { ok: true, product: found } : { ok: false, error: "No se pudo actualizar el producto." };
+}
+
+/**
+ * Activa/inactiva un producto, despachando local vs servidor según el backend.
+ * Paralelo a `setBranchActiveAnywhere`. En supabase hace PATCH parcial.
+ */
+export async function setProductActiveAnywhere(
+  id: string,
+  active: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  if (PRODUCT_BACKEND === "supabase") {
+    const r = await updateProductOnServer(id, { active });
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  }
+  const r = updateProduct(id, { active });
+  return { ok: r.ok };
+}
+
+export async function deleteProductAnywhere(id: string): Promise<{ ok: boolean; error?: string }> {
+  if (PRODUCT_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+      }
+      notifyProductsChanged();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  }
+  return deleteProduct(id);
+}
+
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
 export function useProducts(): Product[] {
-  const [list, setList] = React.useState<Product[]>(() => listAllProducts());
+  const [list, setList] = React.useState<Product[]>(() =>
+    PRODUCT_BACKEND === "supabase" ? [] : listAllProducts(),
+  );
   React.useEffect(() => {
-    const refresh = () => setList(listAllProducts());
+    let alive = true;
+    const refresh = () => {
+      if (PRODUCT_BACKEND === "supabase") {
+        fetchProductsFromServer()
+          .then((p) => { if (alive) setList(p); })
+          .catch(() => { if (alive) setList(listAllProducts()); });
+      } else {
+        setList(listAllProducts());
+      }
+    };
     window.addEventListener(CHANGE_EVENT, refresh);
     window.addEventListener("storage", refresh);
     refresh();
     return () => {
+      alive = false;
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };

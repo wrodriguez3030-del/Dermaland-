@@ -1,11 +1,13 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { Plus, Upload } from "lucide-react";
+import { PackagePlus, Plus, Power, RotateCcw, Upload, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
   Button,
+  Select,
   Table,
   THead,
   TBody,
@@ -23,18 +25,35 @@ import {
 import { useToast } from "@/components/ui/toast";
 import { ProductImage } from "@/features/products/components/product-image";
 import {
-  deleteProduct,
+  deleteProductAnywhere,
+  setProductActiveAnywhere,
   useProducts,
+  PRODUCT_BACKEND,
 } from "@/features/products/product-store";
 import {
   getBrandById,
   getCategoryById,
   mockBrands,
   mockCategories,
-  totalStockForProduct,
 } from "@/lib/mock-data/catalog";
+import {
+  useAllLots,
+  useInventoryTick,
+  sellableStockForBranch,
+  totalSellableStock,
+} from "@/features/inventory/lot-store";
+import {
+  useCurrentBranch,
+  useActiveBranches,
+} from "@/features/tenancy/branch-store";
+import { NewLotModal } from "@/features/inventory/lot-modals";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
+
+// Lookup de stock compartido con los comparadores (se sincroniza en cada
+// render con el mapa precalculado, para no recorrer todos los lotes por fila).
+const stockLookup = new Map<string, number>();
+const stockOf = (id: string) => stockLookup.get(id) ?? 0;
 
 const comparators = {
   name: (a: Product, b: Product) => a.name.localeCompare(b.name),
@@ -44,26 +63,108 @@ const comparators = {
     const bn = getBrandById(b.brandId)?.name ?? "";
     return an.localeCompare(bn);
   },
-  stock: (a: Product, b: Product) =>
-    totalStockForProduct(a.id) - totalStockForProduct(b.id),
+  stock: (a: Product, b: Product) => stockOf(a.id) - stockOf(b.id),
   price: (a: Product, b: Product) => a.price - b.price,
 };
+
+type StatusFilter = "all" | "active" | "inactive" | "low" | "out";
+const PAGE_SIZE = 50;
 
 export default function ProductosPage() {
   const products = useProducts();
   const toast = useToast();
+  const tick = useInventoryTick(); // refleja cambios de stock por lotes (modo local)
+  const lots = useAllLots();
+  const { branchId } = useCurrentBranch();
+  const activeBranches = useActiveBranches();
+  const activeBranchIds = React.useMemo(
+    () => new Set(activeBranches.map((b) => b.id)),
+    [activeBranches],
+  );
+
+  const [q, setQ] = React.useState("");
+  const [brand, setBrand] = React.useState("");
+  const [category, setCategory] = React.useState("");
+  const [status, setStatus] = React.useState<StatusFilter>("all");
+  const [page, setPage] = React.useState(0);
+  const [addStockProduct, setAddStockProduct] = React.useState<{ id: string; name: string } | null>(null);
+
+  // Mapa de stock total vendible por producto (todas las sucursales activas).
+  // Se recalcula cuando cambian los lotes (tick en modo local, lista en modo supabase).
+  const stockMap = React.useMemo(() => {
+    const m = new Map<string, number>();
+    for (const pid of [...new Set(lots.map((l) => l.productId))]) {
+      m.set(pid, totalSellableStock(lots, pid, activeBranchIds));
+    }
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lots, tick, activeBranchIds]);
+  // Sincronizar el lookup que usan los comparadores.
+  stockLookup.clear();
+  stockMap.forEach((v, k) => stockLookup.set(k, v));
+
+  const hasFilters =
+    q.trim() !== "" || brand !== "" || category !== "" || status !== "all";
+
+  const clearFilters = () => {
+    setQ("");
+    setBrand("");
+    setCategory("");
+    setStatus("all");
+  };
+
+  const filtered = React.useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return products.filter((p) => {
+      if (term) {
+        const hay =
+          p.name.toLowerCase().includes(term) ||
+          p.sku.toLowerCase().includes(term) ||
+          (p.barcode ?? "").toLowerCase().includes(term) ||
+          (p.keywords ?? []).some((k) => k.toLowerCase().includes(term));
+        if (!hay) return false;
+      }
+      if (brand && p.brandId !== brand) return false;
+      if (category && p.categoryId !== category) return false;
+      if (status !== "all") {
+        const stock = stockMap.get(p.id) ?? 0;
+        if (status === "active" && !p.active) return false;
+        if (status === "inactive" && p.active) return false;
+        if (status === "low" && !(stock <= p.minStock)) return false;
+        if (status === "out" && stock > 0) return false;
+      }
+      return true;
+    });
+  }, [products, q, brand, category, status, stockMap]);
+
   const { sort, sorted, toggle } = useTableSort(
-    products,
+    filtered,
     "name",
     "asc",
     comparators,
   );
 
+  const total = products.length;
+  const showing = sorted.length;
+  const pageCount = Math.max(1, Math.ceil(showing / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const paged = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  // Volver a la primera página cuando cambian filtros/orden.
+  React.useEffect(() => {
+    setPage(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, brand, category, status, sort.key, sort.direction]);
+
   return (
     <>
       <PageHeader
         title="Productos"
-        description={`Catálogo del business · ${products.length} productos visibles del seed (1342 totales en CSV inicial)`}
+        description={
+          hasFilters
+            ? `Mostrando ${showing} de ${total} productos`
+            : `${total} productos en el catálogo`
+        }
         breadcrumbs={[{ label: "Productos" }]}
         actions={
           <>
@@ -81,30 +182,51 @@ export default function ProductosPage() {
         }
       />
 
+      <div className={`mb-4 rounded-xl border px-4 py-2.5 text-xs ${PRODUCT_BACKEND === "local" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+        {PRODUCT_BACKEND === "local"
+          ? "Los cambios se guardan en este equipo (modo demo, sin Supabase)."
+          : "Los productos son una fuente única compartida (Supabase). Los cambios se ven en todos los equipos."}
+      </div>
+
       <FilterBar className="mb-4">
         <SearchInput
           placeholder="Buscar por nombre, SKU o código de barras…"
           containerClassName="flex-1 min-w-[260px]"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
         />
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todas las marcas</option>
+        <Select value={brand} onChange={(e) => setBrand(e.target.value)}>
+          <option value="">Todas las marcas</option>
           {mockBrands.map((b) => (
-            <option key={b.id}>{b.name}</option>
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
           ))}
-        </select>
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todas las categorías</option>
+        </Select>
+        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="">Todas las categorías</option>
           {mockCategories.map((c) => (
-            <option key={c.id}>{c.name}</option>
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
           ))}
-        </select>
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Estado: todos</option>
-          <option>Activos</option>
-          <option>Inactivos</option>
-          <option>Bajo stock</option>
-          <option>Sin stock</option>
-        </select>
+        </Select>
+        <Select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as StatusFilter)}
+        >
+          <option value="all">Estado: todos</option>
+          <option value="active">Activos</option>
+          <option value="inactive">Inactivos</option>
+          <option value="low">Bajo stock</option>
+          <option value="out">Sin stock</option>
+        </Select>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X className="h-4 w-4" />
+            Limpiar filtros
+          </Button>
+        )}
       </FilterBar>
 
       <Table>
@@ -139,11 +261,44 @@ export default function ProductosPage() {
           </TR>
         </THead>
         <TBody>
-          {sorted.map((p) => {
-            const brand = getBrandById(p.brandId);
+          {sorted.length === 0 && (
+            <TR>
+              <TD colSpan={8}>
+                <div className="py-12 text-center">
+                  <p className="text-sm font-medium">
+                    {total === 0
+                      ? "Aún no hay productos en el catálogo."
+                      : "Ningún producto coincide con los filtros."}
+                  </p>
+                  <p className="mt-1 text-xs opacity-60">
+                    {total === 0
+                      ? "Crea el primero con “Nuevo producto” o importa un CSV."
+                      : "Ajusta o limpia los filtros para ver más resultados."}
+                  </p>
+                  {hasFilters && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={clearFilters}
+                    >
+                      <X className="h-4 w-4" />
+                      Limpiar filtros
+                    </Button>
+                  )}
+                </div>
+              </TD>
+            </TR>
+          )}
+          {paged.map((p) => {
+            const brandObj = getBrandById(p.brandId);
             const category = getCategoryById(p.categoryId);
-            const stock = totalStockForProduct(p.id);
+            const stock = stockMap.get(p.id) ?? 0;
+            const stockHere = branchId
+              ? sellableStockForBranch(lots, p.id, branchId)
+              : stock;
             const lowStock = stock <= p.minStock;
+            const noStockHere = branchId && stockHere === 0 && stock > 0;
             return (
               <TR key={p.id}>
                 <TD>
@@ -173,17 +328,26 @@ export default function ProductosPage() {
                     </div>
                   </Link>
                 </TD>
-                <TD>{brand?.name ?? "—"}</TD>
+                <TD>{brandObj?.name ?? "—"}</TD>
                 <TD>
                   <span className="text-xs opacity-80">
                     {category?.name ?? "—"}
                   </span>
                 </TD>
                 <TD className="text-right tabular-nums">
-                  <span className={lowStock ? "text-amber-700 font-semibold" : ""}>
-                    {stock}
-                  </span>
-                  <span className="text-xs opacity-50"> / mín {p.minStock}</span>
+                  {branchId ? (
+                    <div>
+                      <span className={stockHere === 0 && stock > 0 ? "text-amber-700 font-semibold" : stockHere === 0 ? "text-rose-600 font-semibold" : ""}>
+                        {stockHere} aquí
+                      </span>
+                      <span className="text-xs opacity-50"> · {stock} total · mín {p.minStock}</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className={lowStock ? "text-amber-700 font-semibold" : ""}>{stock}</span>
+                      <span className="text-xs opacity-50"> total · mín {p.minStock}</span>
+                    </div>
+                  )}
                 </TD>
                 <TD className="text-right tabular-nums">
                   {formatCurrency(p.price)}
@@ -196,6 +360,8 @@ export default function ProductosPage() {
                       <Badge tone="neutral">Inactivo</Badge>
                     )}
                     {lowStock && <Badge tone="warning">Bajo stock</Badge>}
+                    {stock === 0 && <Badge tone="danger">Agotado</Badge>}
+                    {stock > 0 && noStockHere && <Badge tone="warning">Sin stock aquí</Badge>}
                     {p.requiresPrescription && (
                       <Badge tone="purple">Receta</Badge>
                     )}
@@ -206,11 +372,42 @@ export default function ProductosPage() {
                   <RowActions
                     viewHref={`/productos/${p.id}`}
                     editHref={`/productos/${p.id}/editar`}
-                    onDelete={() => {
-                      deleteProduct(p.id);
-                      toast.success("Producto eliminado correctamente.");
+                    onDelete={async () => {
+                      const res = await deleteProductAnywhere(p.id);
+                      if (!res.ok) toast.error(res.error ?? "No se pudo eliminar.");
+                      else toast.success("Producto eliminado correctamente.");
                     }}
                     entityName={p.name}
+                    customActions={[
+                      {
+                        label: "Agregar stock",
+                        icon: PackagePlus,
+                        onClick: () => setAddStockProduct({ id: p.id, name: p.name }),
+                      },
+                      p.active
+                        ? {
+                            label: "Inactivar",
+                            icon: Power,
+                            onClick: async () => {
+                              const res = await setProductActiveAnywhere(p.id, false);
+                              if (!res.ok) toast.error(res.error ?? "No se pudo inactivar.");
+                              else toast.success(`${p.name} inactivado.`);
+                            },
+                            confirm: {
+                              title: "Inactivar producto",
+                              message: `¿Inactivar ${p.name}? Dejará de venderse pero conserva su historial.`,
+                            },
+                          }
+                        : {
+                            label: "Reactivar",
+                            icon: RotateCcw,
+                            onClick: async () => {
+                              const res = await setProductActiveAnywhere(p.id, true);
+                              if (!res.ok) toast.error(res.error ?? "No se pudo reactivar.");
+                              else toast.success(`${p.name} reactivado.`);
+                            },
+                          },
+                    ]}
                   />
                 </TD>
               </TR>
@@ -218,6 +415,42 @@ export default function ProductosPage() {
           })}
         </TBody>
       </Table>
+
+      {pageCount > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <span className="opacity-60">
+            Página {safePage + 1} de {pageCount} · {showing} productos
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage === 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage >= pageCount - 1}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
+      {addStockProduct && (
+        <NewLotModal
+          open={true}
+          onClose={() => setAddStockProduct(null)}
+          productId={addStockProduct.id}
+          productName={addStockProduct.name}
+          defaultBranchId={branchId || undefined}
+          requireExpiry={true}
+        />
+      )}
       <toast.Toast />
     </>
   );

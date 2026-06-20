@@ -113,8 +113,27 @@ if (!PASSWORD) {
   process.exit(2);
 }
 
-if (PASSWORD.length < 12) {
-  die("PREVIEW_ADMIN_PASSWORD demasiado corto (>=12 chars).");
+// Política de contraseña fuerte (R-SEC-01: control compensatorio del gap de
+// Leaked Password Protection en plan Free — ver docs/security.md). Espejo de
+// apps/web/src/lib/auth/password-policy.ts. NUNCA imprime la contraseña.
+{
+  const BLOCKED = new Set([
+    "password", "password123", "123456", "12345678", "123456789",
+    "admin123", "dermaland123", "qwerty123", "qwerty", "111111",
+    "abc123", "iloveyou", "letmein", "contraseña", "contrasena",
+  ]);
+  const problems = [];
+  if (PASSWORD.length < 12) problems.push("mínimo 12 caracteres");
+  if (!/[A-ZÁÉÍÓÚÑ]/.test(PASSWORD)) problems.push("una mayúscula");
+  if (!/[a-záéíóúñ]/.test(PASSWORD)) problems.push("una minúscula");
+  if (!/[0-9]/.test(PASSWORD)) problems.push("un número");
+  if (!/[^A-Za-z0-9]/.test(PASSWORD)) problems.push("un símbolo");
+  if (BLOCKED.has(PASSWORD.trim().toLowerCase()))
+    problems.push("no usar contraseñas comunes");
+  if (problems.length > 0) {
+    // No imprimimos la contraseña, solo qué reglas faltan.
+    die(`PREVIEW_ADMIN_PASSWORD no cumple la política: falta ${problems.join(", ")}.`);
+  }
 }
 
 // ---- 2) Importar @supabase/supabase-js desde el workspace web ----

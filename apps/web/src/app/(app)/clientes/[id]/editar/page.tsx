@@ -12,8 +12,9 @@ import { CustomerForm } from "@/features/customers/customer-form";
 /**
  * Edición de cliente.
  *
- * Como los clientes hoy viven en `localStorage` (mientras se conecta
- * Supabase), aplicamos el patrón `mounted` para evitar hydration mismatch:
+ * Los clientes usan Supabase cuando NEXT_PUBLIC_DATA_SOURCE=supabase;
+ * en modo local caen al store por equipo (demo). Aplicamos el patrón
+ * `mounted` para evitar hydration mismatch:
  * SSR y primer render cliente devuelven el mismo HTML estable
  * ("Cargando cliente..."); tras montar leemos el store y renderizamos el
  * formulario con `initial` o el card de "no encontrado".

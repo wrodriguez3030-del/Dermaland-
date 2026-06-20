@@ -12,7 +12,7 @@
  * crezcan los assets a precachear (Fase 9 con sitio público).
  */
 
-const CACHE_NAME = "dermaland-shell-v1";
+const CACHE_NAME = "dermaland-shell-v2";
 const SHELL_URLS = [
   "/",
   "/conteo-fisico",

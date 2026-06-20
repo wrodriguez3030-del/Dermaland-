@@ -1,3 +1,7 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Card,
@@ -5,6 +9,8 @@ import {
   CardHeader,
   CardTitle,
   Badge,
+  Button,
+  Select,
   Table,
   THead,
   TBody,
@@ -12,39 +18,85 @@ import {
   TH,
   TD,
 } from "@/components/ui";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { StatCard } from "@/components/ui/stat-card";
-import { CalendarClock, AlertTriangle, ShieldAlert } from "lucide-react";
-import {
-  getProductById,
-  mockProductLots,
-} from "@/lib/mock-data/catalog";
+import { CalendarClock, AlertTriangle, ShieldAlert, X } from "lucide-react";
+import { RowActions } from "@/components/ui/row-actions";
+import { getProductById } from "@/lib/mock-data/catalog";
+import { getBranchById } from "@/lib/mock-data/tenancy";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { daysUntil, formatDate } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
+import {
+  useAllLots,
+  expiryStatus,
+  type ExpiryStatus,
+} from "@/features/inventory/lot-store";
+
+const rowBg: Record<ExpiryStatus, string> = {
+  expired: "bg-rose-50",
+  soon: "bg-rose-50/60",
+  warn: "bg-amber-50/60",
+  ok: "",
+};
+const tone: Record<ExpiryStatus, "danger" | "warning" | "success"> = {
+  expired: "danger",
+  soon: "danger",
+  warn: "warning",
+  ok: "success",
+};
+
+type DayFilter = "all" | "expired" | "30" | "60" | "90";
 
 export default function VencimientosPage() {
-  const lots = [...mockProductLots].sort(
-    (a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt),
-  );
+  const activeBranches = useActiveBranches();
+  const [branch, setBranch] = React.useState("");
+  const [dayFilter, setDayFilter] = React.useState<DayFilter>("all");
+  const rawLots = useAllLots();
 
-  const expired = lots.filter((l) => daysUntil(l.expiresAt) < 0);
-  const lt15 = lots.filter((l) => {
+  // Vencimientos operativos: solo lotes de sucursales ACTIVAS.
+  const activeBranchIds = new Set(activeBranches.map((b) => b.id));
+  const allLots = rawLots
+    .filter((l) => activeBranchIds.has(l.branchId))
+    .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt));
+
+  const expired = allLots.filter((l) => daysUntil(l.expiresAt) < 0);
+  const lt15 = allLots.filter((l) => {
     const d = daysUntil(l.expiresAt);
     return d >= 0 && d < 15;
   });
-  const lt30 = lots.filter((l) => {
+  const lt30 = allLots.filter((l) => {
     const d = daysUntil(l.expiresAt);
     return d >= 15 && d < 30;
   });
-  const lt90 = lots.filter((l) => {
+  const lt90 = allLots.filter((l) => {
     const d = daysUntil(l.expiresAt);
     return d >= 30 && d < 90;
+  });
+
+  const hasFilters = branch !== "" || dayFilter !== "all";
+  const clear = () => {
+    setBranch("");
+    setDayFilter("all");
+  };
+
+  const filtered = allLots.filter((l) => {
+    if (branch && l.branchId !== branch) return false;
+    if (dayFilter !== "all") {
+      const d = daysUntil(l.expiresAt);
+      if (dayFilter === "expired") return d < 0;
+      if (dayFilter === "30") return d >= 0 && d <= 30;
+      if (dayFilter === "60") return d >= 0 && d <= 60;
+      if (dayFilter === "90") return d >= 0 && d <= 90;
+    }
+    return true;
   });
 
   return (
     <>
       <PageHeader
         title="Alertas de vencimiento"
-        description="Niveles 15 / 30 / 60 / 90 días según política configurable. POS bloquea venta de lotes vencidos."
+        description="Niveles 15 / 30 / 60 / 90 días. El POS bloquea la venta de lotes vencidos."
         breadcrumbs={[
           { label: "Inventario", href: "/inventario" },
           { label: "Vencimientos" },
@@ -66,22 +118,41 @@ export default function VencimientosPage() {
           tone="danger"
           hint="Crítico — promoción urgente"
         />
-        <StatCard
-          label="15-30 días"
-          value={lt30.length}
-          icon={CalendarClock}
-          tone="warning"
-        />
-        <StatCard
-          label="30-90 días"
-          value={lt90.length}
-          icon={CalendarClock}
-        />
+        <StatCard label="15-30 días" value={lt30.length} icon={CalendarClock} tone="warning" />
+        <StatCard label="30-90 días" value={lt90.length} icon={CalendarClock} />
       </div>
+
+      <FilterBar className="mb-4">
+        <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
+          <option value="">Todas las sucursales</option>
+          {activeBranches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={dayFilter}
+          onChange={(e) => setDayFilter(e.target.value as DayFilter)}
+        >
+          <option value="all">Todos los plazos</option>
+          <option value="expired">Vencidos</option>
+          <option value="30">Hasta 30 días</option>
+          <option value="60">Hasta 60 días</option>
+          <option value="90">Hasta 90 días</option>
+        </Select>
+        {hasFilters && (
+          <Button variant="ghost" size="sm" onClick={clear}>
+            <X className="h-4 w-4" /> Limpiar filtros
+          </Button>
+        )}
+      </FilterBar>
 
       <Card>
         <CardHeader>
-          <CardTitle>Lotes ordenados por proximidad a vencimiento</CardTitle>
+          <CardTitle>
+            Lotes por proximidad a vencimiento ({filtered.length})
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -89,41 +160,51 @@ export default function VencimientosPage() {
               <TR>
                 <TH>Producto</TH>
                 <TH>Lote</TH>
+                <TH>Sucursal</TH>
                 <TH className="text-right">Cantidad</TH>
                 <TH>Vence</TH>
                 <TH>Días</TH>
                 <TH>Estado</TH>
+                <TH className="text-right pr-4">Acciones</TH>
               </TR>
             </THead>
             <TBody>
-              {lots.map((lot) => {
+              {filtered.length === 0 && (
+                <TR>
+                  <TD colSpan={8} className="py-10 text-center text-sm opacity-60">
+                    No hay lotes que coincidan con los filtros.
+                  </TD>
+                </TR>
+              )}
+              {filtered.map((lot) => {
                 const p = getProductById(lot.productId);
                 const days = daysUntil(lot.expiresAt);
-                const tone =
-                  days < 0
-                    ? "danger"
-                    : days < 15
-                      ? "danger"
-                      : days < 30
-                        ? "warning"
-                        : "info";
+                const st = expiryStatus(lot.expiresAt);
                 return (
-                  <TR key={lot.id}>
+                  <TR key={lot.id} className={rowBg[st]}>
                     <TD>
-                      <div className="text-sm">{p?.name}</div>
+                      <div className="text-sm">{p?.name ?? lot.productId}</div>
                       <div className="font-mono text-xs opacity-60">{p?.sku}</div>
                     </TD>
                     <TD className="font-mono text-xs">{lot.lotNumber}</TD>
-                    <TD className="text-right tabular-nums">
-                      {lot.currentQuantity}
+                    <TD className="text-xs opacity-70">
+                      {getBranchById(lot.branchId)?.name ?? lot.branchId}
                     </TD>
+                    <TD className="text-right tabular-nums">{lot.currentQuantity}</TD>
                     <TD className="text-xs">{formatDate(lot.expiresAt)}</TD>
                     <TD>
-                      <Badge tone={tone}>
+                      <Badge tone={tone[st]}>
                         {days < 0 ? `${Math.abs(days)} d. vencido` : `${days} d.`}
                       </Badge>
                     </TD>
                     <TD>{lotStatusBadge(lot.status)}</TD>
+                    <TD className="pr-4">
+                      <RowActions
+                        viewHref={`/productos/${lot.productId}`}
+                        canEdit={false}
+                        canDelete={false}
+                      />
+                    </TD>
                   </TR>
                 );
               })}

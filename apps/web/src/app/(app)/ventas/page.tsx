@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
@@ -13,8 +15,10 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
-import { Coins, Receipt, ShoppingCart, TrendingUp } from "lucide-react";
+import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2 } from "lucide-react";
 import { mockProformas } from "@/lib/mock-data/sales";
+import { mockBusiness } from "@/lib/mock-data/tenancy";
+import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 export default function VentasPage() {
@@ -78,6 +82,26 @@ export default function VentasPage() {
                       viewHref={`/proformas/${p.id}`}
                       canEdit={false}
                       canDelete={false}
+                      customActions={[
+                        {
+                          label: "Imprimir",
+                          icon: Printer,
+                          href: `/proformas/${p.id}/print`,
+                        },
+                        {
+                          label: "Enviar WhatsApp",
+                          icon: Send,
+                          href: buildWhatsappShareUrl(p, mockBusiness),
+                          external: true,
+                        },
+                        {
+                          label: "Eliminar",
+                          icon: Trash2,
+                          disabled: true,
+                          disabledReason:
+                            "No se puede eliminar una venta emitida. Usa anular si aplica.",
+                        },
+                      ]}
                     />
                   </TD>
                 </TR>

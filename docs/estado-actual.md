@@ -3,7 +3,123 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-05-19
+**Última actualización:** 2026-06-18
+
+## 2026-06-18 · R-SEC-01 Leaked Password Protection — riesgo aceptado (plan Free)
+
+- **Warning Supabase Security Advisor → Auth:** *Leaked password protection is
+  currently disabled.* Solo activable en **Supabase Pro+** (cruce HaveIBeenPwned).
+  **No se corrige con SQL ni migración** — es una feature de la capa Auth, se
+  activa en el Dashboard tras subir a Pro.
+- **Control compensatorio implementado:** política de contraseña fuerte
+  (`apps/web/src/lib/auth/password-policy.ts`): ≥12 chars, mayúscula, minúscula,
+  número, símbolo y rechazo de contraseñas comunes. Cableada en el script
+  `scripts/bootstrap-preview-supabase-user.mjs` (valida la password seed, nunca
+  la imprime) y disponible para formularios. Aviso interno en
+  `/admin/configuracion` (sección Seguridad).
+- **Estado:** riesgo aceptado en dev/preview; **bloqueante para producción SaaS
+  real** si no se sube a Pro o no se implementa mitigación equivalente.
+- **Documentación completa + checklist de upgrade a Pro:** `docs/security.md`.
+  No hay formulario de registro/cambio de contraseña en la app todavía (usuarios
+  por script); la utilidad queda lista para cuando se agregue.
+
+## 2026-05-29 · Correcciones Supabase Security Advisor (migración 0008)
+
+- **Migración `supabase/migrations/0008_security_advisor_fixes.sql`** —
+  100% no destructiva e idempotente. NO toca DGII real, NO testecf,
+  NO XML, NO certificados, NO datos. Solo metadatos de objetos y
+  reorganización de policies RLS preservando la semántica exacta de
+  acceso multi-tenant.
+- **Warnings corregidos por SQL:**
+  1. **Security Definer View** · `public.inventory_stock_by_lot` →
+     `security_invoker = true` (la view ahora respeta la RLS de
+     `product_lots` del usuario que consulta; antes la bypaseaba →
+     riesgo cross-tenant).
+  2. **Auth RLS Initialization Plan** · `public.audit_logs` →
+     `auth_business_id()`/`auth.uid()` envueltos en `(select ...)`
+     (InitPlan, una sola evaluación por query).
+  3. **Function Search Path Mutable** · `select_lot_for_sale`,
+     `auth_business_id`, `auth_is_platform_admin`,
+     `reserve_ecf_sequence_number` → `set search_path = public, auth,
+     extensions` (sin cambiar cuerpo ni security model; siguen
+     SECURITY INVOKER).
+  4. **Multiple Permissive Policies** · `plans`, `businesses`,
+     `branches`, `users`, `clients` → consolidadas a una policy por
+     comando (select/insert/update/delete). Unión por OR preserva el
+     acceso previo; auth.*() envueltas en `(select ...)`.
+- **Warning que requiere acción MANUAL en Dashboard (no por SQL):**
+  - **Leaked Password Protection Disabled** → Supabase Dashboard →
+    Authentication → Settings → Security → activar "Leaked password
+    protection" (HaveIBeenPwned). Ver runbook.
+- **Aislamiento multi-tenant confirmado por diseño:** todas las
+  policies siguen filtrando por `business_id = auth_business_id()`
+  (o `id = auth_business_id()` en `businesses`); platform admin
+  mantiene su alcance; ningún cambio abre acceso cross-business.
+- **Validaciones:** `typecheck` ✅ · `vitest run` 446/446 ✅ ·
+  `build` ✅. Sin referencias en código/tests a los nombres de policy
+  renombrados.
+- **Migración `0009_rls_initplan_remaining.sql`** (follow-up autorizado
+  2026-05-29): envuelve `auth_business_id()`/`auth_is_platform_admin()`
+  en `(select ...)` en las **34 policies `_all` restantes** (incl.
+  tablas DGII como `dgii_certificates`, `ecf_sequences`,
+  `dgii_submissions`). Vía `ALTER POLICY`, behavior-preserving, no
+  destructivo, no fiscal. Cierra el resto de warnings "Auth RLS Init
+  Plan".
+- **APLICADO 2026-05-29** por el dueño vía **SQL Editor** del proyecto
+  `sntcvyozbhrgicwmtcoh` (sin credenciales en sesión; el MCP apuntaba a
+  otro proyecto y `SUPABASE_DB_URL` estaba en placeholder). Verificación
+  SELECT-only confirmada (6/6):
+  1. `inventory_stock_by_lot` → `security_invoker=true` ✅
+  2. view consultable ✅
+  3. 4 funciones con `search_path` fijo ✅
+  4. multiple permissive → 0 filas ✅
+  5. auth RLS init-plan sin envolver → 0 filas ✅
+  6. policies siguen filtrando por `business_id` (sin `qual=true`) ✅
+  - **Leaked Password Protection:** NO activable — feature solo en
+    Supabase **Pro+**, el proyecto está en **Free**. Aceptado como riesgo
+    temporal **R-SEC-01** (`docs/riesgos.md`); mitigación: passwords
+    fuertes, no reutilizar, rotar seeds, MFA, y upgrade a Pro antes de
+    producción SaaS real. No se crean más migraciones por este warning.
+    **Producción Vercel y env intactos.**
+
+## 2026-05-21 · QA SaaS pre-Fase G APROBADO (14/14)
+
+- **Checklist QA browser-based ejecutado manualmente** sobre el
+  Preview `https://dermaland-igsr1gdv4-wrodriguez3030-4801s-projects.vercel.app`
+  (commit `c02d714`).
+- **Resultado: 14/14 criterios técnicos verdes** — login, wizard
+  carga, panel "Pendiente antes de enviar a DGII testecf", paso 1
+  cert digital (8 steps incluyendo `xsd_valid`), paso 2 config
+  fiscal, paso 4 pruebas locales (4 tipos e-CF), paso 8
+  autorización representante (banner pre-fill + 9 ítems con
+  evidencia + declaración formal), gate `ready_for_testecf`
+  bloquea/desbloquea correctamente, CTA "Enviar pruebas a DGII
+  testecf" sigue disabled aún con todo verde, mensajes MOCK / NO
+  FISCAL visibles, `audit_logs` recibe inserts (migración 0007
+  funcionando).
+- **Fase G sigue bloqueada por política operativa** hasta confirmar
+  formalmente las 4 validaciones externas no técnicas:
+  1. Acta / designación oficial Usuario Administrador e-CF.
+  2. Certificado vigente y válido (>60 días + sin revocación).
+  3. Titular del cert autorizado para representar el RNC.
+  4. RNC emisor correcto para el contribuyente.
+- **Producción Vercel intacta** · 0 env vars · `DATA_SOURCE=mock`
+  por default · sin DGII real · sin testecf · sin envío XML · sin
+  consumo de secuencias reales · sin `vercel deploy --prod` · sin
+  cambios de DNS.
+- **Commit del cierre del QA:** ver branch
+  `feature/dgii-module-review-adjustments` (último commit de docs
+  documenta esta aprobación).
+- **Documentación detallada:**
+  - `docs/dgii/qa-saas-pre-fase-g.md` (623 LOC) — checklist 13
+    secciones + bloque de aprobación 2026-05-21 al inicio.
+  - Resultado por sección: tabla 14×PASS.
+
+**Próximo paso natural:** completar las 4 validaciones externas
+(acta firmada por contador, vigencia del cert, autorización del
+titular, RNC emisor). Recién con esas 4 + el QA técnico aprobado
+tendría sentido conversar sobre autorizar Fase G (envío real a
+testecf).
 
 ## 2026-05-20 (madrugada) · Preview Supabase QA 11/11 verde
 

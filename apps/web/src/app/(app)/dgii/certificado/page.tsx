@@ -1,118 +1,59 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Button,
-  Input,
-  Label,
-} from "@/components/ui";
-import { Lock, ShieldAlert, Upload } from "lucide-react";
+import { Button } from "@/components/ui";
+import { ExternalLink } from "lucide-react";
+import { isCertificateUploadEnabled } from "@/lib/env";
+import { loadActiveCertificateAction } from "@/features/dgii/certificate-actions";
+import { CertificadoReal } from "@/features/dgii/components/certificado-real";
+import { CertificadoSimulado } from "@/features/dgii/components/certificado-simulado";
 
-export default function CertificadoPage() {
+/**
+ * /dgii/certificado — pantalla del certificado digital DGII.
+ *
+ * Modos:
+ *  - **Modo real (Fase F)**: cuando `DATA_SOURCE=supabase` y existe
+ *    `DGII_CERT_ENCRYPTION_KEY`. El form sube un `.p12` real a un API
+ *    server-only; el blob y la password se cifran con AES-256-GCM
+ *    antes de tocar Postgres.
+ *  - **Modo simulado (mock/demo)**: cuando faltan las env vars o
+ *    `DATA_SOURCE=mock`. La UI permite transicionar estados en
+ *    `certificate-status-store` (localStorage) sin tocar archivos.
+ *
+ * Server component que decide el modo y delega al subcomponente
+ * adecuado.
+ */
+export default async function CertificadoPage() {
+  const enabled = isCertificateUploadEnabled();
+  const active = enabled ? await loadActiveCertificateAction() : null;
+
   return (
     <>
       <PageHeader
         title="Certificado digital"
-        description="Archivo `.p12` o `.pfx` cifrado. Acceso solo desde Edge Function `dgii-sign-xml`."
-        breadcrumbs={[{ label: "DGII", href: "/dgii" }, { label: "Certificado" }]}
+        description={
+          enabled
+            ? "Subida real del certificado DGII (Fase F) en Preview Supabase. El archivo y la contraseña se cifran con AES-256-GCM antes de persistirse."
+            : "Modo MOCK / DEMO. El archivo no se procesa; solo se simula el estado del certificado para que el wizard avance."
+        }
+        breadcrumbs={[
+          { label: "DGII", href: "/dgii" },
+          { label: "Certificado" },
+        ]}
+        actions={
+          <Link href="/dgii/habilitacion">
+            <Button variant="outline" size="sm">
+              <ExternalLink className="h-4 w-4" />
+              Volver al wizard
+            </Button>
+          </Link>
+        }
       />
 
-      <Card className="mb-6 border-amber-200 bg-amber-50">
-        <CardContent>
-          <div className="flex items-start gap-3">
-            <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-700" />
-            <div className="text-sm text-amber-900">
-              <strong>Sin certificado cargado.</strong> El certificado digital
-              permite firmar XAdES-BES los XML antes de enviarlos a DGII.
-              Hasta que se cargue, el módulo DGII permanece inactivo y POS
-              opera con proformas + comprobantes no fiscales.
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Subir certificado
-            <Badge tone="warning" className="text-[10px]">
-              <Lock className="h-3 w-3" />
-              Bloqueado · Fase C
-            </Badge>
-          </CardTitle>
-          <p className="mt-1 text-xs opacity-60">
-            Form deshabilitado hasta autorizar la subida real del{" "}
-            <code className="font-mono">.p12</code>. En esta fase mock el
-            envío del archivo y la contraseña <strong>no se procesa
-            ni se almacena</strong>. La acción real queda en auditoría
-            con motivo obligatorio cuando se habilite.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Archivo `.p12` / `.pfx`</Label>
-            <div className="flex items-center gap-3">
-              <Input type="file" disabled aria-disabled="true" />
-              <Button variant="outline" size="sm" disabled aria-disabled="true">
-                <Upload className="h-4 w-4" />
-                Subir
-              </Button>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label>Contraseña del certificado</Label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                disabled
-                aria-disabled="true"
-              />
-            </div>
-            <div>
-              <Label>Confirmar contraseña</Label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                disabled
-                aria-disabled="true"
-              />
-            </div>
-          </div>
-          <p className="rounded-lg border border-black/5 bg-black/[0.02] p-3 text-xs opacity-70">
-            La contraseña se cifrará con KMS (Supabase Vault o variable
-            derivada de `JWT_SECRET` + per-business salt) cuando el form
-            esté habilitado. Nunca se expone en logs.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Estado del certificado</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-4 sm:grid-cols-3 text-sm">
-            <div>
-              <dt className="text-[10px] uppercase tracking-wider opacity-50">Estado</dt>
-              <dd className="mt-0.5">
-                <Badge tone="warning">Sin cargar</Badge>
-              </dd>
-            </div>
-            <div>
-              <dt className="text-[10px] uppercase tracking-wider opacity-50">Vence</dt>
-              <dd className="mt-0.5">—</dd>
-            </div>
-            <div>
-              <dt className="text-[10px] uppercase tracking-wider opacity-50">Subido por</dt>
-              <dd className="mt-0.5">—</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+      {enabled ? (
+        <CertificadoReal initialCertificate={active} />
+      ) : (
+        <CertificadoSimulado />
+      )}
     </>
   );
 }

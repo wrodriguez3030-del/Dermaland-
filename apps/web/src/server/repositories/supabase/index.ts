@@ -1,30 +1,46 @@
 /**
- * Adaptadores Supabase — esqueleto.
+ * Adaptadores Supabase del agregado `Repositories`.
  *
- * Cada método actualmente lanza `NotImplementedError` para forzar fallar
- * temprano si alguien activa `DATA_SOURCE=supabase` antes de implementar
- * la query real. La implementación real va a:
- *
- *   const sb = await createServer();
- *   const { data, error } = await sb
- *     .from("products")
- *     .select("*")
- *     .eq("business_id", ctx.businessId);
- *   if (error) throw error;
- *   return data.map(rowToProduct);
+ * Activos cuando `DATA_SOURCE=supabase` y las env vars
+ * `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` están
+ * presentes. Los módulos individuales (./business, ./branch, etc.) usan
+ * `createServer()` lazily — si no hay env vars, lanzan un error claro
+ * desde `client.getClient()`.
  *
  * **Reglas de oro:**
  *
  * 1. SIEMPRE filtrar por `business_id = ctx.businessId` aunque RLS lo haga —
- *    defensa en profundidad.
- * 2. NUNCA usar `createServiceRoleClient()` aquí — bypassea RLS. Solo en
- *    server actions/admin con auditoría explícita.
- * 3. Mapear snake_case ↔ camelCase en la frontera (helpers en `mappers.ts`
- *    cuando crezca).
+ *    defensa en profundidad (R-SEC-01).
+ * 2. NUNCA usar `createServiceRoleClient()` directamente desde aquí —
+ *    bypassea RLS. La única excepción es `audit.log` que necesita escribir
+ *    incluso si RLS bloquea al usuario (auditoría inmutable).
+ * 3. Mapeo snake_case ↔ camelCase en `./mappers.ts`.
+ * 4. Los módulos que aún no se necesitan (recommendation, dermatologyRef,
+ *    subscription, plan, whatsapp, ai, apiV3, inventoryCount) siguen como
+ *    `stub()` — la idea es implementar a medida que cada módulo entre en
+ *    producción real.
  */
 
 import type { Repositories } from "../types";
+import { auditRepository } from "./audit";
+import { branchRepository } from "./branch";
+import { businessRepository } from "./business";
+import {
+  brandRepository,
+  categoryRepository,
+  laboratoryRepository,
+} from "./catalog";
+import { customerRepository } from "./customer";
 import { dgiiRepository } from "./dgii";
+import { inventoryMovementRepository } from "./inventory";
+import { productLotRepository, productRepository } from "./product";
+import {
+  cashRegisterRepository,
+  proformaRepository,
+} from "./sales";
+import { userRepository } from "./user";
+import { warehouseRepository } from "./warehouse";
+import { supplierInvoiceRepository, expenseRepository, recurringExpenseRepository, supplierRepository, expenseCategoryRepository } from "./purchases";
 
 class NotImplementedError extends Error {
   constructor(method: string) {
@@ -39,49 +55,22 @@ class NotImplementedError extends Error {
 const stub = (name: string) => () => Promise.reject(new NotImplementedError(name));
 
 export const supabaseRepositories: Repositories = {
-  business: {
-    current: stub("business.current"),
-    update: stub("business.update"),
-  },
-  branch: {
-    list: stub("branch.list"),
-    byId: stub("branch.byId"),
-    create: stub("branch.create"),
-  },
-  warehouse: {
-    list: stub("warehouse.list"),
-    byId: stub("warehouse.byId"),
-  },
-  user: {
-    list: stub("user.list"),
-    byId: stub("user.byId"),
-    current: stub("user.current"),
-  },
-  audit: {
-    list: stub("audit.list"),
-    log: stub("audit.log"),
-  },
-  brand: { list: stub("brand.list"), byId: stub("brand.byId") },
-  category: { list: stub("category.list") },
-  laboratory: { list: stub("laboratory.list") },
-  product: {
-    list: stub("product.list"),
-    byId: stub("product.byId"),
-    byBarcode: stub("product.byBarcode"),
-    totalStock: stub("product.totalStock"),
-  },
-  productLot: {
-    list: stub("productLot.list"),
-    byId: stub("productLot.byId"),
-    selectFefo: stub("productLot.selectFefo"),
-    quarantine: stub("productLot.quarantine"),
-    release: stub("productLot.release"),
-    recall: stub("productLot.recall"),
-  },
-  inventoryMovement: {
-    list: stub("inventoryMovement.list"),
-    create: stub("inventoryMovement.create"),
-  },
+  business: businessRepository,
+  branch: branchRepository,
+  warehouse: warehouseRepository,
+  user: userRepository,
+  audit: auditRepository,
+  brand: brandRepository,
+  category: categoryRepository,
+  laboratory: laboratoryRepository,
+  product: productRepository,
+  productLot: productLotRepository,
+  inventoryMovement: inventoryMovementRepository,
+  // El conteo físico de inventario (Phase 2.1) tiene flujo offline-first
+  // complejo (scans con dedupe por device_id + offline_scan_id, items
+  // calculados, transiciones de estado). Pendiente de implementación en
+  // Supabase — sigue como stub hasta que el módulo de conteo entre en
+  // producción real.
   inventoryCount: {
     list: stub("inventoryCount.list"),
     byId: stub("inventoryCount.byId"),
@@ -92,25 +81,11 @@ export const supabaseRepositories: Repositories = {
     approve: stub("inventoryCount.approve"),
     reject: stub("inventoryCount.reject"),
   },
-  customer: {
-    list: stub("customer.list"),
-    byId: stub("customer.byId"),
-    notes: stub("customer.notes"),
-    create: stub("customer.create"),
-  },
-  proforma: {
-    list: stub("proforma.list"),
-    byId: stub("proforma.byId"),
-    create: stub("proforma.create"),
-    cancel: stub("proforma.cancel"),
-    convertToEcf: stub("proforma.convertToEcf"),
-  },
-  cashRegister: {
-    current: stub("cashRegister.current"),
-    history: stub("cashRegister.history"),
-    open: stub("cashRegister.open"),
-    close: stub("cashRegister.close"),
-  },
+  customer: customerRepository,
+  proforma: proformaRepository,
+  cashRegister: cashRegisterRepository,
+  // Recommendations (Phase 5) — pendiente hasta que el módulo dermatológico
+  // entre en producción.
   recommendation: {
     list: stub("recommendation.list"),
     byId: stub("recommendation.byId"),
@@ -121,11 +96,13 @@ export const supabaseRepositories: Repositories = {
     conditions: stub("dermatologyRef.conditions"),
     routineTemplates: stub("dermatologyRef.routineTemplates"),
   },
+  // SaaS / Platform (Phase 7) — para super-admin.
   subscription: {
     current: stub("subscription.current"),
     usage: stub("subscription.usage"),
   },
   plan: { list: stub("plan.list") },
+  // Integraciones (Phase 8) — WhatsApp/IA/API V3.
   whatsapp: {
     templates: stub("whatsapp.templates"),
     conversations: stub("whatsapp.conversations"),
@@ -133,8 +110,11 @@ export const supabaseRepositories: Repositories = {
   },
   ai: { agents: stub("ai.agents"), logs: stub("ai.logs") },
   apiV3: { keys: stub("apiV3.keys"), webhooks: stub("apiV3.webhooks") },
-  // El módulo DGII tiene implementación real Supabase en `./dgii.ts` (lazy
-  // client). Las demás secciones siguen como stub hasta que se necesiten
-  // en producción real.
+  // El módulo DGII tiene implementación real Supabase en `./dgii.ts`.
   dgii: dgiiRepository,
+  supplierInvoice: supplierInvoiceRepository,
+  expense: expenseRepository,
+  recurringExpense: recurringExpenseRepository,
+  supplier: supplierRepository,
+  expenseCategory: expenseCategoryRepository,
 };

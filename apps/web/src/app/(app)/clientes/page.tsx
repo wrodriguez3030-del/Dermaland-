@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sortable-table-header";
 import { useToast } from "@/components/ui/toast";
 import {
-  deleteCustomer,
+  deleteCustomerAnywhere,
   useCustomers,
 } from "@/features/customers/customer-store";
 import { skinTypeLabel } from "@/features/customers/billing";
@@ -208,9 +208,13 @@ export default function ClientesPage() {
                     <RowActions
                       viewHref={`/clientes/${c.id}`}
                       editHref={`/clientes/${c.id}/editar`}
-                      onDelete={() => {
-                        deleteCustomer(c.id);
-                        toast.success("Cliente eliminado correctamente.");
+                      onDelete={async () => {
+                        const res = await deleteCustomerAnywhere(c.id);
+                        if (!res.ok)
+                          toast.error(
+                            res.error ?? "No se pudo eliminar el cliente.",
+                          );
+                        else toast.success("Cliente eliminado correctamente.");
                       }}
                       entityName={`${c.firstName} ${c.lastName}`}
                     />

@@ -4,7 +4,7 @@
 > "Hecho recientemente" con la fecha. Léelo después de
 > `docs/estado-actual.md`.
 
-**Última actualización:** 2026-05-07
+**Última actualización:** 2026-06-18
 
 ## Prioridad 0 — bloqueantes
 
@@ -92,6 +92,8 @@ Cosas que rompen el flujo principal o impiden seguir construyendo.
 
 | Fecha | Item |
 |---|---|
+| 2026-06-18 | **Productos + catálogos migrados a Supabase** (read+write gated, seed idempotente, CRUD de catálogos por modal). Repos escritura mock+supabase para productos y catálogos; API routes `/api/products`, `/api/brands`, `/api/categories`, `/api/laboratories` (gated 409 si no supabase); seed idempotente; `product-store`/`catalog-store` con fallback local; UI CRUD de marcas/categorías/laboratorios por modal; dropdowns del form desde hooks. Gated por `NEXT_PUBLIC_DATA_SOURCE=supabase`; producción mock intacta. typecheck/test(622)/build(98 págs) verdes. Detalle en `docs/auditoria-supabase.md`. |
+| 2026-06-18 | **Sucursales migradas a Supabase** (primer módulo UI→fuente única). Hooks de lectura hacen fetch a `/api/branches` con fallback local; mutaciones (alta/edición/inactivar/eliminar) van a la API (`POST`/`PATCH`/`DELETE`) en modo supabase. Gated por `NEXT_PUBLIC_DATA_SOURCE=supabase`; producción mock intacta. typecheck/test(609)/build verdes. Detalle en `docs/auditoria-supabase.md`. |
 | 2026-05-07 | Memoria persistente del proyecto: `CLAUDE.md`, `PROJECT_MEMORY.md`, `docs/contexto-general.md`, `docs/estado-actual.md`, `docs/proximos-pasos.md`, `docs/comandos-locales.md`. |
 | 2026-05-07 | Rediseño POS: layout fluido + reglas documentales (`resolveDocumentToIssue`) + selector de pago explícito + indicador de documento + botón dinámico + aviso CF sin RNC. |
 | 2026-05-07 | Sistema de agentes de desarrollo: `AGENTS.md` + 10 docs en `docs/agents/` + workflow + checklist + prompt. |
