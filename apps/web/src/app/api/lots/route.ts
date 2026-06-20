@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json({ lots }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json(
+      { error: toUserFacingMessage(e, "No se pudieron cargar los lotes. Intenta de nuevo.") },
+      { status: 400 },
+    );
   }
 }
 
@@ -61,6 +65,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ lot }, { status: 201 });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: toUserFacingMessage(
+          e,
+          "No se pudo guardar el stock. Verifica la sucursal y vuelve a intentar.",
+        ),
+      },
+      { status: 400 },
+    );
   }
 }

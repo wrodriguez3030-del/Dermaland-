@@ -4,8 +4,54 @@ import type {
   ProductRepository,
   RepoContext,
 } from "../types";
-import { SupabaseRepositoryError, failRepo, getClient } from "./client";
+import {
+  SupabaseRepositoryError,
+  UserFacingRepositoryError,
+  failRepo,
+  getClient,
+} from "./client";
 import { productLotRowToTs, productRowToTs } from "./mappers";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resuelve el `warehouse_id` REAL de una sucursal en Supabase.
+ *
+ * El usuario opera por SUCURSAL; el almacén es interno. La UI calcula un
+ * `warehouseId` a partir del seed mock (`defaultWarehouseForBranch`), que en
+ * modo Supabase NO existe (las sucursales reales tienen UUID, no el id mock) →
+ * devuelve un id sintético `wh_default_…` que NO es un UUID y rompe el INSERT
+ * (causa raíz del error `productLot.create`). Por eso resolvemos aquí el
+ * almacén principal de la sucursal y nunca confiamos en un id no-UUID.
+ *
+ * - Si el cliente mandó un UUID válido, se respeta (selección explícita).
+ * - Si no, se toma el almacén `is_main` de la sucursal (o el primero).
+ * - Si la sucursal no tiene almacén, error amigable.
+ */
+export async function resolveBranchWarehouseId(
+  sb: Awaited<ReturnType<typeof getClient>>,
+  businessId: string,
+  branchId: string,
+  provided: unknown,
+): Promise<string> {
+  if (typeof provided === "string" && UUID_RE.test(provided)) return provided;
+  const { data, error } = await sb
+    .from("warehouses")
+    .select("id, is_main")
+    .eq("business_id", businessId)
+    .eq("branch_id", branchId)
+    .order("is_main", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) failRepo("productLot.resolveWarehouse", error);
+  if (!data) {
+    throw new UserFacingRepositoryError(
+      "No se pudo guardar el stock: la sucursal seleccionada no tiene un almacén configurado.",
+    );
+  }
+  return data.id as string;
+}
 
 export const productRepository: ProductRepository = {
   async list(ctx: RepoContext, opts) {
@@ -291,11 +337,19 @@ export const productLotRepository: ProductLotRepository = {
 
   async create(ctx: RepoContext, input) {
     const sb = await getClient("productLot.create");
+    // Resolver el almacén REAL de la sucursal (no confiar en el id mock que
+    // manda la UI). Esto es la corrección de raíz del error productLot.create.
+    const warehouseId = await resolveBranchWarehouseId(
+      sb,
+      ctx.businessId,
+      input.branchId,
+      input.warehouseId,
+    );
     const row: Record<string, unknown> = {
       business_id: ctx.businessId,
       branch_id: input.branchId,
       product_id: input.productId,
-      warehouse_id: input.warehouseId,
+      warehouse_id: warehouseId,
       warehouse_location_id: input.warehouseLocationId ?? null,
       lot_number: input.lotNumber,
       manufactured_at: input.manufacturedAt ?? null,
@@ -315,7 +369,7 @@ export const productLotRepository: ProductLotRepository = {
       .insert(row)
       .select("*")
       .single();
-    if (error) throw new SupabaseRepositoryError("productLot.create", error);
+    if (error) failRepo("productLot.create", error);
     return productLotRowToTs(data);
   },
 
@@ -331,7 +385,7 @@ export const productLotRepository: ProductLotRepository = {
       .eq("id", lotId)
       .select("*")
       .single();
-    if (error) throw new SupabaseRepositoryError("productLot.adjustQuantity", error);
+    if (error) failRepo("productLot.adjustQuantity", error);
     return productLotRowToTs(data);
   },
 };

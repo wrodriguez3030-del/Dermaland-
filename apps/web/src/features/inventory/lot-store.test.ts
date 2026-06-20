@@ -30,6 +30,7 @@ import {
   totalSellableStock,
   updateLotNoteLocal,
   validateLot,
+  expiryError,
   type LotBlockReason,
 } from "./lot-store";
 
@@ -75,6 +76,30 @@ describe("validateLot", () => {
     expect(validateLot({ initialQuantity: 0 } as never, false)).toContain(
       "initialQuantity",
     );
+  });
+});
+
+describe("expiryError", () => {
+  const now = new Date("2026-06-20T10:00:00.000Z");
+  it("acepta una fecha futura (null = sin error)", () => {
+    expect(expiryError("2027-01-01T00:00:00.000Z", true, now)).toBeNull();
+  });
+  it("bloquea una fecha pasada con mensaje claro", () => {
+    const msg = expiryError("2020-01-01T00:00:00.000Z", true, now);
+    expect(msg).toMatch(/futura/i);
+  });
+  it("bloquea la fecha de hoy (no es vendible)", () => {
+    const msg = expiryError("2026-06-20T23:00:00.000Z", true, now);
+    expect(msg).toMatch(/futura/i);
+  });
+  it("pide la fecha si falta y es obligatoria", () => {
+    expect(expiryError("", true, now)).toMatch(/Indica la fecha/i);
+  });
+  it("rechaza una fecha con formato inválido", () => {
+    expect(expiryError("no-es-fecha", true, now)).toMatch(/no es válida/i);
+  });
+  it("no exige nada si requireExpiry=false", () => {
+    expect(expiryError("", false, now)).toBeNull();
   });
 });
 

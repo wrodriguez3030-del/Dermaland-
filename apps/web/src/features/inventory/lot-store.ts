@@ -229,6 +229,32 @@ export function validateLot(
   return missing;
 }
 
+/**
+ * Mensaje de error amigable para la fecha de vencimiento, o `null` si es válida.
+ * Un lote solo es vendible si vence en el FUTURO; por eso bloqueamos fechas de
+ * hoy o pasadas cuando el producto exige vencimiento. `now` es inyectable para
+ * tests deterministas.
+ */
+export function expiryError(
+  expiresAt: string | undefined,
+  requireExpiry: boolean,
+  now: Date = new Date(),
+): string | null {
+  if (!requireExpiry) return null;
+  if (!expiresAt) return "Indica la fecha de vencimiento.";
+  const exp = new Date(expiresAt);
+  if (Number.isNaN(exp.getTime())) return "La fecha de vencimiento no es válida.";
+  // Comparar por DÍA calendario en UTC (los inputs <input type="date"> se
+  // serializan a medianoche UTC). El vencimiento debe ser estrictamente futuro:
+  // hoy o pasado no es vendible.
+  const expDay = Date.UTC(exp.getUTCFullYear(), exp.getUTCMonth(), exp.getUTCDate());
+  const nowDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (expDay <= nowDay) {
+    return "La fecha de vencimiento debe ser futura para poder vender el lote.";
+  }
+  return null;
+}
+
 export function addLot(input: AddLotInput, requireExpiry = true): AddLotResult {
   const missing = validateLot(input, requireExpiry);
   if (missing.length > 0) {

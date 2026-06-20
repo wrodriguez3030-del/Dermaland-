@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,14 @@ export async function PATCH(
 
     return NextResponse.json({ lot, delta });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: toUserFacingMessage(
+          e,
+          "No se pudo ajustar el stock. Intenta de nuevo.",
+        ),
+      },
+      { status: 400 },
+    );
   }
 }

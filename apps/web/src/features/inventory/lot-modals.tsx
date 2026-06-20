@@ -4,7 +4,11 @@ import * as React from "react";
 import { AlertTriangle, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
-import { addLotAnywhere, adjustStockAnywhere } from "@/features/inventory/lot-store";
+import {
+  addLotAnywhere,
+  adjustStockAnywhere,
+  expiryError,
+} from "@/features/inventory/lot-store";
 import {
   useActiveBranches,
   defaultWarehouseForBranch,
@@ -107,6 +111,29 @@ export function NewLotModal({
 
   const submit = async () => {
     setError(null);
+    // Validaciones de campo antes de enviar (mensajes claros, no técnicos).
+    const fieldErrors = new Set<string>();
+    if (!branchId) fieldErrors.add("branchId");
+    if (!lotNumber.trim()) fieldErrors.add("lotNumber");
+    if (!(Number(quantity) > 0)) fieldErrors.add("initialQuantity");
+    if (unitCost.trim() !== "" && Number(unitCost) < 0) fieldErrors.add("unitCost");
+    const expErr = expiryError(
+      expiresAt ? new Date(expiresAt).toISOString() : "",
+      requireExpiry,
+    );
+    if (expErr) fieldErrors.add("expiresAt");
+    if (fieldErrors.size > 0) {
+      setMissing(fieldErrors);
+      setError(
+        expErr ??
+          (fieldErrors.has("initialQuantity")
+            ? "La cantidad debe ser mayor que cero."
+            : fieldErrors.has("unitCost")
+              ? "El costo no puede ser negativo."
+              : "Completa los campos obligatorios (sucursal, lote, cantidad y vencimiento)."),
+      );
+      return;
+    }
     const r = await addLotAnywhere(
       {
         productId,
@@ -209,6 +236,7 @@ export function NewLotModal({
             value={unitCost}
             onChange={(e) => setUnitCost(e.target.value)}
             placeholder="850.00"
+            className={isMissing("unitCost") ? "border-rose-400" : undefined}
           />
         </div>
         <div>

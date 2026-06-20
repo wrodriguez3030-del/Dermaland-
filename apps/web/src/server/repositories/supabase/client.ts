@@ -50,8 +50,13 @@ function pgErrorCode(error: unknown): string | undefined {
  * un mensaje accionable; el resto se reenvía como `SupabaseRepositoryError`
  * (comportamiento actual, con prefijo técnico para logs).
  *
- *  - 23505 unique_violation → "duplicado"
- *  - 23503 foreign_key_violation (delete de catálogo en uso) → "en uso"
+ *  - 23505 unique_violation         → "duplicado"
+ *  - 23503 foreign_key_violation    → "referencia inválida / en uso"
+ *  - 23502 not_null_violation       → "falta un dato obligatorio"
+ *  - 23514 check_violation          → "un valor no cumple las reglas"
+ *  - 22P02 invalid_text_representation (uuid/numero mal formado) → "formato inválido"
+ *  - 22007 / 22008 datetime inválido → "fecha no válida"
+ *  - 42501 insufficient_privilege / RLS → "no tienes permiso"
  */
 export function failRepo(method: string, error: unknown): never {
   const code = pgErrorCode(error);
@@ -62,13 +67,60 @@ export function failRepo(method: string, error: unknown): never {
   }
   if (code === "23503") {
     // 23503 cubre dos casos: borrar un catálogo en uso, y crear/editar con una
-    // referencia (marca/categoría/lab) inexistente. Mensaje neutral a la
-    // operación para no decir "no se puede eliminar" en un alta/edición.
+    // referencia (marca/categoría/lab/sucursal) inexistente. Mensaje neutral a
+    // la operación para no decir "no se puede eliminar" en un alta/edición.
     throw new UserFacingRepositoryError(
       "No se pudo completar: hay una referencia inválida o el registro está en uso por otros registros.",
     );
   }
+  if (code === "23502") {
+    throw new UserFacingRepositoryError(
+      "No se pudo guardar: falta un dato obligatorio.",
+    );
+  }
+  if (code === "23514") {
+    throw new UserFacingRepositoryError(
+      "No se pudo guardar: un valor no cumple las reglas (revisa la cantidad y el estado).",
+    );
+  }
+  if (code === "22P02") {
+    throw new UserFacingRepositoryError(
+      "No se pudo guardar: un dato tiene un formato inválido (revisa la sucursal y las fechas).",
+    );
+  }
+  if (code === "22007" || code === "22008") {
+    throw new UserFacingRepositoryError(
+      "No se pudo guardar: la fecha de vencimiento no es válida.",
+    );
+  }
+  if (code === "42501") {
+    throw new UserFacingRepositoryError(
+      "No se pudo guardar: no tienes permiso para esta acción.",
+    );
+  }
   throw new SupabaseRepositoryError(method, error);
+}
+
+/**
+ * Convierte cualquier error de la capa de repositorios en un mensaje apto para
+ * mostrar al usuario en una respuesta de API. NUNCA expone el prefijo técnico
+ * `SupabaseRepository: …`. Los `UserFacingRepositoryError` (ya traducidos por
+ * `failRepo`) pasan tal cual; cualquier otro error se loguea en el servidor y
+ * el usuario recibe `fallback`. Los errores de Postgres no contienen secretos,
+ * así que es seguro loguear `code`/`message` en consola del servidor.
+ */
+export function toUserFacingMessage(error: unknown, fallback: string): string {
+  if (error instanceof UserFacingRepositoryError) return error.message;
+  const detail =
+    error instanceof SupabaseRepositoryError
+      ? `${error.message} | cause=${pgErrorCode(error.cause) ?? "?"}: ${
+          error.cause instanceof Error ? error.cause.message : String(error.cause)
+        }`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  console.error("[api] error no traducido:", detail);
+  return fallback;
 }
 
 /**
