@@ -33,7 +33,7 @@ const CHANGE_EVENT = "dermaland:branches-changed";
  * sesiones demo previas como "Naco reactivado"). El proceso de limpieza borra
  * SOLO las keys de lista de sucursales; no toca tokens de auth ni prefs.
  */
-const STORAGE_VERSION = "2";
+const STORAGE_VERSION = "3";
 const KEY_STORAGE_VERSION = "dermaland.storage-version";
 
 /**
@@ -317,6 +317,21 @@ export function clearLocalBranches(): void {
 }
 
 /**
+ * Restaura una sucursal eliminada (soft-deleted) a estado inactivo.
+ * Solo aplica al modo local. En modo supabase el server gestiona el deleted_at.
+ */
+export function restoreDeletedBranch(id: string): BranchResult {
+  const deleted = readDeleted();
+  if (!deleted.has(id)) {
+    return { ok: false, error: "La sucursal no está en la lista de eliminadas." };
+  }
+  deleted.delete(id);
+  safeWrite(KEY_DELETED, [...deleted]);
+  // Asegurar que quede inactiva (no volver a activa automáticamente).
+  return updateBranch(id, { status: "inactive" });
+}
+
+/**
  * Restablece las sucursales de ESTE equipo al baseline compartido (seed):
  * descarta altas/ediciones/bajas locales y la sucursal seleccionada guardada.
  * Útil cuando una PC quedó con datos divergentes (los cambios de sucursal se
@@ -494,6 +509,18 @@ export async function deleteBranchAnywhere(id: string): Promise<DeleteResult> {
   return deleteBranch(id);
 }
 
+/**
+ * Restaura una sucursal eliminada (unifica local y servidor).
+ * En modo local quita el id del set de deleted y la deja inactiva.
+ * En modo supabase hace PATCH { deleted_at: null, status: "inactive" }.
+ */
+export async function restoreBranchAnywhere(id: string): Promise<BranchResult> {
+  if (BRANCH_BACKEND === "supabase") {
+    return updateBranchOnServer(id, { status: "inactive" });
+  }
+  return restoreDeletedBranch(id);
+}
+
 // ─── Alias de fuente única (API explícita) ───────────────────────────────────
 /** Sucursales ACTIVAS (operación). Única fuente para selectores operativos. */
 export const getActiveBranches = listActiveBranches;
@@ -502,6 +529,37 @@ export const getAllBranchesForAdmin = listAllBranches;
 /** Sucursal por id (resuelve del store; incluye inactivas). */
 export function getBranchById(id: string): Branch | undefined {
   return getBranchFromStore(id);
+}
+
+// ─── Helpers centrales (fuente única declarativa) ────────────────────────────
+
+/**
+ * Sucursales OPERATIVAS: activas y no eliminadas (alias explícito).
+ * Única fuente para selectores de operación (POS, caja, inventario…).
+ */
+export const getOperationalBranches = listActiveBranches;
+
+/**
+ * Sucursales ADMIN: activas + inactivas, NO eliminadas (default admin).
+ * Usar en listados de administración donde se quiere ver inactivas
+ * pero NO las borradas (soft-deleted).
+ */
+export const getAdminBranches = listAllBranches;
+
+/**
+ * Sucursales ELIMINADAS (soft-deleted). Solo para el filtro
+ * "Mostrar eliminadas" en admin. En modo local, reconstruye la lista
+ * desde el seed + nuevas, intersectando con el set de deleted ids.
+ * En modo supabase se consulta vía fetchBranchesFromServer("deleted").
+ */
+export function getDeletedBranches(): Branch[] {
+  const deleted = readDeleted();
+  if (deleted.size === 0) return [];
+  const overrides = readOverrides();
+  const seed = mockBranches.map((b) =>
+    overrides[b.id] ? { ...b, ...overrides[b.id] } : b,
+  );
+  return [...seed, ...readNew()].filter((b) => deleted.has(b.id));
 }
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────

@@ -20,6 +20,10 @@ import {
   getAllBranchesForAdmin,
   getBranchById,
   ensureStorageVersion,
+  getOperationalBranches,
+  getAdminBranches,
+  getDeletedBranches,
+  restoreDeletedBranch,
 } from "./branch-store";
 import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import { canManageBranches } from "./permissions";
@@ -332,7 +336,168 @@ describe("ensureStorageVersion", () => {
 
     ensureStorageVersion();
 
-    expect(window.localStorage.getItem(KEY_VERSION)).toBe("2");
+    expect(window.localStorage.getItem(KEY_VERSION)).toBe("3");
+  });
+});
+
+// ─── Tests: nuevos helpers centrales (Tarea 2) ───────────────────────────────
+
+describe("helpers centrales de sucursales", () => {
+  it("getOperationalBranches solo devuelve activas (no eliminadas ni inactivas)", () => {
+    // Naco ya viene inactiva en el seed.
+    const ops = getOperationalBranches();
+    expect(ops.every((b) => b.status === "active")).toBe(true);
+    expect(ops.some((b) => b.id === "br_sd_naco")).toBe(false);
+  });
+
+  it("getAdminBranches incluye activas e inactivas pero NO las soft-deleted", () => {
+    // Crear una sucursal y eliminarla (soft-delete local).
+    const r = createBranch({ name: "Para borrar", code: "DEL-01" });
+    if (!r.ok) throw new Error("setup");
+    const id = r.branch.id;
+    deleteBranch(id);
+
+    const admin = getAdminBranches();
+    expect(admin.some((b) => b.id === id)).toBe(false); // eliminada → fuera
+    // Inactivas SÍ aparecen.
+    expect(admin.some((b) => b.id === "br_sd_naco")).toBe(true);
+  });
+
+  it("getDeletedBranches solo devuelve eliminadas (seed branch sin deps)", () => {
+    // Sin eliminadas: debe estar vacío.
+    expect(getDeletedBranches()).toHaveLength(0);
+
+    // br_sd_piantini es una sucursal seed sin dependencias (no tiene almacén en mockWarehouses).
+    const id = "br_sd_piantini";
+    expect(branchDependencies(id).total).toBe(0); // confirmar sin deps
+    const res = deleteBranch(id);
+    expect(res.ok).toBe(true);
+
+    const deleted = getDeletedBranches();
+    expect(deleted.some((b) => b.id === id)).toBe(true);
+    // Las activas/inactivas NO aparecen en deleted.
+    expect(deleted.some((b) => b.id === "br_santiago")).toBe(false);
+    expect(deleted.some((b) => b.id === "br_sd_naco")).toBe(false);
+  });
+
+  it("sucursal seed eliminada no aparece en getAdminBranches ni getOperationalBranches por defecto", () => {
+    // br_sd_piantini no tiene deps → se puede eliminar (soft-delete en KEY_DELETED).
+    const id = "br_sd_piantini";
+    deleteBranch(id);
+
+    expect(getAdminBranches().some((b) => b.id === id)).toBe(false);
+    expect(getOperationalBranches().some((b) => b.id === id)).toBe(false);
+  });
+
+  it("restoreDeletedBranch saca una sucursal seed de deleted y la deja inactiva", () => {
+    // br_sd_piantini no tiene deps → soft-delete → restaurar.
+    const id = "br_sd_piantini";
+    deleteBranch(id);
+
+    expect(getDeletedBranches().some((b) => b.id === id)).toBe(true);
+    const res = restoreDeletedBranch(id);
+    expect(res.ok).toBe(true);
+
+    // Ya no está en deleted.
+    expect(getDeletedBranches().some((b) => b.id === id)).toBe(false);
+    // Volvió a admin como inactiva.
+    expect(getAdminBranches().some((b) => b.id === id)).toBe(true);
+    expect(getBranchById(id)?.status).toBe("inactive");
+  });
+});
+
+// ─── Tests: STORAGE_VERSION "3" limpia datos viejos y preserva auth (Tarea 4) ─
+
+describe("ensureStorageVersion v3 — limpieza y preservación", () => {
+  const KEY_NEW = "dermaland.branches";
+  const KEY_OVERRIDES = "dermaland.branches.overrides";
+  const KEY_DELETED = "dermaland.branches.deleted";
+  const KEY_VERSION = "dermaland.storage-version";
+  const AUTH_KEY = "sb-access-token";
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("STORAGE_VERSION es '3'", () => {
+    ensureStorageVersion();
+    expect(window.localStorage.getItem(KEY_VERSION)).toBe("3");
+  });
+
+  it("limpia branches viejos (versión 2) y preserva auth", () => {
+    window.localStorage.setItem(KEY_VERSION, "2"); // versión previa
+    window.localStorage.setItem(KEY_NEW, JSON.stringify([{ id: "br_sd_naco" }]));
+    window.localStorage.setItem(KEY_OVERRIDES, JSON.stringify({ br_sd_naco: { status: "active" } }));
+    window.localStorage.setItem(AUTH_KEY, "token-valido");
+
+    ensureStorageVersion();
+
+    expect(window.localStorage.getItem(KEY_NEW)).toBeNull();
+    expect(window.localStorage.getItem(KEY_OVERRIDES)).toBeNull();
+    expect(window.localStorage.getItem(KEY_DELETED)).toBeNull();
+    expect(window.localStorage.getItem(AUTH_KEY)).toBe("token-valido"); // auth preservada
+    expect(window.localStorage.getItem(KEY_VERSION)).toBe("3");
+  });
+});
+
+// ─── Tests: el SW contiene CACHE_NAME v2 y clients.claim (Tarea 1) ───────────
+
+import * as fs from "fs";
+import * as path from "path";
+
+describe("service-worker — cache bust v2", () => {
+  const swPath = path.resolve(__dirname, "../../../public/sw.js");
+
+  it("sw.js contiene CACHE_NAME dermaland-shell-v2", () => {
+    const source = fs.readFileSync(swPath, "utf-8");
+    expect(source).toMatch(/dermaland-shell-v2/);
+  });
+
+  it("sw.js tiene self.clients.claim() en activate", () => {
+    const source = fs.readFileSync(swPath, "utf-8");
+    expect(source).toMatch(/self\.clients\.claim\(\)/);
+  });
+
+  it("sw.js NO contiene el nombre viejo dermaland-shell-v1", () => {
+    const source = fs.readFileSync(swPath, "utf-8");
+    expect(source).not.toMatch(/dermaland-shell-v1/);
+  });
+});
+
+// ─── Tests: pantalla admin/sucursales NO muestra códigos warehouse (Tarea 3) ──
+
+describe("admin/sucursales — no expone códigos de almacén", () => {
+  const appRoot = path.resolve(__dirname, "../../../");
+  const sucursalesDir = path.join(appRoot, "src/app/(app)/admin/sucursales");
+
+  function readAllTsxInDir(dir: string): string {
+    let combined = "";
+    if (!fs.existsSync(dir)) return combined;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        combined += readAllTsxInDir(full);
+      } else if (/\.(tsx?|jsx?)$/.test(entry.name) && !entry.name.includes(".test.")) {
+        combined += fs.readFileSync(full, "utf-8");
+      }
+    }
+    return combined;
+  }
+
+  it("ningún archivo de admin/sucursales muestra STG-MAIN, STG-FLOOR, NACO-MAIN como texto visible", () => {
+    const source = readAllTsxInDir(sucursalesDir);
+    expect(source).not.toMatch(/STG-MAIN|STG-FLOOR|NACO-MAIN/);
+  });
+
+  it("ningún archivo de admin/sucursales muestra sección ALMACENES como label visible al usuario", () => {
+    const source = readAllTsxInDir(sucursalesDir);
+    // No debe haber headings/texto de sección tipo "ALMACENES" ni "Almacenes" visible
+    // (warehouseId y warehouse_id como identificadores internos están permitidos).
+    const lines = source.split("\n").filter(
+      (l) => !l.includes("warehouseId") && !l.includes("warehouse_id") && !l.includes("// ") && !l.includes(" * "),
+    );
+    const hasWarehouseSection = lines.some((l) => />\s*Almacenes?\s*<|ALMACENES/i.test(l));
+    expect(hasWarehouseSection).toBe(false);
   });
 });
 
@@ -340,9 +505,6 @@ describe("ensureStorageVersion", () => {
 // Verifican a nivel de fuente que los selectores operativos listados NO importan
 // listActiveBranches ni mockBranches directamente. En modo supabase esas fuentes
 // son locales/mock; el hook useActiveBranches trae sucursales reales del servidor.
-
-import * as fs from "fs";
-import * as path from "path";
 
 describe("no-import guard: selectores operativos usan useActiveBranches (no mock)", () => {
   // __dirname = apps/web/src/features/tenancy → go 3 levels up to apps/web

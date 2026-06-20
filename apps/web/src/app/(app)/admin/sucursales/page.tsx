@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Building2, Plus, Star, Power, RotateCcw, Boxes, RefreshCw } from "lucide-react";
+import { Building2, Plus, Star, Power, RotateCcw, Boxes, RefreshCw, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Button, Card } from "@/components/ui";
 import { RowActions } from "@/components/ui/row-actions";
@@ -12,8 +12,10 @@ import {
   useBranches,
   setBranchActiveAnywhere,
   deleteBranchAnywhere,
+  restoreBranchAnywhere,
   resetBranchesToSeed,
   BRANCH_BACKEND,
+  getDeletedBranches,
 } from "@/features/tenancy/branch-store";
 import { canManageBranches } from "@/features/tenancy/permissions";
 
@@ -23,36 +25,52 @@ export default function SucursalesPage() {
   const canManage = canManageBranches();
   const isLocalBackend = BRANCH_BACKEND === "local";
   const [confirmReset, setConfirmReset] = React.useState(false);
+  const [showDeleted, setShowDeleted] = React.useState(false);
+
+  // Deleted branches (local mode only; in supabase mode these are not surfaced)
+  const deletedBranches = showDeleted ? getDeletedBranches() : [];
 
   return (
     <>
       <PageHeader
         title="Sucursales"
-        description="Sedes físicas del negocio. Cada sucursal tiene su propio inventario, caja y configuración fiscal."
+        description="Sedes físicas del negocio. Cada sucursal puede tener su caja, inventario y configuración fiscal."
         breadcrumbs={[{ label: "Administración" }, { label: "Sucursales" }]}
         actions={
-          canManage ? (
-            <>
-              {isLocalBackend && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfirmReset(true)}
-                  aria-label="Restablecer en este equipo"
-                  title="Descartar cambios locales y volver al baseline"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Restablecer (este equipo)
-                </Button>
-              )}
+          <>
+            {isLocalBackend && canManage && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmReset(true)}
+                aria-label="Restablecer en este equipo"
+                title="Descartar cambios locales y volver al baseline"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Restablecer (este equipo)
+              </Button>
+            )}
+            {isLocalBackend && (
+              <Button
+                variant={showDeleted ? "primary" : "outline"}
+                size="sm"
+                onClick={() => setShowDeleted((v) => !v)}
+                aria-pressed={showDeleted}
+                title="Mostrar sucursales eliminadas"
+              >
+                <Trash2 className="h-4 w-4" />
+                {showDeleted ? "Ocultar eliminadas" : "Mostrar eliminadas"}
+              </Button>
+            )}
+            {canManage && (
               <Link href="/admin/sucursales/nueva">
                 <Button size="sm">
                   <Plus className="h-4 w-4" />
                   Nueva sucursal
                 </Button>
               </Link>
-            </>
-          ) : undefined
+            )}
+          </>
         }
       />
 
@@ -187,6 +205,54 @@ export default function SucursalesPage() {
             </Card>
           );
         })}
+
+        {/* Eliminadas (solo visibles cuando el toggle "Mostrar eliminadas" está activo) */}
+        {deletedBranches.map((b) => (
+          <Card key={b.id} className="overflow-hidden opacity-60">
+            <div className="flex items-start justify-between gap-3 p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-400">
+                  <Building2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold line-through">{b.name}</h3>
+                  </div>
+                  <p className="text-xs opacity-60">{b.code}</p>
+                </div>
+              </div>
+              <Badge tone="danger">Eliminada</Badge>
+            </div>
+
+            <dl className="space-y-2 px-5 pb-5 text-sm">
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-xs uppercase tracking-wider opacity-50">
+                  Dirección
+                </dt>
+                <dd className="opacity-80">
+                  {b.address}
+                  {b.city ? `, ${b.city}` : ""}
+                </dd>
+              </div>
+            </dl>
+
+            {canManage && (
+              <div className="flex items-center justify-end border-t border-black/5 bg-black/[0.015] px-5 py-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const res = await restoreBranchAnywhere(b.id);
+                    if (!res.ok) toast.error(res.error);
+                    else toast.success(`${b.name} restaurada como inactiva.`);
+                  }}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Restaurar
+                </Button>
+              </div>
+            )}
+          </Card>
+        ))}
       </div>
 
       <ConfirmDialog
