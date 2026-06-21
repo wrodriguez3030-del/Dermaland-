@@ -4,13 +4,9 @@ import type {
   ProductRepository,
   RepoContext,
 } from "../types";
-import {
-  SupabaseRepositoryError,
-  UserFacingRepositoryError,
-  failRepo,
-  getClient,
-} from "./client";
+import { SupabaseRepositoryError, failRepo, getClient } from "./client";
 import { productLotRowToTs, productRowToTs } from "./mappers";
+import { ensureDefaultWarehouseForBranch } from "./warehouse";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,16 +14,17 @@ const UUID_RE =
 /**
  * Resuelve el `warehouse_id` REAL de una sucursal en Supabase.
  *
- * El usuario opera por SUCURSAL; el almacén es interno. La UI calcula un
- * `warehouseId` a partir del seed mock (`defaultWarehouseForBranch`), que en
- * modo Supabase NO existe (las sucursales reales tienen UUID, no el id mock) →
- * devuelve un id sintético `wh_default_…` que NO es un UUID y rompe el INSERT
- * (causa raíz del error `productLot.create`). Por eso resolvemos aquí el
- * almacén principal de la sucursal y nunca confiamos en un id no-UUID.
+ * El usuario opera por SUCURSAL; el almacén es interno y NUNCA lo configura. La
+ * UI calcula un `warehouseId` a partir del seed mock (`defaultWarehouseForBranch`),
+ * que en modo Supabase NO existe (las sucursales reales tienen UUID, no el id
+ * mock) → devuelve un id sintético `wh_default_…` que NO es un UUID y rompía el
+ * INSERT (causa raíz del error `productLot.create`). Por eso aquí ignoramos
+ * cualquier id no-UUID y dejamos que el sistema garantice la ubicación interna.
  *
  * - Si el cliente mandó un UUID válido, se respeta (selección explícita).
- * - Si no, se toma el almacén `is_main` de la sucursal (o el primero).
- * - Si la sucursal no tiene almacén, error amigable.
+ * - Si no, se garantiza (creándola si falta) la ubicación interna por defecto
+ *   de la sucursal vía `ensureDefaultWarehouseForBranch` — el usuario nunca ve
+ *   "la sucursal no tiene un almacén configurado".
  */
 export async function resolveBranchWarehouseId(
   sb: Awaited<ReturnType<typeof getClient>>,
@@ -36,21 +33,7 @@ export async function resolveBranchWarehouseId(
   provided: unknown,
 ): Promise<string> {
   if (typeof provided === "string" && UUID_RE.test(provided)) return provided;
-  const { data, error } = await sb
-    .from("warehouses")
-    .select("id, is_main")
-    .eq("business_id", businessId)
-    .eq("branch_id", branchId)
-    .order("is_main", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) failRepo("productLot.resolveWarehouse", error);
-  if (!data) {
-    throw new UserFacingRepositoryError(
-      "No se pudo guardar el stock: la sucursal seleccionada no tiene un almacén configurado.",
-    );
-  }
-  return data.id as string;
+  return ensureDefaultWarehouseForBranch(sb, businessId, branchId);
 }
 
 export const productRepository: ProductRepository = {

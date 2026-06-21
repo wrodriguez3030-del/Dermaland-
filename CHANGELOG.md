@@ -19,6 +19,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.2.0] - 2026-06-20
+
+### Added
+- **Ubicación interna automática por sucursal.** El inventario es por sucursal;
+  el sistema crea su almacén/ubicación interna por defecto de forma automática e
+  idempotente (`ensureDefaultWarehouseForBranch`). El usuario nunca configura
+  almacenes ni ve "almacén"/"warehouse".
+- Script seguro `scripts/ensure-branch-warehouses.mjs` (dry-run + real) para
+  reparar sucursales existentes sin esa ubicación. No borra ni duplica nada.
+
+### Fixed
+- Agregar stock en una sucursal sin almacén configurado (p. ej. "Dermaland
+  Cutis") ya no falla con "la sucursal seleccionada no tiene un almacén
+  configurado": la ubicación interna se crea automáticamente al vuelo en
+  `productLot.create` y al crear/editar la sucursal.
+
+### Changed
+- `resolveBranchWarehouseId` deja de lanzar cuando falta el almacén y delega en
+  `ensureDefaultWarehouseForBranch`. Mensaje de fallback del POST `/api/lots`:
+  "No se pudo preparar la sucursal para recibir inventario. Intenta nuevamente."
+
+---
+
 ## [0.1.0] - 2026-06-09
 
 ### Added

@@ -37,7 +37,7 @@ export class UserFacingRepositoryError extends Error {
 }
 
 /** Códigos Postgres que sabemos traducir a lenguaje de usuario. */
-function pgErrorCode(error: unknown): string | undefined {
+export function pgErrorCode(error: unknown): string | undefined {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: unknown }).code;
     return typeof code === "string" ? code : undefined;

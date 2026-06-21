@@ -3,6 +3,7 @@ import type { BranchListOptions, BranchRepository, RepoContext } from "../types"
 import type { Branch } from "@/types";
 import { SupabaseRepositoryError, getClient } from "./client";
 import { branchRowToTs } from "./mappers";
+import { ensureDefaultWarehouseForBranch } from "./warehouse";
 
 export const branchRepository: BranchRepository = {
   async list(ctx: RepoContext, opts?: BranchListOptions) {
@@ -56,7 +57,11 @@ export const branchRepository: BranchRepository = {
       .select("*")
       .single();
     if (error) throw new SupabaseRepositoryError("branch.create", error);
-    return branchRowToTs(data);
+    const created = branchRowToTs(data);
+    // El inventario es por sucursal: al crearla, garantizamos su ubicación
+    // interna por defecto para que pueda recibir stock sin configuración manual.
+    await ensureDefaultWarehouseForBranch(sb, ctx.businessId, created.id);
+    return created;
   },
 
   async update(ctx: RepoContext, id: string, patch: Partial<Branch>) {
@@ -82,7 +87,11 @@ export const branchRepository: BranchRepository = {
       .select("*")
       .single();
     if (error) throw new SupabaseRepositoryError("branch.update", error);
-    return branchRowToTs(data);
+    const updated = branchRowToTs(data);
+    // Repara sucursales antiguas: si les faltaba la ubicación interna, se crea
+    // ahora (idempotente; si ya existe, no hace nada).
+    await ensureDefaultWarehouseForBranch(sb, ctx.businessId, updated.id);
+    return updated;
   },
 
   async softDelete(ctx: RepoContext, id: string) {

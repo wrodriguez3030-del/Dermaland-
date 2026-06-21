@@ -69,7 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       {
         error: toUserFacingMessage(
           e,
-          "No se pudo guardar el stock. Verifica la sucursal y vuelve a intentar.",
+          "No se pudo preparar la sucursal para recibir inventario. Intenta nuevamente.",
         ),
       },
       { status: 400 },
