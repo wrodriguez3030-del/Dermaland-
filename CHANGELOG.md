@@ -19,6 +19,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.3.0] - 2026-06-21
+
+### Added
+- **Buscador + creación rápida en la sección "Clasificación" del formulario de
+  producto.** Marca, Categoría y Laboratorio ahora son selects con buscador
+  (insensible a acentos/mayúsculas) y un botón "+" teal (tooltip + aria-label)
+  que abre un modal para crear el registro sin salir del formulario. Al crear:
+  se guarda en Supabase, se refresca la lista y queda **seleccionado
+  automáticamente** en el producto, con toast de éxito.
+- Componente reutilizable `CreatableClassificationSelect`
+  (`features/products/components/`). Modal por entidad: Marca = Nombre;
+  Categoría = Nombre + Descripción; Laboratorio = Nombre + País (los campos
+  coinciden con las columnas reales de cada tabla). Aplica a Crear y Editar
+  producto (ambos usan el mismo `ProductForm`).
+
+### Changed
+- La sección Clasificación deja de usar `<select>` nativos por los nuevos
+  combobox creables. Validación de nombre obligatorio y anti-duplicado por
+  nombre (client-side, además del `unique(business_id, name)` del servidor).
+
+---
+
 ## [0.2.0] - 2026-06-20
 
 ### Added

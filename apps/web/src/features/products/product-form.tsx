@@ -16,10 +16,14 @@ import {
 import { FormSection } from "@/components/ui/filter-bar";
 import { useToast } from "@/components/ui/toast";
 import {
+  saveBrand,
+  saveCategory,
+  saveLaboratory,
   useBrandsList,
   useCategoriesList,
   useLaboratoriesList,
 } from "@/features/products/catalog-store";
+import { CreatableClassificationSelect } from "@/features/products/components/creatable-classification-select";
 import { ProductImageUploader } from "@/features/products/components/product-image-uploader";
 import {
   listAllProducts,
@@ -332,45 +336,60 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             description="Marca, categoría y laboratorio para filtros y reportes."
           >
             <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <Label>Marca</Label>
-                <Select value={brandId} onChange={(e) => setBrandId(e.target.value)}>
-                  <option value="">— Sin marca —</option>
-                  {brands.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Categoría</Label>
-                <Select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                >
-                  <option value="">— Sin categoría —</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Laboratorio</Label>
-                <Select
-                  value={laboratoryId}
-                  onChange={(e) => setLaboratoryId(e.target.value)}
-                >
-                  <option value="">— Sin laboratorio —</option>
-                  {laboratories.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              <CreatableClassificationSelect
+                label="Marca"
+                value={brandId}
+                onChange={setBrandId}
+                options={brands}
+                placeholder="Buscar o seleccionar marca..."
+                entityName="marca"
+                createTitle="Crear marca"
+                createTooltip="Crear marca"
+                createdToast="Marca creada correctamente."
+                onCreate={(v) => saveBrand("create", { name: v.name })}
+              />
+              <CreatableClassificationSelect
+                label="Categoría"
+                value={categoryId}
+                onChange={setCategoryId}
+                options={categories}
+                placeholder="Buscar o seleccionar categoría..."
+                entityName="categoría"
+                createTitle="Crear categoría"
+                createTooltip="Crear categoría"
+                createdToast="Categoría creada correctamente."
+                extraFields={[
+                  {
+                    key: "description",
+                    label: "Descripción",
+                    type: "textarea",
+                    placeholder: "Opcional",
+                  },
+                ]}
+                onCreate={(v) =>
+                  saveCategory("create", {
+                    name: v.name,
+                    description: v.description,
+                  })
+                }
+              />
+              <CreatableClassificationSelect
+                label="Laboratorio"
+                value={laboratoryId}
+                onChange={setLaboratoryId}
+                options={laboratories}
+                placeholder="Buscar o seleccionar laboratorio..."
+                entityName="laboratorio"
+                createTitle="Crear laboratorio"
+                createTooltip="Crear laboratorio"
+                createdToast="Laboratorio creado correctamente."
+                extraFields={[
+                  { key: "country", label: "País", placeholder: "Opcional" },
+                ]}
+                onCreate={(v) =>
+                  saveLaboratory("create", { name: v.name, country: v.country })
+                }
+              />
             </div>
           </FormSection>
 
