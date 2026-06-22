@@ -171,7 +171,7 @@ export default function TransferDetailPage() {
                 return (
                   <TR key={it.id}>
                     <TD>
-                      <div className="text-sm">{p?.name ?? it.productId}</div>
+                      <div className="text-sm">{p?.name ?? "Producto no encontrado"}</div>
                       <div className="font-mono text-xs opacity-60">{p?.sku}</div>
                     </TD>
                     <TD className="font-mono text-xs">{it.lotNumber}</TD>

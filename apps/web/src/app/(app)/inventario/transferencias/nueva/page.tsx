@@ -272,7 +272,7 @@ export default function NuevaTransferenciaPage() {
                             const p = getProductById(l.productId);
                             return (
                               <option key={l.id} value={l.id}>
-                                {p?.name ?? l.productId} · {p?.sku} · lote{" "}
+                                {p?.name ?? "Producto no encontrado"} · {p?.sku} · lote{" "}
                                 {l.lotNumber} (disp. {l.currentQuantity})
                               </option>
                             );

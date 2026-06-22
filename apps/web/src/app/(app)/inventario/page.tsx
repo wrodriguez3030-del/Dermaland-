@@ -22,7 +22,11 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Boxes, AlertTriangle, PackagePlus, ShieldAlert, X } from "lucide-react";
 import { getBrandById, mockProducts } from "@/lib/mock-data/catalog";
 import { useAllLots } from "@/features/inventory/lot-store";
-import { onlyActiveBranches, useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
+import {
+  onlyActiveBranches,
+  useCurrentBranch,
+  useBranches,
+} from "@/features/tenancy/branch-store";
 import { NewLotModal } from "@/features/inventory/lot-modals";
 import { formatCurrency } from "@/lib/utils/format";
 import type { ProductLot } from "@/types";
@@ -34,7 +38,13 @@ function InventarioContent() {
   const { branchId } = useCurrentBranch();
   const [addStockProduct, setAddStockProduct] = React.useState<{ id: string; name: string } | null>(null);
 
-  const branchName = branch ? resolveBranchName(branch) : undefined;
+  // El nombre se resuelve desde la lista reactiva (incluye sucursales reales de
+  // Supabase). NUNCA se muestra el UUID: si no se encuentra, "Sucursal
+  // seleccionada".
+  const branches = useBranches();
+  const branchName = branch
+    ? branches.find((b) => b.id === branch)?.name ?? "Sucursal seleccionada"
+    : undefined;
 
   const rows = mockProducts
     .map((p) => {
@@ -69,7 +79,7 @@ function InventarioContent() {
         <div className="mb-4 flex items-center justify-between rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
           <span>
             Filtrado por sucursal:{" "}
-            <strong>{branchName ?? branch}</strong>
+            <strong>{branchName}</strong>
           </span>
           <Link href="/inventario">
             <Button variant="ghost" size="sm">

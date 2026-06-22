@@ -156,12 +156,42 @@ export function defaultWarehouseForBranch(branchId: string): string {
  * eliminada (cae al seed `mockBranches`), para no perder nombres en documentos
  * y reportes antiguos.
  */
-export function resolveBranchName(id: string): string {
+/**
+ * Cache en memoria (NO localStorage) de id→nombre de la última lista de
+ * sucursales cargada. Permite que los resolvers SINCRÓNICOS muestren el nombre
+ * real también en modo Supabase, donde las sucursales no viven en localStorage
+ * (se cargan por hook desde el servidor). Se llena en cada fetch de
+ * `useBranchesState`.
+ */
+const branchNameCache = new Map<string, string>();
+
+/** Registra los nombres de una lista de sucursales en el cache en memoria. */
+export function cacheBranchNames(branches: Branch[]): void {
+  for (const b of branches) branchNameCache.set(b.id, b.name);
+}
+
+/**
+ * Devuelve SIEMPRE un nombre legible de sucursal — NUNCA el UUID técnico.
+ * Regla de UI: jamás exponer branch_id/UUID al usuario. Si no se encuentra el
+ * nombre (ni en store local, ni en mock, ni en el cache de Supabase), devuelve
+ * `fallback` (por defecto "Sucursal no encontrada").
+ */
+export function getBranchDisplayName(
+  id: string,
+  fallback = "Sucursal no encontrada",
+): string {
+  if (!id) return fallback;
   return (
     getBranchFromStore(id)?.name ??
     mockBranches.find((b) => b.id === id)?.name ??
-    id
+    branchNameCache.get(id) ??
+    fallback
   );
+}
+
+/** Alias histórico. Resuelve a un nombre legible (nunca el UUID). */
+export function resolveBranchName(id: string): string {
+  return getBranchDisplayName(id);
 }
 
 // ─── Dependencias (para decidir si se puede eliminar) ────────────────────────
@@ -605,6 +635,7 @@ export function useBranchesState(): BranchesState {
         // En modo supabase NUNCA caemos a mock/localStorage.
         try {
           const branches = await fetchBranchesFromServer("admin");
+          cacheBranchNames(branches);
           if (alive) setState({ list: branches, loadError: false });
         } catch {
           // Primer intento fallido → un reintento con backoff corto.
@@ -612,6 +643,7 @@ export function useBranchesState(): BranchesState {
           if (!alive) return;
           try {
             const branches = await fetchBranchesFromServer("admin");
+            cacheBranchNames(branches);
             if (alive) setState({ list: branches, loadError: false });
           } catch {
             // Ambos intentos fallaron: mantener la lista actual sin pisar con
@@ -620,7 +652,9 @@ export function useBranchesState(): BranchesState {
           }
         }
       } else {
-        setState({ list: listAllBranches(), loadError: false });
+        const branches = listAllBranches();
+        cacheBranchNames(branches);
+        setState({ list: branches, loadError: false });
       }
     };
 

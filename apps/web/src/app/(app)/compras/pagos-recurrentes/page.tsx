@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { Plus, Repeat, RefreshCw, Coins } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
-import { getBranchById } from "@/lib/mock-data/tenancy";
+import { getBranchDisplayName } from "@/features/tenancy/branch-store";
 import {
   useRecurring,
   setRecurringActiveAnywhere,
@@ -99,7 +99,7 @@ export default function PagosRecurrentesPage() {
                         {r.supplier && <div className="text-xs opacity-60">{r.supplier}</div>}
                       </TD>
                       <TD className="text-sm">{r.category}</TD>
-                      <TD className="text-xs opacity-70">{getBranchById(r.branchId)?.name ?? r.branchId}</TD>
+                      <TD className="text-xs opacity-70">{getBranchDisplayName(r.branchId)}</TD>
                       <TD className="text-sm">{freqLabel[r.frequency] ?? r.frequency}</TD>
                       <TD className="text-right tabular-nums font-medium">{formatCurrency(r.amount)}</TD>
                       <TD className="text-right tabular-nums">{r.runs.length}</TD>

@@ -23,7 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { FileText, Plus, Coins, Wallet, Ban, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
-import { getBranchById } from "@/lib/mock-data/tenancy";
+import { getBranchDisplayName } from "@/features/tenancy/branch-store";
 import {
   useInvoices,
   comprasSummary,
@@ -132,7 +132,7 @@ export default function FacturasProveedoresPage() {
                     <TR key={inv.id}>
                       <TD className="font-mono text-xs">{inv.number}</TD>
                       <TD className="text-sm">{inv.supplierName}</TD>
-                      <TD className="text-xs opacity-70">{getBranchById(inv.branchId)?.name ?? inv.branchId}</TD>
+                      <TD className="text-xs opacity-70">{getBranchDisplayName(inv.branchId)}</TD>
                       <TD className="text-xs">{formatDate(inv.issueDate)}</TD>
                       <TD className="text-right tabular-nums font-medium">{formatCurrency(inv.total)}</TD>
                       <TD className="text-right tabular-nums">{formatCurrency(inv.paid)}</TD>

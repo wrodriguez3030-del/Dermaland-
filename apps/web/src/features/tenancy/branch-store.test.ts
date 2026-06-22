@@ -12,6 +12,8 @@ import {
   listActiveWarehouses,
   isBranchActive,
   resolveBranchName,
+  getBranchDisplayName,
+  cacheBranchNames,
   getBranchFromStore,
   branchDependencies,
   clearLocalBranches,
@@ -29,6 +31,7 @@ import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import { canManageBranches } from "./permissions";
 import { mockBranches } from "@/lib/mock-data/tenancy";
 import { clearLocalInventory } from "@/features/inventory/lot-store";
+import type { Branch } from "@/types";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -130,6 +133,49 @@ describe("visibilidad operativa (activas vs inactivas/eliminadas)", () => {
     const seed = mockBranches[0]!;
     setBranchActive(seed.id, false);
     expect(resolveBranchName(seed.id)).toBe(seed.name);
+  });
+});
+
+describe("getBranchDisplayName — nunca expone el UUID al usuario", () => {
+  const UNKNOWN_UUID = "00000000-0000-0000-0000-00000000b001";
+
+  it("resuelve el nombre cuando la sucursal existe", () => {
+    const seed = mockBranches[0]!;
+    expect(getBranchDisplayName(seed.id)).toBe(seed.name);
+  });
+
+  it("para un id desconocido devuelve 'Sucursal no encontrada', NO el UUID", () => {
+    const out = getBranchDisplayName(UNKNOWN_UUID);
+    expect(out).toBe("Sucursal no encontrada");
+    expect(out).not.toContain(UNKNOWN_UUID);
+    expect(out).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/i);
+  });
+
+  it("acepta un fallback personalizado (p. ej. 'Sucursal seleccionada')", () => {
+    expect(getBranchDisplayName(UNKNOWN_UUID, "Sucursal seleccionada")).toBe(
+      "Sucursal seleccionada",
+    );
+  });
+
+  it("para id vacío devuelve el fallback", () => {
+    expect(getBranchDisplayName("")).toBe("Sucursal no encontrada");
+  });
+
+  it("resuelve sucursales de Supabase (no-mock) vía el cache en memoria", () => {
+    // Simula el modo Supabase: la sucursal real no está en mock ni localStorage,
+    // solo en la lista que llegó del servidor (cacheada en cada fetch).
+    const SUPA_ID = "c1c90936-7b35-44af-8f86-74d209a576a0";
+    expect(getBranchDisplayName(SUPA_ID)).toBe("Sucursal no encontrada");
+    cacheBranchNames([
+      { id: SUPA_ID, name: "DermaLand Principal" } as unknown as Branch,
+    ]);
+    expect(getBranchDisplayName(SUPA_ID)).toBe("DermaLand Principal");
+  });
+
+  it("resolveBranchName (alias) tampoco devuelve el UUID para un id desconocido", () => {
+    const out = resolveBranchName(UNKNOWN_UUID);
+    expect(out).toBe("Sucursal no encontrada");
+    expect(out).not.toContain(UNKNOWN_UUID);
   });
 });
 

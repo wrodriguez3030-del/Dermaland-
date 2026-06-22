@@ -121,7 +121,7 @@ function ReleaseLotModal({ lot, onClose, onDone }: ReleaseLotModalProps) {
           </p>
 
           <div className="rounded-lg border border-black/5 bg-black/[0.02] p-3 space-y-1 text-xs">
-            <div className="flex gap-2"><span className="opacity-60 w-24">Producto</span><span className="font-medium">{p?.name ?? lot.productId}</span></div>
+            <div className="flex gap-2"><span className="opacity-60 w-24">Producto</span><span className="font-medium">{p?.name ?? "Producto no encontrado"}</span></div>
             <div className="flex gap-2"><span className="opacity-60 w-24">Lote</span><span className="font-mono">{lot.lotNumber}</span></div>
             <div className="flex gap-2"><span className="opacity-60 w-24">Sucursal</span><span>{branchName}</span></div>
             <div className="flex gap-2"><span className="opacity-60 w-24">Cantidad</span><span className="tabular-nums">{lot.currentQuantity}</span></div>
@@ -233,7 +233,7 @@ function RecallLotModal({ lot, onClose, onDone }: RecallLotModalProps) {
       >
         <div className="space-y-4 text-sm">
           <p className="text-[color:var(--brand-fg)]/70">
-            <strong>{p?.name ?? lot.productId}</strong> — Lote <span className="font-mono">{lot.lotNumber}</span>
+            <strong>{p?.name ?? "Producto no encontrado"}</strong> — Lote <span className="font-mono">{lot.lotNumber}</span>
           </p>
 
           <div className="space-y-1">

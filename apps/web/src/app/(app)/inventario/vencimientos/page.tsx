@@ -23,8 +23,10 @@ import { StatCard } from "@/components/ui/stat-card";
 import { CalendarClock, AlertTriangle, ShieldAlert, X } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
 import { getProductById } from "@/lib/mock-data/catalog";
-import { getBranchById } from "@/lib/mock-data/tenancy";
-import { useActiveBranches } from "@/features/tenancy/branch-store";
+import {
+  getBranchDisplayName,
+  useActiveBranches,
+} from "@/features/tenancy/branch-store";
 import { daysUntil, formatDate } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import {
@@ -183,12 +185,12 @@ export default function VencimientosPage() {
                 return (
                   <TR key={lot.id} className={rowBg[st]}>
                     <TD>
-                      <div className="text-sm">{p?.name ?? lot.productId}</div>
+                      <div className="text-sm">{p?.name ?? "Producto no encontrado"}</div>
                       <div className="font-mono text-xs opacity-60">{p?.sku}</div>
                     </TD>
                     <TD className="font-mono text-xs">{lot.lotNumber}</TD>
                     <TD className="text-xs opacity-70">
-                      {getBranchById(lot.branchId)?.name ?? lot.branchId}
+                      {getBranchDisplayName(lot.branchId)}
                     </TD>
                     <TD className="text-right tabular-nums">{lot.currentQuantity}</TD>
                     <TD className="text-xs">{formatDate(lot.expiresAt)}</TD>

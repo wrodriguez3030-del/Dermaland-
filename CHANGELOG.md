@@ -19,6 +19,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.3.1] - 2026-06-22
+
+### Fixed
+- **No se muestran IDs técnicos (UUID) al usuario.** En Inventario > Stock
+  actual el banner "Filtrado por sucursal" mostraba el `branch_id` crudo
+  (`00000000-…-b001`) cuando el nombre no se resolvía. Causa: `resolveBranchName`
+  leía solo el store síncrono (vacío en modo Supabase, donde las sucursales se
+  cargan por hook) y caía al UUID. Ahora resuelve desde la lista reactiva y,
+  si no encuentra, muestra "Sucursal seleccionada" — nunca el UUID.
+- Mismo patrón corregido en Vencimientos, Cuarentena, Transferencias, y en
+  Compras (pagos recurrentes / facturas de proveedores): los fallbacks
+  `?? branchId` / `?? productId` ya no filtran UUIDs (muestran el nombre o
+  "Sucursal no encontrada" / "Producto no encontrado").
+
+### Added
+- Helper `getBranchDisplayName(branchId, fallback?)` en `branch-store` — devuelve
+  SIEMPRE un nombre legible, nunca el UUID. `resolveBranchName` ahora es un alias.
+- Cache en memoria `cacheBranchNames` (se llena en cada fetch de
+  `useBranchesState`) para que los resolvers síncronos muestren el nombre real
+  también en modo Supabase, sin persistir en localStorage.
+
+---
+
 ## [0.3.0] - 2026-06-21
 
 ### Added
