@@ -19,6 +19,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.5.3] - 2026-06-22
+
+### Fixed
+- **Los clientes existentes no aparecían en el buscador de cliente del POS**
+  (p. ej. WILLIAN R RODRIGUEZ existía en /clientes pero "WILL" no lo encontraba
+  en POS). Causa raíz: el POS pasaba `businessId="biz_dermaland"` (constante
+  mock) a `CustomerSearchSelect`, y `searchClients` filtra
+  `c.businessId === businessId`. En Supabase los clientes reales tienen
+  `businessId` = el UUID del negocio (`00000000-…-d001`), así que ese filtro los
+  **excluía a todos** → "No se encontraron clientes". Fix: el POS deja de pasar
+  ese `businessId` — los clientes ya vienen scopeados por `business_id` (RLS en
+  Supabase, single-tenant en mock), así que el filtro client-side sobraba y
+  rompía. El helper `searchClients` (nombre/apellido, teléfono y documento con o
+  sin guiones, email, customer number, todo normalizado) ya era correcto; ahora
+  recibe la lista completa y encuentra al cliente por WILL / RODRIGUEZ /
+  8297141975 / 829-714-1975 / 03103274282 / 031-0327428-2 / wrodriguez.
+
+### Notes
+- /clientes y POS usan la MISMA fuente (`useCustomers()` →
+  `fetchCustomersFromServer()` con RLS por `business_id`, excluye `deleted_at`).
+  El repo `customer.list` no tiene límite artificial. No hay lógica duplicada.
+
+---
+
 ## [0.5.2] - 2026-06-22
 
 ### Fixed

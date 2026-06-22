@@ -740,11 +740,14 @@ export function PosTerminal() {
             )}
           </div>
           <div className="mt-3">
+            {/* No se pasa `businessId`: los clientes ya vienen scopeados por
+                business_id (RLS en Supabase, single-tenant en mock). Pasar la
+                constante mock "biz_dermaland" excluía a TODOS los clientes
+                reales (cuyo businessId es el UUID), por eso WILLIAN no aparecía. */}
             <CustomerSearchSelect
               clients={customers}
               value={customer ?? null}
               onChange={(c) => setCustomerId(c?.id ?? "")}
-              businessId="biz_dermaland"
             />
           </div>
           {customer && customer.tags.length > 0 && (
