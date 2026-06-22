@@ -1024,6 +1024,66 @@ export function nextFefoLotForBranch(
   return candidates[0] ?? null;
 }
 
+/**
+ * Resumen de inventario de un producto en una sucursal (motor ÚNICO de Stock
+ * actual, igual regla `isLotSellable` que POS y Productos).
+ *
+ *  - `sellableStock` = suma de lotes vendibles (disponible, no vencido, qty>0).
+ *  - `value`         = Σ currentQuantity·unitCost de esos lotes vendibles.
+ *  - `lotCount`      = nº de lotes vendibles.
+ *  - `totalLotCount` = nº de lotes en la sucursal (cualquier estado).
+ *  - `soon`          = lotes vendibles próximos a vencer (<30d).
+ *  - `expired/quarantine/recalled` = banderas de alerta presentes en la sucursal.
+ *
+ * `branchId` vacío → suma todas las sucursales (vista global).
+ */
+export interface InventoryRow {
+  productId: string;
+  sellableStock: number;
+  value: number;
+  lotCount: number;
+  totalLotCount: number;
+  soon: number;
+  expired: boolean;
+  quarantine: boolean;
+  recalled: boolean;
+}
+
+export function inventoryRowForBranch(
+  lots: ProductLot[],
+  productId: string,
+  branchId: string,
+): InventoryRow {
+  const row: InventoryRow = {
+    productId,
+    sellableStock: 0,
+    value: 0,
+    lotCount: 0,
+    totalLotCount: 0,
+    soon: 0,
+    expired: false,
+    quarantine: false,
+    recalled: false,
+  };
+  for (const l of lots) {
+    if (l.productId !== productId) continue;
+    if (branchId && l.branchId !== branchId) continue;
+    row.totalLotCount += 1;
+    if (l.status === "quarantine") row.quarantine = true;
+    if (l.status === "recalled") row.recalled = true;
+    if (l.status === "expired" || expiryStatus(l.expiresAt) === "expired") {
+      row.expired = true;
+    }
+    if (isLotSellable(l)) {
+      row.sellableStock += l.currentQuantity;
+      row.value += l.currentQuantity * l.unitCost;
+      row.lotCount += 1;
+      if (expiryStatus(l.expiresAt) === "soon") row.soon += 1;
+    }
+  }
+  return row;
+}
+
 export type LotBlockReason =
   | "expired"
   | "quarantine"

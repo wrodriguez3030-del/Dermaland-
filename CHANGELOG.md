@@ -19,6 +19,36 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.6.0] - 2026-06-22
+
+### Fixed
+- **Inventario > Stock actual mostraba todo en 0 / "Sin stock" (y ~1354
+  productos).** Causa raíz: la página iteraba **`mockProducts`** (catálogo MOCK)
+  en vez de `useProducts()` (productos reales de Supabase). En Supabase los lotes
+  tienen el `productId` real, que NO existe en el mock → `lots.filter(l =>
+  l.productId === p.id)` no coincidía con nada → stock 0 para todos; "1354" era el
+  nº de productos mock. Ahora usa los productos reales y el motor único de stock.
+
+### Added
+- **Motor central de stock `inventoryRowForBranch(lots, productId, branchId)`**
+  (misma regla `isLotSellable` que POS y Productos): unidades vendibles, valor
+  (Σ cantidad·costo de lotes vendibles), nº de lotes, y banderas
+  vencido/cuarentena/recall/por-vencer. Excluye vencidos, cuarentena, recall y
+  cantidad 0; respeta `branch_id` y `business_id` (RLS).
+- **Ordenamiento por columnas** en Stock actual (Producto, Marca, Categoría,
+  Laboratorio, Lotes, Stock, Mín, Valor). **Por defecto: Stock mayor→menor**
+  (los productos con más unidades arriba, los sin stock abajo).
+- **Filtros**: búsqueda (producto/SKU/lote/marca/categoría/laboratorio), marca,
+  categoría, laboratorio y estado (Todos / Con stock / Sin stock / Bajo mínimo /
+  Por vencer / Vencidos / Cuarentena / Recall).
+- **Columnas** Marca, Categoría, Laboratorio + acciones por fila (Ver detalle,
+  Editar, Agregar stock, Ver lotes). El alta de stock preselecciona la sucursal
+  efectiva y refresca la tabla al guardar. "Sucursal actual: {nombre}" — nunca
+  UUID/almacén. La sucursal efectiva es la seleccionada arriba (o el deep-link
+  `?branch=`).
+
+---
+
 ## [0.5.4] - 2026-06-22
 
 ### Fixed
