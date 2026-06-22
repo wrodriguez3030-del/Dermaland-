@@ -10,6 +10,7 @@ import {
   openCashSession,
   closeCashSession,
 } from "@/features/sales/cash-session-store";
+import { useCurrentBranch } from "@/features/tenancy/branch-store";
 
 // ─── Abrir caja ─────────────────────────────────────────────────────────────
 
@@ -22,15 +23,18 @@ export function AbrirCajaButton() {
   const [amount, setAmount] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const toast = useToast();
+  const { branchId } = useCurrentBranch();
 
   const handleOpen = async () => {
     const parsed = parseFloat(amount.replace(",", "."));
     if (!Number.isFinite(parsed) || parsed < 0) {
-      toast.error("Ingresá un monto de apertura válido (>= 0).");
+      toast.error("El monto de apertura debe ser un número válido.");
       return;
     }
     setLoading(true);
-    const result = await openCashSession(parsed);
+    // Abre la caja para la sucursal seleccionada arriba (si el usuario tiene
+    // acceso); el servidor valida y cae a la del contexto si no aplica.
+    const result = await openCashSession(parsed, branchId || undefined);
     setLoading(false);
     if (result.ok) {
       toast.success("Caja abierta correctamente.");

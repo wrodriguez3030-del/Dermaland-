@@ -19,6 +19,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.5.4] - 2026-06-22
+
+### Fixed
+- **Abrir caja fallaba con un error técnico.** Causa raíz: no existía ninguna
+  fila en `cash_registers` para la sucursal, así que `cashRegister.open` lanzaba
+  "Caja registradora no configurada para la sucursal" (un `SupabaseRepositoryError`
+  cuyo mensaje técnico llegaba tal cual al usuario). Fix: la caja registradora es
+  interna y el usuario NUNCA la configura — ahora se crea automáticamente por
+  sucursal (`ensureCashRegisterForBranch`, idempotente, code determinista). El
+  POST `/api/cash` y `/api/cash/[id]` traducen cualquier error a mensaje
+  amigable (`toUserFacingMessage`), nunca exponen `SupabaseRepository`/SQL/UUID.
+
+### Added
+- Validaciones amigables al abrir caja: monto válido (≥0), sucursal y usuario
+  requeridos, y **detección de caja ya abierta** ("Ya existe una caja abierta
+  para esta sucursal."). La caja se abre para la **sucursal seleccionada arriba**
+  si es una sucursal activa del negocio (validada en el servidor); si no, la del
+  contexto. Nunca cross-business (RLS).
+
+---
+
 ## [0.5.3] - 2026-06-22
 
 ### Fixed

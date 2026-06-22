@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function PATCH(
     const countedCash = Number(body.countedCash);
     if (!Number.isFinite(countedCash) || countedCash < 0) {
       return NextResponse.json(
-        { error: "countedCash debe ser un número >= 0" },
+        { error: "El efectivo contado debe ser un número válido." },
         { status: 422 },
       );
     }
@@ -39,6 +40,14 @@ export async function PATCH(
     const session = await getRepositories().cashRegister.close(ctx, id, countedCash);
     return NextResponse.json({ session });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: toUserFacingMessage(
+          e,
+          "No se pudo cerrar la caja. Intenta nuevamente.",
+        ),
+      },
+      { status: 400 },
+    );
   }
 }

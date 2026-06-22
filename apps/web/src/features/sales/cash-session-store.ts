@@ -69,13 +69,14 @@ export type OpenSessionResult =
  */
 export async function openCashSession(
   openingAmount: number,
+  branchId?: string,
 ): Promise<OpenSessionResult> {
   if (CASH_BACKEND === "supabase") {
     try {
       const res = await fetch("/api/cash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ openingAmount }),
+        body: JSON.stringify({ openingAmount, branchId }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         session?: CashRegisterSession;

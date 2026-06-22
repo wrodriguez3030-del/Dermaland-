@@ -10,7 +10,13 @@ import type {
   Proforma,
   SaleItem,
 } from "@/types";
-import { SupabaseRepositoryError, getClient } from "./client";
+import {
+  SupabaseRepositoryError,
+  UserFacingRepositoryError,
+  failRepo,
+  getClient,
+  pgErrorCode,
+} from "./client";
 import {
   cashSessionRowToTs,
   proformaItemRowToTs,
@@ -315,6 +321,56 @@ async function fetchProformaIdsForSession(
   return (data ?? []).map((r: { id: string }) => r.id);
 }
 
+/**
+ * Garantiza que una sucursal tenga su caja registradora interna y devuelve su
+ * `id`. El usuario NUNCA configura cajas: si la sucursal no tiene una, se crea
+ * automáticamente (code determinista `auto-<branchId>`, `is_active`), de forma
+ * idempotente y segura ante carreras (unique business_id+code → 23505).
+ */
+export async function ensureCashRegisterForBranch(
+  sb: Awaited<ReturnType<typeof getClient>>,
+  businessId: string,
+  branchId: string,
+): Promise<string> {
+  const { data: existing, error: selErr } = await sb
+    .from("cash_registers")
+    .select("id")
+    .eq("business_id", businessId)
+    .eq("branch_id", branchId)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+  if (selErr) failRepo("cashRegister.ensure:select", selErr);
+  if (existing) return existing.id as string;
+
+  const code = `auto-${branchId}`;
+  const { data: created, error: insErr } = await sb
+    .from("cash_registers")
+    .insert({
+      business_id: businessId,
+      branch_id: branchId,
+      code,
+      name: "Caja",
+      is_active: true,
+    })
+    .select("id")
+    .single();
+  if (!insErr) return created.id as string;
+
+  // Carrera: otro request la creó primero (unique business_id+code).
+  if (pgErrorCode(insErr) === "23505") {
+    const { data: again, error: againErr } = await sb
+      .from("cash_registers")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("code", code)
+      .maybeSingle();
+    if (againErr) failRepo("cashRegister.ensure:reselect", againErr);
+    if (again) return again.id as string;
+  }
+  failRepo("cashRegister.ensure:insert", insErr);
+}
+
 export const cashRegisterRepository: CashRegisterRepository = {
   async current(ctx: RepoContext) {
     const sb = await getClient("cashRegister.current");
@@ -360,33 +416,42 @@ export const cashRegisterRepository: CashRegisterRepository = {
   async open(ctx: RepoContext, openingAmount: number) {
     const sb = await getClient("cashRegister.open");
 
+    // Validaciones con mensaje amigable (nunca técnico).
     if (!ctx.branchId) {
-      throw new SupabaseRepositoryError(
-        "cashRegister.open: ctx.branchId requerido para abrir caja",
+      throw new UserFacingRepositoryError(
+        "No se pudo abrir la caja. Verifica la sucursal seleccionada.",
       );
     }
     if (!ctx.userId) {
-      throw new SupabaseRepositoryError(
-        "cashRegister.open: ctx.userId requerido para registrar apertura",
+      throw new UserFacingRepositoryError(
+        "No se pudo abrir la caja. Tu usuario no tiene permisos suficientes.",
       );
     }
 
-    // Buscamos cash_register activa en la sucursal — política: una sola
-    // caja registradora por sucursal en el MVP.
-    const { data: cr, error: crErr } = await sb
-      .from("cash_registers")
+    // Una sola caja abierta por sucursal: si ya hay una, mensaje accionable.
+    const { data: openSes, error: openErr } = await sb
+      .from("cash_register_sessions")
       .select("id")
       .eq("business_id", ctx.businessId)
       .eq("branch_id", ctx.branchId)
-      .eq("is_active", true)
+      .eq("status", "open")
       .limit(1)
       .maybeSingle();
-    if (crErr)
-      throw new SupabaseRepositoryError("cashRegister.open:lookup", crErr);
-    if (!cr)
-      throw new SupabaseRepositoryError(
-        "cashRegister.open: Caja registradora no configurada para la sucursal",
+    if (openErr) failRepo("cashRegister.open:check", openErr);
+    if (openSes) {
+      throw new UserFacingRepositoryError(
+        "Ya existe una caja abierta para esta sucursal.",
       );
+    }
+
+    // La caja registradora es interna: el usuario NUNCA la configura. Si la
+    // sucursal no tiene una, se crea automáticamente (idempotente). Esta era la
+    // causa del error al abrir caja: no existía `cash_registers` para la sucursal.
+    const cashRegisterId = await ensureCashRegisterForBranch(
+      sb,
+      ctx.businessId,
+      ctx.branchId,
+    );
 
     // Nombre del cajero (rellenar via tabla users).
     const { data: u } = await sb
@@ -399,7 +464,7 @@ export const cashRegisterRepository: CashRegisterRepository = {
     const row = {
       business_id: ctx.businessId,
       branch_id: ctx.branchId,
-      cash_register_id: cr.id,
+      cash_register_id: cashRegisterId,
       session_number: generateSessionNumber(),
       opened_by: ctx.userId,
       opened_by_name: cashierName,
@@ -414,7 +479,7 @@ export const cashRegisterRepository: CashRegisterRepository = {
       .insert(row)
       .select("*")
       .single();
-    if (error) throw new SupabaseRepositoryError("cashRegister.open", error);
+    if (error) failRepo("cashRegister.open", error);
     return cashSessionRowToTs(data, []);
   },
 

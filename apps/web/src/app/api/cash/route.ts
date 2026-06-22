@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 /**
  * Sesiones de caja — fuente de verdad servidor cuando DATA_SOURCE=supabase.
@@ -45,7 +46,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: toUserFacingMessage(
+          e,
+          "No se pudo cargar la caja. Intenta nuevamente.",
+        ),
+      },
+      { status: 400 },
+    );
   }
 }
 
@@ -57,18 +66,39 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
-    const body = (await req.json()) as { openingAmount?: unknown };
+    const body = (await req.json()) as {
+      openingAmount?: unknown;
+      branchId?: unknown;
+    };
     const openingAmount = Number(body.openingAmount);
     if (!Number.isFinite(openingAmount) || openingAmount < 0) {
       return NextResponse.json(
-        { error: "openingAmount debe ser un número >= 0" },
+        { error: "El monto de apertura debe ser un número válido." },
         { status: 422 },
       );
     }
     const ctx = await getRepoContext();
-    const session = await getRepositories().cashRegister.open(ctx, openingAmount);
+    const repos = getRepositories();
+
+    // Abrir caja para la sucursal SELECCIONADA arriba si es válida y activa del
+    // mismo negocio; si no, la del contexto (JWT). Nunca cross-business (RLS).
+    let branchId = ctx.branchId;
+    if (typeof body.branchId === "string" && body.branchId) {
+      const branch = await repos.branch.byId(ctx, body.branchId);
+      if (branch && branch.status === "active") branchId = body.branchId;
+    }
+
+    const session = await repos.cashRegister.open({ ...ctx, branchId }, openingAmount);
     return NextResponse.json({ session }, { status: 201 });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: toUserFacingMessage(
+          e,
+          "No se pudo abrir la caja por un problema de conexión. Intenta nuevamente.",
+        ),
+      },
+      { status: 400 },
+    );
   }
 }
