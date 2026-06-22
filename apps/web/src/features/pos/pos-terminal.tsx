@@ -701,7 +701,7 @@ export function PosTerminal() {
       </div>
 
       {/* ─────────────────────── Derecha: venta actual ──────────────────── */}
-      <div className="flex min-w-0 flex-col rounded-2xl border border-black/5 bg-white shadow-sm">
+      <div className="flex min-w-0 flex-col self-start rounded-2xl border border-black/5 bg-white shadow-sm">
         <div className="border-b border-black/5 p-4">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -766,9 +766,9 @@ export function PosTerminal() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="max-h-[55vh] overflow-y-auto">
           {cart.length === 0 && !issued && (
-            <div className="flex h-full flex-col items-center justify-center px-8 py-12 text-center text-sm opacity-60">
+            <div className="flex flex-col items-center justify-center px-8 py-12 text-center text-sm opacity-60">
               <ShoppingCart className="mb-2 h-8 w-8 opacity-30" />
               <div className="font-medium">Carrito vacío</div>
               <div className="text-xs">

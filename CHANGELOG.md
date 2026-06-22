@@ -19,6 +19,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.5.1] - 2026-06-22
+
+### Fixed
+- **POS — layout del panel "Venta actual": el resumen quedaba pegado al pie con
+  un espacio blanco gigante.** Causa: el grid del POS fuerza
+  `min-h-[calc(100vh-12rem)]` y los paneles se estiraban a esa altura; la lista
+  de items del carrito era `flex-1`, así que se expandía para llenar todo el
+  panel y empujaba Subtotal/ITBIS/Total/"Cobrar venta" al fondo (hueco enorme
+  entre los productos y el resumen). Ahora el panel usa `self-start` (altura
+  según contenido) y la lista usa `max-h-[55vh] overflow-y-auto` en vez de
+  `flex-1`: el resumen fluye justo debajo de los productos y baja naturalmente
+  al agregar más; con muchos productos solo la lista hace scroll y el botón
+  "Cobrar venta" queda accesible. Carrito vacío se ve limpio (sin resumen al
+  fondo).
+
+---
+
 ## [0.5.0] - 2026-06-22
 
 ### Fixed
