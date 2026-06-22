@@ -19,6 +19,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.5.0] - 2026-06-22
+
+### Fixed
+- **POS: el click en una tarjeta con stock no agregaba al carrito (bug crítico
+  en producción).** Causa raíz: `addProduct` buscaba el producto con
+  `getProductById` del **catálogo mock**; en producción (Supabase) el id real no
+  existe en el mock → la función retornaba `undefined` y abortaba **en silencio**
+  (sin agregar nada ni mostrar error), aunque el badge mostrara "X unid. aquí"
+  (el badge usa los lotes reales). Ahora `addProduct` resuelve el producto desde
+  la lista reactiva `useProducts()` (real en Supabase) y **nunca falla en
+  silencio**: muestra toast de éxito ("Producto agregado al carrito.") o un error
+  claro ("No se pudo agregar: no hay lote vendible / el lote está vencido / en
+  cuarentena / cantidad no disponible / sin stock en {sucursal}…").
+
+### Added
+- **Botón "Agregar" visible en cada tarjeta del POS** (además del click en la
+  tarjeta; ambos hacen lo mismo). Si hay stock aquí → "Agregar"; si hay en otra
+  sucursal → "Ver stock"; si no hay en ninguna → desactivado con la razón. Cursor
+  pointer y hover claros.
+- Componente reutilizable y testeable `ProductCard` (`features/pos/`), extraído
+  del grid del POS.
+
+### Notes
+- El motor de stock (`sellableStockForBranch`, `nextFefoLotForBranch`,
+  `fefoLotsForBranch`, `stockByBranchForProduct`, `lotBlockReason`) ya era ÚNICO y
+  consistente (mismo predicado `isLotSellable`): badge y selección FEFO coinciden.
+  El cobro descuenta stock por FEFO y registra el movimiento de inventario vía
+  `PATCH /api/lots/:id`. No se mostró ningún UUID/almacén.
+
+---
+
 ## [0.4.0] - 2026-06-22
 
 ### Added

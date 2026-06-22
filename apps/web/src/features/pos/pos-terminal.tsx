@@ -15,13 +15,10 @@ import {
   MapPin,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
-import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
-import {
-  getProductById,
-} from "@/lib/mock-data/catalog";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
-import { ProductImage } from "@/features/products/components/product-image";
+import { ProductCard } from "./product-card";
 import { CustomerSearchSelect } from "@/features/customers/components/customer-search-select";
 import {
   createProformaAnywhere,
@@ -359,47 +356,60 @@ export function PosTerminal() {
       toast.error("No hay sucursal seleccionada.");
       return;
     }
-    const product = getProductById(productId);
-    if (!product) return;
+    // El producto debe venir de la lista REACTIVA (`useProducts`), que en
+    // Supabase trae los productos reales. Antes se usaba `getProductById` del
+    // catálogo MOCK → en producción el id real no existía ahí y la función
+    // retornaba `undefined`, abortando en silencio (CAUSA RAÍZ del "click no
+    // agrega al carrito" pese a mostrar stock).
+    const product = products.find((p) => p.id === productId);
+    if (!product) {
+      toast.error("No se pudo agregar: producto no encontrado.");
+      return;
+    }
 
     const lot = nextFefoLotForBranch(lots, productId, branchId);
     if (!lot) {
-      // No hay lote vendible en esta sucursal — mostrar causa y stock en otras.
+      // No hay lote vendible en esta sucursal — mensaje claro, nunca en silencio.
       const totalStock = totalSellableStock(lots, productId, activeBranchIds);
       if (totalStock > 0) {
-        const otherRows = stockByBranchForProduct(lots, productId)
-          .filter((r) => r.branchId !== branchId && r.available > 0 && activeBranchIds.has(r.branchId));
+        const otherRows = stockByBranchForProduct(lots, productId).filter(
+          (r) => r.branchId !== branchId && r.available > 0 && activeBranchIds.has(r.branchId),
+        );
         const otherList = otherRows
-          .map((r) => `${resolveBranchName(r.branchId)} (${r.available})`)
+          .map((r) => `${getBranchDisplayName(r.branchId)} (${r.available})`)
           .join(", ");
         toast.error(
-          `Sin stock en ${branchName}. Disponible en: ${otherList}.`,
+          `No se pudo agregar: sin stock en ${branchName}. Disponible en: ${otherList}.`,
         );
       } else {
         const block = lotBlockReason(lots, productId, branchId, activeBranchIds);
-        if (block && block !== "no-lot") {
-          toast.error(`${product.name}: ${blockReasonLabel(block)} — bloqueado para venta.`);
-        } else {
-          toast.error(`${product.name}: Producto agotado.`);
-        }
+        if (block === "quarantine")
+          toast.error("No se pudo agregar: el lote está en cuarentena.");
+        else if (block === "expired")
+          toast.error("No se pudo agregar: el lote está vencido.");
+        else if (block === "recall")
+          toast.error("No se pudo agregar: el lote está en recall.");
+        else toast.error("No se pudo agregar: no hay lote vendible.");
       }
       return;
     }
 
     // nextFefoLotForBranch ya excluye lotes vencidos; no es necesario re-chequear.
     const stockInBranch = sellableStockForBranch(lots, productId, branchId);
+    const existing = cart.find((l) => l.lotId === lot.id);
+    if (existing && existing.quantity + 1 > stockInBranch) {
+      toast.error(
+        `No se pudo agregar: cantidad no disponible (solo ${stockInBranch} en ${branchName}).`,
+      );
+      return;
+    }
 
     setCart((prev) => {
       const ix = prev.findIndex((l) => l.lotId === lot.id);
       if (ix >= 0) {
         const next = [...prev];
         const line = next[ix]!;
-        const newQty = line.quantity + 1;
-        if (newQty > stockInBranch) {
-          toast.error(`Solo hay ${stockInBranch} unidades disponibles en ${branchName}.`);
-          return prev;
-        }
-        next[ix] = { ...line, quantity: newQty, maxStock: stockInBranch };
+        next[ix] = { ...line, quantity: line.quantity + 1, maxStock: stockInBranch };
         return next;
       }
       return [
@@ -419,6 +429,7 @@ export function PosTerminal() {
         },
       ];
     });
+    toast.success("Producto agregado al carrito.");
     setSearch("");
   };
 
@@ -652,126 +663,33 @@ export function PosTerminal() {
               : null;
             const outOfStockHere = stockHere === 0;
             const availableElsewhere = outOfStockHere && totalStock > 0;
-            const fullyOut = totalStock === 0;
             const block = outOfStockHere
               ? lotBlockReason(lots, p.id, branchId, activeBranchIds)
               : null;
+            const blockLabel =
+              block && block !== "no-lot" && block !== "depleted"
+                ? blockReasonLabel(block)
+                : null;
 
             return (
-              <button
+              <ProductCard
                 key={p.id}
-                onClick={() => {
-                  if (availableElsewhere) {
-                    setBranchStockModal({ productId: p.id, productName: p.name });
-                  } else {
-                    addProduct(p.id);
-                  }
-                }}
-                disabled={fullyOut && !availableElsewhere}
-                className="group relative flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white text-left transition hover:border-[color:var(--brand-primary)] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label={`Agregar ${p.name}`}
-              >
-                <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-[color:var(--brand-bg)] to-white">
-                  <ProductImage
-                    src={p.imageUrl}
-                    alt={p.imageAlt ?? p.name}
-                    name={p.name}
-                    size={200}
-                    rounded="md"
-                    className="!h-full !w-full !rounded-none border-0 bg-transparent"
-                  />
-                  {/* Badge de stock en esta sucursal */}
-                  <span
-                    className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      outOfStockHere
-                        ? availableElsewhere
-                          ? "bg-amber-500 text-black"
-                          : block && block !== "no-lot" && block !== "depleted"
-                            ? "bg-orange-500 text-black"
-                            : "bg-rose-600 text-white"
-                        : stockHere <= p.minStock
-                          ? "bg-amber-500 text-black"
-                          : "bg-emerald-600 text-white"
-                    }`}
-                    title={outOfStockHere && block ? blockReasonLabel(block) : undefined}
-                  >
-                    {outOfStockHere
-                      ? availableElsewhere
-                        ? "Sin stock aquí"
-                        : block === "quarantine"
-                          ? "En cuarentena"
-                          : block === "expired"
-                            ? "Vencido"
-                            : block === "recall"
-                              ? "Recall"
-                              : "Agotado"
-                      : `${stockHere} unid. aquí`}
-                  </span>
-                  {lot && !outOfStockHere && daysUntil(lot.expiresAt) < 90 && (
-                    <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-black">
-                      FEFO
-                    </span>
-                  )}
-                  {outOfStockHere && !availableElsewhere && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <span
-                        className={`rounded-md px-3 py-1 text-xs font-bold text-white ${
-                          block === "quarantine" || block === "recall"
-                            ? "bg-orange-600"
-                            : "bg-rose-600"
-                        }`}
-                        title={block ? blockReasonLabel(block) : undefined}
-                      >
-                        {block === "quarantine"
-                          ? "En cuarentena"
-                          : block === "expired"
-                            ? "Vencido"
-                            : block === "recall"
-                              ? "Recall"
-                              : "Agotado"}
-                      </span>
-                    </div>
-                  )}
-                  {availableElsewhere && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                      <span className="rounded-md bg-amber-500 px-2 py-1 text-[10px] font-bold text-black">
-                        Ver stock por sucursal
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col p-3">
-                  <div className="line-clamp-2 text-sm font-medium leading-tight">
-                    {p.name}
-                  </div>
-                  <div className="mt-1 font-mono text-[10px] opacity-50">
-                    {p.sku}
-                  </div>
-                  <div className="mt-auto pt-2 text-base font-semibold tabular-nums">
-                    {formatCurrency(p.price)}
-                  </div>
-                  {outOfStockHere && availableElsewhere && (
-                    <div className="text-[10px] text-amber-700">
-                      Disponible en otra sucursal
-                    </div>
-                  )}
-                  {outOfStockHere && !availableElsewhere && block && block !== "no-lot" && block !== "depleted" && (
-                    <div className="text-[10px] text-orange-700">
-                      {blockReasonLabel(block)}
-                    </div>
-                  )}
-                  {outOfStockHere && fullyOut && (!block || block === "no-lot" || block === "depleted") && (
-                    <div className="text-[10px] text-rose-600">
-                      Sin stock en ninguna sucursal.
-                    </div>
-                  )}
-                  {!outOfStockHere && lot && (
-                    <div className="text-[10px] opacity-60">
-                      Lote {lot.lotNumber} · vence {formatDate(lot.expiresAt)}
-                    </div>
-                  )}
-                </div>
-              </button>
+                name={p.name}
+                sku={p.sku}
+                price={p.price}
+                imageUrl={p.imageUrl ?? undefined}
+                imageAlt={p.imageAlt ?? undefined}
+                minStock={p.minStock}
+                stockHere={stockHere}
+                availableElsewhere={availableElsewhere}
+                blockLabel={blockLabel}
+                lotNumber={lot?.lotNumber}
+                lotExpiresAt={lot?.expiresAt}
+                onAdd={() => addProduct(p.id)}
+                onViewBranchStock={() =>
+                  setBranchStockModal({ productId: p.id, productName: p.name })
+                }
+              />
             );
           })}
           {filtered.length === 0 && (
