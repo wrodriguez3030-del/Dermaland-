@@ -19,6 +19,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.5.2] - 2026-06-22
+
+### Fixed
+- **El POS no se actualizaba al cambiar la sucursal en el selector superior**
+  (mostraba una sucursal distinta a la seleccionada arriba). Causa raíz: cada
+  llamada a `useCurrentBranch()` tenía su **propio `useState`** y el efecto de
+  sincronización solo dependía de la lista de sucursales activas, así que el
+  cambio hecho en una instancia (selector superior) **no notificaba** a las
+  demás (POS, Productos). Ahora `setBranchId` emite un evento
+  (`dermaland:current-branch-changed`) y todas las instancias se re-sincronizan
+  al instante desde una **única fuente** (localStorage), además de `storage`
+  para multi-pestaña. El POS muestra exactamente la sucursal de arriba y el
+  stock/FEFO recalcula solo.
+
+### Added
+- **POS: confirmación al cambiar de sucursal con carrito no vacío.** Si hay
+  productos en la venta y se cambia la sucursal, se pide confirmación
+  ("Cambiar de sucursal limpiará la venta actual porque el stock depende de la
+  sucursal. ¿Deseas continuar?"). Confirmar limpia el carrito; cancelar revierte
+  a la sucursal anterior. Carrito vacío cambia sin preguntar. (`ConfirmDialog`).
+
+---
+
 ## [0.5.1] - 2026-06-22
 
 ### Fixed

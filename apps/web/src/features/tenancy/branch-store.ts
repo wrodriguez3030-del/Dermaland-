@@ -7,6 +7,8 @@ import { listAllLots, listAllMovements } from "@/features/inventory/lot-store";
 import { listAllProformas } from "@/features/sales/proforma-store";
 
 const KEY_CURRENT = "dermaland.current-branch";
+/** Evento que sincroniza todas las instancias de `useCurrentBranch`. */
+const BRANCH_CHANGE_EVENT = "dermaland:current-branch-changed";
 
 /**
  * Store de sucursales — MVP (localStorage).
@@ -714,34 +716,55 @@ export function useCurrentBranch(): CurrentBranchApi {
   const [branchId, setBranchIdState] = React.useState<string>("");
   const [notice, setNotice] = React.useState<string | null>(null);
 
+  // Reconcilia la sucursal guardada (localStorage) con las sucursales activas.
+  // Se ejecuta al montar, cuando cambia el set de activas, cuando OTRA instancia
+  // de este hook cambia la selección (evento `BRANCH_CHANGE_EVENT`) y cuando
+  // cambia en otra pestaña (`storage`). Sin esto, el POS y el selector superior
+  // (cada uno con su propio useState) quedaban DESINCRONIZADOS: cambiar arriba
+  // no actualizaba la sucursal dentro del POS.
   React.useEffect(() => {
-    const saved =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(KEY_CURRENT) ?? ""
-        : "";
-    const stillActive = branches.some((b) => b.id === saved);
-    if (stillActive) {
-      if (branchId !== saved) setBranchIdState(saved);
-      return;
-    }
-    const fallback = branches[0]?.id ?? "";
-    if (saved && fallback) {
-      setNotice(
-        "La sucursal seleccionada ya no está activa. Se cambió a una sucursal disponible.",
-      );
-    }
-    setBranchIdState(fallback);
-    if (typeof window !== "undefined") {
-      if (fallback) window.localStorage.setItem(KEY_CURRENT, fallback);
-      else window.localStorage.removeItem(KEY_CURRENT);
-    }
+    const reconcile = () => {
+      const saved =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(KEY_CURRENT) ?? ""
+          : "";
+      const stillActive = branches.some((b) => b.id === saved);
+      if (stillActive) {
+        setBranchIdState((cur) => (cur !== saved ? saved : cur));
+        return;
+      }
+      const fallback = branches[0]?.id ?? "";
+      if (saved && fallback) {
+        setNotice(
+          "La sucursal seleccionada ya no está activa. Se cambió a una sucursal disponible.",
+        );
+      }
+      setBranchIdState(fallback);
+      if (typeof window !== "undefined") {
+        if (fallback) window.localStorage.setItem(KEY_CURRENT, fallback);
+        else window.localStorage.removeItem(KEY_CURRENT);
+      }
+    };
+    reconcile();
+    if (typeof window === "undefined") return;
+    window.addEventListener(BRANCH_CHANGE_EVENT, reconcile);
+    window.addEventListener("storage", reconcile);
+    return () => {
+      window.removeEventListener(BRANCH_CHANGE_EVENT, reconcile);
+      window.removeEventListener("storage", reconcile);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branches.map((b) => b.id).join(",")]);
 
   const setBranchId = React.useCallback((id: string) => {
     setBranchIdState(id);
     setNotice(null);
-    if (typeof window !== "undefined") window.localStorage.setItem(KEY_CURRENT, id);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(KEY_CURRENT, id);
+      // Notifica a TODAS las instancias del hook (POS, selector superior, etc.)
+      // para que se sincronicen al instante con una sola fuente de verdad.
+      window.dispatchEvent(new CustomEvent(BRANCH_CHANGE_EVENT));
+    }
   }, []);
 
   return {

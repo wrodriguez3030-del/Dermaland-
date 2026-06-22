@@ -15,6 +15,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
@@ -230,6 +231,23 @@ export function PosTerminal() {
     );
   };
 
+  // ── Carrito ligado a su sucursal ───────────────────────────────────────────
+  // El carrito pertenece a la sucursal donde se agregaron sus productos
+  // (`cartBranchId`). Si cambian la sucursal global (selector superior) y hay
+  // carrito de OTRA sucursal, pedimos confirmación porque el stock —y los
+  // lotes— dependen de la sucursal. Carrito vacío → cambia sin preguntar.
+  const [cartBranchId, setCartBranchId] = React.useState("");
+  const [branchSwitchOpen, setBranchSwitchOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    setBranchSwitchOpen(
+      cart.length > 0 &&
+        cartBranchId !== "" &&
+        branchId !== "" &&
+        branchId !== cartBranchId,
+    );
+  }, [branchId, cartBranchId, cart.length]);
+
   // ── Lotes reactivos (Supabase o local según NEXT_PUBLIC_DATA_SOURCE) ──────
   const lots = useAllLots();
   const activeBranches = useActiveBranches();
@@ -429,6 +447,7 @@ export function PosTerminal() {
         },
       ];
     });
+    setCartBranchId(branchId);
     toast.success("Producto agregado al carrito.");
     setSearch("");
   };
@@ -589,6 +608,7 @@ export function PosTerminal() {
       documentLabel: resolved.label,
     });
     setCart([]);
+    setCartBranchId("");
     setDiscountGlobalPercent(0);
     setCustomerId("");
     setChargeOpen(false);
@@ -709,7 +729,10 @@ export function PosTerminal() {
             </h2>
             {cart.length > 0 && (
               <button
-                onClick={() => setCart([])}
+                onClick={() => {
+                  setCart([]);
+                  setCartBranchId("");
+                }}
                 className="text-xs opacity-60 hover:text-rose-700"
               >
                 Vaciar
@@ -1016,6 +1039,26 @@ export function PosTerminal() {
           requireExpiry={true}
         />
       )}
+
+      {/* Cambio de sucursal con carrito no vacío: confirmar antes de limpiar. */}
+      <ConfirmDialog
+        open={branchSwitchOpen}
+        destructive={false}
+        title="Cambiar de sucursal"
+        message="Cambiar de sucursal limpiará la venta actual porque el stock depende de la sucursal. ¿Deseas continuar?"
+        confirmLabel="Cambiar sucursal"
+        cancelLabel="Cancelar"
+        onConfirm={() => {
+          setCart([]);
+          setCartBranchId("");
+          setBranchSwitchOpen(false);
+        }}
+        onCancel={() => {
+          // Revertir la selección global a la sucursal del carrito.
+          setBranchId(cartBranchId);
+          setBranchSwitchOpen(false);
+        }}
+      />
     </div>
   );
 }
