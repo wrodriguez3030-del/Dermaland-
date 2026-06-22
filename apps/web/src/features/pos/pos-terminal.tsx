@@ -55,7 +55,9 @@ import {
   useCurrentBranch,
   useActiveBranches,
   resolveBranchName,
+  getBranchDisplayName,
 } from "@/features/tenancy/branch-store";
+import { NewLotModal } from "@/features/inventory/lot-modals";
 
 interface CartLine {
   productId: string;
@@ -83,25 +85,44 @@ function blockReasonLabel(reason: LotBlockReason): string {
   }
 }
 
-/** Modal simple de stock por sucursal */
-function BranchStockModal({
+/**
+ * Modal de stock por sucursal. Además de listar dónde hay stock, ofrece las
+ * acciones para que el cajero no quede perdido cuando el producto no tiene
+ * stock en la sucursal actual:
+ *   1. Cambiar a la sucursal con stock (cambia la sucursal seleccionada).
+ *   2. Agregar stock aquí (abre el modal de alta preseleccionado a la actual).
+ *   3. Transferir stock (lleva al flujo de transferencias).
+ * Nunca muestra UUIDs: usa `getBranchDisplayName`.
+ */
+export function BranchStockModal({
   open,
   productName,
   rows,
+  currentBranchId,
+  currentBranchName,
   onClose,
+  onSwitchBranch,
+  onAddStockHere,
 }: {
   open: boolean;
   productName: string;
   rows: { branchId: string; available: number; lots: number; soon: number; expired: number }[];
+  currentBranchId: string;
+  currentBranchName: string;
   onClose: () => void;
+  onSwitchBranch: (branchId: string, available: number) => void;
+  onAddStockHere: () => void;
 }) {
   if (!open) return null;
+  const branchesWithStock = rows.filter(
+    (r) => r.available > 0 && r.branchId !== currentBranchId,
+  );
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Stock por sucursal — {productName}</h3>
-          <button onClick={onClose} className="opacity-60 hover:opacity-100">
+          <button onClick={onClose} aria-label="Cerrar" className="opacity-60 hover:opacity-100">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -117,7 +138,7 @@ function BranchStockModal({
           <tbody>
             {rows.map((r) => (
               <tr key={r.branchId} className="border-b last:border-0">
-                <td className="py-2 font-medium">{resolveBranchName(r.branchId)}</td>
+                <td className="py-2 font-medium">{getBranchDisplayName(r.branchId)}</td>
                 <td className={`py-2 text-right tabular-nums font-semibold ${r.available > 0 ? "text-emerald-700" : "text-rose-600"}`}>
                   {r.available}
                 </td>
@@ -129,7 +150,34 @@ function BranchStockModal({
             ))}
           </tbody>
         </table>
-        <Button size="sm" variant="outline" className="mt-4 w-full" onClick={onClose}>
+
+        <div className="mt-5 space-y-2">
+          {branchesWithStock.map((r) => (
+            <Button
+              key={r.branchId}
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => onSwitchBranch(r.branchId, r.available)}
+            >
+              <MapPin className="h-4 w-4" /> Cambiar a {getBranchDisplayName(r.branchId)} ({r.available} unid.)
+            </Button>
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full justify-center"
+            onClick={onAddStockHere}
+          >
+            <Plus className="h-4 w-4" /> Agregar stock aquí — {currentBranchName}
+          </Button>
+          <Link href="/inventario/transferencias/nueva" className="block">
+            <Button size="sm" variant="outline" className="w-full justify-center">
+              Transferir stock
+            </Button>
+          </Link>
+        </div>
+
+        <Button size="sm" variant="ghost" className="mt-2 w-full" onClick={onClose}>
           Cerrar
         </Button>
       </div>
@@ -160,10 +208,30 @@ export function PosTerminal() {
   } | null>(null);
 
   // ── Sucursal actual ────────────────────────────────────────────────────────
-  const { branchId: rawBranchId, branches } = useCurrentBranch();
+  const { branchId: rawBranchId, branches, setBranchId } = useCurrentBranch();
   // Si aún no se resolvió la sucursal (hydration), usar la primera activa.
   const branchId = rawBranchId || branches[0]?.id || "";
-  const branchName = branches.find((b) => b.id === branchId)?.name ?? branchId;
+  // Nombre legible — NUNCA el UUID.
+  const branchName =
+    branches.find((b) => b.id === branchId)?.name ??
+    getBranchDisplayName(branchId, "Sucursal seleccionada");
+
+  // Producto para el que se abrió "Agregar stock aquí" (modal de alta de lote).
+  const [addStockProduct, setAddStockProduct] = React.useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // Cambia la sucursal seleccionada a una que sí tiene stock (desde el modal de
+  // stock por sucursal). La selección se comparte con Productos y el selector
+  // superior (useCurrentBranch).
+  const switchToBranchWithStock = (targetBranchId: string, available: number) => {
+    setBranchId(targetBranchId);
+    setBranchStockModal(null);
+    toast.success(
+      `Cambiado a ${getBranchDisplayName(targetBranchId)}. ${available} unidades disponibles aquí.`,
+    );
+  };
 
   // ── Lotes reactivos (Supabase o local según NEXT_PUBLIC_DATA_SOURCE) ──────
   const lots = useAllLots();
@@ -997,7 +1065,7 @@ export function PosTerminal() {
       />
       <toast.Toast />
 
-      {/* Modal de stock por sucursal */}
+      {/* Modal de stock por sucursal + acciones (cambiar / agregar / transferir) */}
       {branchStockModal && (
         <BranchStockModal
           open={true}
@@ -1005,7 +1073,29 @@ export function PosTerminal() {
           rows={stockByBranchForProduct(lots, branchStockModal.productId).filter(
             (r) => activeBranchIds.has(r.branchId),
           )}
+          currentBranchId={branchId}
+          currentBranchName={branchName}
           onClose={() => setBranchStockModal(null)}
+          onSwitchBranch={switchToBranchWithStock}
+          onAddStockHere={() => {
+            setAddStockProduct({
+              id: branchStockModal.productId,
+              name: branchStockModal.productName,
+            });
+            setBranchStockModal(null);
+          }}
+        />
+      )}
+
+      {/* Agregar stock aquí — preseleccionado a la sucursal actual del POS */}
+      {addStockProduct && (
+        <NewLotModal
+          open={true}
+          onClose={() => setAddStockProduct(null)}
+          productId={addStockProduct.id}
+          productName={addStockProduct.name}
+          defaultBranchId={branchId || undefined}
+          requireExpiry={true}
         />
       )}
     </div>

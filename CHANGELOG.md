@@ -19,6 +19,35 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.4.0] - 2026-06-22
+
+### Added
+- **POS: acciones cuando un producto no tiene stock en la sucursal actual.** El
+  modal "Stock por sucursal" ahora ofrece tres botones para que el cajero no
+  quede perdido:
+  - **Cambiar a {sucursal} ({n} unid.)** — cambia la sucursal seleccionada (la
+    misma que usan Productos y el selector superior, vía `useCurrentBranch`) a
+    una que sí tiene stock, con toast de confirmación.
+  - **Agregar stock aquí — {sucursal actual}** — abre el alta de lote
+    preseleccionada a la sucursal actual (p. ej. Dermaland Cutis); guarda en ese
+    `branch_id` exacto y, si la sucursal no tenía almacén interno, se crea solo
+    (`ensureDefaultWarehouseForBranch`).
+  - **Transferir stock** — lleva al flujo de transferencias.
+
+### Fixed
+- POS ya no puede mostrar el UUID de la sucursal actual como nombre (fallback
+  `?? branchId` reemplazado por `getBranchDisplayName(..., "Sucursal
+  seleccionada")`); el modal de stock por sucursal usa nombres legibles.
+
+### Notes
+- Diagnóstico (Supabase real): las únicas sucursales reales activas del negocio
+  son **Dermaland Cutis** y **DermaLand Principal** (ambas con almacén interno).
+  No existen Naco/Piantini/Santiago como sucursales reales (eran mock). El lote
+  de A-derma (30 unid., `INIT-DERM-I00059`) está legítimamente en DermaLand
+  Principal: no hubo corrupción, solo el POS estaba en otra sucursal.
+
+---
+
 ## [0.3.1] - 2026-06-22
 
 ### Fixed
