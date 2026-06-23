@@ -19,6 +19,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.7.0] - 2026-06-23
+
+### Added
+- **POS: productos FAVORITOS.** Cada tarjeta tiene una ⭐ (vacía = "Agregar a
+  favoritos", llena = "Quitar de favoritos"). Toggle **"Solo favoritos"** en la
+  barra y **favoritos primero** en el orden por defecto. Empty-state guía cuando
+  no hay favoritos. **No afecta stock/inventario.** Persistencia por equipo
+  (localStorage); migración `0013` lista (tabla `pos_product_favorites`, RLS por
+  business_id) para favoritos por negocio cuando se aplique con acceso a DB.
+- **POS: DESCUENTO por producto (por línea).** Botón de descuento en cada línea
+  del carrito → mini-modal "Descuento del producto" (Porcentaje % / Monto RD$ /
+  Sin descuento + motivo opcional), con vista previa. Recalcula el total de la
+  línea, el ITBIS (sobre la base neta) y el total de la venta. Validaciones:
+  no negativo, % ≤ 100, monto ≤ subtotal de línea, sin descuento a producto con
+  precio 0, nunca total negativo. El resumen muestra **Subtotal bruto /
+  Descuentos productos / Descuento global / ITBIS / Total**. El descuento por
+  línea persiste en `proforma_items.discount` y se ve en el ticket/PDF
+  (`receipt-80mm` muestra "· Desc. RD$…"). El descuento global sigue funcionando.
+- Motor puro `cart-line.ts` (`lineAmounts`, `cartTotals`, `validateLineDiscount`)
+  + `favorites-store.ts`, con tests.
+
+### Notes
+- La migración `0013` (favoritos por negocio + columnas `discount_type/value/
+  reason` en `proforma_items`) NO se pudo aplicar automáticamente (sin acceso DDL
+  al Supabase Cloud: `SUPABASE_DB_URL` es placeholder). Ninguna feature depende
+  de ella para funcionar: favoritos usa localStorage y el descuento por línea usa
+  la columna `discount` ya existente. Aplicar `0013` en el SQL editor habilita
+  favoritos compartidos por negocio y los metadatos de descuento.
+
+---
+
 ## [0.6.2] - 2026-06-22
 
 ### Changed

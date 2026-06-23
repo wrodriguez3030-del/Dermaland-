@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, MapPin } from "lucide-react";
+import { Plus, MapPin, Star } from "lucide-react";
 import { Button } from "@/components/ui";
 import { ProductImage } from "@/features/products/components/product-image";
 import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
@@ -26,6 +26,10 @@ export interface ProductCardProps {
   onAdd: () => void;
   /** Ver stock por sucursal (stock en otra sucursal). */
   onViewBranchStock: () => void;
+  /** ¿Producto favorito? Muestra estrella llena. */
+  isFavorite?: boolean;
+  /** Marcar/desmarcar favorito (no afecta stock). */
+  onToggleFavorite?: () => void;
 }
 
 /**
@@ -48,6 +52,8 @@ export function ProductCard({
   lotExpiresAt,
   onAdd,
   onViewBranchStock,
+  isFavorite = false,
+  onToggleFavorite,
 }: ProductCardProps) {
   const inStockHere = stockHere > 0;
   const actionable = inStockHere || availableElsewhere;
@@ -95,8 +101,29 @@ export function ProductCard({
               ? "Sin stock aquí"
               : blockLabel ?? "Agotado"}
         </span>
+        {onToggleFavorite && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite();
+            }}
+            title={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+            aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+            aria-pressed={isFavorite}
+            className="absolute right-2 top-2 z-10 rounded-full bg-white/85 p-1 shadow-sm backdrop-blur transition hover:bg-white"
+          >
+            <Star
+              className={`h-4 w-4 ${
+                isFavorite
+                  ? "fill-amber-400 text-amber-500"
+                  : "text-black/40 hover:text-amber-500"
+              }`}
+            />
+          </button>
+        )}
         {inStockHere && lotExpiresAt && daysUntil(lotExpiresAt) < 90 && (
-          <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-black">
+          <span className="absolute right-2 top-10 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-black">
             FEFO
           </span>
         )}

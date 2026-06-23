@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   FileText,
   MapPin,
+  Star,
+  Percent,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -20,6 +22,13 @@ import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
 import { ProductCard } from "./product-card";
+import { useFavorites } from "./favorites-store";
+import { LineDiscountModal } from "./line-discount-modal";
+import {
+  lineAmounts,
+  cartTotals,
+  type LineDiscountType,
+} from "./cart-line";
 import { CustomerSearchSelect } from "@/features/customers/components/customer-search-select";
 import {
   createProformaAnywhere,
@@ -67,7 +76,13 @@ interface CartLine {
   unitPrice: number;
   itbisRate: number;
   quantity: number;
+  /** Monto de descuento de la línea en BASE (pre-ITBIS) — derivado del tipo/valor. */
   discount: number;
+  /** Descuento por producto. */
+  discountType: LineDiscountType;
+  /** % (0–100) o monto RD$ inclusivo, según el tipo. */
+  discountValue: number;
+  discountReason?: string;
   /** Stock vendible en la sucursal al momento de agregar al carrito. */
   maxStock: number;
 }
@@ -269,18 +284,25 @@ export function PosTerminal() {
   }, [customerId, customers]);
 
   const products = useProducts();
+  const { favorites, isFavorite, toggle: toggleFavorite } = useFavorites();
+  const [onlyFavorites, setOnlyFavorites] = React.useState(false);
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return products.slice(0, 16);
-    return products
-      .filter(
+    let list = products;
+    if (q) {
+      list = products.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.sku.toLowerCase().includes(q) ||
           (p.barcode && p.barcode.includes(q)),
-      )
-      .slice(0, 24);
-  }, [search, products]);
+      );
+    }
+    if (onlyFavorites) list = list.filter((p) => favorites.has(p.id));
+    // Favoritos PRIMERO (estable), luego el resto — para vender más rápido.
+    const fav = list.filter((p) => favorites.has(p.id));
+    const rest = list.filter((p) => !favorites.has(p.id));
+    return [...fav, ...rest].slice(0, q || onlyFavorites ? 48 : 24);
+  }, [search, products, onlyFavorites, favorites]);
 
   // ── Banner: sucursal sin stock ────────────────────────────────────────────
   // Calculado sobre los productos filtrados para no iterar todo el catálogo.
@@ -320,23 +342,42 @@ export function PosTerminal() {
       };
     }, [branchId, filtered, lots, activeBranchIds]);
 
-  const subtotal = cart.reduce(
-    (s, l) => s + (l.unitPrice / (1 + l.itbisRate / 100)) * l.quantity - l.discount,
-    0,
-  );
-  const itbis = cart.reduce(
-    (s, l) =>
-      s +
-      ((l.unitPrice / (1 + l.itbisRate / 100)) * (l.itbisRate / 100)) *
-        l.quantity,
-    0,
-  );
-  const safePct = Math.min(100, Math.max(0, discountGlobalPercent));
-  const globalDiscountAmount = subtotal * (safePct / 100);
-  const taxableBase = Math.max(0, subtotal - globalDiscountAmount);
-  const scaledItbis = subtotal > 0 ? itbis * (taxableBase / subtotal) : 0;
-  const total = Math.max(0, taxableBase + scaledItbis);
+  // Totales con el motor de cálculo (descuento por línea + descuento global).
+  const totals = cartTotals(cart, discountGlobalPercent);
+  const subtotal = totals.subtotalNeto; // base después de descuentos por línea
+  const globalDiscountAmount = totals.globalDiscount;
+  const scaledItbis = totals.itbis;
+  const total = totals.total;
   const customer = customers.find((c) => c.id === customerId);
+
+  // ── Descuento por línea (mini-modal) ─────────────────────────────────────────
+  const [discountLot, setDiscountLot] = React.useState<string | null>(null);
+  const applyLineDiscount = (
+    lotId: string,
+    type: LineDiscountType,
+    value: number,
+    reason: string,
+  ) => {
+    setCart((prev) =>
+      prev.map((l) => {
+        if (l.lotId !== lotId) return l;
+        const a = lineAmounts({
+          unitPrice: l.unitPrice,
+          itbisRate: l.itbisRate,
+          quantity: l.quantity,
+          discountType: type,
+          discountValue: value,
+        });
+        return {
+          ...l,
+          discountType: type,
+          discountValue: value,
+          discountReason: reason || undefined,
+          discount: a.discountBase,
+        };
+      }),
+    );
+  };
 
   // Validación crédito fiscal: requiere RNC.
   const creditFiscalNeedsRnc =
@@ -443,6 +484,8 @@ export function PosTerminal() {
           itbisRate: product.itbisRate,
           quantity: 1,
           discount: 0,
+          discountType: "none",
+          discountValue: 0,
           maxStock: stockInBranch,
         },
       ];
@@ -505,22 +548,24 @@ export function PosTerminal() {
       customerDocument: customer?.documentNumber,
       cashierId: "usr_cashier_1",
       cashierName: "Rosa Peralta",
-      items: cart.map((l) => ({
-        productId: l.productId,
-        productSku: l.productSku,
-        productName: l.productName,
-        lotId: l.lotId,
-        lotNumber: l.lotNumber,
-        quantity: l.quantity,
-        unitPrice: l.unitPrice,
-        itbisRate: l.itbisRate,
-        discount: l.discount,
-        subtotal: (l.unitPrice / (1 + l.itbisRate / 100)) * l.quantity - l.discount,
-        itbis:
-          ((l.unitPrice / (1 + l.itbisRate / 100)) * (l.itbisRate / 100)) *
-          l.quantity,
-        total: l.unitPrice * l.quantity - l.discount,
-      })),
+      items: cart.map((l) => {
+        // Montos por línea con descuento aplicado (motor único).
+        const a = lineAmounts(l);
+        return {
+          productId: l.productId,
+          productSku: l.productSku,
+          productName: l.productName,
+          lotId: l.lotId,
+          lotNumber: l.lotNumber,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          itbisRate: l.itbisRate,
+          discount: a.discountBase,
+          subtotal: a.netBase,
+          itbis: a.itbis,
+          total: a.total,
+        };
+      }),
       subtotal,
       discount: globalDiscountAmount,
       itbis: scaledItbis,
@@ -638,6 +683,18 @@ export function PosTerminal() {
             <span className="hidden sm:inline">Simular escaneo</span>
             <span className="sm:hidden">Escanear</span>
           </Button>
+          <Button
+            variant={onlyFavorites ? "primary" : "outline"}
+            size="md"
+            onClick={() => setOnlyFavorites((v) => !v)}
+            title={onlyFavorites ? "Ver todos los productos" : "Ver solo favoritos"}
+            aria-pressed={onlyFavorites}
+          >
+            <Star className={`h-4 w-4 ${onlyFavorites ? "fill-current" : ""}`} />
+            <span className="hidden sm:inline">
+              {onlyFavorites ? "Favoritos" : "Solo favoritos"}
+            </span>
+          </Button>
         </div>
 
         {branchId && (
@@ -709,12 +766,16 @@ export function PosTerminal() {
                 onViewBranchStock={() =>
                   setBranchStockModal({ productId: p.id, productName: p.name })
                 }
+                isFavorite={isFavorite(p.id)}
+                onToggleFavorite={() => toggleFavorite(p.id)}
               />
             );
           })}
           {filtered.length === 0 && (
             <div className="col-span-full py-12 text-center text-sm opacity-60">
-              Sin productos coincidentes.
+              {onlyFavorites
+                ? "Todavía no tienes productos favoritos. Marca productos con ⭐ para vender más rápido."
+                : "Sin productos coincidentes."}
             </div>
           )}
         </div>
@@ -857,6 +918,8 @@ export function PosTerminal() {
           <ul className="divide-y divide-black/5">
             {cart.map((l) => {
               const currentStock = sellableStockForBranch(lots, l.productId, branchId);
+              const amt = lineAmounts(l);
+              const hasDiscount = l.discountType !== "none" && amt.discountInclusive > 0;
               return (
                 <li key={l.lotId} className="px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
@@ -873,6 +936,19 @@ export function PosTerminal() {
                       <div className="text-[10px] opacity-50">
                         Disponible: {currentStock} unid.
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setDiscountLot(l.lotId)}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-[color:var(--brand-accent)] hover:underline"
+                        aria-label={`Descuento de ${l.productName}`}
+                      >
+                        <Percent className="h-3 w-3" />
+                        {hasDiscount
+                          ? l.discountType === "percent"
+                            ? `Descuento: ${l.discountValue}% (-${formatCurrency(amt.discountInclusive)})`
+                            : `Descuento: -${formatCurrency(amt.discountInclusive)}`
+                          : "Agregar descuento"}
+                      </button>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <div className="flex items-center gap-1 rounded-lg border border-black/10">
@@ -911,8 +987,15 @@ export function PosTerminal() {
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
-                      <div className="text-sm font-semibold tabular-nums">
-                        {formatCurrency(l.unitPrice * l.quantity)}
+                      <div className="text-right">
+                        {hasDiscount && (
+                          <div className="text-[10px] tabular-nums text-black/40 line-through">
+                            {formatCurrency(amt.grossInclusive)}
+                          </div>
+                        )}
+                        <div className="text-sm font-semibold tabular-nums">
+                          {formatCurrency(amt.total)}
+                        </div>
                       </div>
                       <button
                         onClick={() => removeLine(l.lotId)}
@@ -932,7 +1015,13 @@ export function PosTerminal() {
         {cart.length > 0 && (
           <div className="border-t border-black/5 p-4">
             <div className="space-y-1 text-sm">
-              <Row label="Subtotal" value={formatCurrency(subtotal)} />
+              <Row label="Subtotal bruto" value={formatCurrency(totals.subtotalBruto)} />
+              {totals.lineDiscounts > 0 && (
+                <Row
+                  label="Descuentos productos"
+                  value={`-${formatCurrency(totals.lineDiscounts)}`}
+                />
+              )}
               <Row label="ITBIS" value={formatCurrency(scaledItbis)} />
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs opacity-70">Descuento global (%)</span>
@@ -963,7 +1052,7 @@ export function PosTerminal() {
               </div>
               {discountGlobalPercent > 0 && (
                 <Row
-                  label="Descuento aplicado"
+                  label="Descuento global"
                   value={`-${formatCurrency(globalDiscountAmount)}`}
                 />
               )}
@@ -1062,6 +1151,28 @@ export function PosTerminal() {
           setBranchSwitchOpen(false);
         }}
       />
+
+      {/* Descuento por línea */}
+      {(() => {
+        const dl = cart.find((l) => l.lotId === discountLot);
+        if (!dl) return null;
+        return (
+          <LineDiscountModal
+            open={true}
+            productName={dl.productName}
+            unitPrice={dl.unitPrice}
+            itbisRate={dl.itbisRate}
+            quantity={dl.quantity}
+            initialType={dl.discountType}
+            initialValue={dl.discountValue}
+            initialReason={dl.discountReason}
+            onClose={() => setDiscountLot(null)}
+            onApply={(type, value, reason) =>
+              applyLineDiscount(dl.lotId, type, value, reason)
+            }
+          />
+        );
+      })()}
     </div>
   );
 }
