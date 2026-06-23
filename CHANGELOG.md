@@ -19,6 +19,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.6.2] - 2026-06-22
+
+### Changed
+- **Stock por lote reorganizado como las demás pantallas.** Ordenamiento por
+  defecto **Cantidad mayor→menor** (lotes con más unidades arriba, 0 abajo) y
+  columnas ordenables (Producto, Lote, Sucursal, Cantidad, Vence, Días, Estado,
+  Valor) con `useTableSort`/`SortableTH`. Filtros funcionales: búsqueda
+  (producto/SKU/lote/marca/laboratorio), estado (Todos / Disponible / Sin stock /
+  Por vencer / Vencido / Cuarentena / Recall) y sucursal (sucursales activas
+  reales, sin UUID). Acciones por fila (Ver detalle, Editar, Ver movimientos,
+  Mover a cuarentena / Liberar) — estas dos ahora **funcionan de verdad**
+  (`quarantineLotAnywhere`/`releaseLotAnywhere`, antes solo mostraban un toast).
+
+### Fixed
+- Stock por lote usaba **`getProductById` (catálogo MOCK)** → en Supabase el
+  `product_id` real no existe en el mock y el producto salía sin nombre/SKU/
+  imagen. Ahora resuelve los productos desde `useProducts()` (misma fuente que
+  Stock actual y POS). `current_quantity` y `unit_cost` para cantidad y valor.
+
+---
+
 ## [0.6.1] - 2026-06-22
 
 ### Fixed
