@@ -1,3 +1,4 @@
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
@@ -63,6 +64,6 @@ export async function POST(
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo completar la operación de inventario. Intenta nuevamente.") }, { status: 400 });
   }
 }

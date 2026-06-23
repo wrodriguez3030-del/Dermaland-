@@ -1,3 +1,4 @@
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
@@ -19,7 +20,7 @@ export async function GET(): Promise<NextResponse> {
     const laboratories = await getRepositories().laboratory.list(ctx);
     return NextResponse.json({ laboratories }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo guardar el catálogo. Intenta nuevamente.") }, { status: 400 });
   }
 }
 
@@ -31,6 +32,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const laboratory = await getRepositories().laboratory.create(ctx, body);
     return NextResponse.json({ laboratory }, { status: 201 });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo guardar el catálogo. Intenta nuevamente.") }, { status: 400 });
   }
 }

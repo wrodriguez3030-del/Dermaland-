@@ -1,3 +1,4 @@
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
@@ -24,7 +25,7 @@ export async function PATCH(
     const expense = await getRepositories().expense.update(ctx, id, body);
     return NextResponse.json({ expense });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo completar la operación de gastos. Intenta nuevamente.") }, { status: 400 });
   }
 }
 
@@ -39,6 +40,6 @@ export async function DELETE(
     await getRepositories().expense.softDelete(ctx, id);
     return NextResponse.json({ ok: true });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo completar la operación de gastos. Intenta nuevamente.") }, { status: 400 });
   }
 }

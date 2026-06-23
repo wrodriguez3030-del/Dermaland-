@@ -1,3 +1,4 @@
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const invoices = await getRepositories().supplierInvoice.list(ctx, { branchId, status });
     return NextResponse.json({ invoices }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo completar la operación de compras. Intenta nuevamente.") }, { status: 400 });
   }
 }
 
@@ -33,6 +34,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const invoice = await getRepositories().supplierInvoice.create(ctx, body);
     return NextResponse.json({ invoice }, { status: 201 });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo completar la operación de compras. Intenta nuevamente.") }, { status: 400 });
   }
 }

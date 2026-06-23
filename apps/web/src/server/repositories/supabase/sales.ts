@@ -228,7 +228,10 @@ export const proformaRepository: ProformaRepository = {
         subtotal: it.subtotal,
         itbis: it.itbis,
         total: it.total,
-        kind: "product",
+        // DGII: los productos son "bien" (servicios = "servicio"). El valor
+        // "product" violaba el check `kind in ('bien','servicio')` → el insert
+        // de items fallaba y rompía TODO el cobro (causa raíz).
+        kind: "bien",
       }));
       const { error: iErr } = await sb.from("proforma_items").insert(itemRows);
       if (iErr) {

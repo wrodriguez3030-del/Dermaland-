@@ -1,3 +1,4 @@
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
@@ -52,7 +53,7 @@ export async function GET(
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: errorStatus(e) });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo registrar la venta. Intenta nuevamente.") }, { status: errorStatus(e) });
   }
 }
 
@@ -77,6 +78,6 @@ export async function PATCH(
       { status: 400 },
     );
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: errorStatus(e) });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo registrar la venta. Intenta nuevamente.") }, { status: errorStatus(e) });
   }
 }

@@ -168,12 +168,19 @@ export async function createProformaAnywhere(
         error?: string;
       };
       if (!res.ok || !body.proforma) {
-        return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+        return {
+          ok: false,
+          error: body.error ?? "No se pudo registrar la venta. Intenta nuevamente.",
+        };
       }
       notifyChanged();
       return { ok: true, proforma: body.proforma };
-    } catch (e) {
-      return { ok: false, error: (e as Error).message };
+    } catch {
+      // Error de red/conexión (nunca técnico de Supabase).
+      return {
+        ok: false,
+        error: "No se pudo conectar con el servidor. Intenta nuevamente.",
+      };
     }
   }
   // Modo local

@@ -1,3 +1,4 @@
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Proforma } from "@/types";
 import {
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (err) {
     if (err instanceof DgiiPdfError || err instanceof Error) {
       return NextResponse.json(
-        { error: err.message },
+        { error: toUserFacingMessage(err, "No se pudo completar la operación. Intenta nuevamente.") },
         { status: 400 },
       );
     }

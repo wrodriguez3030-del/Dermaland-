@@ -19,6 +19,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.7.1] - 2026-06-23
+
+### Fixed
+- **Cobrar en POS fallaba con un error técnico "SupabaseRepository: …".** Causa
+  raíz: el insert de `proforma_items` enviaba `kind: "product"`, pero la columna
+  tiene `check (kind in ('bien','servicio'))` → **23514 check_violation** en cada
+  ítem → fallaba TODO el cobro. Corregido a `kind: "bien"` (los productos son
+  "bien" en DGII). El resto de enums del cobro (status, método de pago,
+  billing_type) ya eran válidos.
+- **Auditoría global: ningún error técnico llega a la UI.** 33 rutas `/api/*`
+  devolvían el mensaje crudo (`(e as Error).message`) → podían filtrar
+  "SupabaseRepository: …" / SQL / detalles. Ahora **todas** usan
+  `toUserFacingMessage(e, <fallback amigable>)`, que loguea el detalle en el
+  servidor y devuelve un mensaje claro.
+
+### Changed
+- **Mapeador central de errores** (`client.ts`): nuevo `friendlyForPgCode(code)`
+  (23505 duplicado, 23503 referencia/en uso, 23502 falta dato, 23514 reglas,
+  22P02 formato, 22007/22008 fecha, 42501 permiso, 08xxx conexión). `failRepo` y
+  `toUserFacingMessage` lo reutilizan; `toUserFacingMessage` ahora mapea el código
+  PG **aunque el repo lance `SupabaseRepositoryError`** (lee `error.cause`), así
+  el usuario ve "No tienes permiso…", "Ya existe un registro…", etc., nunca el
+  prefijo técnico. Alias `mapSupabaseErrorToUserMessage`. El wrapper de cobro
+  muestra "No se pudo conectar con el servidor. Intenta nuevamente." ante fallos
+  de red.
+
+---
+
 ## [0.7.0] - 2026-06-23
 
 ### Added

@@ -1,3 +1,4 @@
+import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo guardar la sucursal. Intenta nuevamente.") }, { status: 400 });
   }
 }
 
@@ -48,6 +49,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const branch = await getRepositories().branch.create(ctx, body);
     return NextResponse.json({ branch }, { status: 201 });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo guardar la sucursal. Intenta nuevamente.") }, { status: 400 });
   }
 }

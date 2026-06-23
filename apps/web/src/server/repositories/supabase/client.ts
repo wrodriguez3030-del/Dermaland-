@@ -58,46 +58,42 @@ export function pgErrorCode(error: unknown): string | undefined {
  *  - 22007 / 22008 datetime inválido → "fecha no válida"
  *  - 42501 insufficient_privilege / RLS → "no tienes permiso"
  */
+/**
+ * Mapa central CÓDIGO POSTGRES → mensaje amigable para el usuario.
+ * Devuelve `undefined` si el código no se reconoce (el caller usa su fallback).
+ * Estos textos NUNCA contienen detalles técnicos (SQL/UUID/columnas).
+ */
+export function friendlyForPgCode(
+  code: string | undefined,
+): string | undefined {
+  switch (code) {
+    case "23505": // unique_violation
+      return "Ya existe un registro con esos datos.";
+    case "23503": // foreign_key_violation (referencia inválida o en uso)
+      return "No se pudo completar: hay una referencia inválida o el registro está en uso por otros registros.";
+    case "23502": // not_null_violation
+      return "No se pudo guardar: falta un dato obligatorio.";
+    case "23514": // check_violation
+      return "No se pudo guardar: un valor no cumple las reglas (revisa la cantidad y el estado).";
+    case "22P02": // invalid_text_representation (uuid/número mal formado)
+      return "No se pudo guardar: un dato tiene un formato inválido (revisa la sucursal y las fechas).";
+    case "22007":
+    case "22008": // datetime inválido
+      return "No se pudo guardar: la fecha no es válida.";
+    case "42501": // insufficient_privilege / RLS
+      return "No tienes permiso para realizar esta acción.";
+    case "08000":
+    case "08003":
+    case "08006": // connection errors
+      return "No se pudo conectar con la base de datos. Intenta nuevamente.";
+    default:
+      return undefined;
+  }
+}
+
 export function failRepo(method: string, error: unknown): never {
-  const code = pgErrorCode(error);
-  if (code === "23505") {
-    throw new UserFacingRepositoryError(
-      "Ya existe un registro con ese valor (duplicado).",
-    );
-  }
-  if (code === "23503") {
-    // 23503 cubre dos casos: borrar un catálogo en uso, y crear/editar con una
-    // referencia (marca/categoría/lab/sucursal) inexistente. Mensaje neutral a
-    // la operación para no decir "no se puede eliminar" en un alta/edición.
-    throw new UserFacingRepositoryError(
-      "No se pudo completar: hay una referencia inválida o el registro está en uso por otros registros.",
-    );
-  }
-  if (code === "23502") {
-    throw new UserFacingRepositoryError(
-      "No se pudo guardar: falta un dato obligatorio.",
-    );
-  }
-  if (code === "23514") {
-    throw new UserFacingRepositoryError(
-      "No se pudo guardar: un valor no cumple las reglas (revisa la cantidad y el estado).",
-    );
-  }
-  if (code === "22P02") {
-    throw new UserFacingRepositoryError(
-      "No se pudo guardar: un dato tiene un formato inválido (revisa la sucursal y las fechas).",
-    );
-  }
-  if (code === "22007" || code === "22008") {
-    throw new UserFacingRepositoryError(
-      "No se pudo guardar: la fecha de vencimiento no es válida.",
-    );
-  }
-  if (code === "42501") {
-    throw new UserFacingRepositoryError(
-      "No se pudo guardar: no tienes permiso para esta acción.",
-    );
-  }
+  const msg = friendlyForPgCode(pgErrorCode(error));
+  if (msg) throw new UserFacingRepositoryError(msg);
   throw new SupabaseRepositoryError(method, error);
 }
 
@@ -110,18 +106,34 @@ export function failRepo(method: string, error: unknown): never {
  * así que es seguro loguear `code`/`message` en consola del servidor.
  */
 export function toUserFacingMessage(error: unknown, fallback: string): string {
+  // 1. Ya traducido por failRepo → su mensaje es apto para el usuario.
   if (error instanceof UserFacingRepositoryError) return error.message;
+
+  // 2. Intentar mapear el código Postgres (en el error o en su causa) a un
+  //    mensaje específico, AUNQUE el repo haya lanzado SupabaseRepositoryError.
+  const code =
+    pgErrorCode(error) ??
+    (error instanceof SupabaseRepositoryError
+      ? pgErrorCode(error.cause)
+      : undefined);
+  const specific = friendlyForPgCode(code);
+
+  // 3. Log seguro server-side (sin secretos; los errores PG no los contienen).
   const detail =
     error instanceof SupabaseRepositoryError
-      ? `${error.message} | cause=${pgErrorCode(error.cause) ?? "?"}: ${
+      ? `${error.message} | cause=${code ?? "?"}: ${
           error.cause instanceof Error ? error.cause.message : String(error.cause)
         }`
       : error instanceof Error
         ? error.message
         : String(error);
-  console.error("[api] error no traducido:", detail);
-  return fallback;
+  console.error("[api] error:", detail);
+
+  return specific ?? fallback;
 }
+
+/** Alias semántico (mapeador central pedido por la auditoría). */
+export const mapSupabaseErrorToUserMessage = toUserFacingMessage;
 
 /**
  * Obtiene un cliente Supabase server-side o lanza un error claro si las
