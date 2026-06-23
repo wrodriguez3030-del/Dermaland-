@@ -32,13 +32,13 @@ import {
   useCategoriesList,
   useLaboratoriesList,
 } from "@/features/products/catalog-store";
+import { useAllLots } from "@/features/inventory/lot-store";
 import {
-  useAllLots,
-  inventoryRowForBranch,
+  getInventoryRows,
+  getInventoryStockSummary,
   type InventoryRow,
-} from "@/features/inventory/lot-store";
+} from "@/features/inventory/inventory-stock-engine";
 import {
-  onlyActiveBranches,
   useCurrentBranch,
   useBranches,
   getBranchDisplayName,
@@ -79,7 +79,10 @@ function InventarioContent() {
     getBranchDisplayName(effectiveBranch, "Sucursal seleccionada");
 
   const products = useProducts();
-  const lots = onlyActiveBranches(useAllLots());
+  // Lotes reales directos (NUNCA `onlyActiveBranches`, que lee el store mock
+  // síncrono y borra los lotes de Supabase). El filtro por sucursal lo aplica el
+  // motor con el `branchId` seleccionado — misma verdad que POS y Productos.
+  const lots = useAllLots();
   const brands = useBrandsList();
   const categories = useCategoriesList();
   const laboratories = useLaboratoriesList();
@@ -97,33 +100,18 @@ function InventarioContent() {
     return (id?: string) => (id ? m.get(id) ?? "—" : "—");
   }, [laboratories]);
 
-  // Lotes agrupados por producto (ya filtrados a la sucursal efectiva) → O(L+P).
-  const lotsByProduct = React.useMemo(() => {
-    const m = new Map<string, typeof lots>();
-    for (const l of lots) {
-      if (effectiveBranch && l.branchId !== effectiveBranch) continue;
-      const arr = m.get(l.productId) ?? [];
-      arr.push(l);
-      m.set(l.productId, arr);
-    }
-    return m;
-  }, [lots, effectiveBranch]);
-
+  // Motor único: mismas filas de stock que usan POS/Productos (por sucursal).
   const allRows: Row[] = React.useMemo(
     () =>
-      products.map((p) => {
-        const pLots = lotsByProduct.get(p.id) ?? [];
-        const inv = inventoryRowForBranch(pLots, p.id, effectiveBranch);
-        return {
-          product: p,
-          brandName: brandName(p.brandId),
-          categoryName: categoryName(p.categoryId),
-          labName: labName(p.laboratoryId),
-          inv,
-          lotNumbers: pLots.map((l) => l.lotNumber).join(" "),
-        };
-      }),
-    [products, lotsByProduct, effectiveBranch, brandName, categoryName, labName],
+      getInventoryRows(lots, products, effectiveBranch).map((r) => ({
+        product: r.product,
+        brandName: brandName(r.product.brandId),
+        categoryName: categoryName(r.product.categoryId),
+        labName: labName(r.product.laboratoryId),
+        inv: r.inv,
+        lotNumbers: r.lotNumbers.join(" "),
+      })),
+    [lots, products, effectiveBranch, brandName, categoryName, labName],
   );
 
   // ── Filtros ────────────────────────────────────────────────────────────────
@@ -174,13 +162,9 @@ function InventarioContent() {
   );
   const { sort, sorted, toggle } = useTableSort(filtered, "stock", "desc", comparators);
 
-  // ── Totales (sobre lo filtrado) ──────────────────────────────────────────────
-  const totalUnits = filtered.reduce((s, r) => s + r.inv.sellableStock, 0);
-  const totalValue = filtered.reduce((s, r) => s + r.inv.value, 0);
-  const lowStockCount = filtered.filter(
-    (r) => r.inv.sellableStock <= r.product.minStock,
-  ).length;
-  const noStockCount = filtered.filter((r) => r.inv.sellableStock === 0).length;
+  // ── Totales (motor único, sobre lo filtrado) ─────────────────────────────────
+  const { totalUnits, totalValue, lowStockCount, noStockCount } =
+    getInventoryStockSummary(filtered);
 
   const [addStockProduct, setAddStockProduct] = React.useState<{
     id: string;

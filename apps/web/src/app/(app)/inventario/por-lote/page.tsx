@@ -22,16 +22,14 @@ import { lotStatusBadge } from "@/features/inventory/lot-badges";
 import { Badge } from "@/components/ui";
 import { ProductImage } from "@/features/products/components/product-image";
 import { useAllLots } from "@/features/inventory/lot-store";
-import {
-  resolveBranchName,
-  onlyActiveBranches,
-} from "@/features/tenancy/branch-store";
+import { resolveBranchName } from "@/features/tenancy/branch-store";
 
 export default function StockPorLotePage() {
   const toast = useToast();
   const lots = useAllLots();
-  // Stock operativo: solo lotes de sucursales ACTIVAS.
-  const sorted = onlyActiveBranches([...lots]).sort(
+  // Lotes reales directos (NO `onlyActiveBranches`, que lee el store mock y borra
+  // los lotes de Supabase). Los lotes solo existen para sucursales reales.
+  const sorted = [...lots].sort(
     (a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt),
   );
   return (

@@ -19,6 +19,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.6.1] - 2026-06-22
+
+### Fixed
+- **Inventario seguía en 0 aunque Productos/POS mostraban stock (causa raíz
+  real).** Hipótesis F confirmada con datos: A-derma tiene 1000 unid en
+  `product_lots` de DermaLand Cutis, pero Inventario aplicaba
+  **`onlyActiveBranches(useAllLots())`**. `onlyActiveBranches` filtra por
+  `listActiveBranchIds()`, que lee el **store mock síncrono** (localStorage), no
+  las sucursales reales de Supabase → el set activo era `{br_santiago}` (mock) y
+  los lotes reales (branch_id UUID `0a1fd664…`) quedaban **todos excluidos** → 0.
+  Productos/POS NO usaban ese filtro, por eso sí mostraban el stock. Fix: se
+  eliminó `onlyActiveBranches` de Inventario, Stock por lote y Detalle de
+  producto — ahora usan los lotes reales directos (`useAllLots`) y filtran por la
+  sucursal seleccionada con el mismo motor que POS/Productos.
+
+### Added
+- **Motor ÚNICO de stock `features/inventory/inventory-stock-engine.ts`** (fuente
+  de verdad documentada): `getSellableStockForBranch`, `getStockByBranch`,
+  `getTotalStockAcrossActiveBranches`, `getNextSellableLotFEFO`,
+  `getInventoryRows`, `getInventoryStockSummary` — todas puras sobre los lotes de
+  `useAllLots()` (Supabase, RLS). Mismo predicado `isLotSellable` que POS y
+  Productos: ninguna pantalla recalcula stock por su cuenta.
+- Test que prueba que **Inventario == Productos == POS** para A-derma en Cutis
+  (1000) y Principal (130), más suma por `current_quantity`/`branch_id`, valor,
+  bajo mínimo, sin stock y FEFO.
+
+---
+
 ## [0.6.0] - 2026-06-22
 
 ### Fixed

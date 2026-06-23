@@ -65,7 +65,7 @@ import {
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
 import { ProductImage } from "@/features/products/components/product-image";
 import { useProduct, updateProduct } from "@/features/products/product-store";
-import { onlyActiveBranches, useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
+import { useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
 
 const expiryTone: Record<ExpiryStatus, "danger" | "warning" | "success"> = {
@@ -127,13 +127,13 @@ export default function ProductDetailPage() {
   const brand = getBrandById(product.brandId);
   const category = getCategoryById(product.categoryId);
   const laboratory = getLaboratoryById(product.laboratoryId);
-  // Vista operativa de producto: SOLO sucursales activas. Las inactivas o
-  // eliminadas no muestran stock/lotes aquí (su historial vive en reportes).
-  const lots = onlyActiveBranches(allLots);
+  // Lotes reales directos (NO `onlyActiveBranches`, que lee el store mock y borra
+  // los lotes de Supabase). Misma verdad de stock que Inventario y POS.
+  const lots = allLots;
   const stock = lots
     .filter((l) => l.status === "available")
     .reduce((s, l) => s + l.currentQuantity, 0);
-  const branchGroups = onlyActiveBranches(summarizeLotsByBranch(allLots));
+  const branchGroups = summarizeLotsByBranch(allLots);
   const hasLots = lots.length > 0;
   const requiresExpiry = true; // dermocosmética: todo lote lleva vencimiento
 
