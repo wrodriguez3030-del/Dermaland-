@@ -17,6 +17,8 @@ import {
 import { Badge, Button } from "@/components/ui";
 import { formatCurrency } from "@/lib/utils/format";
 import { resolveDocumentToIssue } from "@/features/sales/document-resolver";
+import { resolveAutoBilling } from "@/features/billing/auto-billing-rules";
+import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import type { DefaultBillingType, PaymentMethod } from "@/types";
 import {
   CHECKOUT_METHODS,
@@ -89,6 +91,7 @@ export function ChargeSaleModal({
   const [reference, setReference] = React.useState<string>("");
   const [error, setError] = React.useState<string | null>(null);
   const [last4Touched, setLast4Touched] = React.useState(false);
+  const billingSettings = useBillingSettings();
 
   // Reset al abrir.
   React.useEffect(() => {
@@ -138,6 +141,21 @@ export function ChargeSaleModal({
     ? [...payments, buildPayment(draft!)]
     : payments;
   const canConfirm = canFinalizeCheckout(effectivePayments);
+
+  // Decisión de facturación CONFIG-AWARE (reglas automáticas + mixtos).
+  // Refleja la Configuración de facturación: tarjeta → e-CF inmediato,
+  // efectivo/transferencia → pendiente para cierre, mixto con tarjeta →
+  // e-CF inmediato por la venta completa.
+  const autoDecision = resolveAutoBilling({
+    billingType,
+    payments:
+      effectivePayments.length > 0
+        ? effectivePayments.map((p) => ({ method: p.method, amount: p.amount }))
+        : primaryForDoc
+          ? [{ method: primaryForDoc, amount: total }]
+          : [],
+    settings: billingSettings,
+  });
 
   if (!open) return null;
 
@@ -504,7 +522,16 @@ export function ChargeSaleModal({
               )}
               Documento a emitir: {resolved.label}
             </Badge>
+            {autoDecision.timing === "immediate" && (
+              <Badge tone="purple">e-CF inmediato al cobrar</Badge>
+            )}
+            {autoDecision.timing === "at_closing" && (
+              <Badge tone="warning">Pendiente para cierre de caja</Badge>
+            )}
           </div>
+          {autoDecision.timing !== "none" && (
+            <p className="text-xs opacity-60">{autoDecision.reason}</p>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">

@@ -52,6 +52,10 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
   corre en `DATA_SOURCE=mock`).
 - **62 tests nuevos** (settings, reglas por método de pago, mixtos, redondeo
   hacia arriba con el ejemplo RD$10,000 · 15% → 1,800 / dif 300).
+- **POS cableado al motor de reglas:** el modal de cobro muestra, según la
+  Configuración de facturación y los pagos (incl. mixtos), si el comprobante es
+  **e-CF inmediato al cobrar** o queda **pendiente para cierre de caja**, con la
+  razón visible.
 
 ### Security
 - **DGII real permanece APAGADO.** mock/demo nunca consume secuencia fiscal
