@@ -87,3 +87,128 @@ export function computeTargetAmount(
   const safe = Math.min(100, Math.max(0, percentage));
   return totalPendiente * (safe / 100);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Selección "redondeo hacia arriba por factura completa" para el cierre de caja.
+//
+// Reglas (documento DGII §6-8):
+//  - El porcentaje lo define ADMIN en la Configuración de facturación; el cierre
+//    sólo lo lee. Aquí recibimos el porcentaje ya resuelto.
+//  - Nunca se divide una venta: se seleccionan ventas COMPLETAS hasta alcanzar
+//    o superar el objetivo (redondeo hacia arriba).
+//  - Estrategia: `last` (últimas ventas del día, default), `first` (primeras),
+//    `manual` (no auto-selecciona; el caller decide).
+//  - Se reporta la diferencia por redondeo (generado − objetivo).
+//
+// Ejemplo del documento:
+//   total 10,000 · 15% → objetivo 1,500
+//   ventas [1,000, 800, 500] (según orden) → selecciona 1,000 + 800 = 1,800
+//   diferencia por redondeo = 300, nunca factura parcial.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SelectionStrategy = "last" | "first" | "manual";
+
+export interface EcfClosingSale {
+  id: string;
+  amount: number;
+  /** ISO date de la venta — usado para ordenar por estrategia. */
+  createdAt: string;
+}
+
+export interface EcfClosingSelectionInput {
+  sales: ReadonlyArray<EcfClosingSale>;
+  /** Porcentaje 0..100 definido por ADMIN. */
+  percentage: number;
+  /** Estrategia de selección. Default `last`. */
+  strategy?: SelectionStrategy;
+}
+
+export interface EcfClosingSelectionResult {
+  /** Total de ventas elegibles (efectivo + transferencia pendientes). */
+  totalEligible: number;
+  /** Monto objetivo = total * % (sin redondear). */
+  targetAmount: number;
+  /** Monto realmente generado con facturas completas (≥ objetivo o todo). */
+  generatedAmount: number;
+  /** Diferencia por factura completa = generado − objetivo (≥ 0). */
+  roundingDifference: number;
+  selectedIds: ReadonlyArray<string>;
+  selectedCount: number;
+  pendingAmount: number;
+}
+
+/**
+ * Selecciona ventas COMPLETAS para alcanzar o superar el objetivo, sin dividir
+ * ninguna venta. Para `manual` no auto-selecciona (selectedIds vacío); el caller
+ * arma la selección y puede usar `summarizeEcfSelection` para los totales.
+ */
+export function selectSalesForEcfClosing(
+  input: EcfClosingSelectionInput,
+): EcfClosingSelectionResult {
+  const strategy = input.strategy ?? "last";
+  const totalEligible = input.sales.reduce((s, v) => s + v.amount, 0);
+  const safePct = Math.min(100, Math.max(0, input.percentage));
+  const targetAmount = totalEligible * (safePct / 100);
+
+  if (strategy === "manual" || safePct <= 0 || input.sales.length === 0) {
+    return {
+      totalEligible,
+      targetAmount,
+      generatedAmount: 0,
+      roundingDifference: safePct <= 0 ? 0 : 0,
+      selectedIds: [],
+      selectedCount: 0,
+      pendingAmount: totalEligible,
+    };
+  }
+
+  // Ordenar por fecha; `last` = más recientes primero, `first` = más antiguas.
+  const sorted = [...input.sales].sort((a, b) => {
+    const diff = +new Date(a.createdAt) - +new Date(b.createdAt);
+    return strategy === "last" ? -diff : diff;
+  });
+
+  const selected: string[] = [];
+  let generated = 0;
+  for (const sale of sorted) {
+    if (generated >= targetAmount) break;
+    selected.push(sale.id);
+    generated += sale.amount;
+  }
+
+  return {
+    totalEligible,
+    targetAmount,
+    generatedAmount: generated,
+    roundingDifference: Math.max(0, generated - targetAmount),
+    selectedIds: selected,
+    selectedCount: selected.length,
+    pendingAmount: Math.max(0, totalEligible - generated),
+  };
+}
+
+/**
+ * Recalcula los totales para una selección arbitraria (ej. ajuste manual del
+ * cajero/admin). Útil para `manual` o tras marcar/desmarcar ventas.
+ */
+export function summarizeEcfSelection(
+  sales: ReadonlyArray<EcfClosingSale>,
+  selectedIds: ReadonlyArray<string>,
+  percentage: number,
+): EcfClosingSelectionResult {
+  const set = new Set(selectedIds);
+  const totalEligible = sales.reduce((s, v) => s + v.amount, 0);
+  const safePct = Math.min(100, Math.max(0, percentage));
+  const targetAmount = totalEligible * (safePct / 100);
+  const selected = sales.filter((v) => set.has(v.id));
+  const generated = selected.reduce((s, v) => s + v.amount, 0);
+  return {
+    totalEligible,
+    targetAmount,
+    generatedAmount: generated,
+    roundingDifference: Math.max(0, generated - targetAmount),
+    selectedIds: selected.map((v) => v.id),
+    selectedCount: selected.length,
+    pendingAmount: Math.max(0, totalEligible - generated),
+  };
+}

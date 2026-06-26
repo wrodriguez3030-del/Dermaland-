@@ -38,6 +38,25 @@ export interface CashClosingRecord {
   selectedProformaIds: string[];
   unselectedProformaIds: string[];
   comment?: string;
+  /**
+   * Snapshot del porcentaje e-CF definido por ADMIN al momento del cierre
+   * (`billing_settings.cash_transfer_ecf_percentage`). Inmutable: cambios
+   * futuros del porcentaje NO alteran este cierre. Mapea a
+   * `cash_closings.ecf_percentage` en producción.
+   */
+  ecfPercentage?: number;
+  /** Estrategia de selección usada (last/first/manual). */
+  ecfStrategy?: "last" | "first" | "manual";
+  /** Monto objetivo = total elegible * %. */
+  ecfTargetAmount?: number;
+  /** Monto generado con facturas completas (≥ objetivo). */
+  ecfGeneratedAmount?: number;
+  /** Monto que quedó pendiente (sin convertir). */
+  ecfPendingAmount?: number;
+  /** Diferencia por factura completa = generado − objetivo (≥ 0). */
+  ecfRoundingDifference?: number;
+  /** Estado de generación e-CF del cierre. */
+  ecfGenerationStatus?: "skipped" | "generated_mock" | "generated_real";
   /** Marca que esto es mock — el cierre no fue persistido en DB ni se enviaron e-CFs reales. */
   isMock: true;
 }

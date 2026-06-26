@@ -19,6 +19,47 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ---
 
+## [0.8.0] - 2026-06-26
+
+### Added
+- **Módulo DGII / Facturación reorganizado** con submenús: Configuración de
+  facturación, Numeraciones / Secuencias, Reglas automáticas de e-CF,
+  Comprobantes emitidos, Ambiente e-CF, Certificado digital, Logs DGII /
+  Historial (más Activar / Habilitación existentes).
+- **Configuración de facturación** (`/dgii/facturacion/configuracion`, solo
+  ADMIN): forma de facturación principal (NCF/e-CF/Ambos), modo de uso
+  (manual/automático), ambiente e-CF (mock…producción), reglas por método de
+  pago, estrategia de selección de cierre y **porcentaje e-CF de cierre**
+  (`billing_settings.cash_transfer_ecf_percentage`, default 15%, 0–100).
+- **Reglas automáticas de e-CF** (`/dgii/facturacion/reglas`): tarjeta → e-CF
+  inmediato; efectivo/transferencia → pendiente para cierre; mixto con tarjeta
+  → e-CF inmediato por venta completa (no divide); proforma nunca consume
+  secuencia fiscal real.
+- **Store `billing-settings`** por `business_id` (localStorage) + permisos de
+  módulo (ADMIN edita; caja sólo ve). Emisión real bloqueada por diseño salvo
+  ambiente `producción`.
+- **Motor de reglas config-aware** (`auto-billing-rules.ts`) y **selección de
+  cierre con redondeo hacia arriba por factura completa** (estrategias
+  últimas/primeras/manual) — nunca divide ni altera montos.
+- **Cierre de caja con facturación electrónica**: porcentaje gobernado por ADMIN
+  (solo lectura en el cierre), sección e-CF con objetivo / generado / diferencia
+  por redondeo / pendiente, botones Generar e-CF / Omitir, y **snapshot
+  inmutable** del % y la diferencia en el cierre (cambios futuros no alteran
+  cierres anteriores).
+- **Migración aditiva `0014_billing_settings_ecf.sql`** (no destructiva, RLS por
+  business_id): `billing_settings`, columnas e-CF en `cash_closings`,
+  `cash_closing_ecf_items`, `dgii_logs`. **No aplicada a base real** (la app
+  corre en `DATA_SOURCE=mock`).
+- **62 tests nuevos** (settings, reglas por método de pago, mixtos, redondeo
+  hacia arriba con el ejemplo RD$10,000 · 15% → 1,800 / dif 300).
+
+### Security
+- **DGII real permanece APAGADO.** mock/demo nunca consume secuencia fiscal
+  real; `realEmissionEnabled` arranca `false` y solo es activable en ambiente
+  `producción`. Sin certificados reales, sin endpoints reales, sin envío real.
+
+---
+
 ## [0.7.1] - 2026-06-23
 
 ### Fixed
