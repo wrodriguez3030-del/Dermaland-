@@ -56,6 +56,14 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
   Configuración de facturación y los pagos (incl. mixtos), si el comprobante es
   **e-CF inmediato al cobrar** o queda **pendiente para cierre de caja**, con la
   razón visible.
+- **Máquina de estados e-CF (mock, §12):** `ecf-lifecycle.ts` con los estados
+  internos (borrador → generado_xml → firmado → enviado_dgii → recibido_dgii →
+  aceptado/rechazado/pendiente → enviado_receptor → acuse_recibido →
+  aprobado_comercialmente → almacenado / anulado), transiciones válidas y
+  **guards de envío real** (bloquea salvo producción + emisión real +
+  certificado + rango + endpoint + business autorizado + config completa).
+  `simulateEcfFlow` recorre el flujo en mock sin tocar DGII ni consumir
+  secuencia real; visualizado en `/dgii/preview/[id]`. +12 tests.
 
 ### Security
 - **DGII real permanece APAGADO.** mock/demo nunca consume secuencia fiscal
