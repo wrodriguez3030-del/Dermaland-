@@ -64,6 +64,10 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
   certificado + rango + endpoint + business autorizado + config completa).
   `simulateEcfFlow` recorre el flujo en mock sin tocar DGII ni consumir
   secuencia real; visualizado en `/dgii/preview/[id]`. +12 tests.
+- **Ticket 80mm con identificadores e-CF (§13.B):** para facturas, el ticket
+  térmico imprime código de seguridad (demo), fecha de firma, URL de validación
+  y la nota de Envío Diferido (24 h). El QR completo sigue en la representación
+  impresa PDF (canónica). Sin librerías UI nuevas.
 
 ### Security
 - **DGII real permanece APAGADO.** mock/demo nunca consume secuencia fiscal

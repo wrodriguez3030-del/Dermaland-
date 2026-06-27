@@ -45,6 +45,21 @@ export function Receipt80mm({
 }: Receipt80mmProps) {
   const branch = getBranchById(proforma.branchId);
   const totalQty = proforma.items.reduce((s, l) => s + l.quantity, 0);
+  const isInvoice = proforma.documentKind === "invoice";
+  // Código de seguridad DEMO: derivado determinísticamente del número + total.
+  // NO es un código fiscal real (mock/demo no firma con cert real).
+  const demoSecurityCode = isInvoice
+    ? Math.abs(
+        [...`${proforma.number}|${proforma.total}`].reduce(
+          (h, c) => (h * 31 + c.charCodeAt(0)) | 0,
+          7,
+        ),
+      )
+        .toString(16)
+        .toUpperCase()
+        .padStart(6, "0")
+        .slice(0, 6)
+    : null;
   const firstPayment = proforma.payments[0];
   const paymentMethod = firstPayment
     ? paymentMethodLabel[firstPayment.method] ?? firstPayment.method
@@ -214,6 +229,31 @@ export function Receipt80mm({
       )}
       {firstPayment?.reference && (
         <Row label="Ref." value={firstPayment.reference} />
+      )}
+
+      <Separator />
+
+      {/* e-CF: código de seguridad, fecha de firma y URL de validación (demo).
+          El QR completo va en la representación impresa PDF (canónica). */}
+      {isInvoice && (
+        <>
+          <Separator />
+          <div className="text-[10px]">
+            <Row label="Código seguridad" value={`${demoSecurityCode} (demo)`} />
+            <Row
+              label="Fecha firma"
+              value={formatDateTime(proforma.createdAt)}
+            />
+            <div className="mt-1 break-all opacity-80">
+              Validar: ecf.dgii.gov.do · e-NCF{" "}
+              {proforma.ecfNumber ?? proforma.number}
+            </div>
+            <div className="mt-1 opacity-70">
+              e-CF emitido en modalidad Envío Diferido; podrá ser consultado para
+              su validez fiscal a partir de las veinticuatro (24) horas.
+            </div>
+          </div>
+        </>
       )}
 
       <Separator />
