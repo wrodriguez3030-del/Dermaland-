@@ -15,7 +15,7 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
-import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2 } from "lucide-react";
+import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2, Pencil } from "lucide-react";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
 import { useProformas } from "@/features/sales/proforma-store";
@@ -24,6 +24,9 @@ import {
   saleDocumentLabel,
   saleDocumentTone,
 } from "@/features/sales/document-label";
+import { documentEditability } from "@/features/sales/editability";
+import { canEditSales } from "@/features/billing/permissions";
+import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 export default function VentasPage() {
@@ -31,6 +34,7 @@ export default function VentasPage() {
   // Las proformas pendientes viven en la pantalla Proformas.
   const allDocuments = useProformas();
   const sales = allDocuments.filter(isInvoiceDocument);
+  const canEdit = canEditSales(mockCurrentUser.role);
   const total = sales.reduce((s, p) => s + p.total, 0);
   const itbis = sales.reduce((s, p) => s + p.itbis, 0);
   const items = sales.reduce(
@@ -95,6 +99,19 @@ export default function VentasPage() {
                       canEdit={false}
                       canDelete={false}
                       customActions={[
+                        {
+                          label: "Editar factura",
+                          icon: Pencil,
+                          ...(canEdit && documentEditability(p).editable
+                            ? { href: `/ventas/${p.id}/editar` }
+                            : {
+                                disabled: true,
+                                disabledReason: !canEdit
+                                  ? "No tienes permiso para editar facturas."
+                                  : documentEditability(p).reason ??
+                                    "Este documento no se puede editar.",
+                              }),
+                        },
                         {
                           label: "Imprimir",
                           icon: Printer,

@@ -80,3 +80,15 @@ export function canGenerateClosingEcf(
 ): boolean {
   return CLOSING_ECF_ROLES.includes(role);
 }
+
+/** Roles que pueden EDITAR ventas/facturas (datos no fiscales). */
+const SALES_EDIT_ROLES: ReadonlyArray<UserRole> = [
+  "super_admin",
+  "admin",
+  "manager",
+];
+
+/** ¿Puede editar facturas/ventas? ADMIN y manager; cajero no. */
+export function canEditSales(role: UserRole = mockCurrentUser.role): boolean {
+  return SALES_EDIT_ROLES.includes(role);
+}

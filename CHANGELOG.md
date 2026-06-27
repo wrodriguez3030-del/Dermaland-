@@ -11,6 +11,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.7] - 2026-06-27
+
+### Added
+- **Acción "Editar factura" en Ventas / Facturas** (icono lápiz, tooltip y
+  aria-label "Editar factura"). Orden: Ver | Editar | Imprimir | Enviar | Anular.
+  - Ruta `/ventas/[id]/editar` que carga el documento **desde Supabase** (no
+    localStorage) vía `useProformaDocument`.
+  - **Edición segura de datos NO fiscales**: cliente del documento (nombre,
+    teléfono, documento) y notas. Montos, ítems, descuento, número y comprobante
+    quedan **bloqueados** (requieren nota de crédito / anulación).
+  - **Bloqueos**: documentos anulados o emitidos fiscalmente (convertidos a
+    e-CF) no se editan — mensaje "Esta factura ya fue emitida fiscalmente. Para
+    corregirla debes emitir una nota de crédito o anulación…".
+  - **Permisos**: solo `super_admin` / `admin` / `manager` (`canEditSales`);
+    cajero sin permiso ve el botón deshabilitado con "No tienes permiso para
+    editar facturas." El permiso se **revalida en el servidor**.
+  - **Auditoría**: cada edición registra en `audit_logs` (acción `sale.update`,
+    entidad, usuario, campos cambiados con valor anterior→nuevo).
+- `ProformaRepository.update` (mock + Supabase, solo columnas no fiscales),
+  `PATCH /api/proformas/:id` `action:"update"`, `updateProformaAnywhere`.
+- Helpers puros `documentEditability` / `pickEditableProformaFields` +
+  `canEditSales`. +9 tests.
+
+### Security
+- La edición nunca toca número/ncf/ecf/montos/ítems; permiso y editabilidad se
+  validan en el servidor; auditoría obligatoria. DGII real apagado.
+
 ## [0.8.6] - 2026-06-27
 
 ### Fixed

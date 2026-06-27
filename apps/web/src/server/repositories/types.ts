@@ -296,8 +296,18 @@ export interface ProformaRepository {
   list(ctx: RepoContext): Promise<Proforma[]>;
   byId(ctx: RepoContext, id: ID): Promise<Proforma | null>;
   create(ctx: RepoContext, proforma: Omit<Proforma, "id" | "createdAt" | "updatedAt">): Promise<Proforma>;
+  /** Edición de datos NO fiscales (cliente del documento, notas). */
+  update(ctx: RepoContext, id: ID, patch: ProformaEditPatch): Promise<Proforma>;
   cancel(ctx: RepoContext, id: ID, reason: string): Promise<void>;
   convertToEcf(ctx: RepoContext, id: ID): Promise<{ ecfNumber: string; trackId: string }>;
+}
+
+/** Campos editables seguros (no fiscales) de una proforma/factura. */
+export interface ProformaEditPatch {
+  customerName?: string;
+  customerPhone?: string | null;
+  customerDocument?: string | null;
+  notes?: string | null;
 }
 
 export interface CashRegisterRepository {

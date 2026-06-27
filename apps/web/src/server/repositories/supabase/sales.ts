@@ -306,6 +306,35 @@ export const proformaRepository: ProformaRepository = {
     );
   },
 
+  async update(ctx: RepoContext, id: string, patch) {
+    const sb = await getClient("proforma.update");
+    // Solo columnas NO fiscales. Nunca tocamos número, ncf/ecf, montos, ítems.
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (patch.customerName !== undefined) row.customer_name = patch.customerName;
+    if (patch.customerPhone !== undefined) row.customer_phone = patch.customerPhone ?? null;
+    if (patch.customerDocument !== undefined)
+      row.customer_document = patch.customerDocument ?? null;
+    if (patch.notes !== undefined) row.notes = patch.notes ?? null;
+
+    const { data, error } = await sb
+      .from("proformas")
+      .update(row)
+      .eq("business_id", ctx.businessId)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw new SupabaseRepositoryError("proforma.update", error);
+    if (!data) throw new Error("Documento no encontrado o no pertenece al negocio");
+
+    const itemsByProforma = await fetchItemsForProformas(sb, ctx.businessId, [id]);
+    const paymentsByProforma = await fetchPaymentsForProformas(sb, ctx.businessId, [id]);
+    return proformaRowToTs(
+      data,
+      itemsByProforma.get(id) ?? [],
+      paymentsByProforma.get(id) ?? [],
+    );
+  },
+
   async cancel(ctx: RepoContext, id: string, reason: string) {
     const sb = await getClient("proforma.cancel");
     // C1: usar .select("id").maybeSingle() para detectar que la fila existe y

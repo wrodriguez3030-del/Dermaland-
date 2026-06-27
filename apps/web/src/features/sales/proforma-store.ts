@@ -231,6 +231,68 @@ export async function cancelProformaAnywhere(
   return { ok: true };
 }
 
+export type UpdateProformaResult =
+  | { ok: true; proforma: Proforma }
+  | { ok: false; error: string };
+
+/**
+ * Edita datos NO fiscales de una proforma/factura (cliente del documento,
+ * notas) — local o Supabase según el gate.
+ *
+ * En supabase envía PATCH /api/proformas/[id] con action:"update" (permiso +
+ * editabilidad + auditoría se validan en el servidor). En local aplica el
+ * patch en localStorage. NUNCA toca número/ncf/ecf/montos/ítems.
+ */
+export async function updateProformaAnywhere(
+  id: string,
+  patch: {
+    customerName?: string;
+    customerPhone?: string | null;
+    customerDocument?: string | null;
+    notes?: string | null;
+  },
+): Promise<UpdateProformaResult> {
+  if (PROFORMA_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/proformas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", patch }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        proforma?: Proforma;
+        error?: string;
+      };
+      if (!res.ok || !body.proforma) {
+        return { ok: false, error: body.error ?? "No se pudo guardar el cambio." };
+      }
+      notifyChanged();
+      return { ok: true, proforma: body.proforma };
+    } catch {
+      return { ok: false, error: "No se pudo conectar con el servidor. Intenta nuevamente." };
+    }
+  }
+  // Modo local
+  const list = readLocal();
+  const idx = list.findIndex((p) => p.id === id);
+  if (idx === -1) {
+    return { ok: false, error: "Documento no encontrado." };
+  }
+  const next: Proforma = {
+    ...list[idx]!,
+    ...(patch.customerName !== undefined ? { customerName: patch.customerName } : {}),
+    ...(patch.customerPhone !== undefined ? { customerPhone: patch.customerPhone ?? undefined } : {}),
+    ...(patch.customerDocument !== undefined
+      ? { customerDocument: patch.customerDocument ?? undefined }
+      : {}),
+    ...(patch.notes !== undefined ? { notes: patch.notes ?? undefined } : {}),
+    updatedAt: new Date().toISOString(),
+  };
+  list[idx] = next;
+  writeLocal(list);
+  return { ok: true, proforma: next };
+}
+
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
 /**

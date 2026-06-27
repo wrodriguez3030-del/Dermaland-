@@ -906,6 +906,26 @@ const proforma: ProformaRepository = {
     extraProformas = [newProforma, ...extraProformas];
     return newProforma;
   },
+  async update(ctx, id, patch) {
+    guard(ctx);
+    const all = mockProformasView(ctx.businessId);
+    const found = all.find((p) => p.id === id);
+    if (!found) throw new Error(`Proforma ${id} no encontrada`);
+    // Solo campos no fiscales.
+    const safe: Record<string, unknown> = {};
+    if (patch.customerName !== undefined) safe.customerName = patch.customerName;
+    if (patch.customerPhone !== undefined) safe.customerPhone = patch.customerPhone ?? undefined;
+    if (patch.customerDocument !== undefined)
+      safe.customerDocument = patch.customerDocument ?? undefined;
+    if (patch.notes !== undefined) safe.notes = patch.notes ?? undefined;
+    proformaPatches[id] = {
+      ...proformaPatches[id],
+      ...safe,
+      updatedAt: new Date().toISOString(),
+    };
+    const updated = mockProformasView(ctx.businessId).find((p) => p.id === id);
+    return updated!;
+  },
   async cancel(ctx, id, reason) {
     guard(ctx);
     const all = mockProformasView(ctx.businessId);
