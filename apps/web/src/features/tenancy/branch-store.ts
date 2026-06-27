@@ -594,11 +594,51 @@ export function getDeletedBranches(): Branch[] {
   return [...seed, ...readNew()].filter((b) => deleted.has(b.id));
 }
 
+// ─── Selección de sucursal principal ─────────────────────────────────────────
+
+/**
+ * Elige la sucursal "principal" de una lista de ACTIVAS, por prioridad:
+ *  1. La marcada como piloto/principal (`isPilot`).
+ *  2. La primera ordenada por nombre (es-DO).
+ * Devuelve `undefined` si la lista está vacía.
+ */
+export function pickPrincipalBranch(active: Branch[]): Branch | undefined {
+  if (active.length === 0) return undefined;
+  const pilot = active.find((b) => b.isPilot);
+  if (pilot) return pilot;
+  return [...active].sort((a, b) => a.name.localeCompare(b.name, "es-DO"))[0];
+}
+
+// ─── Cache del NOMBRE de la sucursal actual (solo para mostrar al cargar) ─────
+// NO es fuente de datos: solo evita el parpadeo "Cargando…" para usuarios que
+// ya tenían una sucursal seleccionada. Se reconcilia con Supabase al terminar.
+const KEY_CURRENT_NAME = "dermaland.current-branch-name";
+
+export function cacheCurrentBranchName(name: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (name) window.localStorage.setItem(KEY_CURRENT_NAME, name);
+  } catch {
+    /* ignore quota / disabled storage */
+  }
+}
+
+export function readCachedCurrentBranchName(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(KEY_CURRENT_NAME);
+  } catch {
+    return null;
+  }
+}
+
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
 export interface BranchesState {
   list: Branch[];
   loadError: boolean;
+  /** true mientras el primer fetch (modo supabase) está en curso. */
+  loading: boolean;
 }
 
 /**
@@ -621,6 +661,9 @@ export function useBranchesState(): BranchesState {
   const [state, setState] = React.useState<BranchesState>(() => ({
     list: BRANCH_BACKEND === "supabase" ? [] : listAllBranches(),
     loadError: false,
+    // En supabase arrancamos "cargando" (fetch async). En local los datos son
+    // síncronos, así que nunca está cargando.
+    loading: BRANCH_BACKEND === "supabase",
   }));
 
   React.useEffect(() => {
@@ -638,7 +681,7 @@ export function useBranchesState(): BranchesState {
         try {
           const branches = await fetchBranchesFromServer("admin");
           cacheBranchNames(branches);
-          if (alive) setState({ list: branches, loadError: false });
+          if (alive) setState({ list: branches, loadError: false, loading: false });
         } catch {
           // Primer intento fallido → un reintento con backoff corto.
           await new Promise((r) => setTimeout(r, 800));
@@ -646,17 +689,19 @@ export function useBranchesState(): BranchesState {
           try {
             const branches = await fetchBranchesFromServer("admin");
             cacheBranchNames(branches);
-            if (alive) setState({ list: branches, loadError: false });
+            if (alive) setState({ list: branches, loadError: false, loading: false });
           } catch {
             // Ambos intentos fallaron: mantener la lista actual sin pisar con
             // mock, y marcar error para que los consumidores puedan mostrarlo.
-            if (alive) setState((prev) => ({ ...prev, loadError: true }));
+            // loading=false: ya terminó el intento (con error).
+            if (alive)
+              setState((prev) => ({ ...prev, loadError: true, loading: false }));
           }
         }
       } else {
         const branches = listAllBranches();
         cacheBranchNames(branches);
-        setState({ list: branches, loadError: false });
+        setState({ list: branches, loadError: false, loading: false });
       }
     };
 
@@ -698,6 +743,8 @@ export interface CurrentBranchApi {
   branchId: string;
   branches: Branch[];
   setBranchId: (id: string) => void;
+  /** true mientras se cargan las sucursales (modo supabase, primer fetch). */
+  loading: boolean;
   /** Aviso cuando la sucursal guardada dejó de estar activa. */
   notice: string | null;
   dismissNotice: () => void;
@@ -712,7 +759,11 @@ export interface CurrentBranchApi {
  * sucursales activas (editar/inactivar/eliminar), se re-valida.
  */
 export function useCurrentBranch(): CurrentBranchApi {
-  const branches = useActiveBranches();
+  const { list, loading } = useBranchesState();
+  const branches = React.useMemo(
+    () => list.filter((b) => b.status === "active"),
+    [list],
+  );
   const [branchId, setBranchIdState] = React.useState<string>("");
   const [notice, setNotice] = React.useState<string | null>(null);
 
@@ -724,17 +775,26 @@ export function useCurrentBranch(): CurrentBranchApi {
   // no actualizaba la sucursal dentro del POS.
   React.useEffect(() => {
     const reconcile = () => {
+      // Mientras carga (aún sin lista), no reconciliar: evita limpiar la
+      // selección guardada o mostrar avisos con datos incompletos.
+      if (loading && branches.length === 0) return;
+
       const saved =
         typeof window !== "undefined"
           ? window.localStorage.getItem(KEY_CURRENT) ?? ""
           : "";
-      const stillActive = branches.some((b) => b.id === saved);
-      if (stillActive) {
+      const savedBranch = branches.find((b) => b.id === saved);
+      if (savedBranch) {
         setBranchIdState((cur) => (cur !== saved ? saved : cur));
+        cacheCurrentBranchName(savedBranch.name);
         return;
       }
-      const fallback = branches[0]?.id ?? "";
+      // Prioridad: principal/piloto → primera activa por nombre.
+      const principal = pickPrincipalBranch(branches);
+      const fallback = principal?.id ?? "";
       if (saved && fallback) {
+        // El id guardado ya no existe/está inactivo → limpiar y reseleccionar
+        // sin error técnico.
         setNotice(
           "La sucursal seleccionada ya no está activa. Se cambió a una sucursal disponible.",
         );
@@ -744,6 +804,7 @@ export function useCurrentBranch(): CurrentBranchApi {
         if (fallback) window.localStorage.setItem(KEY_CURRENT, fallback);
         else window.localStorage.removeItem(KEY_CURRENT);
       }
+      if (principal) cacheCurrentBranchName(principal.name);
     };
     reconcile();
     if (typeof window === "undefined") return;
@@ -754,23 +815,29 @@ export function useCurrentBranch(): CurrentBranchApi {
       window.removeEventListener("storage", reconcile);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branches.map((b) => b.id).join(",")]);
+  }, [branches.map((b) => b.id).join(","), loading]);
 
-  const setBranchId = React.useCallback((id: string) => {
-    setBranchIdState(id);
-    setNotice(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(KEY_CURRENT, id);
-      // Notifica a TODAS las instancias del hook (POS, selector superior, etc.)
-      // para que se sincronicen al instante con una sola fuente de verdad.
-      window.dispatchEvent(new CustomEvent(BRANCH_CHANGE_EVENT));
-    }
-  }, []);
+  const setBranchId = React.useCallback(
+    (id: string) => {
+      setBranchIdState(id);
+      setNotice(null);
+      const name = branches.find((b) => b.id === id)?.name;
+      if (name) cacheCurrentBranchName(name);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(KEY_CURRENT, id);
+        // Notifica a TODAS las instancias del hook (POS, selector superior, etc.)
+        // para que se sincronicen al instante con una sola fuente de verdad.
+        window.dispatchEvent(new CustomEvent(BRANCH_CHANGE_EVENT));
+      }
+    },
+    [branches],
+  );
 
   return {
     branchId,
     branches,
     setBranchId,
+    loading,
     notice,
     dismissNotice: () => setNotice(null),
   };

@@ -11,6 +11,35 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.5] - 2026-06-27
+
+### Fixed
+- **Al refrescar, el selector de sucursal mostraba "Sin sucursales" unos
+  segundos** antes de aparecer la sucursal. Causa raíz: en modo Supabase el
+  store arrancaba con `list: []` y **no tenía estado `loading`**, así que el
+  header confundía "cargando" con "vacío".
+  - `useBranchesState`/`useCurrentBranch` ahora exponen **`loading`** (true
+    durante el primer fetch en Supabase; false en local).
+  - El header distingue 3 estados: **"Cargando sucursales…"** (o el nombre
+    cacheado) mientras carga; **"Sin sucursales"** solo si tras cargar no hay
+    ninguna; y el `<select>` normal cuando hay sucursales.
+  - Selección de **sucursal principal** por prioridad: guardada-si-activa →
+    piloto/principal (`isPilot`) → primera activa por nombre. Si la guardada ya
+    no existe/está inactiva, se limpia y reselecciona sin error técnico.
+  - **Nombre cacheado** (`dermaland.current-branch-name`, solo para mostrar
+    durante la carga; nunca como fuente de datos) → para usuarios recurrentes
+    aparece la sucursal sin parpadeo. Lectura tras montar (hidratación segura).
+- **POS** no carga catálogo/stock hasta tener sucursal válida: muestra
+  **"Cargando sucursal…"** mientras carga, o un aviso si no hay sucursales
+  activas. Nunca opera con `branchId` vacío.
+
+### Added
+- `pickPrincipalBranch`, `cacheCurrentBranchName`, `readCachedCurrentBranchName`
+  en branch-store. +4 tests (incluye prioridad piloto y orden por nombre).
+
+### Security
+- Sin IDs técnicos en UI (nunca UUID/branch_id/almacén). DGII real apagado.
+
 ## [0.8.4] - 2026-06-27
 
 ### Fixed

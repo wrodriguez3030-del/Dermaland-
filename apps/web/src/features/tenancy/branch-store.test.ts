@@ -26,6 +26,7 @@ import {
   getAdminBranches,
   getDeletedBranches,
   restoreDeletedBranch,
+  pickPrincipalBranch,
 } from "./branch-store";
 import { mockWarehouses } from "@/lib/mock-data/tenancy";
 import { canManageBranches } from "./permissions";
@@ -577,4 +578,37 @@ describe("no-import guard: selectores operativos usan useActiveBranches (no mock
       expect(source).not.toMatch(/import[^;]*mockBranches[^;]*from[^;]*mock-data\/tenancy/);
     });
   }
+});
+
+describe("pickPrincipalBranch", () => {
+  const mk = (id: string, name: string, isPilot = false): Branch =>
+    ({
+      id,
+      businessId: "biz",
+      code: id.toUpperCase(),
+      name,
+      address: "",
+      city: "",
+      province: "",
+      country: "RD",
+      isPilot,
+      showOnWebsite: false,
+      status: "active",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    }) as Branch;
+
+  it("prioriza la sucursal piloto/principal", () => {
+    const list = [mk("b", "Zeta"), mk("a", "Alfa", true), mk("c", "Beta")];
+    expect(pickPrincipalBranch(list)?.id).toBe("a");
+  });
+
+  it("sin piloto, devuelve la primera por nombre (es-DO)", () => {
+    const list = [mk("b", "Zeta"), mk("c", "Beta"), mk("d", "Alfa")];
+    expect(pickPrincipalBranch(list)?.name).toBe("Alfa");
+  });
+
+  it("lista vacía → undefined", () => {
+    expect(pickPrincipalBranch([])).toBeUndefined();
+  });
 });

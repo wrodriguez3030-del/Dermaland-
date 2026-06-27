@@ -239,9 +239,16 @@ export function PosTerminal() {
   } | null>(null);
 
   // ── Sucursal actual ────────────────────────────────────────────────────────
-  const { branchId: rawBranchId, branches, setBranchId } = useCurrentBranch();
+  const {
+    branchId: rawBranchId,
+    branches,
+    setBranchId,
+    loading: branchesLoading,
+  } = useCurrentBranch();
   // Si aún no se resolvió la sucursal (hydration), usar la primera activa.
   const branchId = rawBranchId || branches[0]?.id || "";
+  // El POS no debe operar hasta tener una sucursal válida.
+  const branchReady = branchId !== "";
   // Nombre legible — NUNCA el UUID.
   const branchName =
     branches.find((b) => b.id === branchId)?.name ??
@@ -722,6 +729,17 @@ export function PosTerminal() {
     setCustomerId("");
     setChargeOpen(false);
   };
+
+  // Sin sucursal válida todavía: no cargar catálogo/stock. Mostrar carga o aviso.
+  if (!branchReady) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-black/5 bg-white p-10 text-sm text-black/60 shadow-sm">
+        {branchesLoading
+          ? "Cargando sucursal…"
+          : "No hay sucursales activas. Crea o activa una sucursal para vender."}
+      </div>
+    );
+  }
 
   return (
     <div className="grid min-h-[calc(100vh-12rem)] gap-4 xl:gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(380px,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(420px,1fr)]">
