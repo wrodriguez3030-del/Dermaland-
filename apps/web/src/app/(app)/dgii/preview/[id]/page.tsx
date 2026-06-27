@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useProforma } from "@/features/sales/proforma-store";
+import { EcfLifecycleTrace } from "@/components/dgii/ecf-lifecycle-trace";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 const tipoLabels: Record<string, string> = {
@@ -328,6 +329,8 @@ export default function DgiiPreviewPage() {
               </button>
             </CardContent>
           </Card>
+
+          {isInvoice && <EcfLifecycleTrace ecfNumber={proforma.number} />}
         </div>
       </div>
     </>
