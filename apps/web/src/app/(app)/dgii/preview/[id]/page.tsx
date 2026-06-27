@@ -19,7 +19,7 @@ import {
   FileText,
   Loader2,
 } from "lucide-react";
-import { useProforma } from "@/features/sales/proforma-store";
+import { useProformaDocument } from "@/features/sales/proforma-store";
 import { EcfLifecycleTrace } from "@/components/dgii/ecf-lifecycle-trace";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
@@ -58,7 +58,8 @@ async function fetchArtifact(
 
 export default function DgiiPreviewPage() {
   const params = useParams<{ id: string }>();
-  const proforma = useProforma(params.id);
+  // Lee el documento desde la fuente correcta (servidor en supabase).
+  const { proforma, loading: docLoading } = useProformaDocument(params.id);
 
   const [pdfState, setPdfState] = React.useState<
     | { status: "loading" }
@@ -114,26 +115,46 @@ export default function DgiiPreviewPage() {
     document.body.removeChild(a);
   };
 
+  if (docLoading) {
+    return (
+      <>
+        <PageHeader
+          title="Vista previa e-CF DEMO"
+          description="Cargando documento…"
+          breadcrumbs={[{ label: "DGII", href: "/dgii" }, { label: "Preview" }]}
+        />
+        <Card>
+          <CardContent>
+            <p className="text-sm opacity-70">Cargando documento…</p>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
+
   if (!proforma) {
     return (
       <>
         <PageHeader
           title="Vista previa e-CF DEMO"
-          description="Proforma no encontrada en el navegador."
+          description="Documento no encontrado."
           breadcrumbs={[{ label: "DGII", href: "/dgii" }, { label: "Preview" }]}
         />
         <Card>
           <CardContent>
-            <p className="text-sm">
-              La proforma <code className="font-mono">{params.id}</code> no
-              existe en el almacenamiento local de este navegador. Las proformas
-              demo se crean al emitir desde el POS y viven solo en este
-              dispositivo (mock, no persistido).
+            <p className="text-sm opacity-70">
+              No pudimos abrir este documento. Búscalo en el listado de ventas o
+              comprobantes.
             </p>
-            <div className="mt-3">
+            <div className="mt-3 flex gap-2">
+              <Link href="/ventas">
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="h-4 w-4" /> Ver ventas
+                </Button>
+              </Link>
               <Link href="/proformas">
                 <Button variant="outline" size="sm">
-                  <ArrowLeft className="h-4 w-4" /> Volver a proformas
+                  Ver proformas
                 </Button>
               </Link>
             </div>

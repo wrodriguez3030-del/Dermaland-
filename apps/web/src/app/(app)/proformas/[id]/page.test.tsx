@@ -107,6 +107,9 @@ describe("ProformaDetailPage", () => {
     expect(
       await screen.findByText("Documento no encontrado"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Volver al POS")).toBeInTheDocument();
+    expect(screen.getByText("Ver proformas")).toBeInTheDocument();
+    // No debe mencionar localStorage / otro navegador en el mensaje.
+    expect(screen.queryByText(/localStorage/i)).toBeNull();
+    expect(screen.queryByText(/otro navegador/i)).toBeNull();
   });
 });

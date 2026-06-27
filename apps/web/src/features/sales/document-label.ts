@@ -54,6 +54,16 @@ export function saleDocumentLabel(p: DocFields): string {
   return "Proforma";
 }
 
+/**
+ * Base de ruta para ver/imprimir según el TIPO de documento:
+ *  - facturas (NCF/e-CF) → `/ventas`
+ *  - proformas           → `/proformas`
+ * Garantiza que una factura B02/B01/e-CF nunca se mande a la ruta de proforma.
+ */
+export function documentRouteBase(p: DocFields): "/ventas" | "/proformas" {
+  return isInvoiceDocument(p) ? "/ventas" : "/proformas";
+}
+
 /** Tono de badge por clase de documento. */
 export function saleDocumentTone(
   p: DocFields,

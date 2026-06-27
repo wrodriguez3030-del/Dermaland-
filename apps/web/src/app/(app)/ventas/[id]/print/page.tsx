@@ -3,11 +3,11 @@
 import { useParams } from "next/navigation";
 import { DocumentPrintView } from "@/features/sales/components/document-print-view";
 
-/** Impresión de proforma — usa la vista compartida (lee de Supabase en prod). */
-export default function ProformaPrintPage() {
+/** Impresión de factura/venta — vista compartida (lee de Supabase en prod). */
+export default function VentaPrintPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
   return (
-    <DocumentPrintView id={id} backHref="/proformas" backLabel="Volver a proformas" />
+    <DocumentPrintView id={id} backHref="/ventas" backLabel="Volver a ventas" />
   );
 }

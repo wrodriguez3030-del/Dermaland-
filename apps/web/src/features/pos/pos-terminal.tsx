@@ -672,6 +672,10 @@ export function PosTerminal() {
       );
       return;
     }
+    // ID PERSISTENTE del documento: en supabase es el UUID que devuelve el
+    // servidor; en local es el id generado. NUNCA usar el id local temporal
+    // para ver/imprimir en producción (rompía con "documento no encontrado").
+    const savedId = res.proforma?.id ?? id;
 
     // Descontar stock por cada línea del carrito (FEFO, multi-lote).
     // Usamos el snapshot `lots` del render (reactivo: Supabase o local según DATA_SOURCE).
@@ -715,7 +719,7 @@ export function PosTerminal() {
     }
 
     setIssued({
-      id,
+      id: savedId,
       number,
       total,
       documentKind: docKind,
@@ -979,10 +983,17 @@ export function PosTerminal() {
                 {formatCurrency(issued.total)}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href={`/proformas/${issued.id}/print?auto=1`} target="_blank">
+                {/* Facturas → /ventas; proformas → /proformas. */}
+                <Link
+                  href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print?auto=1`}
+                  target="_blank"
+                >
                   <Button size="sm">Imprimir ticket</Button>
                 </Link>
-                <Link href={`/proformas/${issued.id}/print`} target="_blank">
+                <Link
+                  href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print`}
+                  target="_blank"
+                >
                   <Button size="sm" variant="outline">
                     Generar PDF
                   </Button>

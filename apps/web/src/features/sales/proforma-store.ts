@@ -287,3 +287,64 @@ export function useProforma(id: string | null | undefined): Proforma | undefined
   if (!id) return undefined;
   return list.find((p) => p.id === id);
 }
+
+export interface ProformaDocState {
+  proforma: Proforma | undefined;
+  loading: boolean;
+}
+
+/**
+ * Carga UN documento por id desde la fuente correcta:
+ *  - modo supabase  → `GET /api/proformas/:id` (NUNCA localStorage).
+ *  - modo local     → store en localStorage.
+ *
+ * Expone `loading` para que las páginas de ver/imprimir muestren "Cargando…"
+ * en vez de un "no encontrado" prematuro. Reactivo a cambios del store.
+ */
+export function useProformaDocument(
+  id: string | null | undefined,
+): ProformaDocState {
+  const [state, setState] = React.useState<ProformaDocState>({
+    proforma: undefined,
+    loading: Boolean(id),
+  });
+
+  React.useEffect(() => {
+    if (!id) {
+      setState({ proforma: undefined, loading: false });
+      return;
+    }
+    let alive = true;
+
+    const load = () => {
+      if (PROFORMA_BACKEND === "supabase") {
+        // Fuente única: servidor. Nunca caemos a localStorage en producción.
+        fetchProformaFromServer(id)
+          .then((p) => {
+            if (alive) setState({ proforma: p ?? undefined, loading: false });
+          })
+          .catch(() => {
+            // Error de red/sesión → no encontrado (mensaje amigable en la UI).
+            if (alive) setState({ proforma: undefined, loading: false });
+          });
+      } else {
+        setState({ proforma: getProformaByIdFromStore(id), loading: false });
+      }
+    };
+
+    load();
+    if (typeof window !== "undefined") {
+      window.addEventListener(CHANGE_EVENT, load);
+      window.addEventListener("storage", load);
+    }
+    return () => {
+      alive = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener(CHANGE_EVENT, load);
+        window.removeEventListener("storage", load);
+      }
+    };
+  }, [id]);
+
+  return state;
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Proforma } from "@/types";
 import {
   classifySaleDocument,
+  documentRouteBase,
   isInvoiceDocument,
   isProformaDocument,
   saleDocumentLabel,
@@ -38,6 +39,22 @@ describe("isProformaDocument / isInvoiceDocument", () => {
   it("Proforma es proforma, no factura", () => {
     expect(isProformaDocument(proforma)).toBe(true);
     expect(isInvoiceDocument(proforma)).toBe(false);
+  });
+});
+
+describe("documentRouteBase — factura nunca va a ruta de proforma", () => {
+  it("factura NCF B02 → /ventas", () => {
+    expect(documentRouteBase(ncfConsumo)).toBe("/ventas");
+  });
+  it("factura NCF B01 → /ventas", () => {
+    expect(documentRouteBase(ncfCredito)).toBe("/ventas");
+  });
+  it("e-CF E32/E31 → /ventas", () => {
+    expect(documentRouteBase(ecf32)).toBe("/ventas");
+    expect(documentRouteBase(ecf31)).toBe("/ventas");
+  });
+  it("proforma → /proformas", () => {
+    expect(documentRouteBase(proforma)).toBe("/proformas");
   });
 });
 

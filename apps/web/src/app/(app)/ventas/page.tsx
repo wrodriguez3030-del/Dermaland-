@@ -72,7 +72,7 @@ export default function VentasPage() {
                 <TR key={p.id}>
                   <TD className="text-xs">{formatDateTime(p.createdAt)}</TD>
                   <TD>
-                    <Link href={`/proformas/${p.id}`} className="font-mono text-xs hover:text-[color:var(--brand-accent)]">
+                    <Link href={`/ventas/${p.id}`} className="font-mono text-xs hover:text-[color:var(--brand-accent)]">
                       {p.ecfNumber ?? p.number}
                     </Link>
                   </TD>
@@ -91,14 +91,14 @@ export default function VentasPage() {
                   </TD>
                   <TD className="pr-4">
                     <RowActions
-                      viewHref={`/proformas/${p.id}`}
+                      viewHref={`/ventas/${p.id}`}
                       canEdit={false}
                       canDelete={false}
                       customActions={[
                         {
                           label: "Imprimir",
                           icon: Printer,
-                          href: `/proformas/${p.id}/print`,
+                          href: `/ventas/${p.id}/print`,
                         },
                         {
                           label: "Enviar WhatsApp",

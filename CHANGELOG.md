@@ -11,6 +11,40 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.6] - 2026-06-27
+
+### Fixed
+- **Imprimir/ver un documento abría "Documento no encontrado / los datos viven
+  en localStorage".** Dos causas de raíz:
+  1. Las páginas de detalle e impresión (`/proformas/[id]` y `/print`) leían
+     **solo de localStorage** (`getProformaByIdFromStore`), nunca de Supabase.
+     En producción (Supabase) el documento real no estaba en localStorage → no
+     encontrado + mensaje engañoso.
+  2. Tras cobrar, el POS usaba el **id local temporal** (`prof_…`) para el
+     recibo y los enlaces de impresión, en vez del **UUID** que devuelve
+     Supabase → la URL apuntaba a un id inexistente.
+- **Carga server-aware**: nuevo hook `useProformaDocument(id)` que lee el
+  documento desde **Supabase** (`GET /api/proformas/:id`) en producción y desde
+  el store en local, con estado `loading`. Las vistas muestran "Cargando
+  documento…" y, si no existe, un mensaje **amigable** (sin localStorage, sin
+  UUID crudo, sin `SupabaseRepository`).
+- **POS** usa el **id persistente** del servidor (`res.proforma.id`) para el
+  recibo y enruta impresión por tipo (factura → `/ventas`, proforma →
+  `/proformas`).
+
+### Added
+- Vistas compartidas `DocumentDetailView` / `DocumentPrintView` (server-aware),
+  montadas en `/proformas/[id]` **y** `/ventas/[id]` (+ `/print`). Las facturas
+  NCF/e-CF abren bajo **/ventas**; las proformas bajo **/proformas**.
+- `documentRouteBase(doc)` (factura → `/ventas`, proforma → `/proformas`) — una
+  factura B02/B01/e-CF nunca se manda a la ruta de proforma. La lista de Ventas
+  enlaza ver/imprimir a `/ventas/:id`. +5 tests (rutas + sin mensaje localStorage).
+
+### Security
+- En producción los documentos (ventas/proformas/facturas) se leen **solo de
+  Supabase**; localStorage queda para preferencias/branch/draft. DGII real
+  apagado. Sin exponer IDs técnicos ni errores crudos en UI.
+
 ## [0.8.5] - 2026-06-27
 
 ### Fixed
