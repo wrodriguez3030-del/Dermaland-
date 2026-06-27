@@ -68,6 +68,15 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
   térmico imprime código de seguridad (demo), fecha de firma, URL de validación
   y la nota de Envío Diferido (24 h). El QR completo sigue en la representación
   impresa PDF (canónica). Sin librerías UI nuevas.
+- **Logs DGII / Historial (§1, §12):** store `dgii-logs` (localStorage, por
+  business_id, mapea a tabla `dgii_logs`) + pantalla `/dgii/logs` con bitácora
+  (fecha, acción, e-NCF, ambiente, estado, mensaje, modo mock/real). El "Flujo
+  e-CF (demo)" de la vista previa puede **registrar su traza en los logs** con
+  un botón. +4 tests.
+- **Comprobantes emitidos:** columna **Ambiente** (badge gris mock / naranja
+  testecf-certecf / verde producción) en `/dgii/facturas`.
+- Sidebar: "Logs DGII / Historial" → `/dgii/logs`; "Envíos a DGII" queda como
+  ítem aparte.
 
 ### Security
 - **DGII real permanece APAGADO.** mock/demo nunca consume secuencia fiscal

@@ -16,7 +16,16 @@ import { Ban, AlertTriangle } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { mockElectronicInvoices } from "@/lib/mock-data/integrations";
+import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+
+const envTone: Record<string, "neutral" | "warning" | "success" | "danger"> = {
+  mock: "neutral",
+  demo: "neutral",
+  testecf: "warning",
+  certecf: "warning",
+  produccion: "success",
+};
 
 const statusTone: Record<string, "success" | "warning" | "info" | "danger" | "neutral"> = {
   draft: "neutral",
@@ -32,6 +41,8 @@ const statusTone: Record<string, "success" | "warning" | "info" | "danger" | "ne
 
 export default function FacturasElectronicasPage() {
   const toast = useToast();
+  const settings = useBillingSettings();
+  const env = settings.ecfEnvironment;
   return (
     <>
       <PageHeader
@@ -63,6 +74,7 @@ export default function FacturasElectronicasPage() {
                 <TH className="text-right">ITBIS</TH>
                 <TH className="text-right">Total</TH>
                 <TH>Estado</TH>
+                <TH>Ambiente</TH>
                 <TH>TrackID</TH>
                 <TH>Emitida</TH>
                 <TH className="text-right pr-4">Acciones</TH>
@@ -84,6 +96,9 @@ export default function FacturasElectronicasPage() {
                     </TD>
                     <TD>
                       <Badge tone={statusTone[i.status] ?? "neutral"}>{i.status}</Badge>
+                    </TD>
+                    <TD>
+                      <Badge tone={envTone[env] ?? "neutral"}>{env}</Badge>
                     </TD>
                     <TD className="font-mono text-[10px] opacity-70">
                       {i.trackId ?? "—"}
