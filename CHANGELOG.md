@@ -11,6 +11,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.4] - 2026-06-27
+
+### Fixed
+- **Una venta NCF (B02/B01) seguía apareciendo en Proformas con número
+  PROF-…** aunque el modal decía "Factura de consumo (B02)". Dos causas:
+  1. En `finalizeCharge`, el `number` del documento siempre era
+     `generateProformaNumber()` (PROF-…), incluso para facturas. Ahora el
+     número es el **comprobante reservado** (B02…/B01…/E32…/E31…) para
+     facturas; PROF-… queda **solo** para proformas reales.
+  2. La pantalla **Proformas** (`/proformas`) listaba TODOS los documentos sin
+     filtrar por `document_kind`, así que las facturas se mostraban ahí.
+- DermaLand usa **una sola tabla `proformas`** como almacén de documentos de
+  venta; la distinción es por `document_kind` + `ecf_type`. Ahora:
+  - **Proformas** (`/proformas`) muestra **solo** proformas reales.
+  - **Ventas / Facturas** (`/ventas`) muestra las **facturas NCF/e-CF** con
+    columna **Documento** (B02/B01/E32/E31) y el número de comprobante; además
+    pasó a usar **datos en vivo** (`useProformas`) en lugar del seed estático.
+
+### Added
+- Clasificador puro `features/sales/document-label.ts`
+  (`classifySaleDocument`, `isProformaDocument`, `isInvoiceDocument`,
+  `saleDocumentLabel`, `saleDocumentTone`) — mismo criterio en POS y listados.
+  +14 tests.
+
+### Security
+- DGII real apagado; mock/demo no consume secuencia fiscal real.
+
 ## [0.8.3] - 2026-06-27
 
 ### Fixed

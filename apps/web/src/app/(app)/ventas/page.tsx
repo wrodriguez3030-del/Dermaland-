@@ -16,13 +16,21 @@ import {
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
 import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2 } from "lucide-react";
-import { mockProformas } from "@/lib/mock-data/sales";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
+import { useProformas } from "@/features/sales/proforma-store";
+import {
+  isInvoiceDocument,
+  saleDocumentLabel,
+  saleDocumentTone,
+} from "@/features/sales/document-label";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 export default function VentasPage() {
-  const sales = mockProformas;
+  // Ventas / Facturas: documentos fiscales emitidos (NCF B02/B01 y e-CF E32/E31).
+  // Las proformas pendientes viven en la pantalla Proformas.
+  const allDocuments = useProformas();
+  const sales = allDocuments.filter(isInvoiceDocument);
   const total = sales.reduce((s, p) => s + p.total, 0);
   const itbis = sales.reduce((s, p) => s + p.itbis, 0);
   const items = sales.reduce(
@@ -33,8 +41,8 @@ export default function VentasPage() {
   return (
     <>
       <PageHeader
-        title="Ventas"
-        description="Todas las ventas del día (proformas + facturas convertidas). Para detalle por venta usa proformas."
+        title="Ventas / Facturas"
+        description="Facturas emitidas (NCF B02/B01 y e-CF E32/E31). Las proformas pendientes están en la pantalla Proformas."
         breadcrumbs={[{ label: "Ventas" }]}
       />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -50,7 +58,8 @@ export default function VentasPage() {
             <THead>
               <TR>
                 <TH>Hora</TH>
-                <TH>Proforma</TH>
+                <TH>Comprobante</TH>
+                <TH>Documento</TH>
                 <TH>Cliente</TH>
                 <TH>Cajero</TH>
                 <TH className="text-right">Total</TH>
@@ -64,8 +73,11 @@ export default function VentasPage() {
                   <TD className="text-xs">{formatDateTime(p.createdAt)}</TD>
                   <TD>
                     <Link href={`/proformas/${p.id}`} className="font-mono text-xs hover:text-[color:var(--brand-accent)]">
-                      {p.number}
+                      {p.ecfNumber ?? p.number}
                     </Link>
+                  </TD>
+                  <TD>
+                    <Badge tone={saleDocumentTone(p)}>{saleDocumentLabel(p)}</Badge>
                   </TD>
                   <TD className="text-sm">{p.customerName}</TD>
                   <TD className="text-sm opacity-70">{p.cashierName}</TD>

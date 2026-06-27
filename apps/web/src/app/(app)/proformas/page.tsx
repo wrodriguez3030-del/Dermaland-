@@ -1,7 +1,9 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
+import { isProformaDocument } from "@/features/sales/document-label";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { Ban, Printer, Send } from "lucide-react";
@@ -56,7 +58,13 @@ const comparators = {
 
 export default function ProformasPage() {
   const toast = useToast();
-  const proformas = useProformas();
+  const allDocuments = useProformas();
+  // Solo proformas reales: las facturas NCF (B02/B01) y e-CF (E32/E31) van a
+  // Ventas / Facturas, no aquí.
+  const proformas = React.useMemo(
+    () => allDocuments.filter(isProformaDocument),
+    [allDocuments],
+  );
   const { sort, sorted, toggle } = useTableSort(
     proformas,
     "date",

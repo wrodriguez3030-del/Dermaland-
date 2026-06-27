@@ -550,7 +550,6 @@ export function PosTerminal() {
       return;
     }
 
-    const number = generateProformaNumber();
     const id = generateProformaId();
     const now = new Date().toISOString();
     const amountReceived = result.amountReceived;
@@ -591,6 +590,10 @@ export function PosTerminal() {
         ecfType = decision.comprobanteType === "E31" ? "31" : "32";
       }
     }
+
+    // Número del documento: el comprobante fiscal (B02/B01/E32/E31) para
+    // facturas; PROF-… solo para proformas reales (cotización / pendiente cierre).
+    const number = comprobante ?? generateProformaNumber();
 
     const newProforma: Proforma = {
       id,
