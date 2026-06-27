@@ -11,6 +11,35 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.1] - 2026-06-26
+
+### Fixed
+- **Cobrar venta fallaba en producción con "un dato tiene formato inválido"
+  (Postgres 22P02).** Causa raíz: el POS enviaba `cashier_id` y el `user_id`
+  del pago como `"usr_cashier_1"` (placeholder, **no UUID**) a columnas
+  `uuid not null references users(id)` → `invalid input syntax for type uuid`
+  → fallaba TODO el guardado. Corregido en `proforma.create`: la identidad
+  (`cashier_id`, payment `user_id`) ahora sale **del contexto autenticado**
+  (`ctx.userId`, JWT), nunca del body.
+- **Saneo defensivo de todo el payload de venta** antes de insertar:
+  `branch_id` validado como UUID (body → sesión → error claro), `customer_id` /
+  `product_id` / `product_lot_id` / `cash_register_session_id` vía
+  `nullableUuid` (vacío / "walk-in" / no-UUID → `null`), montos vía `toDbMoney`
+  (acepta `"RD$2,600.00"`, comas y espacios; rechaza NaN/Infinity con mensaje
+  claro), `method_code` vía `mapPaymentMethod` (efectivo→cash, etc.; desconocido
+  → "other").
+
+### Added
+- **Sanitizadores centrales** `server/repositories/supabase/sanitize.ts`:
+  `isUuid`, `nullableUuid`, `requireUuid`, `toDbMoney`, `toDbMoneyNullable`,
+  `toDbInt`, `toDbDate` (DD/MM/YYYY → ISO), `toDbTimestamp`, `mapPaymentMethod`.
+  Lanzan `UserFacingRepositoryError` (mensaje amigable, sin jerga técnica) ante
+  datos irrecuperables. **+21 tests.**
+
+### Security
+- La identidad del cajero/usuario de pago ya **no se confía del cliente**: se
+  toma del JWT en el servidor. DGII real permanece apagado.
+
 ### Added
 ### Changed
 ### Fixed

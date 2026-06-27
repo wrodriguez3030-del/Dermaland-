@@ -23,6 +23,15 @@ import {
   proformaPaymentRowToTs,
   proformaRowToTs,
 } from "./mappers";
+import {
+  isUuid,
+  mapPaymentMethod,
+  nullableUuid,
+  requireUuid,
+  toDbInt,
+  toDbMoney,
+  toDbMoneyNullable,
+} from "./sanitize";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -159,31 +168,45 @@ export const proformaRepository: ProformaRepository = {
         ? proforma.number
         : generateProformaNumber();
 
+    // Identidad SIEMPRE del contexto autenticado (JWT), nunca del body: el POS
+    // envía valores placeholder ("usr_cashier_1") que no son UUID y rompían el
+    // insert con `invalid input syntax for type uuid` (22P02). cashier_id /
+    // user_id deben ser el usuario real de la sesión.
+    const cashierId = requireUuid(
+      ctx.userId,
+      "Tu sesión de usuario",
+    );
+    // branch_id es `uuid not null`: usa el del body si es UUID válido; si no, el
+    // de la sesión; si ninguno sirve, error claro (sin jerga técnica).
+    const branchId = isUuid(proforma.branchId)
+      ? String(proforma.branchId)
+      : requireUuid(ctx.branchId, "La sucursal");
+
     const proformaRow = {
       business_id: ctx.businessId,
-      branch_id: proforma.branchId,
+      branch_id: branchId,
       number,
-      customer_id: proforma.customerId ?? null,
+      customer_id: nullableUuid(proforma.customerId),
       customer_name: proforma.customerName,
-      cashier_id: proforma.cashierId,
+      cashier_id: cashierId,
       cashier_name: proforma.cashierName,
-      subtotal: proforma.subtotal,
-      discount: proforma.discount,
-      itbis: proforma.itbis,
-      total: proforma.total,
+      subtotal: toDbMoney(proforma.subtotal, "subtotal"),
+      discount: toDbMoney(proforma.discount, "descuento"),
+      itbis: toDbMoney(proforma.itbis, "ITBIS"),
+      total: toDbMoney(proforma.total, "total"),
       status: proforma.status,
-      paid: proforma.paid,
-      balance: proforma.balance,
+      paid: toDbMoney(proforma.paid, "monto pagado"),
+      balance: toDbMoney(proforma.balance, "balance"),
       notes: proforma.notes ?? null,
       ecf_number: proforma.ecfNumber ?? null,
-      cash_register_session_id: proforma.cashRegisterSessionId ?? null,
-      discount_percent: proforma.discountPercent ?? null,
-      discount_amount: proforma.discountAmount ?? null,
+      cash_register_session_id: nullableUuid(proforma.cashRegisterSessionId),
+      discount_percent: toDbMoneyNullable(proforma.discountPercent, "% de descuento"),
+      discount_amount: toDbMoneyNullable(proforma.discountAmount, "descuento"),
       billing_type: proforma.billingType ?? null,
       customer_phone: proforma.customerPhone ?? null,
       customer_document: proforma.customerDocument ?? null,
-      amount_received: proforma.amountReceived ?? null,
-      change_amount: proforma.changeAmount ?? null,
+      amount_received: toDbMoneyNullable(proforma.amountReceived, "monto recibido"),
+      change_amount: toDbMoneyNullable(proforma.changeAmount, "cambio"),
       document_kind: proforma.documentKind ?? "proforma",
       ecf_type: proforma.ecfType ?? null,
       sequence_type: proforma.sequenceType ?? null,
@@ -216,18 +239,21 @@ export const proformaRepository: ProformaRepository = {
         business_id: ctx.businessId,
         proforma_id: proformaId,
         line_no: idx + 1,
-        product_id: it.productId || null,
+        // product_id / product_lot_id son uuid nullable: un id de mock o vacío
+        // se convierte a null (se conserva sku/nombre/lote como texto) en vez de
+        // romper el insert con uuid inválido.
+        product_id: nullableUuid(it.productId),
         product_sku: it.productSku,
         product_name: it.productName,
-        product_lot_id: it.lotId ?? null,
+        product_lot_id: nullableUuid(it.lotId),
         lot_number: it.lotNumber ?? null,
-        quantity: it.quantity,
-        unit_price: it.unitPrice,
-        itbis_rate: it.itbisRate,
-        discount: it.discount,
-        subtotal: it.subtotal,
-        itbis: it.itbis,
-        total: it.total,
+        quantity: toDbInt(it.quantity, "cantidad"),
+        unit_price: toDbMoney(it.unitPrice, "precio unitario"),
+        itbis_rate: toDbMoney(it.itbisRate, "tasa de ITBIS"),
+        discount: toDbMoney(it.discount, "descuento"),
+        subtotal: toDbMoney(it.subtotal, "subtotal"),
+        itbis: toDbMoney(it.itbis, "ITBIS"),
+        total: toDbMoney(it.total, "total"),
         // DGII: los productos son "bien" (servicios = "servicio"). El valor
         // "product" violaba el check `kind in ('bien','servicio')` → el insert
         // de items fallaba y rompía TODO el cobro (causa raíz).
@@ -245,10 +271,14 @@ export const proformaRepository: ProformaRepository = {
       const payRows = proforma.payments.map((p) => ({
         business_id: ctx.businessId,
         proforma_id: proformaId,
-        method_code: p.method,
-        amount: p.amount,
+        // method_code mapeado al enum del schema (efectivo→cash, etc.); valor
+        // desconocido cae en "other" para no violar el check.
+        method_code: mapPaymentMethod(p.method),
+        amount: toDbMoney(p.amount, "monto del pago"),
         reference: p.reference ?? null,
-        user_id: p.userId,
+        // user_id es uuid not null → siempre el usuario autenticado, no el
+        // placeholder del body.
+        user_id: cashierId,
         user_name: p.userName,
       }));
       const { error: pErr } = await sb
