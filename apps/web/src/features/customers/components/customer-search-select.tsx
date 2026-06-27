@@ -28,7 +28,15 @@ interface CustomerSearchSelectProps {
   onCreateNew?: () => void;
   /** Tamaño del trigger. */
   size?: "sm" | "md";
+  /** Marca el trigger como requerido (borde rojo) — ej. cliente obligatorio. */
+  invalid?: boolean;
   className?: string;
+}
+
+/** Handle imperativo para abrir/enfocar el selector desde el padre. */
+export interface CustomerSearchSelectHandle {
+  open: () => void;
+  focus: () => void;
 }
 
 /**
@@ -42,21 +50,40 @@ interface CustomerSearchSelectProps {
  * - Selección → cierra y emite `onChange(customer)`.
  * - Botón ✕ para volver a walk-in.
  */
-export function CustomerSearchSelect({
-  clients,
-  value,
-  onChange,
-  allowWalkIn = true,
-  businessId,
-  createHref = "/clientes/nuevo",
-  onCreateNew,
-  size = "md",
-  className,
-}: CustomerSearchSelectProps) {
+export const CustomerSearchSelect = React.forwardRef<
+  CustomerSearchSelectHandle,
+  CustomerSearchSelectProps
+>(function CustomerSearchSelect(
+  {
+    clients,
+    value,
+    onChange,
+    allowWalkIn = true,
+    businessId,
+    createHref = "/clientes/nuevo",
+    onCreateNew,
+    size = "md",
+    invalid = false,
+    className,
+  },
+  ref,
+) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      open: () => setOpen(true),
+      focus: () => {
+        setOpen(true);
+        containerRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      },
+    }),
+    [],
+  );
 
   // Cerrar al click fuera o ESC
   React.useEffect(() => {
@@ -112,6 +139,7 @@ export function CustomerSearchSelect({
           "flex w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-left text-sm transition hover:border-[color:var(--brand-primary)]/40",
           triggerHeight,
           open && "border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/20",
+          invalid && !value && "border-rose-400 ring-2 ring-rose-200",
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -128,7 +156,11 @@ export function CustomerSearchSelect({
               </span>
             </div>
           ) : (
-            <span className="opacity-60">Cliente: walk-in / consumidor final</span>
+            <span className={cn("opacity-60", invalid && "text-rose-600 opacity-100")}>
+              {allowWalkIn
+                ? "Cliente: walk-in / consumidor final"
+                : "Selecciona un cliente para facturar"}
+            </span>
           )}
         </div>
         {value && (
@@ -283,4 +315,4 @@ export function CustomerSearchSelect({
       )}
     </div>
   );
-}
+});

@@ -29,7 +29,15 @@ import {
   cartTotals,
   type LineDiscountType,
 } from "./cart-line";
-import { CustomerSearchSelect } from "@/features/customers/components/customer-search-select";
+import {
+  CustomerSearchSelect,
+  type CustomerSearchSelectHandle,
+} from "@/features/customers/components/customer-search-select";
+import { QuickCreateCustomerModal } from "./components/quick-create-customer-modal";
+import {
+  CUSTOMER_REQUIRED_MESSAGE,
+  isRealCustomerSelected,
+} from "./checkout-guards";
 import {
   createProformaAnywhere,
   generateProformaId,
@@ -204,6 +212,11 @@ export function PosTerminal() {
   const [search, setSearch] = React.useState("");
   const [cart, setCart] = React.useState<CartLine[]>([]);
   const [customerId, setCustomerId] = React.useState<string | "">("");
+  // Cliente OBLIGATORIO para facturar: marca el selector en rojo y muestra
+  // el mensaje cuando se intenta cobrar sin cliente.
+  const [customerRequired, setCustomerRequired] = React.useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = React.useState(false);
+  const customerSelectRef = React.useRef<CustomerSearchSelectHandle>(null);
   const [discountGlobalPercent, setDiscountGlobalPercent] = React.useState(0);
   const [chargeOpen, setChargeOpen] = React.useState(false);
   const [billingType, setBillingType] =
@@ -514,6 +527,15 @@ export function PosTerminal() {
     setCart((prev) => prev.filter((l) => l.lotId !== lotId));
 
   const finalizeCharge = async (result: ChargeSaleResult) => {
+    // Cliente obligatorio (defensa en profundidad: no se debe llegar aquí sin
+    // cliente, pero nunca enviar "walk-in" a Supabase).
+    if (!isRealCustomerSelected(customer)) {
+      toast.error(CUSTOMER_REQUIRED_MESSAGE);
+      setCustomerRequired(true);
+      setChargeOpen(false);
+      customerSelectRef.current?.focus();
+      return;
+    }
     if (!branchId) {
       toast.error("Selecciona una sucursal.");
       return;
@@ -806,10 +828,22 @@ export function PosTerminal() {
                 constante mock "biz_dermaland" excluía a TODOS los clientes
                 reales (cuyo businessId es el UUID), por eso WILLIAN no aparecía. */}
             <CustomerSearchSelect
+              ref={customerSelectRef}
               clients={customers}
               value={customer ?? null}
-              onChange={(c) => setCustomerId(c?.id ?? "")}
+              allowWalkIn={false}
+              invalid={customerRequired}
+              onChange={(c) => {
+                setCustomerId(c?.id ?? "");
+                if (c) setCustomerRequired(false);
+              }}
+              onCreateNew={() => setQuickCreateOpen(true)}
             />
+            {customerRequired && !customer && (
+              <p className="mt-1 text-[11px] text-rose-600">
+                Cliente obligatorio para facturar.
+              </p>
+            )}
           </div>
           {customer && customer.tags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
@@ -1068,6 +1102,14 @@ export function PosTerminal() {
               className="mt-4 w-full"
               size="lg"
               onClick={() => {
+                // 1) Cliente obligatorio — antes de carrito/caja/stock/pago.
+                if (!isRealCustomerSelected(customer)) {
+                  toast.error(CUSTOMER_REQUIRED_MESSAGE);
+                  setCustomerRequired(true);
+                  customerSelectRef.current?.focus();
+                  return;
+                }
+                // 2) Resto de validaciones (carrito, stock, RNC).
                 if (!canCharge) {
                   toast.error(chargeBlockReason ?? "No se puede facturar.");
                   return;
@@ -1095,6 +1137,14 @@ export function PosTerminal() {
         total={total}
         billingType={billingType}
         onConfirm={finalizeCharge}
+      />
+      <QuickCreateCustomerModal
+        open={quickCreateOpen}
+        onClose={() => setQuickCreateOpen(false)}
+        onCreated={(c) => {
+          setCustomerId(c.id);
+          setCustomerRequired(false);
+        }}
       />
       <toast.Toast />
 

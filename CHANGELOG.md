@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.2] - 2026-06-27
+
+### Added
+- **Cliente obligatorio para facturar en POS.** El cobro exige un cliente real;
+  ya no se puede facturar como "walk-in / consumidor final".
+  - Guard puro y testeable `features/pos/checkout-guards.ts`
+    (`isRealCustomerSelected`, `customerChargeBlock`, `CUSTOMER_REQUIRED_MESSAGE`).
+    Es la **1ª validación** del cobro (antes de carrito/caja/stock/pago). +12 tests.
+  - Al hacer clic en "Cobrar venta" sin cliente: toast
+    *"Debes seleccionar o crear un cliente antes de facturar."*, se marca el
+    selector en rojo con hint "Cliente obligatorio para facturar.", se abre/enfoca
+    el selector y **no** se abre el cobro, **no** se guarda nada, **no** se llama
+    a Supabase, **no** se descuenta stock.
+  - **Alta rápida de cliente desde el POS** (`QuickCreateCustomerModal`): nombre,
+    apellido y teléfono obligatorios; documento/email/tipo de piel opcionales. Al
+    crear, el cliente queda **seleccionado automáticamente** y se puede cobrar.
+  - `CustomerSearchSelect` ahora expone un handle imperativo (`open()`/`focus()`),
+    soporta estado `invalid` y, con `allowWalkIn={false}`, muestra "Selecciona un
+    cliente para facturar" y oculta la opción walk-in.
+
+### Security
+- Defensa en profundidad: `finalizeCharge` revalida el cliente, por lo que nunca
+  se envía "walk-in" como `customer_id` a Supabase. DGII real apagado.
+
 ## [0.8.1] - 2026-06-26
 
 ### Fixed
