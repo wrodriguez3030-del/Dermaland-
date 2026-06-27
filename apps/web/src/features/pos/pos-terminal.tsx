@@ -43,7 +43,12 @@ import {
   generateProformaId,
   generateProformaNumber,
 } from "@/features/sales/proforma-store";
-import { resolveDocumentToIssue } from "@/features/sales/document-resolver";
+import {
+  resolveAutoBilling,
+  comprobanteToDocType,
+} from "@/features/billing/auto-billing-rules";
+import { useBillingSettings } from "@/features/billing/billing-settings-store";
+import { reserveNextPreferred } from "@/features/dgii/numbering-store";
 import type { DefaultBillingType, Proforma } from "@/types";
 import {
   billingTypeEcf,
@@ -53,7 +58,6 @@ import {
   ChargeSaleModal,
   type ChargeSaleResult,
 } from "./components/charge-sale-modal";
-import { primaryPaymentMethod } from "./payment-validation";
 import { useToast } from "@/components/ui/toast";
 import {
   useAllLots,
@@ -208,6 +212,7 @@ export function BranchStockModal({
 
 export function PosTerminal() {
   const customers = useCustomers();
+  const billingSettings = useBillingSettings();
   const toast = useToast();
   const [search, setSearch] = React.useState("");
   const [cart, setCart] = React.useState<CartLine[]>([]);
@@ -551,11 +556,41 @@ export function PosTerminal() {
     const amountReceived = result.amountReceived;
     const changeAmount = result.changeAmount;
     const paidTotal = result.payments.reduce((s, p) => s + p.amount, 0);
-    const primaryMethod = primaryPaymentMethod(result.payments);
-    const resolved = resolveDocumentToIssue({
+
+    // Decisión CONFIG-AWARE: respeta "Forma de facturación principal"
+    // (NCF tradicional → B02/B01; e-CF → E32/E31; Proforma solo cuando aplica).
+    const decision = resolveAutoBilling({
       billingType,
-      paymentMethod: primaryMethod,
+      payments: result.payments.map((p) => ({ method: p.method, amount: p.amount })),
+      settings: billingSettings,
     });
+
+    let docKind: "proforma" | "invoice" = "proforma";
+    let ecfType: "31" | "32" | undefined;
+    let sequenceType: "consumo" | "credito_fiscal" | undefined;
+    let comprobante: string | undefined; // NCF (B02/B01) o e-CF (E32/E31)
+
+    if (decision.documentKind === "ncf" || decision.documentKind === "ecf") {
+      const dt = comprobanteToDocType(decision.comprobanteType);
+      if (dt) {
+        // Reserva el siguiente número de la secuencia activa/preferida (mock/demo;
+        // nunca producción). Si no hay secuencia o se agotó → mensaje claro y aborta.
+        const reservation = reserveNextPreferred(dt, billingSettings.ecfEnvironment);
+        if (!reservation.ok) {
+          toast.error(reservation.error);
+          return;
+        }
+        comprobante = reservation.formatted;
+      }
+      docKind = "invoice";
+      sequenceType =
+        decision.comprobanteType === "B01" || decision.comprobanteType === "E31"
+          ? "credito_fiscal"
+          : "consumo";
+      if (decision.documentKind === "ecf") {
+        ecfType = decision.comprobanteType === "E31" ? "31" : "32";
+      }
+    }
 
     const newProforma: Proforma = {
       id,
@@ -611,9 +646,11 @@ export function PosTerminal() {
       billingType,
       amountReceived,
       changeAmount,
-      documentKind: resolved.documentKind,
-      ...(resolved.ecfType ? { ecfType: resolved.ecfType } : {}),
-      ...(resolved.sequenceType ? { sequenceType: resolved.sequenceType } : {}),
+      documentKind: docKind,
+      ...(ecfType ? { ecfType } : {}),
+      ...(sequenceType ? { sequenceType } : {}),
+      // Comprobante fiscal generado (NCF B02/B01 o e-CF E32/E31) en mock/demo.
+      ...(comprobante ? { ecfNumber: comprobante } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -671,8 +708,10 @@ export function PosTerminal() {
       id,
       number,
       total,
-      documentKind: resolved.documentKind,
-      documentLabel: resolved.label,
+      documentKind: docKind,
+      documentLabel: comprobante
+        ? `${decision.label} · ${comprobante}`
+        : decision.label,
     });
     setCart([]);
     setCartBranchId("");

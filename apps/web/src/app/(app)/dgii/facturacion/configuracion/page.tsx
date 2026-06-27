@@ -189,6 +189,15 @@ export default function BillingConfigPage() {
             <CardTitle>Reglas por método de pago</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {draft.defaultBillingMode === "ncf" && (
+              <div className="rounded-lg border border-black/10 bg-black/[0.03] p-3 text-xs opacity-80">
+                Las reglas e-CF solo aplican cuando la forma de facturación
+                principal es <strong>e-CF</strong> o <strong>Ambos</strong>. En{" "}
+                <strong>NCF tradicional</strong> el cobro emite siempre factura
+                B02 (consumo) o B01 (crédito fiscal); no se generan e-CF ni queda
+                pendiente para cierre.
+              </div>
+            )}
             <Toggle
               label="Generar e-CF automático en pagos con tarjeta"
               checked={draft.cardEcfImmediateEnabled}

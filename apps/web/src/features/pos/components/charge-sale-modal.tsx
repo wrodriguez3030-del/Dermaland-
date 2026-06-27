@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { formatCurrency } from "@/lib/utils/format";
-import { resolveDocumentToIssue } from "@/features/sales/document-resolver";
 import { resolveAutoBilling } from "@/features/billing/auto-billing-rules";
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import type { DefaultBillingType, PaymentMethod } from "@/types";
@@ -132,10 +131,6 @@ export function ChargeSaleModal({
   // Método primario para el documento a emitir: pagos confirmados o el borrador.
   const primaryForDoc: PaymentMethod | null =
     primaryPaymentMethod(payments) ?? method;
-  const resolved = resolveDocumentToIssue({
-    billingType,
-    paymentMethod: primaryForDoc,
-  });
 
   const effectivePayments = draftValid
     ? [...payments, buildPayment(draft!)]
@@ -514,19 +509,23 @@ export function ChargeSaleModal({
                 <AlertTriangle className="h-3.5 w-3.5" /> Saldo pendiente
               </Badge>
             )}
-            <Badge tone={resolved.documentKind === "invoice" ? "purple" : "info"}>
-              {resolved.documentKind === "invoice" ? (
+            <Badge tone={autoDecision.documentKind !== "proforma" ? "purple" : "info"}>
+              {autoDecision.documentKind !== "proforma" ? (
                 <FileText className="h-3.5 w-3.5" />
               ) : (
                 <ReceiptText className="h-3.5 w-3.5" />
               )}
-              Documento a emitir: {resolved.label}
+              Documento a emitir: {autoDecision.label}
             </Badge>
             {autoDecision.timing === "immediate" && (
-              <Badge tone="purple">e-CF inmediato al cobrar</Badge>
+              <Badge tone="purple">
+                {autoDecision.documentKind === "ecf"
+                  ? "e-CF inmediato al cobrar"
+                  : "Factura inmediata al cobrar"}
+              </Badge>
             )}
             {autoDecision.timing === "at_closing" && (
-              <Badge tone="warning">Pendiente para cierre de caja</Badge>
+              <Badge tone="warning">Pendiente de e-CF al cierre</Badge>
             )}
           </div>
           {autoDecision.timing !== "none" && (

@@ -8,6 +8,7 @@ import {
   setPreferred,
   deleteNumbering,
   reserveNext,
+  reserveNextPreferred,
   remaining,
   effectiveStatus,
   clearLocalNumberings,
@@ -163,5 +164,76 @@ describe("scoping", () => {
   it("toda numeración creada lleva el business del negocio", () => {
     const r = createNumbering(input({ prefix: "SCP" }));
     if (r.ok) expect(r.numbering.businessId).toBe(mockBusiness.id);
+  });
+});
+
+describe("reserveNextPreferred", () => {
+  it("reserva B02 (consumo) del seed e incrementa", () => {
+    const r = reserveNextPreferred("consumo", "mock");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.formatted).toMatch(/^B02/);
+      // El seed B02 arranca en 1240.
+      expect(r.value).toBe(1240);
+      const r2 = reserveNextPreferred("consumo", "mock");
+      if (r2.ok) expect(r2.value).toBe(1241);
+    }
+  });
+
+  it("reserva B01 (crédito fiscal) del seed", () => {
+    const r = reserveNextPreferred("credito_fiscal", "mock");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.formatted).toMatch(/^B01/);
+      expect(r.value).toBe(320);
+    }
+  });
+
+  it("tolera desajuste de ambiente: e-CF (seed testecf) se reserva pidiendo demo", () => {
+    const r = reserveNextPreferred("ecf_32", "demo");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.formatted).toMatch(/^E32/);
+  });
+
+  it("sin numeración del tipo → mensaje claro", () => {
+    const r = reserveNextPreferred("gubernamental", "mock");
+    expect(r.ok).toBe(false);
+    if (!r.ok)
+      expect(r.error).toBe(
+        "No hay numeración activa para este tipo de comprobante.",
+      );
+  });
+
+  it("numeración agotada → 'La numeración se agotó.'", () => {
+    const c = createNumbering(
+      input({
+        documentType: "exportacion",
+        prefix: "EXP",
+        rangeStart: 1,
+        rangeEnd: 5,
+        nextNumber: 6, // ya pasó el final
+        status: "active",
+        environment: "mock",
+      }),
+    );
+    if (!c.ok) throw new Error("setup");
+    const r = reserveNextPreferred("exportacion", "mock");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("La numeración se agotó.");
+  });
+
+  it("nunca reserva de ambiente producción", () => {
+    const c = createNumbering(
+      input({
+        documentType: "regimen_especial",
+        prefix: "B14",
+        environment: "produccion",
+        status: "active",
+      }),
+    );
+    if (!c.ok) throw new Error("setup");
+    const r = reserveNextPreferred("regimen_especial", "produccion");
+    // Aunque se pida producción, esta vía demo no consume secuencias reales.
+    expect(r.ok).toBe(false);
   });
 });

@@ -11,6 +11,41 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.3] - 2026-06-27
+
+### Fixed
+- **El POS ignoraba "Forma de facturación principal" y emitía Proforma/e-CF
+  por defecto.** Causa raíz: `finalizeCharge` y el badge del modal usaban el
+  resolver legado `resolveDocumentToIssue` (solo método de pago), que no mira
+  `billing_settings.defaultBillingMode`. Ahora ambos usan el motor config-aware
+  `resolveAutoBilling`:
+  - **NCF tradicional** → consumidor final **B02**, cliente con RNC **B01**,
+    siempre al cobrar (nunca Proforma ni e-CF, ni "pendiente para cierre").
+  - **e-CF** → consumidor **E32**, RNC **E31**; tarjeta e-CF inmediato;
+    efectivo/transferencia queda **proforma pendiente de e-CF al cierre** si la
+    regla está activa.
+  - **Ambos** → manual (elige el usuario) o automático (reglas por método).
+  - El modal ya no dice "Documento a emitir: Proforma" cuando corresponde
+    B02/B01; muestra el comprobante correcto y, al cobrar, el número emitido.
+
+### Added
+- `comprobanteToDocType` (B02→consumo, B01→crédito fiscal, E32/E31→ecf_32/31).
+- `reserveNextPreferred(docType, env)` en numbering-store: reserva el siguiente
+  número de la secuencia **activa/preferida** en ambiente **no productivo**
+  (tolerante mock/demo/testecf), valida `next ≤ end`, e incrementa en demo;
+  mensajes "No hay numeración activa para este tipo de comprobante." y "La
+  numeración se agotó.". **Nunca** reserva de `produccion` (DGII real apagado).
+- `finalizeCharge` reserva la secuencia correcta y guarda el comprobante en
+  `ecf_number` (NCF B02/B01 o e-CF E32/E31), con `document_kind=invoice`,
+  `ecf_type` solo para e-CF y `sequence_type` consumo/crédito.
+- Configuración de facturación: nota visible en NCF tradicional ("Las reglas
+  e-CF solo aplican cuando la forma principal es e-CF o Ambos").
+- +20 tests (NCF B02/B01, e-CF cierre, comprobanteToDocType, reserveNextPreferred).
+
+### Security
+- Mock/demo no consume secuencia fiscal real; producción nunca se reserva por
+  esta vía. DGII real apagado.
+
 ## [0.8.2] - 2026-06-27
 
 ### Added

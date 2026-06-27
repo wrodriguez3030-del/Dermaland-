@@ -357,6 +357,59 @@ export function reserveNext(
   return { ok: true, numbering: n, value, formatted: formatNumber(n, value) };
 }
 
+/**
+ * Reserva el siguiente número para un tipo de comprobante, eligiendo la
+ * numeración ACTIVA preferida en un ambiente NO productivo (mock/demo/testecf/
+ * certecf), prefiriendo el ambiente indicado. Tolerante a desajustes de
+ * ambiente (demo vs mock) para no bloquear la facturación en mock/demo.
+ *
+ * NUNCA reserva de una numeración en ambiente `produccion` (DGII real apagado).
+ * Mensajes claros: "No hay numeración activa…" / "La numeración se agotó.".
+ */
+export function reserveNextPreferred(
+  documentType: DocType,
+  preferredEnv: Environment,
+): ReserveResult {
+  const all = listNumberings();
+  const typed = all.filter((n) => n.documentType === documentType);
+  if (typed.length === 0) {
+    return {
+      ok: false,
+      error: "No hay numeración activa para este tipo de comprobante.",
+    };
+  }
+  const emittable = typed.filter(
+    (n) => n.environment !== "produccion" && canEmit(n),
+  );
+  if (emittable.length === 0) {
+    const exhausted = typed.some(
+      (n) => n.status === "active" && effectiveStatus(n) === "exhausted",
+    );
+    return {
+      ok: false,
+      error: exhausted
+        ? "La numeración se agotó."
+        : "No hay numeración activa para este tipo de comprobante.",
+    };
+  }
+  const sorted = emittable.sort((a, b) => {
+    const envA = a.environment === preferredEnv ? 0 : 1;
+    const envB = b.environment === preferredEnv ? 0 : 1;
+    if (envA !== envB) return envA - envB;
+    return Number(b.isPreferred) - Number(a.isPreferred);
+  });
+  const n = sorted[0]!;
+  const value = n.nextNumber;
+  write(
+    all.map((x) =>
+      x.id === n.id
+        ? { ...x, nextNumber: x.nextNumber + 1, updatedAt: new Date().toISOString() }
+        : x,
+    ),
+  );
+  return { ok: true, numbering: n, value, formatted: formatNumber(n, value) };
+}
+
 export function clearLocalNumberings() {
   write([...seed]);
 }

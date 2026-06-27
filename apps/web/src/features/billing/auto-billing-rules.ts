@@ -97,19 +97,30 @@ export function resolveAutoBilling(
 
   const ecfEnabled =
     settings.defaultBillingMode === "ecf" || settings.defaultBillingMode === "both";
+  const ncfMode = settings.defaultBillingMode === "ncf";
   const consumerType = ecfEnabled ? settings.defaultConsumerEcfType : "B02";
   const rncType = ecfEnabled ? settings.defaultRncEcfType : "B01";
 
+  // Documento de consumo inmediato según el modo (e-CF E32 o NCF B02).
+  const immediateConsumer = (reason: string): AutoBillingDecision => ({
+    documentKind: ecfEnabled ? "ecf" : "ncf",
+    comprobanteType: consumerType,
+    timing: "immediate",
+    pendingForClosing: false,
+    consumesFiscalSequence: true,
+    label: ecfEnabled ? "Factura e-CF Consumo" : "Factura de consumo (B02)",
+    reason,
+  });
+
   // ── Crédito fiscal: siempre comprobante de crédito, sin importar el pago. ──
   if (billingType === "credito_fiscal") {
-    const kind: BillingDocumentKind = ecfEnabled ? "ecf" : "ncf";
     return {
-      documentKind: kind,
+      documentKind: ecfEnabled ? "ecf" : "ncf",
       comprobanteType: rncType,
       timing: "immediate",
       pendingForClosing: false,
       consumesFiscalSequence: true,
-      label: rncType === "E31" ? "Factura e-CF Crédito Fiscal" : "Factura NCF Crédito Fiscal (B01)",
+      label: rncType === "E31" ? "Factura e-CF Crédito Fiscal" : "Crédito fiscal (B01)",
       reason:
         "Cliente con crédito fiscal: siempre se emite comprobante de crédito al cobrar.",
     };
@@ -121,14 +132,13 @@ export function resolveAutoBilling(
       return proformaDecision("El usuario eligió Proforma (modo manual).");
     }
     const kind = input.manualChoice;
-    const type = kind === "ecf" ? consumerType : "B02";
     return {
       documentKind: kind,
-      comprobanteType: type,
+      comprobanteType: kind === "ecf" ? consumerType : "B02",
       timing: "immediate",
       pendingForClosing: false,
       consumesFiscalSequence: true,
-      label: kind === "ecf" ? "Factura e-CF Consumo" : "Factura NCF Consumo (B02)",
+      label: kind === "ecf" ? "Factura e-CF Consumo" : "Factura de consumo (B02)",
       reason: "El usuario eligió el tipo de comprobante (modo manual).",
     };
   }
@@ -138,45 +148,80 @@ export function resolveAutoBilling(
   const cashTransferOnly =
     payments.length > 0 && onlyCashOrTransfer(payments);
 
-  // Mixto con tarjeta: e-CF inmediato por la venta completa (no se divide).
+  // Mixto con tarjeta: comprobante inmediato por la venta completa (no se divide).
   if (includesCard && settings.cardEcfImmediateEnabled) {
     return {
-      documentKind: ecfEnabled ? "ecf" : "ncf",
-      comprobanteType: consumerType,
-      timing: "immediate",
-      pendingForClosing: false,
-      consumesFiscalSequence: true,
-      label: ecfEnabled ? "Factura e-CF Consumo" : "Factura NCF Consumo (B02)",
-      reason: payments.length > 1
-        ? "Pago mixto incluye tarjeta: e-CF inmediato por la venta completa (no se divide el comprobante)."
-        : "Pago con tarjeta: e-CF inmediato al cobrar.",
+      ...immediateConsumer(
+        payments.length > 1
+          ? "Pago mixto incluye tarjeta: comprobante inmediato por la venta completa (no se divide)."
+          : ecfEnabled
+            ? "Pago con tarjeta: e-CF inmediato al cobrar."
+            : "Pago con tarjeta: factura de consumo (B02) inmediata al cobrar.",
+      ),
     };
   }
 
-  // Efectivo / transferencia: pendiente para el cierre (si la regla está activa).
-  if (cashTransferOnly && settings.cashTransferEcfClosingEnabled) {
-    return {
-      documentKind: "proforma",
-      comprobanteType: "PROFORMA",
-      timing: "at_closing",
-      pendingForClosing: true,
-      consumesFiscalSequence: false,
-      label: "Proforma · pendiente para cierre",
-      reason:
-        "Efectivo/transferencia: se registra como venta normal y queda pendiente para conversión a e-CF en el cierre de caja, según el porcentaje definido por administración.",
-    };
+  // Efectivo / transferencia.
+  if (cashTransferOnly) {
+    // Pendiente para el cierre SOLO en modo e-CF/Ambos con la regla activa.
+    // En NCF tradicional NUNCA queda pendiente: se emite B02 al cobrar.
+    if (!ncfMode && settings.cashTransferEcfClosingEnabled) {
+      return {
+        documentKind: "proforma",
+        comprobanteType: "PROFORMA",
+        timing: "at_closing",
+        pendingForClosing: true,
+        consumesFiscalSequence: false,
+        label: "Proforma · pendiente de e-CF al cierre",
+        reason:
+          "La venta quedará pendiente para facturación electrónica al cierre de caja, según el porcentaje definido por administración.",
+      };
+    }
+    return immediateConsumer(
+      ncfMode
+        ? "Efectivo/transferencia en modo NCF: se emite factura de consumo (B02) al cobrar."
+        : "Efectivo/transferencia: se emite e-CF al cobrar (regla de cierre desactivada).",
+    );
   }
 
-  // Tarjeta con regla desactivada, u otros métodos → proforma (sin obligatoriedad).
+  // Tarjeta con regla desactivada → proforma (facturación manual según permisos).
   if (includesCard && !settings.cardEcfImmediateEnabled) {
     return proformaDecision(
       "Regla de tarjeta inmediata desactivada: se permite facturación manual según permisos.",
     );
   }
 
-  return proformaDecision(
-    "Sin método elegible para e-CF automático: se emite proforma (no fiscal).",
+  // Sin método elegido aún (modal recién abierto) u otros métodos: mostrar el
+  // documento por defecto del modo configurado. NUNCA Proforma en modo NCF.
+  return immediateConsumer(
+    "Documento sugerido según la configuración de facturación.",
   );
+}
+
+/**
+ * Mapea el tipo de comprobante a la `DocType` de la numeración (numbering-store)
+ * para reservar el siguiente número. Proforma no consume secuencia fiscal → null.
+ */
+export function comprobanteToDocType(
+  comprobanteType: AutoBillingDecision["comprobanteType"],
+):
+  | "consumo"
+  | "credito_fiscal"
+  | "ecf_31"
+  | "ecf_32"
+  | null {
+  switch (comprobanteType) {
+    case "B02":
+      return "consumo";
+    case "B01":
+      return "credito_fiscal";
+    case "E32":
+      return "ecf_32";
+    case "E31":
+      return "ecf_31";
+    default:
+      return null;
+  }
 }
 
 function proformaDecision(reason: string): AutoBillingDecision {

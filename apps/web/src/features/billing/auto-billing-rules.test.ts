@@ -1,11 +1,103 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BILLING_SETTINGS } from "./billing-settings-store";
 import {
+  comprobanteToDocType,
   resolveAutoBilling,
   summarizeBillingRules,
 } from "./auto-billing-rules";
 
 const settings = DEFAULT_BILLING_SETTINGS;
+const ncf = { ...DEFAULT_BILLING_SETTINGS, defaultBillingMode: "ncf" as const };
+const ecf = { ...DEFAULT_BILLING_SETTINGS, defaultBillingMode: "ecf" as const };
+
+describe("modo NCF tradicional — nunca Proforma ni e-CF automático", () => {
+  it("consumidor final efectivo → B02 inmediato (no proforma, no pendiente)", () => {
+    const d = resolveAutoBilling({
+      billingType: "consumo",
+      paymentMethod: "cash",
+      settings: ncf,
+    });
+    expect(d.documentKind).toBe("ncf");
+    expect(d.comprobanteType).toBe("B02");
+    expect(d.timing).toBe("immediate");
+    expect(d.pendingForClosing).toBe(false);
+    expect(d.label).toMatch(/B02/);
+  });
+
+  it("consumidor final transferencia → B02 inmediato", () => {
+    const d = resolveAutoBilling({
+      billingType: "consumo",
+      paymentMethod: "transfer",
+      settings: ncf,
+    });
+    expect(d.comprobanteType).toBe("B02");
+    expect(d.documentKind).toBe("ncf");
+  });
+
+  it("consumidor final tarjeta → B02 inmediato (no E32)", () => {
+    const d = resolveAutoBilling({
+      billingType: "consumo",
+      paymentMethod: "card",
+      settings: ncf,
+    });
+    expect(d.comprobanteType).toBe("B02");
+    expect(d.comprobanteType).not.toBe("E32");
+  });
+
+  it("cliente con RNC → B01 inmediato (no E31)", () => {
+    const d = resolveAutoBilling({
+      billingType: "credito_fiscal",
+      paymentMethod: "cash",
+      settings: ncf,
+    });
+    expect(d.comprobanteType).toBe("B01");
+    expect(d.documentKind).toBe("ncf");
+    expect(d.label).toMatch(/B01/);
+  });
+
+  it("modal sin método aún → sugiere B02 (nunca Proforma) en modo NCF", () => {
+    const d = resolveAutoBilling({
+      billingType: "consumo",
+      payments: [],
+      settings: ncf,
+    });
+    expect(d.documentKind).toBe("ncf");
+    expect(d.comprobanteType).toBe("B02");
+  });
+});
+
+describe("modo e-CF — efectivo/transferencia pendiente para cierre", () => {
+  it("efectivo → proforma pendiente de e-CF al cierre", () => {
+    const d = resolveAutoBilling({
+      billingType: "consumo",
+      paymentMethod: "cash",
+      settings: ecf,
+    });
+    expect(d.documentKind).toBe("proforma");
+    expect(d.timing).toBe("at_closing");
+    expect(d.pendingForClosing).toBe(true);
+  });
+
+  it("tarjeta → E32 inmediato", () => {
+    const d = resolveAutoBilling({
+      billingType: "consumo",
+      paymentMethod: "card",
+      settings: ecf,
+    });
+    expect(d.comprobanteType).toBe("E32");
+    expect(d.timing).toBe("immediate");
+  });
+});
+
+describe("comprobanteToDocType", () => {
+  it("mapea cada comprobante a su DocType", () => {
+    expect(comprobanteToDocType("B02")).toBe("consumo");
+    expect(comprobanteToDocType("B01")).toBe("credito_fiscal");
+    expect(comprobanteToDocType("E32")).toBe("ecf_32");
+    expect(comprobanteToDocType("E31")).toBe("ecf_31");
+    expect(comprobanteToDocType("PROFORMA")).toBeNull();
+  });
+});
 
 describe("resolveAutoBilling — tarjeta", () => {
   it("tarjeta + consumidor final → e-CF E32 inmediato", () => {
