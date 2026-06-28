@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.11] - 2026-06-27
+
+### Changed
+- **Acceso al POS movido a un botón en Ventas / Facturas.** Se quitó
+  "POS / Nueva venta" del submenú izquierdo de **Ventas** (queda: Ventas,
+  Proformas, Pagos, Devoluciones, Notas de crédito, Caja) y se agregó un botón
+  verde **"+ POS / Nueva venta"** arriba a la derecha de la pantalla
+  **Ventas / Facturas** (icono `+`, `aria-label` "Ir a POS / Nueva venta",
+  tooltip "Crear nueva venta") que navega a `/pos`.
+  - La página `/pos` **no se eliminó**: sigue funcionando por URL directa.
+  - Archivos: `components/layout/sidebar.tsx` (config `groups` ahora exportada
+    para test) y `app/(app)/ventas/page.tsx` (slot `actions` del `PageHeader`).
+  - Tests nuevos: el sidebar de Ventas ya no lista "POS / Nueva venta" ni `/pos`;
+    Ventas/Facturas muestra el botón enlazando a `/pos`.
+
 ## [0.8.10] - 2026-06-27
 
 ### Changed

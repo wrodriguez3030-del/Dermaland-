@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
 import {
   Badge,
+  Button,
   Card,
   CardContent,
   Table,
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast";
-import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2, Pencil } from "lucide-react";
+import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2, Pencil, Plus } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
 import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
 import {
@@ -56,6 +57,14 @@ export default function VentasPage() {
         title="Ventas / Facturas"
         description="Facturas emitidas (NCF B02/B01 y e-CF E32/E31). Las proformas pendientes están en la pantalla Proformas."
         breadcrumbs={[{ label: "Ventas" }]}
+        actions={
+          <Link href="/pos" aria-label="Ir a POS / Nueva venta">
+            <Button size="sm" title="Crear nueva venta">
+              <Plus className="h-4 w-4" />
+              POS / Nueva venta
+            </Button>
+          </Link>
+        }
       />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Ventas hoy" value={formatCurrency(total)} icon={Coins} tone="primary" />

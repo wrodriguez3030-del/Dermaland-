@@ -44,7 +44,7 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const groups: NavGroup[] = [
+export const groups: NavGroup[] = [
   {
     label: "General",
     icon: LayoutDashboard,
@@ -67,7 +67,8 @@ const groups: NavGroup[] = [
     label: "Ventas",
     icon: ShoppingCart,
     items: [
-      { label: "POS / Nueva venta", href: "/pos" },
+      // POS / Nueva venta se accede desde el botón verde en Ventas/Facturas
+      // (la ruta /pos sigue existiendo y funciona por URL directa).
       { label: "Ventas", href: "/ventas" },
       { label: "Proformas", href: "/proformas" },
       { label: "Pagos", href: "/pagos" },
