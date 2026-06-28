@@ -11,6 +11,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.10] - 2026-06-27
+
+### Changed
+- **Las facturas electrónicas e-CF ya no se pueden editar** (E31/E32/E33/E34/
+  E41/E43, `documentKind: "invoice"` + `ecfType` / comprobante que empieza con
+  "E"), ni siquiera en demo/mock. Por seguridad fiscal el único camino de
+  corrección es nota de crédito, nota de débito o anulación.
+  - **Regla central** en `features/sales/editability.ts`: `documentEditability`
+    bloquea e-CF con `blockedBy: "ecf"` y mensaje claro; `isElectronicInvoice`
+    expone la detección. Una factura **NCF B01/B02** demo mantiene la edición
+    controlada (solo cliente/teléfono/documento/notas) como antes.
+  - **UI**: en **Ventas / Facturas** el botón "Editar factura" queda
+    deshabilitado con tooltip para e-CF; la página `/ventas/[id]/editar` muestra
+    una pantalla de bloqueo (entrar por URL directa) con botones "Volver a la
+    factura", "Crear nota de crédito" y "Anular comprobante".
+  - **Backend**: el `PATCH /api/proformas/[id]` (action `update`) ya revalidaba
+    la editabilidad en el servidor; ahora además **audita el intento bloqueado**
+    de editar un e-CF (`action: sale.edit_blocked_ecf`,
+    `reason: electronic_invoice_locked`) sin modificar el documento. El store
+    local (`updateProformaAnywhere`) añade el mismo guard como defensa en
+    profundidad.
+
 ## [0.8.9] - 2026-06-27
 
 ### Fixed

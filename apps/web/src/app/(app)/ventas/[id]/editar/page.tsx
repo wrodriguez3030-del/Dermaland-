@@ -19,7 +19,10 @@ import {
   useProformaDocument,
   updateProformaAnywhere,
 } from "@/features/sales/proforma-store";
-import { documentEditability } from "@/features/sales/editability";
+import {
+  documentEditability,
+  isElectronicInvoice,
+} from "@/features/sales/editability";
 import { saleDocumentLabel } from "@/features/sales/document-label";
 import { canEditSales } from "@/features/billing/permissions";
 import { mockCurrentUser } from "@/lib/mock-data/users";
@@ -72,6 +75,53 @@ export default function EditarVentaPage() {
             <div className="mt-4">
               <Link href="/ventas">
                 <Button size="sm" variant="outline">Volver a ventas</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Factura electrónica e-CF: bloqueo total de edición directa (aunque sea demo).
+  // Entrar por URL directa muestra una pantalla de bloqueo con los caminos de
+  // corrección válidos (nota de crédito / nota de débito / anulación).
+  if (isElectronicInvoice(proforma)) {
+    return (
+      <div className="mx-auto max-w-xl p-4 sm:p-6">
+        <div className="mb-4">
+          <Link
+            href={`/ventas/${proforma.id}`}
+            className="inline-flex items-center gap-1 text-xs opacity-60 hover:opacity-100"
+          >
+            <ArrowLeft className="h-3 w-3" /> Volver al documento
+          </Link>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-600" />
+              Esta factura electrónica no puede editarse
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              Los comprobantes electrónicos e-CF no permiten edición directa.
+              Para corregir este documento debes emitir una nota de crédito,
+              nota de débito o anulación según corresponda.
+            </div>
+            <p className="font-mono text-xs opacity-60">
+              {saleDocumentLabel(proforma)} · {proforma.ecfNumber ?? proforma.number}
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Link href={`/ventas/${proforma.id}`}>
+                <Button variant="outline">Volver a la factura</Button>
+              </Link>
+              <Link href="/dgii/facturas">
+                <Button variant="outline">Anular comprobante</Button>
+              </Link>
+              <Link href="/dgii/facturas">
+                <Button>Crear nota de crédito</Button>
               </Link>
             </div>
           </CardContent>

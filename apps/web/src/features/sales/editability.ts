@@ -1,30 +1,54 @@
 import type { Proforma } from "@/types";
+import { classifySaleDocument } from "./document-label";
 
 /**
  * Reglas de editabilidad de un documento de venta. No se permite edición libre
  * de documentos ya emitidos fiscalmente, anulados o cerrados. Como DGII real
  * está apagado, en demo se permite editar datos NO fiscales (cliente del
- * documento, notas); los montos/ítems quedan bloqueados (requieren nota de
- * crédito / anulación).
+ * documento, notas) de una factura NCF/proforma; los montos/ítems quedan
+ * bloqueados (requieren nota de crédito / anulación).
+ *
+ * Excepción dura: una factura **electrónica e-CF** (E31/E32/E33/E34/E41/E43)
+ * NUNCA es editable, ni siquiera en demo/mock. Por seguridad fiscal el único
+ * camino de corrección es nota de crédito, nota de débito o anulación.
  */
 
 const FISCAL_MSG =
   "Esta factura ya fue emitida fiscalmente. Para corregirla debes emitir una nota de crédito o anulación según corresponda.";
 
+const ECF_MSG =
+  "Las facturas electrónicas e-CF no se pueden editar. Para corregirlas debes emitir una nota de crédito, nota de débito o anulación según corresponda.";
+
 export interface EditabilityResult {
   editable: boolean;
   reason?: string;
+  /** Causa del bloqueo — para condicionar la UI y la auditoría. */
+  blockedBy?: "cancelled" | "ecf" | "fiscal";
 }
 
-type EditableFields = Pick<Proforma, "status">;
+type EditableFields = Pick<Proforma, "status"> &
+  Partial<Pick<Proforma, "documentKind" | "ecfType" | "ecfNumber">>;
+
+/** True si el documento es una factura electrónica e-CF (no editable). */
+export function isElectronicInvoice(p: EditableFields): boolean {
+  return classifySaleDocument(p) === "ecf";
+}
 
 export function documentEditability(p: EditableFields): EditabilityResult {
   if (p.status === "cancelled") {
-    return { editable: false, reason: "Este documento fue anulado y no puede editarse." };
+    return {
+      editable: false,
+      reason: "Este documento fue anulado y no puede editarse.",
+      blockedBy: "cancelled",
+    };
+  }
+  // Factura electrónica e-CF → bloqueada SIEMPRE (aunque sea demo/mock/testecf).
+  if (isElectronicInvoice(p)) {
+    return { editable: false, reason: ECF_MSG, blockedBy: "ecf" };
   }
   // En nuestro modelo, "emitido fiscalmente" = convertido a e-CF.
   if (p.status === "converted_to_ecf") {
-    return { editable: false, reason: FISCAL_MSG };
+    return { editable: false, reason: FISCAL_MSG, blockedBy: "fiscal" };
   }
   return { editable: true };
 }

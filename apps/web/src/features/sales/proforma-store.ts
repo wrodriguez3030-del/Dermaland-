@@ -4,6 +4,7 @@ import * as React from "react";
 import type { Proforma } from "@/types";
 import { mockProformas } from "@/lib/mock-data/sales";
 import { reserveNext } from "@/features/dgii/numbering-store";
+import { documentEditability } from "@/features/sales/editability";
 
 /**
  * Store de proformas — MVP con gate Supabase.
@@ -277,6 +278,11 @@ export async function updateProformaAnywhere(
   const idx = list.findIndex((p) => p.id === id);
   if (idx === -1) {
     return { ok: false, error: "Documento no encontrado." };
+  }
+  // Defensa en profundidad: no editar e-CF / anulados / emitidos ni en local.
+  const editability = documentEditability(list[idx]!);
+  if (!editability.editable) {
+    return { ok: false, error: editability.reason ?? "Este documento no se puede editar." };
   }
   const next: Proforma = {
     ...list[idx]!,

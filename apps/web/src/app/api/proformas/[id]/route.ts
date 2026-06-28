@@ -96,9 +96,26 @@ export async function PATCH(
       if (!current) {
         return NextResponse.json({ error: "Documento no encontrado." }, { status: 404 });
       }
-      // Bloqueo de documentos ya emitidos fiscalmente / anulados.
+      // Bloqueo de documentos ya emitidos fiscalmente / anulados / e-CF.
       const editability = documentEditability(current);
       if (!editability.editable) {
+        // Auditar el intento bloqueado de editar un e-CF (no modifica nada).
+        if (editability.blockedBy === "ecf") {
+          try {
+            await repos.audit.log(ctx, {
+              businessId: ctx.businessId,
+              userId: session.user.id,
+              userName: session.user.fullName,
+              action: "sale.edit_blocked_ecf",
+              entity: "proforma",
+              entityId: id,
+              branchId: ctx.branchId,
+              metadata: { reason: "electronic_invoice_locked" },
+            });
+          } catch {
+            // La auditoría no debe romper la respuesta.
+          }
+        }
         return NextResponse.json({ error: editability.reason }, { status: 409 });
       }
       const patch = pickEditableProformaFields(body.patch ?? {});
