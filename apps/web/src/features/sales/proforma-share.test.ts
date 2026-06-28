@@ -123,6 +123,10 @@ describe("buildWhatsappShareMessage", () => {
     expect(msg).toContain("Descargar factura:");
     expect(msg).toContain("https://x/pdf");
     expect(msg).toContain("DermaLand");
+    // Una factura NCF NUNCA debe mencionar e-CF / e-NCF / representación e-CF.
+    expect(msg).not.toContain("e-CF");
+    expect(msg).not.toContain("e-NCF");
+    expect(msg).not.toContain("representación");
   });
 
   it("proforma: aclara que no tiene validez fiscal", () => {
@@ -141,6 +145,7 @@ describe("buildWhatsappShareMessage", () => {
       { pdfUrl: "https://x/pdf" },
     );
     expect(msg).toContain("comprobante electrónico");
+    expect(msg).toContain("representación impresa");
     expect(msg).toContain("demo/no fiscal");
     expect(msg).toContain("E320000001");
   });

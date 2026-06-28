@@ -11,6 +11,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.9] - 2026-06-27
+
+### Fixed
+- **La factura tradicional NCF ya no muestra datos de factura electrónica e-CF
+  en la impresión/PDF**. Una factura B01/B02 imprimía por error `e-NCF`,
+  `Validar: ecf.dgii.gov.do`, código de seguridad, fecha de firma y la nota de
+  "Envío Diferido / convertido a e-CF" — todos datos exclusivos de e-CF. La raíz
+  estaba en el ticket 80mm (`features/sales/components/receipt-80mm.tsx`), que
+  mostraba el bloque e-CF para cualquier factura.
+
+### Added
+- **Helper central `getDocumentPrintContext`**
+  (`features/sales/document-print-context.ts`): a partir del tipo de documento
+  (NCF / e-CF / proforma) devuelve banderas `isNcf`/`isEcf`/`isProforma`,
+  `showNcf`/`showEcf`/`showDgiiValidation`/`showSecurityCode`/
+  `showDigitalSignature`/`showDeferredNote`/`showFiscalDemoNote` y el rótulo de
+  número (`NCF` / `e-NCF` / `No.`). Es la fuente única para qué datos fiscales
+  puede imprimir cada comprobante.
+  - **NCF**: muestra `NCF: B0x…`, sin ningún dato e-CF; nota demo
+    "Documento generado en ambiente demo. No corresponde a emisión fiscal real."
+  - **e-CF**: muestra `e-NCF: E3x…`, validación DGII, código de seguridad, fecha
+    de firma y modalidad diferida.
+  - **Proforma**: sin datos fiscales ("Esta proforma no tiene validez fiscal").
+  - El PDF A4 (`document-pdf.ts`) y el mensaje de WhatsApp (`proforma-share.ts`)
+    ya respetaban el tipo; se blindaron con tests (NCF no menciona e-CF; e-CF sí
+    dice "representación impresa"). Tests nuevos de contexto y de render del
+    ticket por tipo.
+
 ## [0.8.8] - 2026-06-27
 
 ### Added

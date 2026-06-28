@@ -5,6 +5,7 @@ import type { Proforma } from "@/types";
 import { mockBusiness, getBranchById } from "@/lib/mock-data/tenancy";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import { billingTypeLabel } from "@/features/customers/billing";
+import { getDocumentPrintContext } from "@/features/sales/document-print-context";
 import { cn } from "@/lib/utils/cn";
 
 interface Receipt80mmProps {
@@ -45,10 +46,12 @@ export function Receipt80mm({
 }: Receipt80mmProps) {
   const branch = getBranchById(proforma.branchId);
   const totalQty = proforma.items.reduce((s, l) => s + l.quantity, 0);
-  const isInvoice = proforma.documentKind === "invoice";
+  // Contexto de impresión: decide qué datos fiscales se muestran. Una factura
+  // NCF tradicional NUNCA muestra datos e-CF; la proforma no muestra nada fiscal.
+  const ctx = getDocumentPrintContext(proforma);
   // Código de seguridad DEMO: derivado determinísticamente del número + total.
-  // NO es un código fiscal real (mock/demo no firma con cert real).
-  const demoSecurityCode = isInvoice
+  // NO es un código fiscal real (mock/demo no firma con cert real). Solo e-CF.
+  const demoSecurityCode = ctx.showSecurityCode
     ? Math.abs(
         [...`${proforma.number}|${proforma.total}`].reduce(
           (h, c) => (h * 31 + c.charCodeAt(0)) | 0,
@@ -114,35 +117,39 @@ export function Receipt80mm({
 
       <Separator />
 
-      {/* TIPO DE COMPROBANTE
-          - Si la proforma fue resuelta a "invoice" en el POS (campo
-            documentKind), mostramos el rótulo de factura con el tipo de
-            e-CF correspondiente. Esto es preparación para la integración
-            DGII real — hoy aún se persiste como `Proforma` en el store,
-            pero el comprobante imprime como factura.
-          - Fallback: si la proforma ya fue convertida (status ===
-            "converted_to_ecf") o sólo está pagada, etiquetas previas. */}
+      {/* TIPO DE COMPROBANTE — según la clase real del documento.
+          - e-CF  → "FACTURA e-CF 31/32" + e-NCF.
+          - NCF   → "FACTURA" (Consumo/Crédito Fiscal) + NCF, sin datos e-CF.
+          - Proforma → "PROFORMA" / "RECIBO DE PAGO", sin datos fiscales. */}
       <div className="text-center font-bold">
-        {proforma.documentKind === "invoice"
+        {ctx.isEcf
           ? proforma.ecfType === "31"
             ? "FACTURA e-CF 31"
             : proforma.ecfType === "32"
               ? "FACTURA e-CF 32"
-              : "FACTURA"
-          : proforma.status === "converted_to_ecf"
-            ? "FACTURA ELECTRÓNICA"
+              : "FACTURA ELECTRÓNICA"
+          : ctx.isNcf
+            ? "FACTURA"
             : proforma.status === "paid"
               ? "RECIBO DE PAGO"
               : "PROFORMA"}
       </div>
-      {proforma.documentKind === "invoice" && (
+      {(ctx.isNcf || ctx.isEcf) && (
         <div className="text-center text-[10px]">
-          {proforma.ecfType === "31" ? "Crédito Fiscal" : "Consumo"}
+          {proforma.ecfType === "31" ||
+          proforma.sequenceType === "credito_fiscal"
+            ? "Crédito Fiscal"
+            : "Consumo"}
         </div>
       )}
-      <div className="text-center">No. {proforma.number}</div>
-      {proforma.ecfNumber && (
-        <div className="text-center text-[10px]">e-NCF: {proforma.ecfNumber}</div>
+      {/* Número de comprobante: NCF para tradicional, e-NCF para electrónico,
+          número interno para proforma. Nunca "e-NCF" en una factura NCF. */}
+      {ctx.isProforma ? (
+        <div className="text-center">No. {proforma.number}</div>
+      ) : (
+        <div className="text-center">
+          {ctx.numberLabel}: {ctx.fiscalNumber}
+        </div>
       )}
       <div className="mt-1">Fecha: {formatDateTime(proforma.createdAt)}</div>
       <div>Cajero: {proforma.cashierName}</div>
@@ -234,24 +241,33 @@ export function Receipt80mm({
       <Separator />
 
       {/* e-CF: código de seguridad, fecha de firma y URL de validación (demo).
-          El QR completo va en la representación impresa PDF (canónica). */}
-      {isInvoice && (
+          SOLO para comprobantes electrónicos e-CF. Una factura NCF tradicional
+          NO debe mostrar nada de esto. El QR completo va en el PDF (canónico). */}
+      {ctx.showEcf && (
         <>
           <Separator />
           <div className="text-[10px]">
-            <Row label="Código seguridad" value={`${demoSecurityCode} (demo)`} />
-            <Row
-              label="Fecha firma"
-              value={formatDateTime(proforma.createdAt)}
-            />
-            <div className="mt-1 break-all opacity-80">
-              Validar: ecf.dgii.gov.do · e-NCF{" "}
-              {proforma.ecfNumber ?? proforma.number}
-            </div>
-            <div className="mt-1 opacity-70">
-              e-CF emitido en modalidad Envío Diferido; podrá ser consultado para
-              su validez fiscal a partir de las veinticuatro (24) horas.
-            </div>
+            {ctx.showSecurityCode && (
+              <Row label="Código seguridad" value={`${demoSecurityCode} (demo)`} />
+            )}
+            {ctx.showDigitalSignature && (
+              <Row
+                label="Fecha firma"
+                value={formatDateTime(proforma.createdAt)}
+              />
+            )}
+            {ctx.showDgiiValidation && (
+              <div className="mt-1 break-all opacity-80">
+                Validar: ecf.dgii.gov.do · e-NCF{" "}
+                {ctx.fiscalNumber}
+              </div>
+            )}
+            {ctx.showDeferredNote && (
+              <div className="mt-1 opacity-70">
+                e-CF emitido en modalidad Envío Diferido; podrá ser consultado
+                para su validez fiscal a partir de las veinticuatro (24) horas.
+              </div>
+            )}
           </div>
         </>
       )}
@@ -273,9 +289,13 @@ export function Receipt80mm({
         {mockBusiness.email && <div>{mockBusiness.email}</div>}
         {mockBusiness.instagramUrl && <div>@dermalandrd</div>}
         <div className="mt-2 text-[9px] opacity-70">
-          {proforma.status === "converted_to_ecf"
-            ? "Comprobante fiscal electrónico (e-CF) generado."
-            : "Este documento puede no tener validez fiscal hasta ser convertido a e-CF."}
+          {ctx.isProforma
+            ? "Esta proforma no tiene validez fiscal hasta ser facturada."
+            : ctx.isEcf && !ctx.isDemo
+              ? "Comprobante fiscal electrónico (e-CF) generado."
+              : ctx.showFiscalDemoNote
+                ? "Documento generado en ambiente demo. No corresponde a emisión fiscal real."
+                : null}
         </div>
       </div>
     </div>
