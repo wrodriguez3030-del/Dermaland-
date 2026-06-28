@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   buildWhatsappMessage,
+  buildWhatsappShareMessage,
   buildWhatsappShareUrl,
   isDemoDocument,
+  normalizeWhatsappPhone,
   proformaDocLabel,
+  whatsappPdfFilename,
 } from "./proforma-share";
 import type { Business, Proforma } from "@/types";
 
@@ -74,8 +77,22 @@ describe("isDemoDocument", () => {
   });
 });
 
+describe("normalizeWhatsappPhone", () => {
+  it("antepone 1 a un número RD de 10 dígitos", () => {
+    expect(normalizeWhatsappPhone("809-555-0101")).toBe("18095550101");
+  });
+  it("respeta 1 + 10 dígitos", () => {
+    expect(normalizeWhatsappPhone("+1 809-555-0101")).toBe("18095550101");
+  });
+  it("devuelve null si no hay número usable", () => {
+    expect(normalizeWhatsappPhone("")).toBeNull();
+    expect(normalizeWhatsappPhone(undefined)).toBeNull();
+    expect(normalizeWhatsappPhone("123")).toBeNull();
+  });
+});
+
 describe("buildWhatsappShareUrl", () => {
-  it("genera un link wa.me válido con el teléfono del cliente (solo dígitos)", () => {
+  it("genera un link wa.me válido con el teléfono del cliente normalizado", () => {
     const url = buildWhatsappShareUrl(makeProforma(), business);
     expect(url).toMatch(/^https:\/\/wa\.me\/18095550101\?text=/);
   });
@@ -88,16 +105,62 @@ describe("buildWhatsappShareUrl", () => {
     expect(url).toMatch(/^https:\/\/wa\.me\/\?text=/);
   });
 
-  it("NUNCA incluye una URL de la app que pueda dar 404", () => {
-    const url = buildWhatsappShareUrl(makeProforma(), business);
-    expect(url).not.toContain("/proformas/");
-    expect(url).not.toContain("vercel.app");
+  it("incluye el enlace al PDF cuando se provee", () => {
+    const pdfUrl = "https://dermaland.vercel.app/api/proformas/prof_test_1/pdf?t=abc";
+    const url = buildWhatsappShareUrl(makeProforma(), business, { pdfUrl });
+    expect(decodeURIComponent(url)).toContain(pdfUrl);
+  });
+});
+
+describe("buildWhatsappShareMessage", () => {
+  it("factura NCF: dice que comparte la factura en PDF + link", () => {
+    const msg = buildWhatsappShareMessage(
+      makeProforma({ documentKind: "invoice", ecfType: undefined, number: "B0200000123" }),
+      business,
+      { pdfUrl: "https://x/pdf" },
+    );
+    expect(msg).toContain("Le compartimos su factura en PDF");
+    expect(msg).toContain("Descargar factura:");
+    expect(msg).toContain("https://x/pdf");
+    expect(msg).toContain("DermaLand");
   });
 
-  it("el mensaje incluye negocio, número y total", () => {
+  it("proforma: aclara que no tiene validez fiscal", () => {
+    const msg = buildWhatsappShareMessage(makeProforma(), business, {
+      pdfUrl: "https://x/pdf",
+    });
+    expect(msg).toContain("proforma");
+    expect(msg).toContain("no tiene validez fiscal");
+    expect(msg).toContain("Descargar proforma:");
+  });
+
+  it("e-CF demo: incluye la nota de ambiente demo/no fiscal", () => {
+    const msg = buildWhatsappShareMessage(
+      makeProforma({ documentKind: "invoice", ecfType: "32", ecfNumber: "E320000001" }),
+      business,
+      { pdfUrl: "https://x/pdf" },
+    );
+    expect(msg).toContain("comprobante electrónico");
+    expect(msg).toContain("demo/no fiscal");
+    expect(msg).toContain("E320000001");
+  });
+
+  it("el mensaje base incluye negocio, número y total", () => {
     const msg = buildWhatsappMessage(makeProforma(), business);
     expect(msg).toContain("DermaLand");
     expect(msg).toContain("PROF-2026-00001");
-    expect(msg).toContain("RNC 1-32-59077-5");
+  });
+});
+
+describe("whatsappPdfFilename", () => {
+  it("proforma → Proforma-<numero>.pdf", () => {
+    expect(whatsappPdfFilename(makeProforma())).toBe("Proforma-PROF-2026-00001.pdf");
+  });
+  it("factura → Factura-<comprobante>.pdf", () => {
+    expect(
+      whatsappPdfFilename(
+        makeProforma({ documentKind: "invoice", ecfNumber: "B0200000123" }),
+      ),
+    ).toBe("Factura-B0200000123.pdf");
   });
 });

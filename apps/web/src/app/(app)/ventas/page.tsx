@@ -15,10 +15,10 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
+import { useToast } from "@/components/ui/toast";
 import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2, Pencil } from "lucide-react";
-import { mockBusiness } from "@/lib/mock-data/tenancy";
-import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
 import { useProformas } from "@/features/sales/proforma-store";
+import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
 import {
   isInvoiceDocument,
   saleDocumentLabel,
@@ -27,14 +27,22 @@ import {
 import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
 import { mockCurrentUser } from "@/lib/mock-data/users";
+import type { Proforma } from "@/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 export default function VentasPage() {
   // Ventas / Facturas: documentos fiscales emitidos (NCF B02/B01 y e-CF E32/E31).
   // Las proformas pendientes viven en la pantalla Proformas.
+  const toast = useToast();
   const allDocuments = useProformas();
   const sales = allDocuments.filter(isInvoiceDocument);
   const canEdit = canEditSales(mockCurrentUser.role);
+
+  const handleShareWhatsapp = async (p: Proforma) => {
+    const r = await shareProformaWhatsapp(p);
+    if (r.ok) toast.show("Abriendo WhatsApp con la factura en PDF…", "info");
+    else toast.error(r.error);
+  };
   const total = sales.reduce((s, p) => s + p.total, 0);
   const itbis = sales.reduce((s, p) => s + p.itbis, 0);
   const items = sales.reduce(
@@ -120,8 +128,7 @@ export default function VentasPage() {
                         {
                           label: "Enviar WhatsApp",
                           icon: Send,
-                          href: buildWhatsappShareUrl(p, mockBusiness),
-                          external: true,
+                          onClick: () => handleShareWhatsapp(p),
                         },
                         {
                           label: "Eliminar",
@@ -139,6 +146,7 @@ export default function VentasPage() {
           </Table>
         </CardContent>
       </Card>
+      <toast.Toast />
     </>
   );
 }

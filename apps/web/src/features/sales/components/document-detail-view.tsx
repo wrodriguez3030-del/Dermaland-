@@ -10,12 +10,10 @@ import {
   Send,
 } from "lucide-react";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
+import { useToast } from "@/components/ui/toast";
 import { useProformaDocument } from "@/features/sales/proforma-store";
-import {
-  buildWhatsappShareUrl,
-  isDemoDocument,
-  proformaDocLabel,
-} from "@/features/sales/proforma-share";
+import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
+import { isDemoDocument, proformaDocLabel } from "@/features/sales/proforma-share";
 import { documentRouteBase } from "@/features/sales/document-label";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
@@ -49,6 +47,7 @@ export function DocumentDetailView({
 }) {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
+  const toast = useToast();
 
   const { proforma, loading } = useProformaDocument(id);
 
@@ -91,9 +90,14 @@ export function DocumentDetailView({
 
   const demo = isDemoDocument(proforma);
   const docLabel = proformaDocLabel(proforma);
-  const waUrl = buildWhatsappShareUrl(proforma, mockBusiness);
   // Enrutar impresión por TIPO: facturas → /ventas, proformas → /proformas.
   const printBase = documentRouteBase(proforma);
+
+  const handleShareWhatsapp = async () => {
+    const r = await shareProformaWhatsapp(proforma);
+    if (r.ok) toast.show("Abriendo WhatsApp con el documento en PDF…", "info");
+    else toast.error(r.error);
+  };
 
   const openPrint = (auto = false) => {
     if (typeof window === "undefined") return;
@@ -129,12 +133,10 @@ export function DocumentDetailView({
               </Button>
             </Link>
           )}
-          <a href={waUrl} target="_blank" rel="noopener noreferrer">
-            <Button size="sm">
-              <Send className="h-4 w-4" />
-              Enviar WhatsApp
-            </Button>
-          </a>
+          <Button size="sm" onClick={handleShareWhatsapp}>
+            <Send className="h-4 w-4" />
+            Enviar WhatsApp
+          </Button>
         </div>
       </div>
 
@@ -305,6 +307,7 @@ export function DocumentDetailView({
           </div>
         </CardContent>
       </Card>
+      <toast.Toast />
     </div>
   );
 }

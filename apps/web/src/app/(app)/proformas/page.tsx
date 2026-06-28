@@ -7,8 +7,7 @@ import { isProformaDocument } from "@/features/sales/document-label";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { Ban, Printer, Send } from "lucide-react";
-import { mockBusiness } from "@/lib/mock-data/tenancy";
-import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
+import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
 import {
   SortableTH,
   useTableSort,
@@ -59,6 +58,12 @@ const comparators = {
 export default function ProformasPage() {
   const toast = useToast();
   const allDocuments = useProformas();
+
+  const handleShareWhatsapp = async (p: Proforma) => {
+    const r = await shareProformaWhatsapp(p);
+    if (r.ok) toast.show("Abriendo WhatsApp con la proforma en PDF…", "info");
+    else toast.error(r.error);
+  };
   // Solo proformas reales: las facturas NCF (B02/B01) y e-CF (E32/E31) van a
   // Ventas / Facturas, no aquí.
   const proformas = React.useMemo(
@@ -173,8 +178,7 @@ export default function ProformasPage() {
                           {
                             label: "Enviar WhatsApp",
                             icon: Send,
-                            href: buildWhatsappShareUrl(p, mockBusiness),
-                            external: true,
+                            onClick: () => handleShareWhatsapp(p),
                           },
                           ...(p.status === "issued" || p.status === "partially_paid"
                             ? [

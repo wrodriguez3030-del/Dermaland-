@@ -96,9 +96,11 @@ describe("ProformaDetailPage", () => {
     expect(screen.getByText(/4242/)).toBeInTheDocument();
     // Aviso DEMO / NO FISCAL visible
     expect(screen.getByText(/sin validez fiscal/i)).toBeInTheDocument();
-    // Botón WhatsApp con link válido wa.me (no /proformas/ → no 404)
-    const wa = screen.getByText("Enviar WhatsApp").closest("a");
-    expect(wa?.getAttribute("href")).toMatch(/^https:\/\/wa\.me\//);
+    // Botón WhatsApp presente (ahora prepara el PDF y abre WhatsApp por acción,
+    // ya no es un <a> con href; el enlace al PDF lo arma el servidor/cliente).
+    expect(
+      screen.getByText("Enviar WhatsApp").closest("button"),
+    ).toBeInTheDocument();
   });
 
   it("documento inexistente muestra pantalla amigable, no 404", async () => {

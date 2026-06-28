@@ -11,6 +11,43 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.8] - 2026-06-27
+
+### Added
+- **Envío de factura/proforma por WhatsApp con PDF adjunto (enlace)**. El botón
+  "Enviar WhatsApp" (POS-detalle, Ventas/Facturas, Proformas, vista de documento)
+  ya no manda solo texto: arma un mensaje **profesional** y un **enlace de
+  descarga al PDF**.
+  - **Generación de PDF** (`server/services/sales/document-pdf.ts`, pdfkit, A4):
+    logo DermaLand vectorial, identidad del emisor (razón social, RNC, dirección,
+    teléfono, WhatsApp, Instagram), tipo de documento (Proforma / Factura de
+    Consumo o Crédito Fiscal / e-CF demo), número/comprobante, fecha, cliente,
+    cajero, ítems (cant./precio/total con lote), totales (subtotal, descuento,
+    ITBIS, **TOTAL**), forma de pago (solo últimos 4, nunca el PAN) y nota
+    **DEMO / sin validez fiscal** cuando corresponde. No imprime UUIDs ni datos
+    técnicos.
+  - **Enlace al PDF**: `GET /api/proformas/[id]/pdf` — descargable por el
+    personal con sesión (RLS) y, vía **token firmado** (`?t=…`, HMAC-SHA256 en
+    `share-token.ts`), abrible por el cliente sin sesión (lectura acotada por
+    `business_id` con service-role). Nombre de archivo `Factura-…pdf` /
+    `Proforma-…pdf`.
+  - **Preparación del envío**: `POST /api/proformas/[id]/share/whatsapp` valida
+    teléfono, firma el enlace al PDF, arma mensaje + `wa.me` y registra auditoría
+    `sale.whatsapp_share`.
+  - **Mensajes profesionales** por tipo (factura / proforma / e-CF demo) con
+    "Le compartimos su factura en PDF", el enlace y el pie de DermaLand
+    (`buildWhatsappShareMessage`). Teléfono normalizado a RD (+1).
+  - **WhatsApp Web** (no hay API): se abre con el mensaje + enlace (apertura de
+    pestaña a prueba de bloqueadores). Si el cliente no tiene teléfono:
+    "Este cliente no tiene teléfono/WhatsApp registrado."
+
+### Notas
+- Sin cambios de esquema en producción: el PDF se genera bajo demanda desde la
+  fila autoritativa (no se persisten archivos), evitando provisionar buckets.
+- Para que el **cliente** (sin sesión) abra el PDF en producción debe existir
+  `SUPABASE_SERVICE_ROLE_KEY`; sin ella, el enlace funciona para el personal con
+  sesión. DGII real permanece **apagado**.
+
 ## [0.8.7] - 2026-06-27
 
 ### Added
