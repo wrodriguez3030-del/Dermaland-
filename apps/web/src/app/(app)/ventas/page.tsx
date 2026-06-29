@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import {
   Badge,
   Button,
@@ -37,6 +38,7 @@ export default function VentasPage() {
   const toast = useToast();
   const allDocuments = useProformas();
   const sales = allDocuments.filter(isInvoiceDocument);
+  const pag = usePagination(sales);
   const canEdit = canEditSales(mockCurrentUser.role);
 
   const handleShareWhatsapp = async (p: Proforma) => {
@@ -89,7 +91,7 @@ export default function VentasPage() {
               </TR>
             </THead>
             <TBody>
-              {sales.map((p) => (
+              {pag.pageItems.map((p) => (
                 <TR key={p.id}>
                   <TD className="text-xs">{formatDateTime(p.createdAt)}</TD>
                   <TD>
@@ -153,6 +155,15 @@ export default function VentasPage() {
               ))}
             </TBody>
           </Table>
+          {sales.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
       <toast.Toast />

@@ -28,6 +28,7 @@ import {
   useTableSort,
 } from "@/components/ui/sortable-table-header";
 import { RowActions } from "@/components/ui/row-actions";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { useToast } from "@/components/ui/toast";
 import {
   Coins,
@@ -186,6 +187,10 @@ export default function ReporteVentasPage() {
     COMPARATORS,
   );
 
+  // Paginación de la tabla de detalle (no afecta KPIs ni exportación, que usan
+  // SIEMPRE el total de resultados filtrados).
+  const pag = usePagination(sorted, { resetKey: JSON.stringify(filters) });
+
   const set = <K extends keyof SalesReportFilters>(
     key: K,
     value: SalesReportFilters[K],
@@ -283,11 +288,21 @@ export default function ReporteVentasPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Ventas" }]}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={exportExcel}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportExcel}
+              title="Exporta todos los resultados filtrados (no solo la página visible)."
+            >
               <FileSpreadsheet className="h-4 w-4" />
               Exportar Excel
             </Button>
-            <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportCsv}
+              title="Exporta todos los resultados filtrados (no solo la página visible)."
+            >
               <Download className="h-4 w-4" />
               Exportar CSV
             </Button>
@@ -650,7 +665,7 @@ export default function ReporteVentasPage() {
                   </TD>
                 </TR>
               )}
-              {sorted.map((p) => {
+              {pag.pageItems.map((p) => {
                 const base = documentRouteBase(p);
                 const status = saleStatusKey(p.status);
                 const method = saleMethodSummary(p);
@@ -751,6 +766,15 @@ export default function ReporteVentasPage() {
               })}
             </TBody>
           </Table>
+          {!empty && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
 

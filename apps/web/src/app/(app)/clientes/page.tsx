@@ -23,6 +23,7 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { useToast } from "@/components/ui/toast";
 import {
   deleteCustomerAnywhere,
@@ -59,6 +60,7 @@ export default function ClientesPage() {
     "desc",
     comparators,
   );
+  const pag = usePagination(sorted);
 
   return (
     <>
@@ -144,7 +146,7 @@ export default function ClientesPage() {
                   </TD>
                 </TR>
               )}
-              {sorted.map((c) => (
+              {pag.pageItems.map((c) => (
                 <TR
                   key={c.id}
                   // Doble click sobre la fila → perfil. Single click no
@@ -223,6 +225,15 @@ export default function ClientesPage() {
               ))}
             </TBody>
           </Table>
+          {sorted.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
       <toast.Toast />

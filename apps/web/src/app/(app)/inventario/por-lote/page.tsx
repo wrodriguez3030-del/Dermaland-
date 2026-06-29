@@ -19,6 +19,7 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { ShieldAlert, Unlock, History } from "lucide-react";
@@ -105,6 +106,9 @@ export default function StockPorLotePage() {
     "desc",
     LOT_COMPARATORS,
   );
+  const pag = usePagination(sorted, {
+    resetKey: `${search}|${status}|${branchFilter}`,
+  });
 
   const handleQuarantine = async (lot: ProductLot) => {
     const r = await quarantineLotAnywhere(lot.id, {
@@ -180,7 +184,7 @@ export default function StockPorLotePage() {
                   </TD>
                 </TR>
               )}
-              {sorted.map((r) => {
+              {pag.pageItems.map((r) => {
                 const lot = r.lot;
                 const tone =
                   r.days < 30 ? "danger" : r.days < 90 ? "warning" : "neutral";
@@ -259,6 +263,15 @@ export default function StockPorLotePage() {
               })}
             </TBody>
           </Table>
+          {sorted.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
       <toast.Toast />

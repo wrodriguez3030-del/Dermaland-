@@ -24,6 +24,7 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { StatCard } from "@/components/ui/stat-card";
 import { Boxes, AlertTriangle, PackagePlus, ShieldAlert, X, Layers } from "lucide-react";
 import { useProducts } from "@/features/products/product-store";
@@ -161,6 +162,9 @@ function InventarioContent() {
     [],
   );
   const { sort, sorted, toggle } = useTableSort(filtered, "stock", "desc", comparators);
+  const pag = usePagination(sorted, {
+    resetKey: `${search}|${brandFilter}|${categoryFilter}|${labFilter}|${status}`,
+  });
 
   // ── Totales (motor único, sobre lo filtrado) ─────────────────────────────────
   const { totalUnits, totalValue, lowStockCount, noStockCount } =
@@ -279,7 +283,7 @@ function InventarioContent() {
                   </TD>
                 </TR>
               )}
-              {sorted.map(({ product: p, brandName, categoryName, labName, inv }) => {
+              {pag.pageItems.map(({ product: p, brandName, categoryName, labName, inv }) => {
                 const lowStock = inv.sellableStock <= p.minStock;
                 const noStock = inv.sellableStock === 0;
                 return (
@@ -343,6 +347,15 @@ function InventarioContent() {
               })}
             </TBody>
           </Table>
+          {sorted.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
 

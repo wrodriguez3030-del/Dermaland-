@@ -12,6 +12,7 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import type { Proforma } from "@/types";
 import {
   Badge,
@@ -76,6 +77,7 @@ export default function ProformasPage() {
     "desc",
     comparators,
   );
+  const pag = usePagination(sorted);
   return (
     <>
       <PageHeader
@@ -136,7 +138,7 @@ export default function ProformasPage() {
               </TR>
             </THead>
             <TBody>
-              {sorted.map((p) => {
+              {pag.pageItems.map((p) => {
                 const meta = statusMeta[p.status] ?? statusMeta.draft;
                 return (
                   <TR key={p.id}>
@@ -205,6 +207,15 @@ export default function ProformasPage() {
               })}
             </TBody>
           </Table>
+          {sorted.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
       <toast.Toast />

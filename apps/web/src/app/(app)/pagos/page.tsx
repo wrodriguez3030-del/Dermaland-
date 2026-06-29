@@ -17,6 +17,7 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { Printer, Send } from "lucide-react";
 import { mockProformas } from "@/lib/mock-data/sales";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
@@ -61,6 +62,7 @@ export default function PagosPage() {
     "desc",
     comparators,
   );
+  const pag = usePagination(sorted);
 
   return (
     <>
@@ -98,7 +100,7 @@ export default function PagosPage() {
               </TR>
             </THead>
             <TBody>
-              {sorted.map((p) => (
+              {pag.pageItems.map((p) => (
                 <TR key={p.id}>
                   <TD className="text-xs whitespace-nowrap">
                     {formatDateTime(p.createdAt)}
@@ -150,6 +152,15 @@ export default function PagosPage() {
               ))}
             </TBody>
           </Table>
+          {sorted.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
     </>

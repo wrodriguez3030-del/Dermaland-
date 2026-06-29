@@ -21,6 +21,7 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { useAllMovements } from "@/features/inventory/lot-store";
 import { formatDateTime } from "@/lib/utils/format";
@@ -59,6 +60,7 @@ export default function MovimientosPage() {
     "desc",
     comparators,
   );
+  const pag = usePagination(sorted);
 
   return (
     <>
@@ -125,7 +127,7 @@ export default function MovimientosPage() {
               </TR>
             </THead>
             <TBody>
-              {sorted.map((m) => {
+              {pag.pageItems.map((m) => {
                 const p = getProductById(m.productId);
                 return (
                   <TR key={m.id}>
@@ -166,6 +168,15 @@ export default function MovimientosPage() {
               })}
             </TBody>
           </Table>
+          {sorted.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
     </>

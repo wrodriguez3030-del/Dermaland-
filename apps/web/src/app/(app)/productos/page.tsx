@@ -18,6 +18,7 @@ import {
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import {
   SortableTH,
   useTableSort,
@@ -68,7 +69,6 @@ const comparators = {
 };
 
 type StatusFilter = "all" | "active" | "inactive" | "low" | "out";
-const PAGE_SIZE = 50;
 
 export default function ProductosPage() {
   const products = useProducts();
@@ -86,7 +86,6 @@ export default function ProductosPage() {
   const [brand, setBrand] = React.useState("");
   const [category, setCategory] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
-  const [page, setPage] = React.useState(0);
   const [addStockProduct, setAddStockProduct] = React.useState<{ id: string; name: string } | null>(null);
 
   // Mapa de stock total vendible por producto (todas las sucursales activas).
@@ -146,15 +145,10 @@ export default function ProductosPage() {
 
   const total = products.length;
   const showing = sorted.length;
-  const pageCount = Math.max(1, Math.ceil(showing / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const paged = sorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-
-  // Volver a la primera página cuando cambian filtros/orden.
-  React.useEffect(() => {
-    setPage(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, brand, category, status, sort.key, sort.direction]);
+  // Paginación reutilizable; vuelve a la página 1 al cambiar filtros/búsqueda.
+  const pag = usePagination(sorted, {
+    resetKey: `${q}|${brand}|${category}|${status}`,
+  });
 
   return (
     <>
@@ -290,7 +284,7 @@ export default function ProductosPage() {
               </TD>
             </TR>
           )}
-          {paged.map((p) => {
+          {pag.pageItems.map((p) => {
             const brandObj = getBrandById(p.brandId);
             const category = getCategoryById(p.categoryId);
             const stock = stockMap.get(p.id) ?? 0;
@@ -416,30 +410,14 @@ export default function ProductosPage() {
         </TBody>
       </Table>
 
-      {pageCount > 1 && (
-        <div className="mt-4 flex items-center justify-between text-sm">
-          <span className="opacity-60">
-            Página {safePage + 1} de {pageCount} · {showing} productos
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={safePage === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={safePage >= pageCount - 1}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Siguiente
-            </Button>
-          </div>
-        </div>
+      {showing > 0 && (
+        <DataPagination
+          page={pag.page}
+          pageSize={pag.pageSize}
+          total={pag.total}
+          onPageChange={pag.setPage}
+          onPageSizeChange={pag.setPageSize}
+        />
       )}
       {addStockProduct && (
         <NewLotModal

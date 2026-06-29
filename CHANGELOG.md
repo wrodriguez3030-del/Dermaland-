@@ -11,6 +11,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.10.0] - 2026-06-29
+
+### Added
+- **Paginación profesional reutilizable en los listados largos.** Nuevo
+  componente `DataPagination` + hook `usePagination`
+  (`components/ui/data-pagination.tsx`): selector de cantidad por página
+  (10/25/50/**100**, default 25), texto "Mostrando {desde}–{hasta} de {total}
+  registros", botones « Primera · ‹ Anterior · Página X de Y · Siguiente › ·
+  Última », versión compacta en móvil y estado "Cargando registros…". Mantiene
+  filtros, búsqueda y orden (solo rebana la vista); resetea a la página 1 al
+  cambiar filtros/búsqueda o el tamaño de página, y se reajusta si la lista
+  encoge. 13 tests (`data-pagination.test.tsx`).
+- Paginación aplicada (Prioridad 1) en: **Reportes > Ventas** (Detalle de
+  ventas, 25/pág, orden fecha desc; el Excel/CSV sigue exportando TODOS los
+  resultados filtrados, no solo la página, con tooltip explicativo),
+  **Productos** (reemplaza su paginación manual), **Clientes**, **Ventas /
+  Facturas**, **Proformas**, **Pagos**, **Inventario > Stock actual**, **Stock
+  por lote** y **Movimientos**.
+
+### Notes
+- La paginación es client-side sobre las listas ya filtradas/ordenadas que
+  cargan los stores reactivos; la paginación server-side real con
+  `range(from,to)`+`count` requeriría refactorizar cada store/API y queda como
+  trabajo futuro. No toca DGII real, secuencias ni datos.
+
 ## [0.9.0] - 2026-06-29
 
 ### Added
