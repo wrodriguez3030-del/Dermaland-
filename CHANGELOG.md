@@ -11,6 +11,39 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.11.0] - 2026-06-29
+
+### Added
+- **Reportería con formato ejecutivo profesional (base reusable).** Nuevos
+  componentes en `components/reporting/report-layout.tsx`: `ReportLayout`,
+  `ReportHeader` (logo/iniciales, negocio, título, subtítulo, generado por/cuándo),
+  `ReportSummaryCards` (KPIs en tarjetas limpias), `ReportSection` (encabezado de
+  sección corporativo con tono por prioridad), `ReportFiltersSummary` ("Sin
+  filtros aplicados" / "Filtros: A = x | B = y"), `ReportFooter`,
+  `ReportEmptyState`, `ReportBadge` (alta=rojo, media=azul, baja/ok=verde,
+  pendiente=ámbar) y `PrintReportButton`. 7 tests.
+- **Impresión / PDF**: estilos `@media print` con página **A4** dedicada
+  (`@page report-page`) en `globals.css`, fondo blanco, sin sidebar, cortes
+  limpios y encabezado de tabla repetido. Botón "Imprimir / PDF" (window.print()).
+  Utilidades `.screen-only` / `.print-only`: en pantalla la tabla de detalle va
+  **paginada**; al imprimir/PDF se incluye el detalle **completo** (todos los
+  resultados filtrados).
+
+### Changed
+- **Reportes > Ventas** rediseñado con el formato ejecutivo: header, resumen de
+  filtros, KPIs en tarjetas, secciones, tabla de detalle (paginada en pantalla /
+  completa en PDF) y footer. Filtros, paginación y export Excel/CSV intactos.
+- **Reportes > Inventario** reescrito de mock a **datos reales** (useProducts /
+  useAllLots / useAllMovements / sucursales) con formato ejecutivo y secciones:
+  resumen/KPIs, stock por sucursal, bajo stock, sin stock, próximos vencimientos
+  (90 días), lotes vencidos, movimientos recientes y detalle tabular paginado.
+  Agregación de lotes en una sola pasada (eficiente con catálogos grandes).
+
+### Notes
+- Excel/CSV sin cambios (siguen exportando los resultados filtrados completos).
+  No toca DGII real, secuencias ni datos. Caja/Clientes/Conteos/Productos usarán
+  esta misma base en una próxima pasada.
+
 ## [0.10.0] - 2026-06-29
 
 ### Added

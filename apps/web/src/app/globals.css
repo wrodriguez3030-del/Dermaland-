@@ -104,3 +104,56 @@ body {
     text-shadow: none !important;
   }
 }
+
+/* ── Reportes ejecutivos: impresión / PDF en página A4 ──
+   Los reportes usan una página con nombre (A4) en vez del recibo de 80mm. */
+@page report-page {
+  size: A4 portrait;
+  margin: 14mm;
+}
+
+/* Mostrar contenido solo en pantalla o solo al imprimir (PDF completo). */
+.print-only {
+  display: none;
+}
+
+@media print {
+  /* El área del reporte usa la página A4 y ocupa todo el ancho. */
+  .report-print-area {
+    page: report-page;
+    width: 100% !important;
+  }
+  /* Asegura que el encabezado del reporte (div .report-header) sí se imprima
+     aunque la regla global oculte los <header> del shell. */
+  .report-print-area .report-header {
+    display: flex !important;
+  }
+  .report-print-area .report-section,
+  .report-print-area .report-header,
+  .report-print-area .report-footer {
+    break-inside: avoid;
+    border: 1px solid #e5e7eb !important;
+  }
+  .report-print-area .report-footer {
+    border: 0 !important;
+    border-top: 1px solid #e5e7eb !important;
+  }
+  /* Tablas legibles en papel: encabezado repetido y filas sin cortes. */
+  .report-print-area table {
+    width: 100% !important;
+    font-size: 11px;
+  }
+  .report-print-area thead {
+    display: table-header-group;
+  }
+  .report-print-area tr {
+    break-inside: avoid;
+  }
+  /* Alternar vistas pantalla/impresión (p. ej. tabla paginada vs. completa). */
+  .print-only {
+    display: block !important;
+  }
+  .screen-only {
+    display: none !important;
+  }
+}

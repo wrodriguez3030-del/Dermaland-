@@ -21,7 +21,6 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { StatCard } from "@/components/ui/stat-card";
 import { BarChart } from "@/components/ui/bar-chart";
 import {
   SortableTH,
@@ -29,17 +28,18 @@ import {
 } from "@/components/ui/sortable-table-header";
 import { RowActions } from "@/components/ui/row-actions";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
+import {
+  ReportLayout,
+  ReportHeader,
+  ReportSummaryCards,
+  ReportFiltersSummary,
+  ReportFooter,
+  PrintReportButton,
+  type ReportKpi,
+  type ReportFilterChip,
+} from "@/components/reporting/report-layout";
 import { useToast } from "@/components/ui/toast";
 import {
-  Coins,
-  Receipt,
-  ShoppingCart,
-  TrendingUp,
-  Users,
-  Percent,
-  Undo2,
-  Wallet,
-  BadgeDollarSign,
   Boxes,
   Eye,
   Pencil,
@@ -64,7 +64,7 @@ import {
 import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
 import { mockCurrentUser } from "@/lib/mock-data/users";
-import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 import { downloadBlob } from "@/lib/utils/download";
 import type { Proforma } from "@/types";
 import {
@@ -280,6 +280,64 @@ export default function ReporteVentasPage() {
   const k = report.kpis;
   const empty = report.filtered.length === 0;
 
+  // Marca de tiempo de generación (en efecto para evitar mismatch de hidratación).
+  const [generatedAt, setGeneratedAt] = React.useState("");
+  React.useEffect(() => {
+    setGeneratedAt(formatDateTime(new Date().toISOString()));
+  }, []);
+
+  const kpiItems: ReportKpi[] = [
+    { label: "Total facturado", value: formatCurrency(k.totalBilled), tone: "primary" },
+    { label: "ITBIS recaudado", value: formatCurrency(k.itbis) },
+    { label: "Transacciones", value: k.transactions },
+    { label: "Items vendidos", value: k.items },
+    { label: "Ticket promedio", value: formatCurrency(k.avgTicket) },
+    { label: "Clientes distintos", value: k.distinctCustomers },
+    { label: "Descuentos", value: formatCurrency(k.discounts) },
+    {
+      label: "Devoluciones",
+      value: formatCurrency(k.refunds),
+      tone: k.refunds > 0 ? "warning" : "default",
+    },
+    { label: "Neto", value: formatCurrency(k.net), tone: "success" },
+    {
+      label: "Margen estimado",
+      value: k.marginEstimate != null ? formatCurrency(k.marginEstimate) : "N/D",
+      hint: k.marginEstimate == null ? "Sin costo disponible" : undefined,
+    },
+  ];
+
+  const filterChips: ReportFilterChip[] = [];
+  if (filters.from || filters.to)
+    filterChips.push({
+      label: "Fecha",
+      value: `${filters.from || "inicio"} → ${filters.to || "hoy"}`,
+    });
+  if (filters.branchId)
+    filterChips.push({
+      label: "Sucursal",
+      value: branchNames.get(filters.branchId) ?? "Sucursal",
+    });
+  if (filters.method)
+    filterChips.push({ label: "Método", value: SALE_METHOD_LABEL[filters.method] });
+  if (filters.comprobante)
+    filterChips.push({
+      label: "Comprobante",
+      value: COMPROBANTE_LABEL[filters.comprobante],
+    });
+  if (filters.status)
+    filterChips.push({ label: "Estado", value: SALE_STATUS_LABEL[filters.status] });
+  if (filters.cashierId) {
+    const n = cashierOptions.find((c) => c[0] === filters.cashierId)?.[1];
+    if (n) filterChips.push({ label: "Cajero", value: n });
+  }
+  if (filters.customerQuery)
+    filterChips.push({ label: "Cliente", value: filters.customerQuery });
+  if (filters.productQuery)
+    filterChips.push({ label: "Producto", value: filters.productQuery });
+  if (filters.includeProformas)
+    filterChips.push({ label: "Proformas", value: "Incluidas" });
+
   return (
     <>
       <PageHeader
@@ -288,6 +346,7 @@ export default function ReporteVentasPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Ventas" }]}
         actions={
           <div className="flex flex-wrap gap-2">
+            <PrintReportButton />
             <Button
               variant="outline"
               size="sm"
@@ -316,8 +375,19 @@ export default function ReporteVentasPage() {
         }
       />
 
-      {/* ── Filtros ── */}
-      <Card className="mb-6">
+      <ReportLayout>
+      <ReportHeader
+        businessName="DermaLand"
+        title="Reporte de ventas"
+        subtitle="Ventas por rango con desglose por cajero, método de pago, sucursal, producto y comprobante."
+        generatedBy={mockCurrentUser.fullName}
+        generatedAt={generatedAt}
+      />
+
+      <ReportFiltersSummary filters={filterChips} />
+
+      {/* ── Filtros (interactivos, solo pantalla) ── */}
+      <Card className="mb-6 no-print">
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {QUICK_RANGES.map((q) => (
@@ -458,22 +528,8 @@ export default function ReporteVentasPage() {
       </Card>
 
       {/* ── KPIs ── */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Total facturado" value={formatCurrency(k.totalBilled)} icon={Coins} tone="primary" />
-        <StatCard label="ITBIS recaudado" value={formatCurrency(k.itbis)} icon={TrendingUp} />
-        <StatCard label="Transacciones" value={k.transactions} icon={Receipt} />
-        <StatCard label="Items vendidos" value={k.items} icon={ShoppingCart} />
-        <StatCard label="Ticket promedio" value={formatCurrency(k.avgTicket)} icon={BadgeDollarSign} />
-        <StatCard label="Clientes distintos" value={k.distinctCustomers} icon={Users} />
-        <StatCard label="Descuentos" value={formatCurrency(k.discounts)} icon={Percent} />
-        <StatCard label="Devoluciones" value={formatCurrency(k.refunds)} icon={Undo2} tone={k.refunds > 0 ? "warning" : "default"} />
-        <StatCard label="Neto" value={formatCurrency(k.net)} icon={Wallet} tone="success" />
-        <StatCard
-          label="Margen estimado"
-          value={k.marginEstimate != null ? formatCurrency(k.marginEstimate) : "N/D"}
-          hint={k.marginEstimate == null ? "Sin costo disponible" : undefined}
-          icon={Boxes}
-        />
+      <div className="mb-6">
+        <ReportSummaryCards items={kpiItems} columns={5} />
       </div>
 
       {/* ── Gráficas / resúmenes ── */}
@@ -632,8 +688,8 @@ export default function ReporteVentasPage() {
         </Card>
       </div>
 
-      {/* ── Tabla detallada ── */}
-      <Card>
+      {/* ── Tabla detallada (interactiva, solo pantalla) ── */}
+      <Card className="screen-only">
         <CardHeader>
           <CardTitle>Detalle de ventas</CardTitle>
         </CardHeader>
@@ -777,6 +833,63 @@ export default function ReporteVentasPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Detalle COMPLETO solo para impresión / PDF (todos los filtrados) ── */}
+      <div className="print-only">
+        <Card>
+          <CardHeader>
+            <CardTitle>Detalle de ventas ({sorted.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Fecha</TH>
+                  <TH>Sucursal</TH>
+                  <TH>Comprobante</TH>
+                  <TH>Tipo</TH>
+                  <TH>Cliente</TH>
+                  <TH>Cajero</TH>
+                  <TH className="text-right">Items</TH>
+                  <TH>Método</TH>
+                  <TH className="text-right">ITBIS</TH>
+                  <TH className="text-right">Total</TH>
+                  <TH>Estado</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {sorted.map((p) => {
+                  const status = saleStatusKey(p.status);
+                  const method = saleMethodSummary(p);
+                  const items = p.items.reduce((q, it) => q + it.quantity, 0);
+                  return (
+                    <TR key={`print-${p.id}`}>
+                      <TD className="text-xs">{formatDate(p.createdAt)}</TD>
+                      <TD className="text-xs">{branchNames.get(p.branchId) ?? "Sucursal"}</TD>
+                      <TD className="font-mono text-xs">{p.ecfNumber ?? p.number}</TD>
+                      <TD className="text-xs">{comprobanteLabel(p)}</TD>
+                      <TD className="text-xs">{p.customerName || "Consumidor final"}</TD>
+                      <TD className="text-xs">{p.cashierName || "—"}</TD>
+                      <TD className="text-right tabular-nums text-xs">{items}</TD>
+                      <TD className="text-xs">{SALE_METHOD_LABEL[method]}</TD>
+                      <TD className="text-right tabular-nums text-xs">{formatCurrency(p.itbis)}</TD>
+                      <TD className="text-right tabular-nums text-xs font-medium">{formatCurrency(p.total)}</TD>
+                      <TD className="text-xs">{SALE_STATUS_LABEL[status]}</TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <ReportFooter
+        businessName="DermaLand"
+        reportName="Reporte de ventas"
+        generatedAt={generatedAt}
+      />
+      </ReportLayout>
 
       {/* ── Modal: ver pagos ── */}
       <Modal
