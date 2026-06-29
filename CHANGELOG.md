@@ -11,6 +11,42 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.9.0] - 2026-06-29
+
+### Added
+- **Reporte de ventas completo (Reportes > Ventas).** Se reemplazó la pantalla
+  simple (mock, sin filtros) por una vista profesional que lee datos reales de
+  Supabase (`useProformas`) y relaciona ventas, pagos, clientes, productos,
+  cajeros, sucursales y comprobantes. Incluye:
+  - **11 filtros**: Desde/Hasta, Sucursal, Método de pago (Efectivo/Tarjeta/
+    Transferencia/Otro/Mixto), Tipo de comprobante (Proforma/B02/B01/E32/E31/
+    Nota de crédito/Nota de débito), Estado (Pagada/Pendiente/Anulada/Devuelta/
+    Parcial), Cajero, Cliente (nombre/teléfono/cédula-RNC), Producto, botones
+    rápidos (Hoy/Ayer/Últimos 7/Este mes/Mes anterior/Todo), "Incluir proformas"
+    y "Limpiar filtros". Por defecto muestra facturas pagadas; las proformas no
+    se mezclan con facturas sin indicar el tipo.
+  - **10 KPIs**: Total facturado, ITBIS recaudado, Transacciones, Items
+    vendidos, Ticket promedio, Clientes distintos, Descuentos, Devoluciones,
+    Neto después de devoluciones y Margen estimado (si hay costo).
+  - **Gráficas/resúmenes**: tendencia (por día, o por hora si el rango es un
+    solo día), medios de pago (usa los pagos reales), ventas por sucursal, top
+    cajeros, productos más vendidos, clientes principales y comprobantes.
+  - **Tabla detallada** ordenable (Fecha, Total, Cliente, Cajero, Método,
+    Estado, Tipo documento; por defecto fecha más reciente primero) con
+    columnas Fecha/hora, Sucursal, Comprobante, Tipo, Cliente, Cajero, Items,
+    Método, Subtotal, ITBIS, Descuento, Total, Estado y Acciones.
+  - **Acciones por venta** (menú): Ver detalle, Editar (si permitido), Imprimir,
+    Enviar WhatsApp, Descargar PDF, Ver pagos (modal), Ver movimientos de
+    inventario y Anular (con confirmación). Sin UUIDs ni errores técnicos.
+  - **Exportar Excel** (7 hojas: Resumen, Ventas detalle, Métodos de pago, Por
+    cajero, Por sucursal, Productos vendidos, Clientes; con título, rango,
+    filtros usados, formato RD$ y anchos de columna) y **Exportar CSV** (BOM
+    UTF-8, mismas columnas que la tabla). Export client-side desde la vista ya
+    filtrada.
+- Lógica pura y testeada en `features/sales/sales-report.ts` y
+  `sales-report-export.ts`; helper de descarga `lib/utils/download.ts`. No toca
+  DGII real, secuencias, certificados ni datos: solo lee y agrega.
+
 ## [0.8.13] - 2026-06-29
 
 ### Added
