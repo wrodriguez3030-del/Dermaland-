@@ -11,6 +11,38 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.12] - 2026-06-29
+
+### Added
+- **Vista "Detalles del turno en curso" en Caja** + **export Excel del turno**.
+  La pantalla **Ventas > Caja** ahora muestra, cuando hay un turno abierto, una
+  vista clara para cajero/admin:
+  - Card principal: fecha de inicio, cajero · sucursal · sesión, **total de
+    ventas**, y el desglose de movimientos (base inicial, ventas en efectivo,
+    por tarjeta, por transferencia, otros, devolución de dinero, ingresos y
+    retiros de efectivo, total de movimientos del turno).
+  - Card "**Dinero esperado en caja**" con el texto explicativo y el valor en
+    grande; muestra efectivo contado y diferencia cuando la caja fue contada.
+  - Botón **"Exportar Excel"** (descarga `.xlsx` profesional) y **"Cerrar
+    turno"** en el encabezado.
+  - **Motor de cálculo puro** `features/sales/cash-session-detail.ts`
+    (`computeShiftDetail`): agrega los pagos reales de las proformas de la
+    sesión por método. **El dinero físico esperado en caja cuenta SOLO efectivo**
+    (base + ventas efectivo + ingresos − devoluciones − retiros); tarjeta y
+    transferencia se reportan como ventas pero no aumentan el efectivo.
+  - **Reporte Excel** `server/services/sales/cash-shift-xlsx.ts` (SheetJS) +
+    ruta `GET /api/cash/[id]/export` (turno en curso, RLS por business_id).
+  - Se reemplazaron las tarjetas de caja que mostraban totales estáticos
+    (`session.totals`/`expected_cash` no se recalculaban) por estos valores
+    calculados de los pagos reales.
+
+### Notas
+- El modelo de pagos no separa tarjeta de **débito/crédito** (solo `card` +
+  procesadores) → se reporta una línea "Ventas por tarjeta". Los **ingresos /
+  retiros de efectivo y devoluciones** manuales quedan en RD$0.00 hasta agregar
+  el módulo de movimientos de caja (tabla + UI); el motor de cálculo ya los
+  soporta. DGII real sigue apagado; no se tocaron datos ni secuencias.
+
 ## [0.8.11] - 2026-06-27
 
 ### Changed

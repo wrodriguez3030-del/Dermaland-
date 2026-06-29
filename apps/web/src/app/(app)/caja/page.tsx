@@ -14,13 +14,14 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Banknote, Receipt } from "lucide-react";
-import { StatCard } from "@/components/ui/stat-card";
+import { FileSpreadsheet } from "lucide-react";
 import { mockProformas } from "@/lib/mock-data/sales";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { env } from "@/lib/env";
+import { computeShiftDetail } from "@/features/sales/cash-session-detail";
+import { ShiftDetailView } from "@/features/sales/components/shift-detail";
 import { AbrirCajaButton, CerrarCajaButton } from "./caja-actions";
 
 // Usa cookies/sesión (getRepoContext) en modo supabase → render dinámico.
@@ -68,6 +69,7 @@ export default async function CajaPage() {
   // Proformas de la sesión actual — en supabase las cargamos del repositorio;
   // en modo mock usamos el seed.
   let proformas: import("@/types").Proforma[] = [];
+  let branchName: string | null = null;
   if (current) {
     if (env.DATA_SOURCE === "supabase") {
       try {
@@ -76,8 +78,10 @@ export default async function CajaPage() {
         proformas = allProformas.filter(
           (p) => p.cashRegisterSessionId === current!.id,
         );
+        const branch = await getRepositories().branch.byId(ctx, current.branchId);
+        branchName = branch?.name ?? null;
       } catch {
-        // Fallback a vacío si falla la carga de proformas (no bloquear la página)
+        // Fallback a vacío si falla la carga (no bloquear la página)
       }
     } else {
       proformas = mockProformas.filter(
@@ -88,6 +92,10 @@ export default async function CajaPage() {
   const pendingEcf = proformas.filter(
     (p) => p.status === "pending_ecf" || p.status === "paid",
   );
+
+  const shiftDetail = current
+    ? computeShiftDetail(current, proformas, [], branchName)
+    : null;
 
   if (!current) {
     return (
@@ -110,6 +118,15 @@ export default async function CajaPage() {
         breadcrumbs={[{ label: "Caja" }]}
         actions={
           <>
+            <a
+              href={`/api/cash/${current.id}/export`}
+              aria-label="Exportar Excel del turno"
+            >
+              <Button variant="outline" size="sm" title="Exportar Excel">
+                <FileSpreadsheet className="h-4 w-4" />
+                Exportar Excel
+              </Button>
+            </a>
             <Link href="/caja/historial">
               <Button variant="outline" size="sm">
                 Historial
@@ -120,32 +137,14 @@ export default async function CajaPage() {
         }
       />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Apertura"
-          value={formatCurrency(current.openingAmount)}
-          icon={Banknote}
-        />
-        <StatCard
-          label="Esperado en efectivo"
-          value={formatCurrency(current.expectedCash)}
-          icon={Banknote}
-          tone="primary"
-        />
-        <StatCard
-          label="Tarjeta"
-          value={formatCurrency(current.totals.card)}
-          icon={Receipt}
-        />
-        <StatCard
-          label="Transferencia"
-          value={formatCurrency(current.totals.transfer)}
-          icon={Receipt}
-        />
-      </div>
+      {shiftDetail && (
+        <div className="mb-6">
+          <ShiftDetailView detail={shiftDetail} />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>Proformas seleccionables para e-CF</CardTitle>
             <p className="mt-1 text-xs opacity-60">
@@ -188,37 +187,6 @@ export default async function CajaPage() {
                 </TBody>
               </Table>
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Cierre estimado</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="opacity-70">Efectivo esperado</span>
-              <span className="tabular-nums font-medium">{formatCurrency(current.expectedCash)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="opacity-70">Tarjeta</span>
-              <span className="tabular-nums">{formatCurrency(current.totals.card)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="opacity-70">Transferencia</span>
-              <span className="tabular-nums">{formatCurrency(current.totals.transfer)}</span>
-            </div>
-            <div className="border-t border-black/5 pt-3">
-              <label className="text-xs font-medium">Efectivo contado</label>
-              <input
-                type="number"
-                placeholder="0.00"
-                className="mt-1 h-10 w-full rounded-lg border border-black/15 px-3"
-              />
-            </div>
-            <p className="text-xs opacity-60">
-              Diferencia mayor a la tolerancia (RD$50) requiere autorización del supervisor.
-            </p>
           </CardContent>
         </Card>
       </div>
