@@ -532,6 +532,22 @@ export interface CashRegisterSession extends Audited, BranchScoped {
   notes?: string;
 }
 
+export type CashMovementType = "income" | "withdrawal" | "refund";
+
+/** Movimiento manual de efectivo del turno: ingreso, retiro o devolución. */
+export interface CashMovement extends BranchScoped {
+  id: ID;
+  cashRegisterSessionId: ID;
+  type: CashMovementType;
+  /** Método del movimiento; solo "cash" afecta el efectivo físico de la caja. */
+  method: PaymentMethod;
+  amount: number;
+  reason?: string;
+  createdById?: ID;
+  createdByName?: string;
+  createdAt: string;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Recommendations (Phase 5)
 // ─────────────────────────────────────────────────────────────────────────────

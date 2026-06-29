@@ -21,6 +21,8 @@ import type {
   Brand,
   Business,
   CashRegisterSession,
+  CashMovement,
+  CashMovementType,
   Category,
   Customer,
   CustomerNote,
@@ -315,6 +317,18 @@ export interface CashRegisterRepository {
   history(ctx: RepoContext, limit?: number): Promise<CashRegisterSession[]>;
   open(ctx: RepoContext, openingAmount: number): Promise<CashRegisterSession>;
   close(ctx: RepoContext, sessionId: ID, countedCash: number): Promise<CashRegisterSession>;
+  /** Movimientos manuales de efectivo (ingresos/retiros/devoluciones) de una sesión. */
+  movements(ctx: RepoContext, sessionId: ID): Promise<CashMovement[]>;
+  addMovement(
+    ctx: RepoContext,
+    input: {
+      sessionId: ID;
+      type: CashMovementType;
+      amount: number;
+      method?: CashMovement["method"];
+      reason?: string;
+    },
+  ): Promise<CashMovement>;
 }
 
 // ─── Recommendations ────────────────────────────────────────────────────────

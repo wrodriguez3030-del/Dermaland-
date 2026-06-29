@@ -11,6 +11,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.8.13] - 2026-06-29
+
+### Added
+- **Movimientos de efectivo del turno de caja.** En **Ventas > Caja**, con un
+  turno abierto, se pueden registrar tres tipos de movimiento manual de efectivo:
+  - **Ingreso de efectivo** (p. ej. fondo para vuelto),
+  - **Retiro de efectivo** (p. ej. pago a proveedor desde caja),
+  - **Devolución de dinero** al cliente.
+
+  Cada movimiento queda ligado a la sesión de caja, con monto, motivo opcional y
+  autor. La lista del turno los muestra con signo (+/−) y el **"Dinero esperado
+  en caja"** se recalcula automáticamente: solo el efectivo afecta el conteo
+  físico (`base + ventas efectivo + ingresos − devoluciones − retiros`). El
+  **export Excel del turno** incluye los movimientos.
+- Nueva tabla `cash_movements` (migración `0015`, aditiva/idempotente, RLS
+  multi-tenant por `business_id`, ligada a `cash_register_sessions`). No toca
+  DGII, secuencias ni datos existentes.
+- API `GET/POST /api/cash/[id]/movements` con validación de tipo y monto;
+  responde 409 en modo `DATA_SOURCE=mock`.
+
 ## [0.8.12] - 2026-06-29
 
 ### Added

@@ -58,7 +58,19 @@ export async function GET(
       branchName = null;
     }
 
-    const detail = computeShiftDetail(current, sessionProformas, [], branchName);
+    let movements: Awaited<ReturnType<typeof repos.cashRegister.movements>> = [];
+    try {
+      movements = await repos.cashRegister.movements(ctx, current.id);
+    } catch {
+      movements = [];
+    }
+
+    const detail = computeShiftDetail(
+      current,
+      sessionProformas,
+      movements,
+      branchName,
+    );
     const xlsx = generateShiftXlsx(detail, {
       businessName: mockBusiness.commercialName || "DermaLand",
       generatedAt: new Date().toISOString(),

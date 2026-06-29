@@ -956,6 +956,12 @@ const cashRegister: CashRegisterRepository = {
   async close() {
     throw new Error("close() requiere backend Supabase");
   },
+  async movements() {
+    return [];
+  },
+  async addMovement() {
+    throw new Error("addMovement() requiere backend Supabase");
+  },
 };
 
 const recommendation: RecommendationRepository = {

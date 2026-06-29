@@ -23,6 +23,7 @@ import { env } from "@/lib/env";
 import { computeShiftDetail } from "@/features/sales/cash-session-detail";
 import { ShiftDetailView } from "@/features/sales/components/shift-detail";
 import { AbrirCajaButton, CerrarCajaButton } from "./caja-actions";
+import { CashMovements } from "./cash-movements";
 
 // Usa cookies/sesión (getRepoContext) en modo supabase → render dinámico.
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export default async function CajaPage() {
   // en modo mock usamos el seed.
   let proformas: import("@/types").Proforma[] = [];
   let branchName: string | null = null;
+  let movements: import("@/types").CashMovement[] = [];
   if (current) {
     if (env.DATA_SOURCE === "supabase") {
       try {
@@ -83,6 +85,16 @@ export default async function CajaPage() {
       } catch {
         // Fallback a vacío si falla la carga (no bloquear la página)
       }
+      // Movimientos de efectivo: resiliente si la tabla aún no existe.
+      try {
+        const ctx = await getRepoContext();
+        movements = await getRepositories().cashRegister.movements(
+          ctx,
+          current.id,
+        );
+      } catch {
+        movements = [];
+      }
     } else {
       proformas = mockProformas.filter(
         (p) => p.cashRegisterSessionId === current!.id,
@@ -94,7 +106,7 @@ export default async function CajaPage() {
   );
 
   const shiftDetail = current
-    ? computeShiftDetail(current, proformas, [], branchName)
+    ? computeShiftDetail(current, proformas, movements, branchName)
     : null;
 
   if (!current) {
@@ -142,6 +154,10 @@ export default async function CajaPage() {
           <ShiftDetailView detail={shiftDetail} />
         </div>
       )}
+
+      <div className="mb-6">
+        <CashMovements sessionId={current.id} movements={movements} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-3">

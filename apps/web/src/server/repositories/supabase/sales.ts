@@ -5,7 +5,10 @@ import type {
   RepoContext,
 } from "../types";
 import type {
+  CashMovement,
+  CashMovementType,
   CashRegisterSession,
+  PaymentMethod,
   Payment,
   Proforma,
   SaleItem,
@@ -591,5 +594,84 @@ export const cashRegisterRepository: CashRegisterRepository = {
     );
     return cashSessionRowToTs(data, proformaIds);
   },
+
+  async movements(ctx: RepoContext, sessionId: string) {
+    const sb = await getClient("cashRegister.movements");
+    const { data, error } = await sb
+      .from("cash_movements")
+      .select("*")
+      .eq("business_id", ctx.businessId)
+      .eq("cash_register_session_id", sessionId)
+      .order("created_at", { ascending: false });
+    if (error) throw new SupabaseRepositoryError("cashRegister.movements", error);
+    return (data ?? []).map(cashMovementRowToTs);
+  },
+
+  async addMovement(
+    ctx: RepoContext,
+    input: {
+      sessionId: string;
+      type: CashMovementType;
+      amount: number;
+      method?: PaymentMethod;
+      reason?: string;
+    },
+  ) {
+    const sb = await getClient("cashRegister.addMovement");
+    if (!ctx.branchId) {
+      throw new UserFacingRepositoryError(
+        "No se pudo registrar el movimiento. Verifica la sucursal seleccionada.",
+      );
+    }
+    if (!Number.isFinite(input.amount) || input.amount <= 0) {
+      throw new UserFacingRepositoryError(
+        "El monto del movimiento debe ser mayor a cero.",
+      );
+    }
+    let createdByName: string | null = null;
+    if (ctx.userId) {
+      const { data: u } = await sb
+        .from("users")
+        .select("full_name")
+        .eq("id", ctx.userId)
+        .maybeSingle();
+      createdByName = u?.full_name ?? null;
+    }
+    const row = {
+      business_id: ctx.businessId,
+      branch_id: ctx.branchId,
+      cash_register_session_id: input.sessionId,
+      type: input.type,
+      method: input.method ?? "cash",
+      amount: toDbMoney(input.amount),
+      reason: input.reason?.trim() || null,
+      created_by: ctx.userId ?? null,
+      created_by_name: createdByName,
+    };
+    const { data, error } = await sb
+      .from("cash_movements")
+      .insert(row)
+      .select("*")
+      .single();
+    if (error) failRepo("cashRegister.addMovement", error);
+    return cashMovementRowToTs(data);
+  },
 };
+
+/** Mapea una fila `cash_movements` al tipo de dominio. */
+function cashMovementRowToTs(row: Record<string, unknown>): CashMovement {
+  return {
+    id: String(row.id),
+    businessId: String(row.business_id),
+    branchId: String(row.branch_id),
+    cashRegisterSessionId: String(row.cash_register_session_id),
+    type: row.type as CashMovementType,
+    method: (row.method as PaymentMethod) ?? "cash",
+    amount: Number(row.amount ?? 0),
+    reason: (row.reason as string | null) ?? undefined,
+    createdById: (row.created_by as string | null) ?? undefined,
+    createdByName: (row.created_by_name as string | null) ?? undefined,
+    createdAt: String(row.created_at),
+  };
+}
 
