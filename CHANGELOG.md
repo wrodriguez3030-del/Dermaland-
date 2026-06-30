@@ -11,6 +11,40 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.14.0] - 2026-06-30
+
+### Changed
+- **Modal "Agregar stock al producto": el campo "Proveedor" pasó a ser
+  "Laboratorio".** Ahora es un buscador/autocompletado de laboratorios reales del
+  sistema (mismos del módulo Productos > Laboratorios) con opción
+  **"+ Agregar laboratorio"** en línea (Nombre + País), detección de duplicados
+  por nombre sin distinguir mayúsculas/acentos, y auto-selección al crear.
+  Placeholder: "Buscar o seleccionar laboratorio".
+- El **laboratorio pertenece al producto, no al lote**: al guardar stock, si se
+  elige un laboratorio distinto al del producto (incluido el caso "producto sin
+  laboratorio"), se actualiza `products.laboratory_id`. El lote sigue guardando
+  solo producto, sucursal, cantidad, vencimiento y costo. No bloquea el guardado
+  del stock si la actualización del producto falla (aviso suave).
+- **Detalle de producto** resuelve el laboratorio contra la lista viva
+  (Supabase), no solo el catálogo mock, para que un laboratorio recién creado se
+  muestre por nombre.
+
+### Added
+- Columna **Laboratorio** en la tabla de **Productos** (resuelta contra la lista
+  viva de laboratorios).
+- Helper `setProductLaboratoryAnywhere(id, laboratoryId)` en el store de
+  productos (PATCH parcial, paralelo a `setProductActiveAnywhere`).
+- Tests del modal (`lot-modals.test.tsx`, 9 casos): muestra "Laboratorio" y no
+  "Proveedor", carga/busca laboratorios, preselección del laboratorio del
+  producto, guardado de stock y actualización del laboratorio del producto, sin
+  exponer ids internos.
+
+### Notes
+- **Sin migración**: el esquema ya tenía `laboratories` y
+  `products.laboratory_id` (migración 0002). Solo se respeta business_id/RLS
+  existentes. No se tocó DGII real, secuencias ni datos.
+- **Stock actual** ya tenía filtro y columna de Laboratorio (sin cambios).
+
 ## [0.13.0] - 2026-06-30
 
 ### Added

@@ -14,6 +14,9 @@ import {
   defaultWarehouseForBranch,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
+import { CreatableClassificationSelect } from "@/features/products/components/creatable-classification-select";
+import { useLaboratoriesList, saveLaboratory } from "@/features/products/catalog-store";
+import { useProduct, setProductLaboratoryAnywhere } from "@/features/products/product-store";
 import type { ProductLot } from "@/types";
 
 function Overlay({
@@ -65,12 +68,17 @@ export function NewLotModal({
 }: NewLotModalProps) {
   const toast = useToast();
   const branches = useActiveBranches();
+  // El laboratorio pertenece al PRODUCTO (no al lote): lo leemos para
+  // preseleccionarlo y, si cambia, lo guardamos en el producto al agregar stock.
+  const product = useProduct(productId);
+  const currentLabId = product?.laboratoryId ?? "";
+  const laboratories = useLaboratoriesList();
   const [branchId, setBranchId] = React.useState(defaultBranchId ?? "");
   const [lotNumber, setLotNumber] = React.useState("");
   const [quantity, setQuantity] = React.useState("");
   const [expiresAt, setExpiresAt] = React.useState("");
   const [unitCost, setUnitCost] = React.useState("");
-  const [supplier, setSupplier] = React.useState("");
+  const [laboratoryId, setLaboratoryId] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [missing, setMissing] = React.useState<Set<string>>(new Set());
   const [error, setError] = React.useState<string | null>(null);
@@ -85,13 +93,20 @@ export function NewLotModal({
       setQuantity("");
       setExpiresAt("");
       setUnitCost("");
-      setSupplier("");
+      setLaboratoryId(currentLabId);
       setNotes("");
       setMissing(new Set());
       setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Si el producto (y su laboratorio) carga DESPUÉS de abrir el modal,
+  // preselecciona el laboratorio actual sin pisar una elección del usuario.
+  React.useEffect(() => {
+    if (open && currentLabId && laboratoryId === "") setLaboratoryId(currentLabId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, currentLabId]);
 
   const isMissing = (k: string) => missing.has(k);
 
@@ -103,7 +118,7 @@ export function NewLotModal({
     setQuantity("");
     setExpiresAt("");
     setUnitCost("");
-    setSupplier("");
+    setLaboratoryId(currentLabId);
     setNotes("");
     setMissing(new Set());
     setError(null);
@@ -143,7 +158,6 @@ export function NewLotModal({
         initialQuantity: Number(quantity),
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : "",
         unitCost: Number(unitCost) || 0,
-        supplierId: supplier || undefined,
         notes: notes || undefined,
         reason: "Entrada inicial",
       },
@@ -153,6 +167,15 @@ export function NewLotModal({
       setMissing(new Set(r.missingFields ?? []));
       setError(r.error);
       return;
+    }
+    // El laboratorio pertenece al producto: si se eligió uno distinto al actual,
+    // actualizamos el producto (cubre "producto sin laboratorio" y correcciones).
+    // No bloquea el guardado del stock si falla; se avisa de forma suave.
+    if (laboratoryId && laboratoryId !== currentLabId) {
+      const lr = await setProductLaboratoryAnywhere(productId, laboratoryId);
+      if (!lr.ok) {
+        toast.error("Stock guardado, pero no se pudo actualizar el laboratorio del producto.");
+      }
     }
     toast.success(`Stock agregado: ${r.lot.currentQuantity} unidades en lote ${r.lot.lotNumber}.`);
     reset();
@@ -240,12 +263,22 @@ export function NewLotModal({
           />
         </div>
         <div>
-          <Label>Proveedor</Label>
-          <Input
-            value={supplier}
-            onChange={(e) => setSupplier(e.target.value)}
-            placeholder="Opcional"
+          <CreatableClassificationSelect
+            label="Laboratorio"
+            value={laboratoryId}
+            onChange={setLaboratoryId}
+            options={laboratories.map((l) => ({ id: l.id, name: l.name }))}
+            placeholder="Buscar o seleccionar laboratorio"
+            entityName="laboratorio"
+            createTitle="Nuevo laboratorio"
+            createTooltip="Agregar laboratorio"
+            createdToast="Laboratorio creado y seleccionado."
+            extraFields={[{ key: "country", label: "País (opcional)", placeholder: "República Dominicana" }]}
+            onCreate={(v) => saveLaboratory("create", { name: v.name, country: v.country })}
           />
+          <p className="mt-1 text-xs opacity-60">
+            Selecciona un laboratorio o crea uno nuevo. Es el fabricante/marca del producto.
+          </p>
         </div>
         <div>
           <Label>Nota / motivo</Label>

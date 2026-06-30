@@ -65,6 +65,7 @@ import {
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
 import { ProductImage } from "@/features/products/components/product-image";
 import { useProduct, updateProduct } from "@/features/products/product-store";
+import { useLaboratoriesList } from "@/features/products/catalog-store";
 import { useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
 
@@ -88,6 +89,7 @@ export default function ProductDetailPage() {
   const toast = useToast();
   const allLots = useProductLots(id);
   const movements = useProductMovements(id);
+  const laboratories = useLaboratoriesList();
   const { branchId: currentBranchId } = useCurrentBranch();
 
   const [lotOpen, setLotOpen] = React.useState(false);
@@ -126,7 +128,11 @@ export default function ProductDetailPage() {
 
   const brand = getBrandById(product.brandId);
   const category = getCategoryById(product.categoryId);
-  const laboratory = getLaboratoryById(product.laboratoryId);
+  // El laboratorio puede venir de Supabase (uuid real) o del catálogo mock;
+  // resolvemos primero contra la lista viva y caemos al helper mock como respaldo.
+  const laboratory =
+    laboratories.find((l) => l.id === product.laboratoryId) ??
+    getLaboratoryById(product.laboratoryId);
   // Lotes reales directos (NO `onlyActiveBranches`, que lee el store mock y borra
   // los lotes de Supabase). Misma verdad de stock que Inventario y POS.
   const lots = allLots;

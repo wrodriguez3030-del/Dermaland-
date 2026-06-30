@@ -338,6 +338,24 @@ export async function setProductActiveAnywhere(
   return { ok: r.ok };
 }
 
+/**
+ * Asigna (o limpia) el laboratorio de un producto, despachando local vs
+ * servidor según el backend. Útil al agregar stock: el laboratorio pertenece al
+ * PRODUCTO, no al lote, así que el modal de stock lo actualiza aquí. Paralelo a
+ * `setProductActiveAnywhere`; el PATCH parcial mapea `laboratory_id`.
+ */
+export async function setProductLaboratoryAnywhere(
+  id: string,
+  laboratoryId: string | undefined,
+): Promise<{ ok: boolean; error?: string }> {
+  if (PRODUCT_BACKEND === "supabase") {
+    const r = await updateProductOnServer(id, { laboratoryId });
+    return r.ok ? { ok: true } : { ok: false, error: r.error };
+  }
+  const r = updateProduct(id, { laboratoryId });
+  return { ok: r.ok };
+}
+
 export async function deleteProductAnywhere(id: string): Promise<{ ok: boolean; error?: string }> {
   if (PRODUCT_BACKEND === "supabase") {
     try {

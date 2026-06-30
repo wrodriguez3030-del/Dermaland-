@@ -31,6 +31,7 @@ import {
   useProducts,
   PRODUCT_BACKEND,
 } from "@/features/products/product-store";
+import { useLaboratoriesList } from "@/features/products/catalog-store";
 import {
   getBrandById,
   getCategoryById,
@@ -72,6 +73,11 @@ type StatusFilter = "all" | "active" | "inactive" | "low" | "out";
 
 export default function ProductosPage() {
   const products = useProducts();
+  const laboratories = useLaboratoriesList();
+  const labNameById = React.useMemo(
+    () => new Map(laboratories.map((l) => [l.id, l.name])),
+    [laboratories],
+  );
   const toast = useToast();
   const tick = useInventoryTick(); // refleja cambios de stock por lotes (modo local)
   const lots = useAllLots();
@@ -234,6 +240,7 @@ export default function ProductosPage() {
               Marca
             </SortableTH>
             <TH>Categoría</TH>
+            <TH>Laboratorio</TH>
             <SortableTH
               sortKey="stock"
               state={sort}
@@ -257,7 +264,7 @@ export default function ProductosPage() {
         <TBody>
           {sorted.length === 0 && (
             <TR>
-              <TD colSpan={8}>
+              <TD colSpan={9}>
                 <div className="py-12 text-center">
                   <p className="text-sm font-medium">
                     {total === 0
@@ -326,6 +333,11 @@ export default function ProductosPage() {
                 <TD>
                   <span className="text-xs opacity-80">
                     {category?.name ?? "—"}
+                  </span>
+                </TD>
+                <TD>
+                  <span className="text-xs opacity-80">
+                    {labNameById.get(p.laboratoryId ?? "") ?? "—"}
                   </span>
                 </TD>
                 <TD className="text-right tabular-nums">
