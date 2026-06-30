@@ -356,35 +356,68 @@ export interface MethodBreakdownRow {
   key: PaymentGroup;
   label: string;
   amount: number;
+  /** Cantidad de PAGOS (líneas de pago) de este grupo. */
   count: number;
+  /** Cantidad de VENTAS distintas que tuvieron al menos un pago de este grupo. */
+  sales: number;
 }
 
 /**
  * Desglose por método de pago usando los PAGOS reales de cada venta (no el
- * resumen). Las ventas anuladas se excluyen.
+ * resumen). Una venta con pago mixto suma a cada grupo que la compone, así que
+ * la suma de `sales` puede superar el total de transacciones. Las ventas
+ * anuladas se excluyen.
  */
 export function byPaymentMethod(filtered: Proforma[]): MethodBreakdownRow[] {
-  const acc: Record<PaymentGroup, { amount: number; count: number }> = {
-    cash: { amount: 0, count: 0 },
-    card: { amount: 0, count: 0 },
-    transfer: { amount: 0, count: 0 },
-    other: { amount: 0, count: 0 },
+  const acc: Record<PaymentGroup, { amount: number; count: number; sales: number }> = {
+    cash: { amount: 0, count: 0, sales: 0 },
+    card: { amount: 0, count: 0, sales: 0 },
+    transfer: { amount: 0, count: 0, sales: 0 },
+    other: { amount: 0, count: 0, sales: 0 },
   };
   for (const p of filtered) {
     if (isCancelled(p)) continue;
+    const groupsInSale = new Set<PaymentGroup>();
     for (const pay of p.payments ?? []) {
       if (!pay || !(pay.amount > 0)) continue;
       const g = paymentMethodGroup(pay.method);
       acc[g].amount += pay.amount;
       acc[g].count += 1;
+      groupsInSale.add(g);
     }
+    for (const g of groupsInSale) acc[g].sales += 1;
   }
   return (Object.keys(acc) as PaymentGroup[]).map((k) => ({
     key: k,
     label: PAYMENT_GROUP_LABEL[k],
     amount: round2(acc[k].amount),
     count: acc[k].count,
+    sales: acc[k].sales,
   }));
+}
+
+export interface SaleMethodPart {
+  group: PaymentGroup;
+  label: string;
+  amount: number;
+}
+
+/**
+ * Desglose de los pagos de UNA venta agrupados por método real, en orden
+ * canónico (efectivo, tarjeta, transferencia, otro). Permite mostrar el detalle
+ * "Mixto: Efectivo RD$X + Tarjeta RD$Y" sin acoplar el formateo a esta capa.
+ */
+export function saleMethodParts(p: Pick<Proforma, "payments">): SaleMethodPart[] {
+  const order: PaymentGroup[] = ["cash", "card", "transfer", "other"];
+  const acc = new Map<PaymentGroup, number>();
+  for (const pay of p.payments ?? []) {
+    if (!pay || !(pay.amount > 0)) continue;
+    const g = paymentMethodGroup(pay.method);
+    acc.set(g, (acc.get(g) ?? 0) + pay.amount);
+  }
+  return order
+    .filter((g) => acc.has(g))
+    .map((g) => ({ group: g, label: PAYMENT_GROUP_LABEL[g], amount: round2(acc.get(g)!) }));
 }
 
 export interface NamedTotalRow {
@@ -607,6 +640,8 @@ export interface SalesTableRow {
   items: number;
   method: SaleMethodSummary;
   methodLabel: string;
+  /** Pagos de la venta por método real (para el detalle "Mixto: …"). */
+  methodParts: SaleMethodPart[];
   subtotal: number;
   itbis: number;
   discount: number;
@@ -637,6 +672,7 @@ export function toSalesTableRow(
     items: saleItemsCount(p),
     method,
     methodLabel: SALE_METHOD_LABEL[method],
+    methodParts: saleMethodParts(p),
     subtotal: round2(p.subtotal),
     itbis: round2(p.itbis),
     discount: round2(saleDiscount(p)),

@@ -11,6 +11,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.13.0] - 2026-06-30
+
+### Added
+- **Desglose por método de pago en el Excel de Reportes > Ventas.** La hoja
+  **Resumen** ahora muestra, debajo de los KPIs, una sección **MÉTODOS DE PAGO**
+  con columnas Método / Transacciones / Monto / Porcentaje y fila TOTAL.
+- La hoja **Métodos de pago** pasó de 3 a **6 columnas**: Método de pago,
+  Cantidad de pagos, Cantidad de ventas, Monto total, Porcentaje del total y
+  Ticket promedio por método, con fila **TOTAL** (pagos, ventas, monto, 100 %,
+  ticket promedio general).
+- Formatos profesionales: montos en `RD$#,##0.00` y porcentajes en `0.00%`.
+
+### Changed
+- En la hoja **Ventas detalle**, la columna **Método de pago** desglosa las
+  ventas mixtas: `Mixto: Efectivo RD$X + Tarjeta RD$Y` (usa los pagos reales de
+  la venta, no solo el resumen). Las ventas de un solo método siguen mostrando
+  su etiqueta (Efectivo/Tarjeta/Transferencia/Otro).
+- Los montos por método se calculan desde los **pagos reales** (`payments`) de
+  cada venta; una venta mixta suma a cada grupo que la compone. Las anuladas se
+  excluyen. El total de métodos coincide con el total facturado de la pantalla.
+
 ## [0.12.0] - 2026-06-30
 
 ### Changed

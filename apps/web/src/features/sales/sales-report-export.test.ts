@@ -130,6 +130,100 @@ describe("Excel", () => {
   });
 });
 
+describe("Métodos de pago en el Excel", () => {
+  function scenario() {
+    // 3 ventas en efectivo (RD$11,700) + 2 en tarjeta (RD$5,200) = RD$16,900.
+    const all = [
+      makeSale({ total: 3900, payments: [pay("cash", 3900)] }),
+      makeSale({ total: 3900, payments: [pay("cash", 3900)] }),
+      makeSale({ total: 3900, payments: [pay("cash", 3900)] }),
+      makeSale({ total: 2600, payments: [pay("card", 2600)] }),
+      makeSale({ total: 2600, payments: [pay("card", 2600)] }),
+    ];
+    return buildSalesReport(all, EMPTY_FILTERS, { branchNames });
+  }
+  function rows(ws: XLSX.WorkSheet): unknown[][] {
+    return XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 });
+  }
+  function byLabel(ws: XLSX.WorkSheet): Record<string, unknown[]> {
+    return Object.fromEntries(
+      rows(ws)
+        .slice(1)
+        .map((r) => [String(r[0]), r]),
+    );
+  }
+
+  it("1. la hoja Resumen incluye la sección MÉTODOS DE PAGO con porcentaje", () => {
+    const wb = buildSalesReportWorkbook(scenario(), meta);
+    const flat = JSON.stringify(rows(wb.Sheets["Resumen"]!));
+    expect(flat).toContain("MÉTODOS DE PAGO");
+    expect(flat).toContain("Porcentaje");
+    expect(flat).toContain("Efectivo");
+    expect(flat).toContain("Tarjeta");
+  });
+
+  it('2. existe la hoja "Métodos de pago" con las 6 columnas', () => {
+    const wb = buildSalesReportWorkbook(scenario(), meta);
+    expect(wb.SheetNames).toContain("Métodos de pago");
+    expect(rows(wb.Sheets["Métodos de pago"]!)[0]).toEqual([
+      "Método de pago",
+      "Cantidad de pagos",
+      "Cantidad de ventas",
+      "Monto total",
+      "Porcentaje del total",
+      "Ticket promedio por método",
+    ]);
+  });
+
+  it("3. la hoja Ventas detalle tiene columna Método de pago", () => {
+    const wb = buildSalesReportWorkbook(scenario(), meta);
+    expect(rows(wb.Sheets["Ventas detalle"]!)[0]).toContain("Método de pago");
+  });
+
+  it("4, 5, 6. efectivo, tarjeta y transferencia suman correctamente", () => {
+    const wb = buildSalesReportWorkbook(scenario(), meta);
+    const m = byLabel(wb.Sheets["Métodos de pago"]!);
+    expect(m["Efectivo"]![3]).toBe(11700); // Monto total
+    expect(m["Tarjeta"]![3]).toBe(5200);
+    expect(m["Transferencia"]![3]).toBe(0);
+    expect(m["Efectivo"]![1]).toBe(3); // Cantidad de pagos
+    expect(m["Efectivo"]![2]).toBe(3); // Cantidad de ventas
+  });
+
+  it("7. los pagos mixtos se desglosan en el detalle", () => {
+    const all = [makeSale({ total: 150, payments: [pay("cash", 100), pay("card", 50)] })];
+    const report = buildSalesReport(all, EMPTY_FILTERS, { branchNames });
+    const csv = buildSalesDetailCsv(report);
+    expect(csv).toContain("Mixto:");
+    expect(csv).toContain("Efectivo");
+    expect(csv).toContain("+ Tarjeta");
+  });
+
+  it("8. el porcentaje del total se calcula correctamente", () => {
+    const wb = buildSalesReportWorkbook(scenario(), meta);
+    const m = byLabel(wb.Sheets["Métodos de pago"]!);
+    expect(m["Efectivo"]![4]).toBeCloseTo(11700 / 16900, 4); // 69.23 %
+    expect(m["Tarjeta"]![4]).toBeCloseTo(5200 / 16900, 4); // 30.77 %
+  });
+
+  it("9. el total de métodos coincide con el total facturado", () => {
+    const report = scenario();
+    const wb = buildSalesReportWorkbook(report, meta);
+    const data = rows(wb.Sheets["Métodos de pago"]!);
+    const total = data[data.length - 1]!;
+    expect(total[0]).toBe("TOTAL");
+    expect(total[3]).toBe(report.kpis.totalBilled); // 16900
+    expect(total[4]).toBe(1); // 100 %
+  });
+
+  it("10. los montos llevan formato RD$ y el porcentaje formato %", () => {
+    const wb = buildSalesReportWorkbook(scenario(), meta);
+    const ws = wb.Sheets["Métodos de pago"]!;
+    expect(ws["D2"]?.z).toBe('"RD$"#,##0.00'); // Monto total, 1ª fila de datos
+    expect(ws["E2"]?.z).toBe("0.00%"); // Porcentaje del total
+  });
+});
+
 describe("sin fugas técnicas", () => {
   it("12. el detalle exportado va en el mismo orden de las filas (recientes primero al venir del store)", () => {
     const all = [

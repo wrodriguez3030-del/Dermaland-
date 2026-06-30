@@ -9,13 +9,33 @@
 // es lo que aplicamos para que el archivo se lea profesional.
 
 import * as XLSX from "xlsx";
-import { formatDateTime } from "@/lib/utils/format";
+import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import type {
   SalesReport,
   SalesTableRow,
 } from "./sales-report";
 
 const MONEY_FMT = '"RD$"#,##0.00';
+const PCT_FMT = "0.00%";
+
+function r2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/** Aplica un formato numérico a UNA celda si contiene un número. */
+function applyCellFmt(
+  ws: XLSX.WorkSheet,
+  row: number,
+  col: number,
+  fmt: string,
+): void {
+  const ref = XLSX.utils.encode_cell({ r: row, c: col });
+  const cell = ws[ref];
+  if (cell && typeof cell.v === "number") {
+    cell.t = "n";
+    cell.z = fmt;
+  }
+}
 
 export interface SalesReportMeta {
   businessName: string;
@@ -67,40 +87,47 @@ function sheetFromAoa(
 
 function resumenSheet(report: SalesReport, meta: SalesReportMeta): XLSX.WorkSheet {
   const k = report.kpis;
+  const methods = report.methods;
+  const totalMethods = r2(methods.reduce((s, m) => s + m.amount, 0));
+  const totalPayments = methods.reduce((s, m) => s + m.count, 0);
+
   const aoa: Cell[][] = [
-    [meta.businessName || "DermaLand", null],
-    ["Reporte de ventas", null],
-    ["", null],
-    ["Rango", meta.rangeLabel],
-    ["Sucursal", meta.branchLabel],
-    ["Filtros", meta.filtersLabel],
-    ["Generado", formatDateTime(meta.generatedAt)],
-    ["", null],
-    ["Total facturado", k.totalBilled],
-    ["ITBIS recaudado", k.itbis],
-    ["Transacciones", k.transactions],
-    ["Items vendidos", k.items],
-    ["Ticket promedio", k.avgTicket],
-    ["Clientes distintos", k.distinctCustomers],
-    ["Descuentos otorgados", k.discounts],
-    ["Devoluciones", k.refunds],
-    ["Neto después de devoluciones", k.net],
-    ["Margen estimado", k.marginEstimate ?? "N/D"],
+    [meta.businessName || "DermaLand", null, null, null],
+    ["Reporte de ventas", null, null, null],
+    ["", null, null, null],
+    ["Rango", meta.rangeLabel, null, null],
+    ["Sucursal", meta.branchLabel, null, null],
+    ["Filtros", meta.filtersLabel, null, null],
+    ["Generado", formatDateTime(meta.generatedAt), null, null],
+    ["", null, null, null],
+    ["Total facturado", k.totalBilled, null, null],
+    ["ITBIS recaudado", k.itbis, null, null],
+    ["Transacciones", k.transactions, null, null],
+    ["Items vendidos", k.items, null, null],
+    ["Ticket promedio", k.avgTicket, null, null],
+    ["Clientes distintos", k.distinctCustomers, null, null],
+    ["Descuentos otorgados", k.discounts, null, null],
+    ["Devoluciones", k.refunds, null, null],
+    ["Neto después de devoluciones", k.net, null, null],
+    ["Margen estimado", k.marginEstimate ?? "N/D", null, null],
+    ["", null, null, null],
+    ["MÉTODOS DE PAGO", null, null, null],
+    ["Método", "Transacciones", "Monto", "Porcentaje"],
   ];
-  const moneyRows = new Set([8, 9, 12, 14, 15, 16, 17]); // filas con moneda
+  const moneyRowsCol1 = new Set([8, 9, 12, 14, 15, 16, 17]); // KPIs en moneda
+  const methodStart = aoa.length;
+  for (const m of methods) {
+    aoa.push([m.label, m.count, m.amount, totalMethods > 0 ? m.amount / totalMethods : 0]);
+  }
+  aoa.push(["TOTAL", totalPayments, totalMethods, totalMethods > 0 ? 1 : 0]);
+
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 34 }, { wch: 20 }];
-  aoa.forEach((row, r) => {
-    if (!moneyRows.has(r)) return;
-    const value = row[1];
-    if (typeof value !== "number") return;
-    const ref = XLSX.utils.encode_cell({ r, c: 1 });
-    const cell = ws[ref];
-    if (cell) {
-      cell.t = "n";
-      cell.z = MONEY_FMT;
-    }
-  });
+  ws["!cols"] = [{ wch: 34 }, { wch: 16 }, { wch: 18 }, { wch: 14 }];
+  for (const r of moneyRowsCol1) applyCellFmt(ws, r, 1, MONEY_FMT);
+  for (let r = methodStart; r < aoa.length; r++) {
+    applyCellFmt(ws, r, 2, MONEY_FMT);
+    applyCellFmt(ws, r, 3, PCT_FMT);
+  }
   return ws;
 }
 
@@ -122,6 +149,16 @@ const DETAIL_HEADERS = [
   "Estado",
 ];
 
+/**
+ * Etiqueta del método de pago para el detalle: para ventas mixtas desglosa cada
+ * pago real, p. ej. "Mixto: Efectivo RD$100.00 + Tarjeta RD$50.00".
+ */
+function detailMethodLabel(r: SalesTableRow): string {
+  if (r.method !== "mixed") return r.methodLabel;
+  const parts = r.methodParts.map((pt) => `${pt.label} ${formatCurrency(pt.amount)}`);
+  return parts.length ? `Mixto: ${parts.join(" + ")}` : r.methodLabel;
+}
+
 function detailRow(r: SalesTableRow): Cell[] {
   return [
     formatDateTime(r.dateTime),
@@ -131,7 +168,7 @@ function detailRow(r: SalesTableRow): Cell[] {
     r.customer,
     r.cashier,
     r.items,
-    r.methodLabel,
+    detailMethodLabel(r),
     r.subtotal,
     r.itbis,
     r.discount,
@@ -165,11 +202,39 @@ function detailSheet(report: SalesReport): XLSX.WorkSheet {
 // ─── Hojas 3-7: desgloses ────────────────────────────────────────────────────
 
 function methodsSheet(report: SalesReport): XLSX.WorkSheet {
-  const aoa: Cell[][] = [
-    ["Método de pago", "Transacciones", "Monto"],
-    ...report.methods.map((m) => [m.label, m.count, m.amount] as Cell[]),
+  const methods = report.methods;
+  const totalMethods = r2(methods.reduce((s, m) => s + m.amount, 0));
+  const totalPayments = methods.reduce((s, m) => s + m.count, 0);
+  const totalSales = report.kpis.transactions;
+
+  const header: Cell[] = [
+    "Método de pago",
+    "Cantidad de pagos",
+    "Cantidad de ventas",
+    "Monto total",
+    "Porcentaje del total",
+    "Ticket promedio por método",
   ];
-  return sheetFromAoa(aoa, [22, 16, 18], [2], 1);
+  const body: Cell[][] = methods.map((m) => [
+    m.label,
+    m.count,
+    m.sales,
+    m.amount,
+    totalMethods > 0 ? m.amount / totalMethods : 0,
+    m.sales > 0 ? r2(m.amount / m.sales) : 0,
+  ]);
+  const totalRow: Cell[] = [
+    "TOTAL",
+    totalPayments,
+    totalSales,
+    totalMethods,
+    totalMethods > 0 ? 1 : 0,
+    totalSales > 0 ? r2(totalMethods / totalSales) : 0,
+  ];
+  const aoa: Cell[][] = [header, ...body, totalRow];
+  const ws = sheetFromAoa(aoa, [22, 18, 18, 18, 20, 26], [3, 5], 1);
+  for (let r = 1; r < aoa.length; r++) applyCellFmt(ws, r, 4, PCT_FMT);
+  return ws;
 }
 
 function cashiersSheet(report: SalesReport): XLSX.WorkSheet {
