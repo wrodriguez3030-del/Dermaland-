@@ -59,7 +59,7 @@ function openModal(props: Record<string, unknown> = {}) {
 }
 
 function labCombobox() {
-  return screen.getByRole("combobox", { name: "Buscar o seleccionar laboratorio" });
+  return screen.getByRole("combobox", { name: "Buscar laboratorio" });
 }
 
 function fillRequired() {
@@ -72,10 +72,12 @@ function fillRequired() {
 }
 
 describe("NewLotModal — Laboratorio", () => {
-  it("1. muestra 'Laboratorio' y NO 'Proveedor'", () => {
+  it("1. muestra 'Laboratorio', NO 'Proveedor', y el buscador inicia vacío", () => {
     openModal();
     expect(screen.getByText("Laboratorio")).toBeInTheDocument();
     expect(screen.queryByText("Proveedor")).not.toBeInTheDocument();
+    expect(labCombobox()).toHaveValue("");
+    expect(labCombobox()).toHaveAttribute("placeholder", "Buscar laboratorio...");
   });
 
   it("2. carga los laboratorios existentes en el buscador", () => {
@@ -111,17 +113,28 @@ describe("NewLotModal — Laboratorio", () => {
     );
   });
 
-  it("5. ofrece el botón '+ Agregar laboratorio' que abre el alta rápida", () => {
+  it("5. ofrece el botón '+ Crear laboratorio' que abre el alta rápida", () => {
     openModal();
-    fireEvent.click(screen.getByRole("button", { name: "Agregar laboratorio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear laboratorio" }));
     expect(screen.getByText("Nuevo laboratorio")).toBeInTheDocument(); // título del modal
     expect(screen.getByLabelText("Nombre *")).toBeInTheDocument();
+    expect(screen.getByLabelText("País")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tipo")).toBeInTheDocument();
   });
 
-  it("7. si el producto ya tiene laboratorio, aparece preseleccionado", () => {
+  it("5b. ofrece crear desde el dropdown cuando no existe el texto buscado", () => {
+    openModal();
+    fireEvent.focus(labCombobox());
+    fireEvent.change(labCombobox(), { target: { value: "Laboratorio Nuevo XYZ" } });
+    expect(screen.getByText(/Crear laboratorio/)).toBeInTheDocument();
+    expect(screen.getByText("Sin resultados")).toBeInTheDocument();
+  });
+
+  it("7. si el producto ya tiene laboratorio, lo muestra seleccionado con buscador en blanco", () => {
     h.useProduct.mockReturnValue({ id: "prod1", name: "Crema", laboratoryId: "lab1" });
     openModal();
-    expect(labCombobox()).toHaveValue("ISDIN");
+    expect(labCombobox()).toHaveValue(""); // buscador en blanco
+    expect(screen.getByText("ISDIN")).toBeInTheDocument(); // chip del seleccionado
   });
 
   it("9. guarda el stock y muestra confirmación", async () => {

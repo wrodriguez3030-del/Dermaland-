@@ -7,6 +7,7 @@ import type {
 } from "@/types";
 import { mockBusiness } from "./tenancy";
 import { importedBrands, importedProducts } from "./catalog-imported";
+import { LABORATORY_SEED, normalizeLabName } from "./laboratory-seed";
 
 const now = "2026-05-05T09:00:00Z";
 
@@ -32,14 +33,41 @@ export const mockBrands: Brand[] = [
   ...importedBrands.filter((b) => !seedBrands.some((s) => s.id === b.id)),
 ];
 
+// Laboratorios originales del mock (ids referenciados por productos demo).
+const baseLaboratories: Laboratory[] = [
+  { id: "lab_loreal", businessId: mockBusiness.id, name: "L'Oréal Active Cosmetics", country: "Francia", type: "Dermocosmética", createdAt: now, updatedAt: now },
+  { id: "lab_beiersdorf", businessId: mockBusiness.id, name: "Beiersdorf", country: "Alemania", type: "Dermocosmética", createdAt: now, updatedAt: now },
+  { id: "lab_pierre_fabre", businessId: mockBusiness.id, name: "Pierre Fabre", country: "Francia", type: "Farmacéutica", createdAt: now, updatedAt: now },
+  { id: "lab_isdin_lab", businessId: mockBusiness.id, name: "ISDIN", country: "España", type: "Dermocosmética", createdAt: now, updatedAt: now },
+  { id: "lab_naos", businessId: mockBusiness.id, name: "NAOS / Bioderma", country: "Francia", type: "Dermocosmética", createdAt: now, updatedAt: now },
+  { id: "lab_sesderma_lab", businessId: mockBusiness.id, name: "SESDERMA Labs", country: "España", type: "Dermocosmética", createdAt: now, updatedAt: now },
+  { id: "lab_iqfarma", businessId: mockBusiness.id, name: "IQFarma RD", country: "República Dominicana", type: "Laboratorio local", createdAt: now, updatedAt: now },
+];
+
+function labSlug(name: string): string {
+  return (
+    "lab_" +
+    normalizeLabName(name)
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+  );
+}
+
+// Catálogo completo: base + semilla (sin duplicar por nombre normalizado).
+const seenLabNames = new Set(baseLaboratories.map((l) => normalizeLabName(l.name)));
 export const mockLaboratories: Laboratory[] = [
-  { id: "lab_loreal", businessId: mockBusiness.id, name: "L'Oréal Active Cosmetics", country: "Francia", createdAt: now, updatedAt: now },
-  { id: "lab_beiersdorf", businessId: mockBusiness.id, name: "Beiersdorf", country: "Alemania", createdAt: now, updatedAt: now },
-  { id: "lab_pierre_fabre", businessId: mockBusiness.id, name: "Pierre Fabre", country: "Francia", createdAt: now, updatedAt: now },
-  { id: "lab_isdin_lab", businessId: mockBusiness.id, name: "ISDIN", country: "España", createdAt: now, updatedAt: now },
-  { id: "lab_naos", businessId: mockBusiness.id, name: "NAOS / Bioderma", country: "Francia", createdAt: now, updatedAt: now },
-  { id: "lab_sesderma_lab", businessId: mockBusiness.id, name: "SESDERMA Labs", country: "España", createdAt: now, updatedAt: now },
-  { id: "lab_iqfarma", businessId: mockBusiness.id, name: "IQFarma RD", country: "República Dominicana", createdAt: now, updatedAt: now },
+  ...baseLaboratories,
+  ...LABORATORY_SEED.filter((s) => !seenLabNames.has(normalizeLabName(s.name))).map(
+    (s) => ({
+      id: labSlug(s.name),
+      businessId: mockBusiness.id,
+      name: s.name,
+      country: s.country,
+      type: s.type,
+      createdAt: now,
+      updatedAt: now,
+    }),
+  ),
 ];
 
 export const mockCategories: Category[] = [

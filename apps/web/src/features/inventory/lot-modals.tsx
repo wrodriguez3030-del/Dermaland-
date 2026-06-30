@@ -14,8 +14,8 @@ import {
   defaultWarehouseForBranch,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
-import { CreatableClassificationSelect } from "@/features/products/components/creatable-classification-select";
-import { useLaboratoriesList, saveLaboratory } from "@/features/products/catalog-store";
+import { LaboratorySelect } from "@/features/products/components/laboratory-select";
+import { useLaboratoriesList } from "@/features/products/catalog-store";
 import { useProduct, setProductLaboratoryAnywhere } from "@/features/products/product-store";
 import type { ProductLot } from "@/types";
 
@@ -263,18 +263,10 @@ export function NewLotModal({
           />
         </div>
         <div>
-          <CreatableClassificationSelect
-            label="Laboratorio"
+          <LaboratorySelect
             value={laboratoryId}
             onChange={setLaboratoryId}
-            options={laboratories.map((l) => ({ id: l.id, name: l.name }))}
-            placeholder="Buscar o seleccionar laboratorio"
-            entityName="laboratorio"
-            createTitle="Nuevo laboratorio"
-            createTooltip="Agregar laboratorio"
-            createdToast="Laboratorio creado y seleccionado."
-            extraFields={[{ key: "country", label: "País (opcional)", placeholder: "República Dominicana" }]}
-            onCreate={(v) => saveLaboratory("create", { name: v.name, country: v.country })}
+            laboratories={laboratories}
           />
           <p className="mt-1 text-xs opacity-60">
             Selecciona un laboratorio o crea uno nuevo. Es el fabricante/marca del producto.

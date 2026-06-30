@@ -11,6 +11,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.16.0] - 2026-06-30
+
+### Added
+- **Selector de Laboratorio dedicado** (`LaboratorySelect`) en el modal "Agregar
+  stock al producto": buscador que **inicia en blanco** (aunque el producto ya
+  tenga laboratorio), placeholder "Buscar laboratorio...", **menú amplio**
+  (≥420px, alto 360px con scroll), cada opción muestra **Nombre + País · Tipo**,
+  orden alfabético con coincidencias exactas primero, "Sin resultados", y opción
+  **"+ Crear laboratorio"** dentro del dropdown y como botón. El laboratorio
+  seleccionado se muestra como **chip** con botón para quitarlo.
+- **Semilla de 60 laboratorios** (`lib/mock-data/laboratory-seed.ts`):
+  dermocosmética internacional (ISDIN, La Roche-Posay, Vichy, Eucerin, Avène,
+  Bioderma, CeraVe, …), farmacéuticas y **20 laboratorios dominicanos**
+  (Dr. Collado, Rowe, Magnachem, Lam, Feltrex, Alfa, Unión, Mallén, …). Sin
+  duplicar por nombre normalizado. El catálogo mock se amplió a ≥50.
+- Migración **no destructiva** `0016_laboratories_seed.sql`: inserta los 60
+  laboratorios para cada negocio solo si no existen (dedup por nombre en
+  minúsculas). Idempotente; no borra/resetea/trunca. Solo name/country (sin
+  cambios de esquema); el "tipo" se deriva en la UI por nombre.
+- Campo `type?` (solo UI) en `Laboratory`; subtítulo País · Tipo derivado del
+  nombre (`laboratoryTypeByName`). 28 tests nuevos.
+
+### Changed
+- La creación rápida de laboratorio (Nombre*, País, Tipo, Nota) mantiene los
+  datos del lote, selecciona el nuevo automáticamente y evita duplicados
+  (case/acento-insensitive). Mensajes claros, sin ids ni errores técnicos.
+
 ## [0.15.0] - 2026-06-30
 
 ### Added

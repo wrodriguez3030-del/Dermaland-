@@ -123,6 +123,8 @@ export interface Laboratory extends Audited, BusinessScoped {
   id: ID;
   name: string;
   country?: string;
+  /** Tipo/categoría del laboratorio (p. ej. "Dermocosmética"). Solo UI. */
+  type?: string;
 }
 
 export interface Category extends Audited, BusinessScoped {
