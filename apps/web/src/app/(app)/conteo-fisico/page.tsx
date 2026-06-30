@@ -28,6 +28,7 @@ import {
   SortableTH,
   useTableSort,
 } from "@/components/ui/sortable-table-header";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import type { InventoryCount } from "@/types";
 
 const statusMeta: Record<
@@ -65,6 +66,7 @@ export default function ConteoFisicoPage() {
     "desc",
     comparators,
   );
+  const pag = usePagination(sorted);
   return (
     <>
       <PageHeader
@@ -118,7 +120,7 @@ export default function ConteoFisicoPage() {
               </TR>
             </THead>
             <TBody>
-              {sorted.map((c) => {
+              {pag.pageItems.map((c) => {
                 const branch = getBranchById(c.branchId);
                 const warehouse = getWarehouseById(c.warehouseId);
                 const meta = statusMeta[c.status] ?? statusMeta.draft;
@@ -213,6 +215,15 @@ export default function ConteoFisicoPage() {
               })}
             </TBody>
           </Table>
+          {sorted.length > 0 && (
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
+          )}
         </CardContent>
       </Card>
       <toast.Toast />

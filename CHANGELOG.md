@@ -11,6 +11,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.12.0] - 2026-06-30
+
+### Changed
+- **Reportería ejecutiva completada en los 6 reportes.** Reportes > Caja,
+  Clientes, Conteos y Productos adoptan la misma base ejecutiva (ReportHeader,
+  ReportSummaryCards, ReportSection, ReportFiltersSummary, ReportFooter,
+  PrintReportButton) ya usada en Ventas e Inventario. Ahora todos comparten una
+  línea visual consistente con header, KPIs en tarjetas, secciones, tablas y
+  footer, y son imprimibles/PDF (página A4, detalle completo en impresión).
+- **Datos reales** en estos reportes (antes mock): Caja → `useCashSessionHistory`,
+  Clientes → `useCustomers`, Productos → `useProformas`/`useProducts`/`useAllLots`.
+  Conteos sigue sobre su fuente actual (no hay aún hook real de conteos).
+
+### Added
+- Paginación (`DataPagination`) en las tablas de detalle de los 6 reportes y en
+  **Conteo físico** y **Compras > Facturas de proveedores** (Prioridad 2).
+
+### Notes
+- DGII real, secuencias y producción fiscal **no se tocaron** (las pantallas DGII
+  se dejaron intactas a propósito). Auditoría y otras listas P2 quedan para una
+  próxima pasada. La validación visual de impresión/PDF queda pendiente (requiere
+  sesión en la app).
+
 ## [0.11.0] - 2026-06-29
 
 ### Added

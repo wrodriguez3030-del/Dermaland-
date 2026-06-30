@@ -19,6 +19,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
 import { RowActions } from "@/components/ui/row-actions";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { FileText, Plus, Coins, Wallet, Ban, X } from "lucide-react";
@@ -61,6 +62,7 @@ export default function FacturasProveedoresPage() {
     return true;
   });
   const hasFilters = q.trim() !== "" || status !== "all";
+  const pag = usePagination(rows, { resetKey: `${q}|${status}` });
 
   return (
     <>
@@ -126,7 +128,7 @@ export default function FacturasProveedoresPage() {
                 </TR>
               </THead>
               <TBody>
-                {rows.map((inv) => {
+                {pag.pageItems.map((inv) => {
                   const pending = inv.status === "pendiente" || inv.status === "parcial";
                   return (
                     <TR key={inv.id}>
@@ -188,6 +190,13 @@ export default function FacturasProveedoresPage() {
                 })}
               </TBody>
             </Table>
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
           </CardContent>
         </Card>
       )}
