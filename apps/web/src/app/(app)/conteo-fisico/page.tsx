@@ -14,7 +14,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Ban, Plus, ScanBarcode } from "lucide-react";
+import { Ban, FileSpreadsheet, Plus, ScanBarcode } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
 import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
@@ -24,6 +24,12 @@ import {
 } from "@/lib/utils/format";
 import { mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
 import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
+import { buildCountsList } from "@/features/inventory/physical-count-report";
+import {
+  countsListXlsxBytes,
+  countsListFilename,
+} from "@/features/inventory/physical-count-export";
+import { downloadBlob } from "@/lib/utils/download";
 import {
   SortableTH,
   useTableSort,
@@ -67,6 +73,25 @@ export default function ConteoFisicoPage() {
     comparators,
   );
   const pag = usePagination(sorted);
+
+  // Exporta TODOS los conteos filtrados (no solo la página visible).
+  const exportExcel = () => {
+    try {
+      const rows = buildCountsList(sorted, {
+        branchName: (id) => (id ? getBranchById(id)?.name ?? "" : ""),
+      });
+      const bytes = countsListXlsxBytes(rows, "DermaLand", new Date().toISOString());
+      downloadBlob(
+        countsListFilename(new Date().toISOString()),
+        bytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      toast.success(`Excel generado: ${rows.length} conteos.`);
+    } catch {
+      toast.error("No se pudo generar el Excel. Intenta nuevamente.");
+    }
+  };
+
   return (
     <>
       <PageHeader
@@ -74,12 +99,18 @@ export default function ConteoFisicoPage() {
         description="Sesiones de conteo por sucursal. Acumulación por escaneos — entrada manual solo con permiso."
         breadcrumbs={[{ label: "Conteo físico" }]}
         actions={
-          <Link href="/conteo-fisico/nuevo">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Nuevo conteo
+          <>
+            <Button size="sm" variant="outline" onClick={exportExcel}>
+              <FileSpreadsheet className="h-4 w-4" />
+              Exportar Excel
             </Button>
-          </Link>
+            <Link href="/conteo-fisico/nuevo">
+              <Button size="sm">
+                <Plus className="h-4 w-4" />
+                Nuevo conteo
+              </Button>
+            </Link>
+          </>
         }
       />
 

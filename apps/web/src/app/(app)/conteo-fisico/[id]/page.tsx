@@ -32,6 +32,16 @@ import {
   getScansForCount,
 } from "@/lib/mock-data/inventory-counts";
 import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
+import {
+  getProductById,
+  getBrandById,
+  getCategoryById,
+  getLaboratoryById,
+} from "@/lib/mock-data/catalog";
+import { getUserById } from "@/lib/mock-data/users";
+import { mockInventoryMovements } from "@/lib/mock-data/inventory-movements";
+import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
+import { PhysicalCountExcelButtons } from "@/features/inventory/components/physical-count-excel-button";
 import { formatDateTime, formatDate } from "@/lib/utils/format";
 
 const itemStatusMeta: Record<
@@ -64,6 +74,25 @@ export default async function ConteoDetalle({
   const overages = items.filter((i) => i.status === "overage").length;
   const expired = items.filter((i) => i.status === "expired").length;
 
+  // Informe completo (datos planos, sin ids internos) para exportar a Excel.
+  const report = buildPhysicalCountReport({
+    count,
+    items,
+    scans,
+    movements: mockInventoryMovements,
+    businessName: "DermaLand",
+    generatedAt: new Date().toISOString(),
+    lookups: {
+      product: (pid) => getProductById(pid),
+      lotUnitCost: () => undefined,
+      brandName: (bid) => getBrandById(bid)?.name ?? "",
+      categoryName: (cid) => getCategoryById(cid)?.name ?? "",
+      labName: (lid) => getLaboratoryById(lid)?.name ?? "",
+      branchName: (brid) => (brid ? getBranchById(brid)?.name ?? "" : ""),
+      userName: (uid) => (uid ? getUserById(uid)?.fullName ?? "" : ""),
+    },
+  });
+
   return (
     <>
       <Link
@@ -82,6 +111,7 @@ export default async function ConteoDetalle({
         ]}
         actions={
           <>
+            <PhysicalCountExcelButtons report={report} />
             <Link href={`/conteo-fisico/${count.id}/movil`}>
               <Button variant="outline" size="sm">
                 <ScanBarcode className="h-4 w-4" />

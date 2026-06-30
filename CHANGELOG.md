@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.15.0] - 2026-06-30
+
+### Added
+- **Excel profesional del Inventario físico** (`Inventario-fisico-{sucursal}-
+  {fecha}.xlsx`) con **6 hojas**: Resumen (datos + KPIs + valores de diferencia),
+  Detalle contado, Diferencias (solo ítems con diferencia + acción recomendada),
+  Escaneos (cada escaneo con cantidad acumulada), Productos no encontrados y
+  Ajustes generados (movimientos del conteo). Botón **Exportar Excel** en el
+  detalle de conteo y en la lista (exporta TODOS los conteos filtrados, no solo
+  la página). Botón **Imprimir** (window.print → PDF del navegador) en el detalle.
+- Lógica pura testeable: `features/inventory/physical-count-report.ts` (deriva
+  filas/KPIs, resuelve nombres legibles sin exponer ids ni almacén) +
+  `physical-count-export.ts` (SheetJS). 15 tests.
+- Las diferencias se colorean con **códigos de formato numérico** (`[Red]`
+  negativos, `[Blue]` positivos) — lo único que la edición community de SheetJS
+  escribe; montos en `RD$`. Hojas vacías muestran nota ("No se generaron ajustes…").
+
+### Notes
+- Módulo de conteo es **mock-only** (sin store ni flujo de aprobación real): el
+  Excel exporta los datos del modelo existente. No hay registro persistido de
+  "no encontrados"/duplicados ni generador de ajustes; esas hojas salen de lo que
+  el modelo provee (escaneos sin producto / movimientos con `reference` al conteo)
+  y muestran nota cuando están vacías. No se tocó DGII, secuencias ni datos.
+
 ## [0.14.0] - 2026-06-30
 
 ### Changed
