@@ -14,7 +14,9 @@ import {
   Textarea,
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
+import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { recordLabChange } from "@/features/products/laboratory-audit";
 import {
   saveBrand,
   saveCategory,
@@ -70,6 +72,12 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const [laboratoryId, setLaboratoryId] = React.useState(
     product?.laboratoryId ?? "",
   );
+  // Cambiar el laboratorio de un producto ya asignado exige confirmación y se
+  // audita (el laboratorio pertenece al producto y afecta reportes por lab).
+  const initialLaboratoryId = product?.laboratoryId ?? "";
+  const [labChangeOpen, setLabChangeOpen] = React.useState(false);
+  const labConfirmedRef = React.useRef(false);
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [pharmaceuticalForm, setPharmaceuticalForm] = React.useState<
     Product["pharmaceuticalForm"] | ""
   >(product?.pharmaceuticalForm ?? "");
@@ -145,6 +153,16 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     if (m.length > 0) {
       setMissing(new Set(m));
       setErrorBanner("Complete los campos requeridos.");
+      return;
+    }
+    // Guard: cambiar un laboratorio ya asignado requiere confirmación explícita.
+    if (
+      mode === "edit" &&
+      initialLaboratoryId &&
+      laboratoryId !== initialLaboratoryId &&
+      !labConfirmedRef.current
+    ) {
+      setLabChangeOpen(true);
       return;
     }
     setSubmitting(true);
@@ -238,6 +256,15 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       setErrorBanner(res.error);
       return;
     }
+    if (initialLaboratoryId && laboratoryId !== initialLaboratoryId) {
+      recordLabChange({
+        productId: product.id,
+        oldLaboratoryId: initialLaboratoryId,
+        newLaboratoryId: laboratoryId,
+        reason: "Cambio desde Editar producto",
+      });
+    }
+    labConfirmedRef.current = false;
     setMissing(new Set());
     toast.success(`Cambios guardados · ${sku.trim()}`);
     setTimeout(() => router.push(`/productos/${res.product.id}`), 600);
@@ -246,7 +273,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const submitLabel = mode === "create" ? "Guardar producto" : "Guardar cambios";
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form ref={formRef} onSubmit={handleSubmit} noValidate>
       <div className="mb-6 flex items-center justify-end gap-2">
         <Button
           type="button"
@@ -658,6 +685,39 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           {submitting ? "Guardando…" : submitLabel}
         </Button>
       </div>
+
+      <Modal
+        open={labChangeOpen}
+        title="Cambiar laboratorio del producto"
+        onClose={() => setLabChangeOpen(false)}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setLabChangeOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                labConfirmedRef.current = true;
+                setLabChangeOpen(false);
+                formRef.current?.requestSubmit();
+              }}
+            >
+              Confirmo cambiar el laboratorio
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-2 text-sm">
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Este producto ya tiene movimientos/ventas. Cambiar el laboratorio afectará los
+              reportes por laboratorio. El cambio queda registrado en la auditoría.
+            </span>
+          </div>
+        </div>
+      </Modal>
 
       <toast.Toast />
     </form>

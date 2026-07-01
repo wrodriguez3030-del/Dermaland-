@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, X, Check, FlaskConical } from "lucide-react";
+import { Plus, X, FlaskConical, Lock } from "lucide-react";
 import { Button, Input, Label, Textarea } from "@/components/ui";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
@@ -18,6 +18,13 @@ export interface LaboratorySelectProps {
   onChange: (id: string) => void;
   laboratories: Laboratory[];
   disabled?: boolean;
+  /**
+   * Muestra el laboratorio como SOLO LECTURA (chip con candado, sin buscador ni
+   * "+" ni "x"). Se usa en "Agregar stock" cuando el producto ya tiene
+   * laboratorio: el laboratorio pertenece al producto y solo se cambia desde
+   * Editar producto.
+   */
+  locked?: boolean;
 }
 
 /** Subtítulo "País · Tipo" de un laboratorio (tipo conocido o por defecto). */
@@ -37,6 +44,7 @@ export function LaboratorySelect({
   onChange,
   laboratories,
   disabled,
+  locked,
 }: LaboratorySelectProps) {
   const toast = useToast();
   const selected = laboratories.find((l) => l.id === value) ?? null;
@@ -136,6 +144,30 @@ export function LaboratorySelect({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Estado SOLO LECTURA: el producto ya tiene laboratorio (chip con candado).
+  if (locked) {
+    return (
+      <div>
+        <Label>Laboratorio</Label>
+        <div className="flex items-center gap-2 rounded-lg border border-black/10 bg-black/[0.03] px-3 py-2">
+          <FlaskConical className="h-4 w-4 text-[color:var(--brand-accent)]" />
+          {selected ? (
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium">{selected.name}</div>
+              <div className="truncate text-xs text-black/55">{labSubtitle(selected)}</div>
+            </div>
+          ) : (
+            <span className="text-sm text-black/50">Laboratorio asignado</span>
+          )}
+          <Lock className="ml-auto h-4 w-4 text-black/40" />
+        </div>
+        <p className="mt-1 text-xs opacity-60">
+          Este producto ya tiene laboratorio asignado. Para cambiarlo, edita el producto.
+        </p>
+      </div>
+    );
   }
 
   return (

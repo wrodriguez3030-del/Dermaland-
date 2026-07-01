@@ -11,6 +11,39 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.19.0] - 2026-07-01
+
+### Changed
+- **El laboratorio pertenece al PRODUCTO, no al lote.** En "Agregar stock al
+  producto", si el producto **ya tiene laboratorio** el selector se muestra
+  **bloqueado** (chip con nombre · país · tipo y candado, sin buscador, sin "+",
+  sin quitar) con el texto "Este producto ya tiene laboratorio asignado. Para
+  cambiarlo, edita el producto." Si NO tiene, se puede asignar una vez (buscador
+  + crear) y al guardar queda en el producto — bloqueado en futuros agregados.
+- **Editar producto** es el único lugar para cambiar el laboratorio: cambiarlo
+  exige **confirmación** ("Confirmo cambiar el laboratorio") con advertencia de
+  que afecta los reportes por laboratorio, y registra **auditoría**
+  (`laboratory-audit`: producto, old/new lab, usuario, motivo, fecha).
+
+### Added
+- **Matching de laboratorios por nombre/marca** con aliases
+  (`features/products/laboratory-matching.ts`): ISDIN, La Roche-Posay/lrp,
+  Eucerin, Avène, Bioderma, CeraVe, A-Derma/aderma, Sesderma, Uriage, Heliocare,
+  ACM, Isispharma, Ducray, Vichy, Mustela, Cetaphil, Galderma, SVR, Filorga,
+  MartiDerm, Neostrata, SkinCeuticals. Elige el match más específico (evita que
+  "La Roche-Posay" caiga en "Roche"). `planBackfill` (puro) + 10 tests.
+- **Script `scripts/backfill-product-laboratories.mjs`** (dry-run/--apply,
+  service_role, reporte + CSV de pendientes) y **migración
+  `0017_backfill_product_laboratories.sql`** (idempotente, solo rellena
+  `laboratory_id` NULL; nunca sobreescribe; agrega ACM/Isispharma si faltan).
+
+### Notes
+- El backfill de datos en la nube quedó **listo para aplicar** (la sesión de
+  Supabase del navegador expiró y no ingreso credenciales): correr la migración
+  0017 en el SQL Editor o el script con service_role. El ranking de Productos >
+  Laboratorios ya usa `products.laboratory_id`, así que al aplicarlo se llena.
+  No se tocó DGII, secuencias ni datos.
+
 ## [0.18.0] - 2026-07-01
 
 ### Fixed

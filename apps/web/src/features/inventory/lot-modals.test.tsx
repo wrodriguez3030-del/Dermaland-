@@ -130,11 +130,15 @@ describe("NewLotModal — Laboratorio", () => {
     expect(screen.getByText("Sin resultados")).toBeInTheDocument();
   });
 
-  it("7. si el producto ya tiene laboratorio, lo muestra seleccionado con buscador en blanco", () => {
+  it("7. si el producto ya tiene laboratorio, lo bloquea (solo lectura, sin buscador ni '+')", () => {
     h.useProduct.mockReturnValue({ id: "prod1", name: "Crema", laboratoryId: "lab1" });
     openModal();
-    expect(labCombobox()).toHaveValue(""); // buscador en blanco
-    expect(screen.getByText("ISDIN")).toBeInTheDocument(); // chip del seleccionado
+    // No hay buscador ni botón "+": el laboratorio pertenece al producto.
+    expect(screen.queryByRole("combobox", { name: "Buscar laboratorio" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Crear laboratorio" })).not.toBeInTheDocument();
+    // Muestra el laboratorio asignado y el mensaje de bloqueo.
+    expect(screen.getByText("ISDIN")).toBeInTheDocument();
+    expect(screen.getByText(/Para cambiarlo, edita el producto/i)).toBeInTheDocument();
   });
 
   it("9. guarda el stock y muestra confirmación", async () => {
@@ -156,10 +160,16 @@ describe("NewLotModal — Laboratorio", () => {
     expect(h.setProductLaboratoryAnywhere).not.toHaveBeenCalled();
   });
 
-  it("12. no expone UUIDs/ids internos en la UI", () => {
+  it("8b. producto SIN laboratorio permite asignarlo (buscador editable)", () => {
+    openModal(); // default: sin laboratorio
+    expect(labCombobox()).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear laboratorio" })).toBeInTheDocument();
+    expect(screen.getByText(/Se guardará en el producto/i)).toBeInTheDocument();
+  });
+
+  it("12. no expone UUIDs/ids internos en la UI (bloqueado)", () => {
     h.useProduct.mockReturnValue({ id: "prod1", name: "Crema", laboratoryId: "lab1" });
     openModal();
-    fireEvent.focus(labCombobox());
     expect(document.body.textContent).not.toContain("lab1");
     expect(document.body.textContent).not.toContain("prod1");
   });

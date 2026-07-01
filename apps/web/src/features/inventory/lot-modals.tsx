@@ -267,10 +267,13 @@ export function NewLotModal({
             value={laboratoryId}
             onChange={setLaboratoryId}
             laboratories={laboratories}
+            locked={!!currentLabId}
           />
-          <p className="mt-1 text-xs opacity-60">
-            Selecciona un laboratorio o crea uno nuevo. Es el fabricante/marca del producto.
-          </p>
+          {!currentLabId && (
+            <p className="mt-1 text-xs opacity-60">
+              Selecciona o crea el laboratorio del producto. Se guardará en el producto.
+            </p>
+          )}
         </div>
         <div>
           <Label>Nota / motivo</Label>
