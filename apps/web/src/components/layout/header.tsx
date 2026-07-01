@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Bell, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { MobileNav } from "./mobile-nav";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import {
@@ -49,11 +50,12 @@ export function Header({ className }: { className?: string }) {
       )}
       <header
         className={cn(
-          "sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-black/5 bg-white/80 px-6 backdrop-blur",
+          "sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-black/5 bg-white/80 px-4 md:px-6 backdrop-blur",
           className,
         )}
       >
-      <div className="flex flex-1 items-center gap-4">
+      <div className="flex flex-1 items-center gap-2 md:gap-4">
+        <MobileNav />
         {mockBusiness.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img

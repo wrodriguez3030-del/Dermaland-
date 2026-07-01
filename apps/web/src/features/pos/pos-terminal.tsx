@@ -260,6 +260,9 @@ export function PosTerminal() {
     name: string;
   } | null>(null);
 
+  // En móvil el carrito es un bottom sheet abierto por un botón flotante.
+  const [mobileCartOpen, setMobileCartOpen] = React.useState(false);
+
   // Cambia la sucursal seleccionada a una que sí tiene stock (desde el modal de
   // stock por sucursal). La selección se comparte con Productos y el selector
   // superior (useCurrentBranch).
@@ -867,8 +870,32 @@ export function PosTerminal() {
         </div>
       </div>
 
+      {/* Backdrop del carrito en móvil */}
+      {mobileCartOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileCartOpen(false)}
+          aria-hidden
+        />
+      )}
+
       {/* ─────────────────────── Derecha: venta actual ──────────────────── */}
-      <div className="flex min-w-0 flex-col self-start rounded-2xl border border-black/5 bg-white shadow-sm">
+      <div
+        className={`flex min-w-0 flex-col self-start rounded-2xl border border-slate-200 bg-white shadow-sm max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:max-h-[88vh] max-lg:overflow-y-auto max-lg:rounded-b-none max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-300 ${
+          mobileCartOpen ? "max-lg:translate-y-0" : "max-lg:translate-y-full"
+        }`}
+      >
+        {/* Barra para cerrar en móvil */}
+        <div className="flex items-center justify-between border-b border-black/5 px-4 py-2 lg:hidden">
+          <span className="text-xs font-medium opacity-60">Venta actual</span>
+          <button
+            type="button"
+            onClick={() => setMobileCartOpen(false)}
+            className="rounded-lg px-3 py-1.5 text-xs font-medium hover:bg-black/5"
+          >
+            Cerrar ✕
+          </button>
+        </div>
         <div className="border-b border-black/5 p-4">
           <div className="flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -1294,6 +1321,31 @@ export function PosTerminal() {
           />
         );
       })()}
+
+      {/* Botón flotante del carrito (solo móvil) */}
+      {!mobileCartOpen && (
+        <button
+          type="button"
+          onClick={() => setMobileCartOpen(true)}
+          className="fixed inset-x-3 bottom-3 z-30 flex items-center justify-between gap-3 rounded-2xl bg-[color:var(--brand-primary)] px-5 py-3.5 text-white shadow-xl active:scale-[0.99] lg:hidden"
+          aria-label="Ver carrito"
+        >
+          <span className="flex items-center gap-2">
+            <span className="relative">
+              <ShoppingCart className="h-5 w-5" />
+              {cart.length > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold">
+                  {cart.length}
+                </span>
+              )}
+            </span>
+            <span className="text-sm font-medium">
+              {cart.length} {cart.length === 1 ? "item" : "items"}
+            </span>
+          </span>
+          <span className="text-base font-bold tabular-nums">{formatCurrency(total)}</span>
+        </button>
+      )}
     </div>
   );
 }
