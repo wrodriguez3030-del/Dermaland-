@@ -112,10 +112,10 @@ export default async function ConteoDetalle({
         actions={
           <>
             <PhysicalCountExcelButtons report={report} />
-            <Link href={`/conteo-fisico/${count.id}/movil`}>
+            <Link href={`/conteo-fisico/${count.id}/escanear`}>
               <Button variant="outline" size="sm">
                 <ScanBarcode className="h-4 w-4" />
-                Modo móvil
+                Escanear
               </Button>
             </Link>
             {count.status === "submitted" || count.status === "reviewed" ? (

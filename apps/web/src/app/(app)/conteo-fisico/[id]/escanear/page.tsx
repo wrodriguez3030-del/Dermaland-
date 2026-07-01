@@ -51,6 +51,7 @@ import {
   sessionToCountData,
   type CountSession,
 } from "@/features/inventory-counts/scan-session-store";
+import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 import { physicalCountXlsxBytes, physicalCountFilename } from "@/features/inventory/physical-count-export";
 
@@ -86,6 +87,7 @@ export default function EscanearPage() {
   const [manualOpen, setManualOpen] = React.useState(false);
   const [approveOpen, setApproveOpen] = React.useState(false);
   const [lastScan, setLastScan] = React.useState<{ name: string; qty: number; ok: boolean } | null>(null);
+  const [cameraOpen, setCameraOpen] = React.useState(false);
 
   const productById = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const labById = React.useMemo(() => new Map(laboratories.map((l) => [l.id, l.name])), [laboratories]);
@@ -121,18 +123,27 @@ export default function EscanearPage() {
 
   const branchName = getBranchById(session.branchId)?.name ?? "Sucursal";
 
-  const submitScan = () => {
-    const raw = code.trim();
-    setCode("");
-    if (!raw) return;
-    const product = findProductByCode(products, raw);
-    const r = applyScan(session.id, { scannedCode: raw, product, source: "reader" });
+  // Lógica ÚNICA de escaneo (lector físico + cámara del celular). Busca por
+  // barcode/SKU, suma +1 (applyScan agrupa duplicados incrementando la cantidad
+  // contada y registra cada scan) y avisa si no se encuentra.
+  const scanCode = (raw: string, source: "reader" | "camera") => {
+    const c = raw.trim();
+    if (!c) return;
+    const product = findProductByCode(products, c);
+    const r = applyScan(session.id, { scannedCode: c, product, source });
     if (r.result === "not_found") {
-      setLastScan({ name: `Código ${raw}`, qty: 0, ok: false });
+      setLastScan({ name: `Código ${c}`, qty: 0, ok: false });
       toast.error("Producto no encontrado.");
     } else if (r.item) {
       setLastScan({ name: r.item.productName, qty: r.item.countedQuantity, ok: true });
+      if (source === "camera") toast.success("Producto escaneado.");
     }
+  };
+
+  const submitScan = () => {
+    const raw = code.trim();
+    setCode("");
+    scanCode(raw, "reader");
     inputRef.current?.focus();
   };
 
@@ -324,11 +335,9 @@ export default function EscanearPage() {
                 <Button type="button" variant="outline" onClick={() => setManualOpen(true)}>
                   <Plus className="h-4 w-4" /> Agregar manual
                 </Button>
-                <Link href={`/conteo-fisico/${session.id}/movil`}>
-                  <Button type="button" variant="outline">
-                    <Smartphone className="h-4 w-4" /> Celular / cámara
-                  </Button>
-                </Link>
+                <Button type="button" variant="outline" onClick={() => setCameraOpen(true)}>
+                  <Smartphone className="h-4 w-4" /> Escanear con cámara
+                </Button>
               </div>
             </div>
 
@@ -528,6 +537,14 @@ export default function EscanearPage() {
           </p>
         </div>
       </Modal>
+
+      {/* Escaneo con cámara del celular: misma lógica que el lector físico. */}
+      <BarcodeScanModal
+        open={cameraOpen}
+        continuous
+        onClose={() => setCameraOpen(false)}
+        onDetected={(codeScanned) => scanCode(codeScanned, "camera")}
+      />
 
       <toast.Toast />
     </>

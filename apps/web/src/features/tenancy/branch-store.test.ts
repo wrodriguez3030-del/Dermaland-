@@ -492,12 +492,12 @@ describe("ensureStorageVersion v3 — limpieza y preservación", () => {
 import * as fs from "fs";
 import * as path from "path";
 
-describe("service-worker — cache bust v2", () => {
+describe("service-worker — cache bust v3", () => {
   const swPath = path.resolve(__dirname, "../../../public/sw.js");
 
-  it("sw.js contiene CACHE_NAME dermaland-shell-v2", () => {
+  it("sw.js contiene CACHE_NAME dermaland-shell-v3", () => {
     const source = fs.readFileSync(swPath, "utf-8");
-    expect(source).toMatch(/dermaland-shell-v2/);
+    expect(source).toMatch(/dermaland-shell-v3/);
   });
 
   it("sw.js tiene self.clients.claim() en activate", () => {
@@ -505,9 +505,10 @@ describe("service-worker — cache bust v2", () => {
     expect(source).toMatch(/self\.clients\.claim\(\)/);
   });
 
-  it("sw.js NO contiene el nombre viejo dermaland-shell-v1", () => {
+  it("sw.js NO contiene nombres viejos v1/v2 (activate limpia caches previos)", () => {
     const source = fs.readFileSync(swPath, "utf-8");
     expect(source).not.toMatch(/dermaland-shell-v1/);
+    expect(source).not.toMatch(/dermaland-shell-v2/);
   });
 });
 

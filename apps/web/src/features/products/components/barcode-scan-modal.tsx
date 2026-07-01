@@ -14,10 +14,13 @@ export function BarcodeScanModal({
   open,
   onClose,
   onDetected,
+  continuous = false,
 }: {
   open: boolean;
   onClose: () => void;
   onDetected: (code: string) => void;
+  /** Si true, no cierra tras cada lectura (para inventario físico: escaneo seguido). */
+  continuous?: boolean;
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const { cameraError, cameraReady } = useBarcodeScanner({
@@ -26,7 +29,7 @@ export function BarcodeScanModal({
     onScan: (e) => {
       const code = e.barcode.trim();
       if (code) onDetected(code);
-      onClose();
+      if (!continuous) onClose();
     },
     videoRef,
   });
@@ -55,7 +58,9 @@ export function BarcodeScanModal({
             </div>
             <p className="text-xs opacity-60">
               {cameraReady
-                ? "Apunta la cámara al código de barra del empaque."
+                ? continuous
+                  ? "Apunta al código; se suma solo. Escanea uno tras otro y pulsa Cerrar al terminar."
+                  : "Apunta la cámara al código de barra del empaque."
                 : "Iniciando cámara…"}
             </p>
           </>
