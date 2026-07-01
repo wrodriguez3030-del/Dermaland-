@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, Shield, type LucideIcon } from "lucide-react";
@@ -23,6 +24,9 @@ function isActive(pathname: string, href: string): boolean {
  */
 export function MobileNav() {
   const [open, setOpen] = React.useState(false);
+  // Portal solo tras montar (document.body no existe en SSR).
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
   const pathname = usePathname() ?? "/";
   const { branchId, branches, setBranchId } = useCurrentBranch();
 
@@ -50,8 +54,10 @@ export function MobileNav() {
         <Menu className="h-5 w-5" />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+      {open &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 z-[60] lg:hidden">
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setOpen(false)}
@@ -112,8 +118,9 @@ export function MobileNav() {
               </div>
             </nav>
           </aside>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

@@ -18,6 +18,7 @@ import { FormSection } from "@/components/ui/filter-bar";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { recordLabChange } from "@/features/products/laboratory-audit";
+import { validateProductForm } from "@/features/products/product-form-validation";
 import {
   saveBrand,
   saveCategory,
@@ -141,13 +142,18 @@ export function ProductForm({ mode, product }: ProductFormProps) {
 
   const isMissing = (k: string) => missing.has(k);
 
-  const validate = (): string[] => {
-    const m: string[] = [];
-    if (!name.trim()) m.push("name");
-    // El SKU no se valida: lo genera el sistema automáticamente.
-    if (price.trim() === "" || Number.isNaN(Number(price))) m.push("price");
-    return m;
-  };
+  const validate = (): string[] =>
+    validateProductForm({
+      name,
+      price,
+      itbisRate,
+      unit,
+      withLot,
+      lotBranch,
+      lotNumber,
+      lotQty,
+      lotExpiry,
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +162,15 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     const m = validate();
     if (m.length > 0) {
       setMissing(new Set(m));
-      setErrorBanner("Complete los campos requeridos.");
+      setErrorBanner("Completa los campos marcados.");
+      // Scroll + focus al primer campo con error (tras el re-render).
+      setTimeout(() => {
+        const el = formRef.current?.querySelector<HTMLElement>(".border-rose-500");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.focus?.();
+        }
+      }, 60);
       return;
     }
     // Guard: cambiar un laboratorio ya asignado requiere confirmación explícita.
@@ -563,15 +577,19 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                 )}
               </div>
               <div>
-                <Label>ITBIS (%)</Label>
+                <Label>
+                  ITBIS (%) <span className="text-rose-600">*</span>
+                </Label>
                 <Select
                   value={itbisRate}
                   onChange={(e) => setItbisRate(e.target.value)}
+                  className={isMissing("itbisRate") ? "border-rose-500 bg-rose-50/60" : undefined}
                 >
                   <option value="0">0% — Exento</option>
                   <option value="16">16%</option>
                   <option value="18">18%</option>
                 </Select>
+                <HelpText>0% (Exento) es válido.</HelpText>
               </div>
               <div>
                 <Label>Costo por unidad</Label>
@@ -593,12 +611,18 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           >
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <Label>Unidad</Label>
+                <Label>
+                  Unidad <span className="text-rose-600">*</span>
+                </Label>
                 <Input
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   placeholder="unidad"
+                  className={isMissing("unit") ? "border-rose-500 bg-rose-50/60" : undefined}
                 />
+                {isMissing("unit") && (
+                  <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+                )}
               </div>
               <div>
                 <Label>Stock mínimo</Label>
