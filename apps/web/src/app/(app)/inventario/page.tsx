@@ -308,7 +308,20 @@ function InventarioContent() {
                     <TD className="text-sm opacity-70">{categoryName}</TD>
                     <TD className="text-sm opacity-70">{labName}</TD>
                     <TD className="text-right tabular-nums">{inv.lotCount}</TD>
-                    <TD className="text-right tabular-nums font-medium">{inv.sellableStock}</TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      <div className={noStock ? "text-rose-600" : lowStock ? "text-amber-600" : ""}>
+                        {inv.sellableStock}
+                      </div>
+                      {/* Stock Indicator: nivel vs punto de reorden (mín × 2) */}
+                      <div className="ml-auto mt-1 h-1.5 w-16 overflow-hidden rounded-full bg-black/10">
+                        <div
+                          className={`h-full rounded-full ${noStock ? "bg-rose-500" : lowStock ? "bg-amber-500" : "bg-[color:var(--brand-primary)]"}`}
+                          style={{
+                            width: `${Math.max(4, Math.min(100, Math.round((inv.sellableStock / Math.max(p.minStock * 2, 1)) * 100)))}%`,
+                          }}
+                        />
+                      </div>
+                    </TD>
                     <TD className="text-right tabular-nums text-xs opacity-70">
                       {p.minStock} / {p.maxStock}
                     </TD>
