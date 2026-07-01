@@ -11,6 +11,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.21.0] - 2026-07-01
+
+### Added
+- **Módulo Súper Admin ampliado y con guard de acceso.** El layout
+  `(super-admin)` ahora **bloquea a usuarios normales** (solo `is_platform_admin`
+  o rol `super_admin`; en modo demo se permite) con mensaje "Acceso restringido"
+  en vez del panel. Helper puro `canAccessSuperAdmin` (4 tests).
+- **Menú completo** en el shell + **8 pantallas nuevas** (además de las 8
+  existentes): Usuarios globales (tabla + KPIs + export CSV), Roles y permisos
+  (roles + catálogo por módulo), Auditoría global (eventos + export CSV), Salud
+  del sistema (integraciones + presencia de variables SIN valores), Logs (estado
+  vacío profesional), Seguridad (usuarios sin MFA, RLS, aviso leaked-password),
+  Configuración global (ajustes de plataforma) y Herramientas (utilidades
+  read-only/seguras). UI violeta reutilizable `super-admin-ui.tsx` + export CSV.
+
+### Notes
+- Nunca se expone `service_role` al cliente; no se muestran secretos, SQL, ni
+  stack traces. Los datos multiempresa reales (listar todas las empresas/usuarios/
+  auditoría cross-tenant) y las tablas nuevas (`platform_settings`,
+  `business_modules`, `system_logs`, subscripciones) quedan como **fase servidor**
+  (hoy se usa el dataset disponible con presentación profesional). No se tocó DGII.
+
 ## [0.20.0] - 2026-07-01
 
 ### Changed

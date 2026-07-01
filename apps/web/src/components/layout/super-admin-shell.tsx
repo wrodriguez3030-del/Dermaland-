@@ -5,26 +5,42 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
+  Activity,
   BarChart3,
   Building2,
   CreditCard,
+  DollarSign,
+  FileWarning,
+  KeyRound,
   Layers,
+  Lock,
   Palette,
   PiggyBank,
+  ScrollText,
   Settings,
   Shield,
   TrendingUp,
+  Users,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 const items = [
   { label: "Dashboard", href: "/super-admin", icon: BarChart3 },
-  { label: "Negocios", href: "/super-admin/negocios", icon: Building2 },
+  { label: "Empresas", href: "/super-admin/negocios", icon: Building2 },
+  { label: "Usuarios globales", href: "/super-admin/usuarios", icon: Users },
+  { label: "Roles y permisos", href: "/super-admin/roles", icon: KeyRound },
+  { label: "Módulos", href: "/super-admin/modulos", icon: Settings },
   { label: "Planes", href: "/super-admin/planes", icon: Layers },
   { label: "Suscripciones", href: "/super-admin/suscripciones", icon: CreditCard },
   { label: "Uso y límites", href: "/super-admin/uso", icon: TrendingUp },
   { label: "Pagos", href: "/super-admin/pagos", icon: PiggyBank },
-  { label: "Módulos", href: "/super-admin/modulos", icon: Settings },
+  { label: "Auditoría global", href: "/super-admin/auditoria", icon: ScrollText },
+  { label: "Salud del sistema", href: "/super-admin/salud", icon: Activity },
+  { label: "Logs / errores", href: "/super-admin/logs", icon: FileWarning },
+  { label: "Seguridad", href: "/super-admin/seguridad", icon: Lock },
+  { label: "Configuración", href: "/super-admin/configuracion", icon: DollarSign },
+  { label: "Herramientas", href: "/super-admin/herramientas", icon: Wrench },
   { label: "Branding", href: "/super-admin/branding", icon: Palette },
 ];
 
