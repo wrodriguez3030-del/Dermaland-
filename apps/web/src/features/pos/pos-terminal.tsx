@@ -22,6 +22,7 @@ import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
 import { ProductCard } from "./product-card";
+import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { useFavorites } from "./favorites-store";
 import { LineDiscountModal } from "./line-discount-modal";
 import {
@@ -263,6 +264,8 @@ export function PosTerminal() {
 
   // En móvil el carrito es un bottom sheet abierto por un botón flotante.
   const [mobileCartOpen, setMobileCartOpen] = React.useState(false);
+  // Escaneo con cámara del celular (busca por barcode/SKU y agrega).
+  const [posScanOpen, setPosScanOpen] = React.useState(false);
 
   // Cambia la sucursal seleccionada a una que sí tiene stock (desde el modal de
   // stock por sucursal). La selección se comparte con Productos y el selector
@@ -776,14 +779,25 @@ export function PosTerminal() {
               className="h-12 w-full rounded-xl border border-black/10 bg-black/[0.02] pl-10 pr-3 text-sm focus:border-[color:var(--brand-primary)] focus:bg-white focus:outline-none"
             />
           </div>
+          {/* Escanear con cámara (móvil) */}
           <Button
             variant="outline"
             size="md"
+            className="sm:hidden"
+            onClick={() => setPosScanOpen(true)}
+          >
+            <ScanBarcode className="h-4 w-4" />
+            Escanear
+          </Button>
+          {/* Simular escaneo (desktop / lector) */}
+          <Button
+            variant="outline"
+            size="md"
+            className="hidden sm:inline-flex"
             onClick={() => filtered[0] && addProduct(filtered[0].id)}
           >
             <ScanBarcode className="h-4 w-4" />
-            <span className="hidden sm:inline">Simular escaneo</span>
-            <span className="sm:hidden">Escanear</span>
+            Simular escaneo
           </Button>
           <Button
             variant={onlyFavorites ? "primary" : "outline"}
@@ -1334,6 +1348,20 @@ export function PosTerminal() {
           />
         );
       })()}
+
+      {/* Escaneo con cámara del celular */}
+      <BarcodeScanModal
+        open={posScanOpen}
+        onClose={() => setPosScanOpen(false)}
+        onDetected={(code) => {
+          const c = code.trim();
+          const p =
+            products.find((x) => (x.barcode ?? "") !== "" && x.barcode === c) ??
+            products.find((x) => x.sku.toLowerCase() === c.toLowerCase());
+          if (p) addProduct(p.id);
+          else toast.error("Producto no encontrado.");
+        }}
+      />
 
       {/* Botón flotante del carrito (solo móvil) */}
       {!mobileCartOpen && (
