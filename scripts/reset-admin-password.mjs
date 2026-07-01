@@ -33,7 +33,9 @@ if (PASSWORD.length < 8) {
 
 const h = { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
 
-async function findUserId(email) {
+const TEMPLATE_EMAIL = (process.env.TEMPLATE_EMAIL || "preview-admin@dermaland.do").toLowerCase();
+
+async function findUser(email) {
   // Busca en páginas hasta encontrar el correo; NO imprime otros usuarios.
   for (let page = 1; page <= 20; page++) {
     const res = await fetch(`${URL_}/auth/v1/admin/users?page=${page}&per_page=200`, { headers: h });
@@ -41,33 +43,52 @@ async function findUserId(email) {
     const data = await res.json();
     const users = data.users || data;
     const u = users.find((x) => (x.email || "").toLowerCase() === email);
-    if (u) return u.id;
+    if (u) return u;
     if (users.length < 200) break;
   }
   return null;
 }
 
 async function main() {
-  const id = await findUserId(EMAIL);
-  if (id) {
-    const res = await fetch(`${URL_}/auth/v1/admin/users/${id}`, {
+  const existing = await findUser(EMAIL);
+
+  if (existing) {
+    // Ya existe: fija la contraseña y asegura que tenga negocio/rol admin.
+    const body = { password: PASSWORD, email_confirm: true };
+    const hasBiz = existing.user_metadata?.business_id || existing.app_metadata?.business_id;
+    if (!hasBiz && EMAIL !== TEMPLATE_EMAIL) {
+      const tpl = await findUser(TEMPLATE_EMAIL);
+      if (tpl) {
+        body.user_metadata = { ...(tpl.user_metadata ?? {}), full_name: EMAIL };
+        body.app_metadata = tpl.app_metadata ?? {};
+      }
+    }
+    const res = await fetch(`${URL_}/auth/v1/admin/users/${existing.id}`, {
       method: "PUT",
       headers: h,
-      body: JSON.stringify({ password: PASSWORD, email_confirm: true }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`No se pudo actualizar (${res.status}).`);
-    console.log(`✅ Contraseña actualizada para ${EMAIL}. Ya puedes iniciar sesión.`);
-  } else {
-    const res = await fetch(`${URL_}/auth/v1/admin/users`, {
-      method: "POST",
-      headers: h,
-      body: JSON.stringify({ email: EMAIL, password: PASSWORD, email_confirm: true }),
-    });
-    if (!res.ok) throw new Error(`No se pudo crear (${res.status}).`);
-    console.log(`✅ Usuario ${EMAIL} creado con contraseña. Ya puedes iniciar sesión.`);
-    console.log("Nota: si es un correo NUEVO, puede requerir perfil/rol de admin en la app;");
-    console.log("para acceso admin completo usa preview-admin@dermaland.do (ya provisionado).");
+    console.log(`✅ Contraseña actualizada para ${EMAIL}${body.user_metadata ? " (+ rol admin del negocio)" : ""}. Ya puedes iniciar sesión.`);
+    return;
   }
+
+  // Nuevo: copia negocio + rol admin + sucursal del usuario plantilla.
+  let user_metadata = {};
+  let app_metadata = {};
+  if (EMAIL !== TEMPLATE_EMAIL) {
+    const tpl = await findUser(TEMPLATE_EMAIL);
+    if (!tpl) throw new Error(`No encontré la plantilla ${TEMPLATE_EMAIL} para copiar el rol admin.`);
+    user_metadata = { ...(tpl.user_metadata ?? {}), full_name: EMAIL };
+    app_metadata = tpl.app_metadata ?? {};
+  }
+  const res = await fetch(`${URL_}/auth/v1/admin/users`, {
+    method: "POST",
+    headers: h,
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD, email_confirm: true, user_metadata, app_metadata }),
+  });
+  if (!res.ok) throw new Error(`No se pudo crear (${res.status}).`);
+  console.log(`✅ Usuario admin ${EMAIL} creado (negocio + rol admin copiados de ${TEMPLATE_EMAIL}). Ya puedes iniciar sesión.`);
 }
 
 main().catch((e) => {
