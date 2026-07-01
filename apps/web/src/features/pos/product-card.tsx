@@ -66,7 +66,7 @@ export function ProductCard({
   return (
     <div
       onClick={actionable ? act : undefined}
-      className={`group relative flex flex-col overflow-hidden rounded-xl border border-black/5 bg-white text-left transition ${
+      className={`group relative flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left transition ${
         actionable
           ? "cursor-pointer hover:border-[color:var(--brand-primary)] hover:shadow-md"
           : "cursor-not-allowed opacity-60"
@@ -145,7 +145,7 @@ export function ProductCard({
       <div className="flex flex-1 flex-col p-3">
         <div className="line-clamp-2 text-sm font-medium leading-tight">{name}</div>
         <div className="mt-1 font-mono text-[10px] opacity-50">{sku}</div>
-        <div className="mt-auto pt-2 text-base font-semibold tabular-nums">
+        <div className="mt-auto pt-2 text-base font-bold tabular-nums text-[color:var(--brand-accent)]">
           {formatCurrency(price)}
         </div>
         {inStockHere && lotNumber && (
