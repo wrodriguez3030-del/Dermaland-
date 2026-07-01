@@ -108,6 +108,43 @@ export default function ProformasPage() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Móvil: tarjetas */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {pag.pageItems.length === 0 && (
+              <div className="px-4 py-10 text-center text-sm opacity-60">Sin proformas.</div>
+            )}
+            {pag.pageItems.map((p) => {
+              const meta = statusMeta[p.status] ?? statusMeta.draft;
+              return (
+                <Link
+                  key={p.id}
+                  href={`/proformas/${p.id}`}
+                  className="block px-4 py-3 active:bg-black/[0.03]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-mono text-sm">{p.number}</div>
+                      <div className="mt-0.5 truncate text-xs opacity-70">{p.customerName}</div>
+                      <div className="mt-1">
+                        <Badge tone={meta!.tone}>{meta!.label}</Badge>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-bold tabular-nums text-[color:var(--brand-accent)]">
+                        {formatCurrency(p.total)}
+                      </div>
+                      <div className="text-[10px] opacity-50">
+                        {p.items.length} ítems · {formatDateTime(p.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className="hidden md:block">
           <Table>
             <THead>
               <TR>
@@ -207,6 +244,7 @@ export default function ProformasPage() {
               })}
             </TBody>
           </Table>
+          </div>
           {sorted.length > 0 && (
             <DataPagination
               page={pag.page}

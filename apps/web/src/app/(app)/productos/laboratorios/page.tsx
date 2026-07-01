@@ -287,6 +287,54 @@ export default function LaboratoriosPage() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Móvil: tarjetas (ranking) */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {displayed.length === 0 && (
+              <div className="px-4 py-10 text-center text-sm opacity-60">
+                {summary.hasSales
+                  ? "Ningún laboratorio coincide con los filtros."
+                  : "Aún no hay ventas registradas para mostrar el ranking."}
+              </div>
+            )}
+            {displayed.map((r) => (
+              <div key={r.lab.id || "unassigned"} className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  {!r.isUnassigned && (
+                    <span
+                      className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-black/70 ${rankColor(r.rank)}`}
+                    >
+                      {r.rank}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className={`truncate font-medium ${r.isUnassigned ? "italic opacity-70" : ""}`}>
+                      {r.lab.name}
+                    </div>
+                    <div className="text-xs opacity-60">
+                      {r.isUnassigned ? "—" : r.lab.country ?? "—"} · {r.units} u.
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right font-bold tabular-nums text-[color:var(--brand-accent)]">
+                    {formatCurrency(r.totalMoney)}
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/5">
+                    <div
+                      className={`h-full rounded-full ${rankColor(r.rank)}`}
+                      style={{ width: `${Math.max(r.percentOfLeader, r.totalMoney > 0 ? 4 : 0)}%` }}
+                    />
+                  </div>
+                  <span className="w-10 shrink-0 text-right text-xs tabular-nums opacity-60">
+                    {r.percentOfLeader}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className="hidden md:block">
           <Table>
             <THead>
               <TR>
@@ -363,6 +411,7 @@ export default function LaboratoriosPage() {
               ))}
             </TBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
