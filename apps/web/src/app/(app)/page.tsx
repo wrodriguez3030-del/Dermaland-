@@ -243,23 +243,32 @@ export default function DashboardPage() {
                 Todos los productos están sobre el mínimo.
               </p>
             )}
-            {lowStockProducts.map(({ p, stock }) => (
-              <div
-                key={p.id}
-                className="flex items-start justify-between gap-3 rounded-lg bg-amber-50/60 p-3"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{p.name}</div>
-                  <div className="text-xs opacity-60">SKU {p.sku}</div>
+            {lowStockProducts.map(({ p, stock }) => {
+              const target = Math.max(p.minStock, 1) * 2; // punto de reorden
+              const pct = Math.min(100, Math.round((stock / target) * 100));
+              const critical = stock === 0 || stock < p.minStock;
+              return (
+                <div key={p.id} className="rounded-lg bg-amber-50/60 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{p.name}</div>
+                      <div className="text-xs opacity-60 font-mono">{p.sku}</div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <Badge tone={critical ? "danger" : "warning"}>{stock} u.</Badge>
+                      <span className="mt-1 text-[10px] opacity-50">Mín {p.minStock}</span>
+                    </div>
+                  </div>
+                  {/* Stock Indicator: nivel actual vs punto de reorden */}
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+                    <div
+                      className={`h-full rounded-full ${critical ? "bg-rose-500" : "bg-amber-500"}`}
+                      style={{ width: `${Math.max(pct, 4)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <Badge tone="warning">{stock} u.</Badge>
-                  <span className="mt-1 text-[10px] opacity-50">
-                    Mín {p.minStock}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       </div>
