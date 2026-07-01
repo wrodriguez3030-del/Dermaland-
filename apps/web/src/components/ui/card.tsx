@@ -8,7 +8,8 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-black/5 bg-white shadow-sm",
+        // Diseño clínico: superficie blanca, borde slate 1px, sombra teal suave al hover.
+        "rounded-2xl border border-slate-200 bg-white transition-shadow duration-200 hover:shadow-[0_4px_16px_rgba(13,148,136,0.08)]",
         className,
       )}
       {...props}

@@ -11,6 +11,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.22.0] - 2026-07-01
+
+### Changed
+- **Refresh del sistema de diseño (front) alineado al diseño clínico de Stitch.**
+  Cambios CENTRALES que se propagan a toda la app sin reescribir pantallas:
+  - **Paleta teal profunda**: `--brand-primary #00685f`, `--brand-accent #0d9488`,
+    texto `--brand-fg #0b1c30` (navy), fondo `--brand-bg #f8f9ff` (superficie
+    clínica). Antes era un teal más claro (#2db4a8).
+  - **Tipografía**: **Inter** (UI) + **JetBrains Mono** (SKU/lotes/códigos) vía
+    `next/font`, enlazadas a las utilidades `font-sans`/`font-mono` (`@theme`), así
+    todos los `font-mono` existentes (SKU, comprobantes) usan JetBrains Mono.
+  - **Cards**: borde `slate-200` de 1px y **sombra teal suave al hover**
+    (`0 4px 16px rgba(13,148,136,0.08)`), sin sombra en reposo. Badges ya eran
+    pill semánticos.
+
+### Notes
+- Fase 1 (tokens + tipografía + primitivos). El rediseño por-pantalla con las
+  composiciones exactas de los mockups (POS, inventario, reportes, etc.) puede
+  seguir pantalla por pantalla. `apps/web` build + 1228 tests verdes. No se tocó
+  DGII ni lógica.
+
 ## [0.21.0] - 2026-07-01
 
 ### Added

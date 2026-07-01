@@ -1,13 +1,20 @@
 @import "tailwindcss";
 
+/* Sistema de diseño DermaLand (alineado al diseño clínico teal de Stitch). */
 :root {
-  --brand-primary: #2db4a8;
-  --brand-accent: #1a7f8e;
-  --brand-fg: #0f2933;
-  --brand-bg: #f7fbfb;
+  --brand-primary: #00685f; /* teal profundo (botones, nav activa) */
+  --brand-accent: #0d9488; /* teal vivo (valores, enlaces, hover) */
+  --brand-fg: #0b1c30; /* navy — texto principal */
+  --brand-bg: #f8f9ff; /* superficie base clínica */
   --brand-success: #16a34a;
   --brand-warn: #f59e0b;
   --brand-danger: #dc2626;
+}
+
+/* Enlaza las fuentes de next/font a las utilidades font-sans / font-mono. */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
 }
 
 html,
@@ -15,6 +22,7 @@ body {
   background: var(--brand-bg);
   color: var(--brand-fg);
   font-family:
+    var(--font-inter),
     ui-sans-serif,
     system-ui,
     -apple-system,
