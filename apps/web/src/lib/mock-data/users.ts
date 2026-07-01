@@ -300,14 +300,14 @@ export const allPermissions: Permission[] = [
   { key: "lots:recall", module: "Lotes", description: "Marcar recall de lote" },
 
   // Inventory counts
-  { key: "inventory_count:create", module: "Conteo físico", description: "Crear sesión de conteo" },
-  { key: "inventory_count:mobile_scan", module: "Conteo físico", description: "Escanear desde móvil" },
-  { key: "inventory_count:manual_quantity", module: "Conteo físico", description: "Entrada manual de cantidad (cajas cerradas, código dañado)" },
-  { key: "inventory_count:submit", module: "Conteo físico", description: "Enviar conteo a revisión" },
-  { key: "inventory_count:review", module: "Conteo físico", description: "Revisar diferencias" },
-  { key: "inventory_count:approve", module: "Conteo físico", description: "Aprobar ajustes de conteo" },
-  { key: "inventory_count:decrement", module: "Conteo físico", description: "Restar línea contada" },
-  { key: "inventory_count:remove_item", module: "Conteo físico", description: "Eliminar línea de conteo con motivo" },
+  { key: "inventory_count:create", module: "Inventario físico", description: "Crear sesión de conteo" },
+  { key: "inventory_count:mobile_scan", module: "Inventario físico", description: "Escanear desde móvil" },
+  { key: "inventory_count:manual_quantity", module: "Inventario físico", description: "Entrada manual de cantidad (cajas cerradas, código dañado)" },
+  { key: "inventory_count:submit", module: "Inventario físico", description: "Enviar conteo a revisión" },
+  { key: "inventory_count:review", module: "Inventario físico", description: "Revisar diferencias" },
+  { key: "inventory_count:approve", module: "Inventario físico", description: "Aprobar ajustes de conteo" },
+  { key: "inventory_count:decrement", module: "Inventario físico", description: "Restar línea contada" },
+  { key: "inventory_count:remove_item", module: "Inventario físico", description: "Eliminar línea de conteo con motivo" },
 
   // POS / Cash register
   { key: "sales:create", module: "Ventas", description: "Crear ventas/proformas" },

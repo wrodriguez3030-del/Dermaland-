@@ -132,7 +132,7 @@ export default function DashboardPage() {
           icon={Users}
         />
         <StatCard
-          label="Conteos pendientes"
+          label="Inventarios pendientes"
           value={pendingCounts}
           hint="In progress + draft"
           icon={ScanBarcode}
@@ -329,8 +329,8 @@ export default function DashboardPage() {
             <ShortcutTile
               href="/conteo-fisico/nuevo"
               icon={ScanBarcode}
-              title="Nuevo conteo"
-              description="Sesión de conteo móvil"
+              title="Nuevo inventario"
+              description="Inventario físico por escaneo"
             />
             <ShortcutTile
               href="/recomendaciones/nueva"

@@ -99,14 +99,14 @@ export default async function ConteoDetalle({
         href="/conteo-fisico"
         className="mb-4 inline-flex items-center gap-1 text-xs opacity-60 hover:opacity-100"
       >
-        <ArrowLeft className="h-3 w-3" /> Volver a conteos
+        <ArrowLeft className="h-3 w-3" /> Volver a inventarios
       </Link>
 
       <PageHeader
         title={count.countNumber}
         description={`${branch?.name} · ${warehouse?.name} · ${count.countType === "full" ? "Total" : count.countType === "partial" ? "Parcial" : "Spot"}`}
         breadcrumbs={[
-          { label: "Conteo físico", href: "/conteo-fisico" },
+          { label: "Inventario físico", href: "/conteo-fisico" },
           { label: count.countNumber },
         ]}
         actions={
@@ -123,7 +123,7 @@ export default async function ConteoDetalle({
             ) : count.status === "in_progress" ? (
               <Button size="sm">Enviar a revisión</Button>
             ) : count.status === "draft" ? (
-              <Button size="sm">Iniciar conteo</Button>
+              <Button size="sm">Iniciar inventario</Button>
             ) : null}
           </>
         }
@@ -318,7 +318,7 @@ export default async function ConteoDetalle({
           <Card>
             <CardContent className="py-12 text-center text-sm opacity-60">
               Adjuntos de evidencia (fotos del producto/lote/góndola, notas de voz)
-              llegan en el módulo móvil. Sin evidencia capturada en este conteo.
+              llegan en el módulo móvil. Sin evidencia capturada en este inventario.
             </CardContent>
           </Card>
         </TabsContent>

@@ -51,7 +51,7 @@ export default function ReporteConteosPage() {
   const pag = usePagination(diffs);
 
   const kpiItems: ReportKpi[] = [
-    { label: "Conteos aprobados", value: approvedCounts, tone: "primary" },
+    { label: "Inventarios aprobados", value: approvedCounts, tone: "primary" },
     { label: "Faltantes", value: totalShortages, tone: totalShortages ? "danger" : "default" },
     { label: "Sobrantes", value: totalOverages, tone: totalOverages ? "warning" : "default" },
     { label: "Vencidos detectados", value: expiredFound, tone: expiredFound ? "danger" : "default" },
@@ -60,16 +60,16 @@ export default function ReporteConteosPage() {
   return (
     <>
       <PageHeader
-        title="Reporte de conteos físicos"
+        title="Reporte de inventario físico"
         description="Diferencias acumuladas, faltantes, sobrantes y lotes vencidos detectados."
-        breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Conteos" }]}
+        breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Inventario físico" }]}
         actions={<PrintReportButton />}
       />
 
       <ReportLayout>
         <ReportHeader
           businessName="DermaLand"
-          title="Reporte de conteos físicos"
+          title="Reporte de inventario físico"
           subtitle="Diferencias acumuladas, faltantes, sobrantes y lotes vencidos detectados."
           generatedBy={mockCurrentUser.fullName}
           generatedAt={generatedAt}
@@ -79,7 +79,7 @@ export default function ReporteConteosPage() {
 
         <ReportSection title="Diferencias detectadas" tone="warning" flush>
           {diffs.length === 0 ? (
-            <ReportEmptyState message="Sin diferencias en los conteos." />
+            <ReportEmptyState message="Sin diferencias en los inventarios." />
           ) : (
             <>
               <Table>
@@ -133,7 +133,7 @@ export default function ReporteConteosPage() {
 
         <ReportFooter
           businessName="DermaLand"
-          reportName="Reporte de conteos físicos"
+          reportName="Reporte de inventario físico"
           generatedAt={generatedAt}
         />
       </ReportLayout>

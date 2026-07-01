@@ -5,7 +5,7 @@ const modules = [
   { key: "api_v3", label: "API V3 pública", desc: "API REST con keys, scopes y rate limits" },
   { key: "webhooks", label: "Webhooks", desc: "Eventos out + reintentos con backoff" },
   { key: "website", label: "Sitio web público", desc: "Catálogo, sucursales, contacto WhatsApp" },
-  { key: "mobile_pwa", label: "PWA conteo móvil", desc: "Conteo físico por escaneo offline-first" },
+  { key: "mobile_pwa", label: "PWA inventario móvil", desc: "Inventario físico por escaneo offline-first" },
 ];
 
 const businesses = [

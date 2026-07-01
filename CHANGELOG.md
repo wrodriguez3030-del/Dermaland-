@@ -11,6 +11,46 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.17.0] - 2026-07-01
+
+### Changed
+- **Renombrado el módulo "Conteo físico" → "Inventario físico"** en todo lo
+  visible: menú lateral, títulos, breadcrumbs, botones, estados vacíos, KPIs del
+  home, reportes (Reporte de inventario físico) y catálogo de permisos. Las rutas
+  siguen en `/conteo-fisico` (para no romper enlaces/tests).
+
+### Added
+- **Herramienta real de escaneo** (`Inventario físico > Escanear productos`,
+  `/conteo-fisico/[id]/escanear`): input siempre enfocado que funciona con
+  **lector de código de barra** (Enter → busca por barcode o SKU → suma +1 →
+  limpia y mantiene el foco), **entrada manual** (buscar producto + cantidad) y
+  enlace a **modo móvil/cámara**. Suma automática (una fila por producto, sin
+  duplicar), **comparación stock sistema vs contado** con diferencia coloreada
+  (verde/rojo/ámbar), contadores grandes, último escaneado, **escaneos recientes**
+  (con resultado Encontrado/Duplicado/No encontrado), filtros (buscar / solo
+  diferencias). Producto no encontrado se registra y avisa.
+- **Nuevo inventario** (`/conteo-fisico/nuevo`) ahora crea de verdad la sesión
+  (Nombre, Sucursal, Tipo, Categoría/Marca/Laboratorio opcional, Nota) y abre el
+  escáner con "Crear y empezar a escanear".
+- **Aprobar inventario** con resumen (revisados, escaneos, sin diferencia,
+  faltantes, sobrantes, valor estimado) y opciones **Aprobar sin ajustar** /
+  **Aprobar y generar ajustes** (aplica el delta al lote FEFO vía el ajuste de
+  stock existente, registrando el movimiento).
+- **Store cliente** `features/inventory-counts/scan-session-store.ts`
+  (localStorage + evento, patrón de `lot-store`): sesiones con ítems y bitácora
+  de escaneos; hooks `useScanSessions`/`useScanSession`; adaptador que reusa el
+  **Excel de inventario físico** (6 hojas) por sesión y en la lista. 8 tests.
+- La lista de Inventario físico muestra los inventarios reales (Mis inventarios)
+  con Continuar escanear / Exportar / Anular, más el Historial de ejemplo.
+
+### Notes
+- El módulo era **mock-only**; esta entrega lo hace **funcional del lado del
+  cliente** (localStorage), suficiente para inventariar escaneando ya mismo. Queda
+  para una **Fase backend**: tablas Supabase dedicadas (`physical_counts`,
+  `physical_count_items/scans/adjustments`) con RLS, enlace móvil multi-dispositivo
+  en tiempo real y enforcement de permisos por rol. No se tocó DGII, secuencias ni
+  datos fiscales; los ajustes solo se aplican si el usuario elige "generar ajustes".
+
 ## [0.16.0] - 2026-06-30
 
 ### Added

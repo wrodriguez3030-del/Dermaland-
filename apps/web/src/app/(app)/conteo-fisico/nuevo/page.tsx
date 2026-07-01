@@ -1,151 +1,145 @@
 "use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { ScanBarcode } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  Card,
-  CardContent,
-  Button,
-  Input,
-  Label,
-  Select,
-  Textarea,
-} from "@/components/ui";
-import { FormSection } from "@/components/ui/filter-bar";
-import {
-  useActiveBranches,
-} from "@/features/tenancy/branch-store";
-import { mockUsers } from "@/lib/mock-data/users";
+import { Button, Card, CardContent, Input, Label, Select, Textarea } from "@/components/ui";
+import { useToast } from "@/components/ui/toast";
+import { useActiveBranches, useCurrentBranch } from "@/features/tenancy/branch-store";
+import { useBrandsList, useCategoriesList, useLaboratoriesList } from "@/features/products/catalog-store";
+import { createSession } from "@/features/inventory-counts/scan-session-store";
 
-export default function NuevoConteoPage() {
+export default function NuevoInventarioPage() {
+  const router = useRouter();
+  const toast = useToast();
   const branches = useActiveBranches();
+  const { branchId: currentBranchId } = useCurrentBranch();
+  const categories = useCategoriesList();
+  const brands = useBrandsList();
+  const laboratories = useLaboratoriesList();
+
+  const [name, setName] = React.useState("");
+  const [branchId, setBranchId] = React.useState("");
+  const [type, setType] = React.useState<"full" | "partial" | "spot">("full");
+  const [categoryId, setCategoryId] = React.useState("");
+  const [brandId, setBrandId] = React.useState("");
+  const [laboratoryId, setLaboratoryId] = React.useState("");
+  const [notes, setNotes] = React.useState("");
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!branchId && currentBranchId) setBranchId(currentBranchId);
+  }, [currentBranchId, branchId]);
+
+  const submit = () => {
+    setError(null);
+    if (!name.trim()) return setError("Ponle un nombre al inventario.");
+    if (!branchId) return setError("Selecciona la sucursal.");
+    const session = createSession({
+      name: name.trim(),
+      branchId,
+      type,
+      categoryId: categoryId || undefined,
+      brandId: brandId || undefined,
+      laboratoryId: laboratoryId || undefined,
+      notes: notes || undefined,
+    });
+    toast.success("Inventario creado. ¡A escanear!");
+    router.push(`/conteo-fisico/${session.id}/escanear`);
+  };
+
   return (
     <>
       <PageHeader
-        title="Nuevo conteo físico"
-        description="Crea una sesión. Tras crearla podrás escanear desde móvil con cámara o lector Bluetooth."
-        breadcrumbs={[
-          { label: "Conteo físico", href: "/conteo-fisico" },
-          { label: "Nuevo" },
-        ]}
-        actions={
-          <>
-            <Button variant="outline" size="sm">
-              Cancelar
-            </Button>
-            <Button size="sm">Crear sesión</Button>
-          </>
-        }
+        title="Nuevo inventario físico"
+        description="Crea un inventario y empieza a escanear productos para contar el stock real."
+        breadcrumbs={[{ label: "Inventario físico", href: "/conteo-fisico" }, { label: "Nuevo inventario" }]}
       />
 
-      <Card>
-        <CardContent>
-          <FormSection
-            title="Alcance"
-            description="Sucursal y tipo de conteo."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>Sucursal *</Label>
-                <Select>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              {/* warehouseId se mapea internamente a defaultWarehouseForBranch(branchId) — no visible al usuario */}
-              <div>
-                <Label>Tipo de conteo</Label>
-                <Select defaultValue="partial">
-                  <option value="full">Total — toda la sucursal</option>
-                  <option value="partial">Parcial — categoría/góndola</option>
-                  <option value="spot">Spot — productos específicos</option>
-                </Select>
-              </div>
-              <div>
-                <Label>Filtro (opcional)</Label>
-                <Input placeholder="Categoría / marca / ubicación" />
-              </div>
-            </div>
-          </FormSection>
+      <Card className="max-w-2xl">
+        <CardContent className="space-y-4 p-5">
+          {error && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">{error}</div>
+          )}
 
-          <FormSection
-            title="Equipo asignado"
-            description="Usuarios autorizados a escanear. Múltiples a la vez OK — duplicados se detectan por device_id + offline_scan_id."
-          >
-            <div className="space-y-2">
-              {mockUsers
-                .filter((u) =>
-                  ["inventory", "supervisor", "manager", "cashier"].includes(
-                    u.role,
-                  ),
-                )
-                .map((u) => (
-                  <label
-                    key={u.id}
-                    className="flex items-center gap-3 rounded-lg border border-black/10 p-3 hover:bg-black/[0.02]"
-                  >
-                    <input type="checkbox" defaultChecked={u.role === "inventory"} />
-                    <span
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
-                      style={{ background: u.avatarColor }}
-                    >
-                      {u.fullName
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()}
-                    </span>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{u.fullName}</div>
-                      <div className="text-xs opacity-60">{u.role}</div>
-                    </div>
-                  </label>
-                ))}
-            </div>
-          </FormSection>
+          <div>
+            <Label>Nombre del inventario *</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Inventario general junio 2026" autoFocus />
+          </div>
 
-          <FormSection
-            title="Permisos del conteo"
-            description="Estas opciones se aplican solo a esta sesión."
-          >
-            <div className="space-y-2">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked />
-                <span className="text-sm">Permitir escaneo offline (sync al reconectar)</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" />
-                <span className="text-sm">
-                  Permitir <strong>entrada manual de cantidad</strong> (cajas cerradas, código dañado)
-                </span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked />
-                <span className="text-sm">Capturar evidencia (foto / nota de voz)</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked />
-                <span className="text-sm">
-                  Aprobación obligatoria antes de aplicar ajustes
-                </span>
-              </label>
-            </div>
-          </FormSection>
-
-          <FormSection
-            title="Notas"
-            description="Visible al equipo asignado."
-          >
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label>Notas internas</Label>
-              <Textarea placeholder="Conteo parcial góndola dermocosmética facial · respetar lotes y vencimientos" />
+              <Label>Sucursal *</Label>
+              <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                <option value="">— Selecciona —</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
             </div>
-          </FormSection>
+            <div>
+              <Label>Tipo *</Label>
+              <Select value={type} onChange={(e) => setType(e.target.value as "full" | "partial" | "spot")}>
+                <option value="full">Inventario total</option>
+                <option value="partial">Inventario parcial</option>
+                <option value="spot">Spot check</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Categoría (opcional)</Label>
+              <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">Todas</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Marca (opcional)</Label>
+              <Select value={brandId} onChange={(e) => setBrandId(e.target.value)}>
+                <option value="">Todas</option>
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Laboratorio (opcional)</Label>
+              <Select value={laboratoryId} onChange={(e) => setLaboratoryId(e.target.value)}>
+                <option value="">Todos</option>
+                {laboratories.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label>Nota (opcional)</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Detalles del inventario…" />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => router.push("/conteo-fisico")}>
+              Cancelar
+            </Button>
+            <Button onClick={submit}>
+              <ScanBarcode className="h-4 w-4" /> Crear y empezar a escanear
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      <toast.Toast />
     </>
   );
 }

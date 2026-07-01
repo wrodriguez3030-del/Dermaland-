@@ -112,11 +112,11 @@ export const groups: NavGroup[] = [
     ],
   },
   {
-    label: "Conteo físico",
+    label: "Inventario físico",
     icon: ScanBarcode,
     items: [
       { label: "Conteos", href: "/conteo-fisico" },
-      { label: "Nuevo conteo", href: "/conteo-fisico/nuevo" },
+      { label: "Nuevo inventario", href: "/conteo-fisico/nuevo" },
     ],
   },
   {

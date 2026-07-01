@@ -79,7 +79,7 @@ const CATEGORIES: ReportCategory[] = [
     label: "Caja",
     items: [
       { title: "Cierres de caja", description: "Aperturas, cierres y diferencias.", href: "/reportes/caja", icon: Coins },
-      { title: "Conteos físicos", description: "Resultados de conteos de inventario.", href: "/reportes/conteos", icon: ClipboardList },
+      { title: "Inventario físico", description: "Resultados de inventarios físicos.", href: "/reportes/conteos", icon: ClipboardList },
     ],
   },
   {
