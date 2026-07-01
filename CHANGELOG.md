@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.18.0] - 2026-07-01
+
+### Fixed
+- **Productos > Laboratorios mostraba todo en 0** (Ventas acumuladas RD$0.00,
+  Unidades 0, ranking vacío). Causa: la pantalla pasaba **`mockProducts`** a
+  `computeLabSales` mientras ventas y laboratorios venían de Supabase, así que el
+  join `producto→laboratorio` nunca coincidía. Ahora usa **`useProducts()`** (los
+  productos reales), y los KPIs, el ranking y las barras se alimentan de las
+  **ventas reales** (`useProformas`), consistente con Reportes > Ventas.
+
+### Added
+- Por laboratorio ahora también se calculan **transacciones** (ventas distintas)
+  y **productos vendidos** (distintos). Fila **"Sin laboratorio"** (opt-in) con el
+  total/unidades de productos vendidos sin laboratorio asignado — no cuenta como
+  laboratorio activo — más alerta "Hay productos vendidos sin laboratorio asignado."
+- **Exportar Excel** (3 hojas: Resumen, Ranking laboratorios, Productos por
+  laboratorio) y **Exportar CSV** del ranking. `features/products/lab-sales-export.ts`.
+- `computeLabProductSales` (desglose ventas por producto dentro del laboratorio).
+  10 tests nuevos (agregación + export).
+
+### Notes
+- El total de laboratorios coincide con Reportes > Ventas/Productos para el mismo
+  rango/sucursal (misma fuente `useProformas`, suma de `item.total`). Filtros
+  (búsqueda, sucursal, fecha desde/hasta, Top N) recalculan KPIs, tabla y barras.
+  No se tocó DGII, secuencias ni datos.
+
 ## [0.17.0] - 2026-07-01
 
 ### Changed

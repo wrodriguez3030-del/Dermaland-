@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeLabSales, summarizeLabSales } from "./lab-sales";
+import { computeLabSales, computeLabProductSales, summarizeLabSales } from "./lab-sales";
 import type { Laboratory, Product, Proforma } from "@/types";
 
 const labs: Laboratory[] = [
@@ -101,6 +101,45 @@ describe("computeLabSales", () => {
     expect(sum.hasSales).toBe(false);
     expect(sum.leader).toBeUndefined();
     expect(sum.totalMoney).toBe(0);
+  });
+});
+
+const richItem = (productId: string, sku: string, name: string, quantity: number, total: number) =>
+  ({ productId, productSku: sku, productName: name, quantity, total } as never);
+
+describe("computeLabSales — transacciones, productos y sin laboratorio", () => {
+  it("cuenta transacciones distintas y productos distintos por laboratorio", () => {
+    const rows = computeLabSales(labs, products, [
+      pf({ id: "s1", items: [item("p1", 1, 100), item("p2", 1, 50)] }),
+      pf({ id: "s2", items: [item("p1", 2, 200)] }),
+    ]);
+    const a = rows.find((r) => r.lab.id === "lab_a")!;
+    expect(a.transactions).toBe(2); // s1 y s2
+    expect(a.productsSold).toBe(1); // solo p1
+    expect(rows.find((r) => r.lab.id === "lab_b")!.transactions).toBe(1);
+  });
+
+  it("incluye la fila 'Sin laboratorio' solo con includeUnassigned", () => {
+    const pfs = [pf({ items: [item("p3", 5, 9999)] })]; // p3 sin laboratorio
+    expect(computeLabSales(labs, products, pfs).some((r) => r.isUnassigned)).toBe(false);
+    const withU = computeLabSales(labs, products, pfs, { includeUnassigned: true });
+    const none = withU.find((r) => r.isUnassigned)!;
+    expect(none.lab.name).toBe("Sin laboratorio");
+    expect(none.totalMoney).toBe(9999);
+    const sum = summarizeLabSales(withU);
+    expect(sum.hasUnassigned).toBe(true);
+    expect(sum.totalLabs).toBe(3); // no cuenta "Sin laboratorio" como laboratorio
+    expect(sum.totalMoney).toBe(9999); // sí suma en el acumulado
+  });
+
+  it("desglosa ventas por producto dentro del laboratorio", () => {
+    const prod = computeLabProductSales(labs, products, [
+      pf({ items: [richItem("p1", "SKU1", "Prod 1", 2, 200), richItem("p1", "SKU1", "Prod 1", 1, 100)] }),
+    ]);
+    const p1 = prod.find((r) => r.productId === "p1")!;
+    expect(p1.labName).toBe("Lab A");
+    expect(p1.units).toBe(3);
+    expect(p1.total).toBe(300);
   });
 });
 

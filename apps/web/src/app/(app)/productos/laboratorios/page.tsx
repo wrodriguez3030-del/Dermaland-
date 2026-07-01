@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trophy, FlaskConical, X } from "lucide-react";
+import { Plus, Trophy, FlaskConical, X, FileSpreadsheet, FileText, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Button,
@@ -22,14 +22,22 @@ import { StatCard } from "@/components/ui/stat-card";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
 import { CatalogFormDialog } from "@/features/products/catalog-form-dialog";
-import { mockProducts } from "@/lib/mock-data/catalog";
-import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { useActiveBranches, getBranchDisplayName } from "@/features/tenancy/branch-store";
 import { useProformas } from "@/features/sales/proforma-store";
+import { useProducts } from "@/features/products/product-store";
 import { formatCurrency } from "@/lib/utils/format";
+import { downloadBlob } from "@/lib/utils/download";
 import {
   computeLabSales,
+  computeLabProductSales,
   summarizeLabSales,
 } from "@/features/products/lab-sales";
+import {
+  labSalesXlsxBytes,
+  buildLabSalesCsv,
+  labSalesFilename,
+  type LabSalesMeta,
+} from "@/features/products/lab-sales-export";
 import {
   useLaboratoriesList,
   saveLaboratory,
@@ -49,6 +57,7 @@ const rankColor = (rank: number) =>
 export default function LaboratoriosPage() {
   const labs = useLaboratoriesList();
   const proformas = useProformas();
+  const products = useProducts();
   const activeBranches = useActiveBranches();
   const toast = useToast();
 
@@ -73,14 +82,21 @@ export default function LaboratoriosPage() {
     setTopN("all");
   };
 
+  const salesFilters = React.useMemo(
+    () => ({
+      branchId: branch || undefined,
+      from: from || undefined,
+      to: to || undefined,
+      includeUnassigned: true,
+    }),
+    [branch, from, to],
+  );
+
+  // Ranking real: usa los productos REALES (Supabase) para el join
+  // producto→laboratorio; con mock nunca cuadraba y todo salía en 0.
   const rows = React.useMemo(
-    () =>
-      computeLabSales(labs, mockProducts, proformas, {
-        branchId: branch || undefined,
-        from: from || undefined,
-        to: to || undefined,
-      }),
-    [labs, proformas, branch, from, to],
+    () => computeLabSales(labs, products, proformas, salesFilters),
+    [labs, products, proformas, salesFilters],
   );
 
   const summary = React.useMemo(() => summarizeLabSales(rows), [rows]);
@@ -94,6 +110,41 @@ export default function LaboratoriosPage() {
     if (topN !== "all") r = r.slice(0, Number(topN));
     return r;
   }, [rows, q, topN]);
+
+  const exportMeta = (): LabSalesMeta => ({
+    businessName: "DermaLand",
+    generatedAt: new Date().toISOString(),
+    branchLabel: branch ? getBranchDisplayName(branch) : "Todas las sucursales",
+    rangeLabel: from || to ? `${from || "inicio"} a ${to || "hoy"}` : "Todo",
+    searchLabel: q.trim() || "—",
+  });
+
+  const exportExcel = () => {
+    try {
+      const productRows = computeLabProductSales(labs, products, proformas, salesFilters);
+      downloadBlob(
+        labSalesFilename("xlsx", new Date().toISOString().slice(0, 10)),
+        labSalesXlsxBytes(rows, summary, productRows, exportMeta()),
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      toast.success("Excel del ranking generado.");
+    } catch {
+      toast.error("No se pudo generar el Excel. Intenta nuevamente.");
+    }
+  };
+
+  const exportCsv = () => {
+    try {
+      downloadBlob(
+        labSalesFilename("csv", new Date().toISOString().slice(0, 10)),
+        buildLabSalesCsv(rows),
+        "text/csv;charset=utf-8",
+      );
+      toast.success("CSV del ranking generado.");
+    } catch {
+      toast.error("No se pudo generar el CSV. Intenta nuevamente.");
+    }
+  };
 
   const onSubmit = async (values: Record<string, string>) => {
     setSubmitting(true); setError(null);
@@ -114,10 +165,18 @@ export default function LaboratoriosPage() {
           { label: "Laboratorios" },
         ]}
         actions={
-          <Button size="sm" onClick={() => { setError(null); setDialog({ mode: "create", initial: {} }); }}>
-            <Plus className="h-4 w-4" />
-            Nuevo laboratorio
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" onClick={exportExcel}>
+              <FileSpreadsheet className="h-4 w-4" /> Excel
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportCsv}>
+              <FileText className="h-4 w-4" /> CSV
+            </Button>
+            <Button size="sm" onClick={() => { setError(null); setDialog({ mode: "create", initial: {} }); }}>
+              <Plus className="h-4 w-4" />
+              Nuevo laboratorio
+            </Button>
+          </div>
         }
       />
 
@@ -126,6 +185,13 @@ export default function LaboratoriosPage() {
           ? "Los cambios se guardan en este equipo (modo demo, sin Supabase)."
           : "Los laboratorios son una fuente única compartida (Supabase)."}
       </div>
+
+      {summary.hasUnassigned && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Hay productos vendidos sin laboratorio asignado (fila “Sin laboratorio”). Asígnales un laboratorio en Productos para verlos en el ranking.
+        </div>
+      )}
 
       {/* Resumen */}
       <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -244,18 +310,22 @@ export default function LaboratoriosPage() {
                 </TR>
               )}
               {displayed.map((r) => (
-                <TR key={r.lab.id}>
+                <TR key={r.lab.id || "unassigned"}>
                   <TD className="text-center">
-                    <span
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-black/70 ${rankColor(
-                        r.rank,
-                      )}`}
-                    >
-                      {r.rank}
-                    </span>
+                    {r.isUnassigned ? (
+                      <span className="text-xs opacity-50">—</span>
+                    ) : (
+                      <span
+                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-black/70 ${rankColor(
+                          r.rank,
+                        )}`}
+                      >
+                        {r.rank}
+                      </span>
+                    )}
                   </TD>
-                  <TD className="font-medium">{r.lab.name}</TD>
-                  <TD className="text-sm opacity-70">{r.lab.country ?? "—"}</TD>
+                  <TD className={`font-medium ${r.isUnassigned ? "italic opacity-70" : ""}`}>{r.lab.name}</TD>
+                  <TD className="text-sm opacity-70">{r.isUnassigned ? "—" : r.lab.country ?? "—"}</TD>
                   <TD>
                     <div className="flex items-center gap-2">
                       <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-black/5">
@@ -274,16 +344,20 @@ export default function LaboratoriosPage() {
                   </TD>
                   <TD className="text-right tabular-nums">{r.units}</TD>
                   <TD className="pr-4">
-                    <RowActions
-                      viewHref={`/productos?laboratory=${r.lab.id}`}
-                      onEdit={() => { setError(null); setDialog({ mode: "edit", id: r.lab.id, initial: { name: r.lab.name, country: r.lab.country ?? "" } }); }}
-                      onDelete={async () => {
-                        const res = await deleteLaboratoryAnywhere(r.lab.id);
-                        if (!res.ok) toast.error(res.error);
-                        else toast.success("Laboratorio eliminado.");
-                      }}
-                      entityName={r.lab.name}
-                    />
+                    {r.isUnassigned ? (
+                      <span className="block text-right text-xs opacity-40">—</span>
+                    ) : (
+                      <RowActions
+                        viewHref={`/productos?laboratory=${r.lab.id}`}
+                        onEdit={() => { setError(null); setDialog({ mode: "edit", id: r.lab.id, initial: { name: r.lab.name, country: r.lab.country ?? "" } }); }}
+                        onDelete={async () => {
+                          const res = await deleteLaboratoryAnywhere(r.lab.id);
+                          if (!res.ok) toast.error(res.error);
+                          else toast.success("Laboratorio eliminado.");
+                        }}
+                        entityName={r.lab.name}
+                      />
+                    )}
                   </TD>
                 </TR>
               ))}
