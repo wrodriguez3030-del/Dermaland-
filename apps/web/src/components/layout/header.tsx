@@ -50,7 +50,10 @@ export function Header({ className }: { className?: string }) {
       )}
       <header
         className={cn(
-          "sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-black/5 bg-white/80 px-4 md:px-6 backdrop-blur",
+          // Sin backdrop-blur: backdrop-filter crea un containing block para
+          // los descendientes position:fixed y confinaba el drawer móvil dentro
+          // del header. Fondo sólido + el drawer además va por portal a body.
+          "sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-black/5 bg-white px-4 md:px-6",
           className,
         )}
       >
