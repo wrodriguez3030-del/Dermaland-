@@ -229,6 +229,59 @@ export default function ProductosPage() {
         )}
       </FilterBar>
 
+      {/* Móvil: tarjetas */}
+      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white md:hidden">
+        {sorted.length === 0 && (
+          <div className="px-4 py-10 text-center text-sm opacity-60">
+            Sin productos que coincidan.
+          </div>
+        )}
+        {pag.pageItems.map((p) => {
+          const stock = stockMap.get(p.id) ?? 0;
+          const lowStock = stock <= p.minStock;
+          return (
+            <Link
+              key={p.id}
+              href={`/productos/${p.id}`}
+              className="flex items-center gap-3 px-3 py-3 active:bg-black/[0.03]"
+            >
+              <ProductImage
+                src={p.imageUrl}
+                alt={p.imageAlt ?? p.name}
+                name={p.name}
+                size={44}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{p.name}</div>
+                <div className="font-mono text-xs opacity-60">{p.sku}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {p.active ? (
+                    <Badge tone="success">Activo</Badge>
+                  ) : (
+                    <Badge tone="neutral">Inactivo</Badge>
+                  )}
+                  {stock === 0 ? (
+                    <Badge tone="danger">Agotado</Badge>
+                  ) : (
+                    lowStock && <Badge tone="warning">Bajo stock</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-bold tabular-nums text-[color:var(--brand-accent)]">
+                  {formatCurrency(p.price)}
+                </div>
+                <div className="text-[10px] opacity-50">
+                  {stock} u · mín {p.minStock}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Desktop: tabla */}
+      <div className="hidden md:block">
       <Table>
         <THead>
           <TR>
@@ -421,6 +474,7 @@ export default function ProductosPage() {
           })}
         </TBody>
       </Table>
+      </div>
 
       {showing > 0 && (
         <DataPagination

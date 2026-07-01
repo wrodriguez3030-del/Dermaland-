@@ -257,6 +257,54 @@ function InventarioContent() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Móvil: tarjetas */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {pag.pageItems.length === 0 && (
+              <div className="px-4 py-10 text-center text-sm opacity-60">
+                Sin productos que coincidan.
+              </div>
+            )}
+            {pag.pageItems.map(({ product: p, labName, inv }) => {
+              const lowStock = inv.sellableStock <= p.minStock;
+              const noStock = inv.sellableStock === 0;
+              const target = Math.max(p.minStock * 2, 1);
+              const pct = Math.max(4, Math.min(100, Math.round((inv.sellableStock / target) * 100)));
+              return (
+                <Link
+                  key={p.id}
+                  href={`/productos/${p.id}`}
+                  className="block px-4 py-3 active:bg-black/[0.03]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{p.name}</div>
+                      <div className="font-mono text-xs opacity-60">{p.sku}</div>
+                      <div className="mt-0.5 text-xs opacity-60">{labName}</div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div
+                        className={`font-semibold tabular-nums ${noStock ? "text-rose-600" : lowStock ? "text-amber-600" : ""}`}
+                      >
+                        {inv.sellableStock} u.
+                      </div>
+                      <div className="text-[10px] opacity-50">
+                        {inv.lotCount} lotes · mín {p.minStock}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+                    <div
+                      className={`h-full rounded-full ${noStock ? "bg-rose-500" : lowStock ? "bg-amber-500" : "bg-[color:var(--brand-primary)]"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className="hidden md:block">
           <Table>
             <THead>
               <TR>
@@ -360,6 +408,7 @@ function InventarioContent() {
               })}
             </TBody>
           </Table>
+          </div>
           {sorted.length > 0 && (
             <DataPagination
               page={pag.page}

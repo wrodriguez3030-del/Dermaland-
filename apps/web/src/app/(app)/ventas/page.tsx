@@ -77,6 +77,43 @@ export default function VentasPage() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Móvil: tarjetas */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {pag.pageItems.length === 0 && (
+              <div className="px-4 py-10 text-center text-sm opacity-60">Sin ventas.</div>
+            )}
+            {pag.pageItems.map((p) => (
+              <Link
+                key={p.id}
+                href={`/ventas/${p.id}`}
+                className="block px-4 py-3 active:bg-black/[0.03]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-mono text-sm">{p.ecfNumber ?? p.number}</div>
+                    <div className="mt-0.5 truncate text-xs opacity-70">{p.customerName}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <Badge tone={saleDocumentTone(p)}>{saleDocumentLabel(p)}</Badge>
+                      <Badge
+                        tone={p.status === "paid" ? "success" : p.status === "partially_paid" ? "warning" : "info"}
+                      >
+                        {p.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-bold tabular-nums text-[color:var(--brand-accent)]">
+                      {formatCurrency(p.total)}
+                    </div>
+                    <div className="text-[10px] opacity-50">{formatDateTime(p.createdAt)}</div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className="hidden md:block">
           <Table>
             <THead>
               <TR>
@@ -155,6 +192,7 @@ export default function VentasPage() {
               ))}
             </TBody>
           </Table>
+          </div>
           {sales.length > 0 && (
             <DataPagination
               page={pag.page}
