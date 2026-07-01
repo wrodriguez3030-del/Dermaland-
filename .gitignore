@@ -37,3 +37,4 @@ certificates/
 
 # local tooling / Claude harness
 .claude/
+reports/

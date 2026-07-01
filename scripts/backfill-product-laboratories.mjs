@@ -90,11 +90,50 @@ async function rest(path, init = {}) {
   return res.status === 204 ? null : res.json();
 }
 
+/** GET paginado (PostgREST limita a 1000 por página): trae TODAS las filas. */
+async function restAll(path) {
+  const page = 1000;
+  let from = 0;
+  const out = [];
+  for (;;) {
+    const res = await fetch(`${URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: KEY,
+        Authorization: `Bearer ${KEY}`,
+        Range: `${from}-${from + page - 1}`,
+      },
+    });
+    if (!res.ok) throw new Error(`REST ${res.status} ${path}`);
+    const rows = await res.json();
+    out.push(...rows);
+    if (rows.length < page) break;
+    from += page;
+  }
+  return out;
+}
+
 async function main() {
   const labs = await rest("laboratories?select=id,name,business_id");
+  // Asegura ACM e Isispharma (no venían en la semilla) antes de asignar.
+  if (APPLY) {
+    const want = [["ACM", "Francia"], ["Isispharma", "Francia"]];
+    for (const biz of [...new Set(labs.map((l) => l.business_id))]) {
+      const have = new Set(labs.filter((l) => l.business_id === biz).map((l) => normalize(l.name)));
+      for (const [name, country] of want) {
+        if (!have.has(normalize(name))) {
+          const c = await rest("laboratories", {
+            method: "POST",
+            headers: { Prefer: "return=representation" },
+            body: JSON.stringify({ business_id: biz, name, country }),
+          });
+          if (Array.isArray(c) && c[0]) labs.push({ id: c[0].id, name, business_id: biz });
+        }
+      }
+    }
+  }
   const brands = await rest("brands?select=id,name");
   const brandById = new Map(brands.map((b) => [b.id, b.name]));
-  const products = await rest("products?select=id,sku,name,brand_id,laboratory_id,business_id&deleted_at=is.null");
+  const products = await restAll("products?select=id,sku,name,brand_id,laboratory_id,business_id&deleted_at=is.null");
 
   const labsByBiz = new Map();
   for (const l of labs) {
