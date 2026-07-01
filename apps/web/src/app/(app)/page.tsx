@@ -81,7 +81,8 @@ export default function DashboardPage() {
         actions={
           <>
             <Button variant="outline" size="sm">
-              Cambiar período
+              <CalendarClock className="h-4 w-4" />
+              Período
             </Button>
             <Link href="/pos">
               <Button size="sm">
@@ -150,6 +151,33 @@ export default function DashboardPage() {
           icon={AlertTriangle}
           tone="warning"
         />
+      </div>
+
+      {/* Estatus Fiscal DGII — tarjeta destacada (como el diseño clínico) */}
+      <div className="mt-6">
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                <Receipt className="h-5 w-5" />
+              </span>
+              <div>
+                <div className="text-xs uppercase tracking-wider text-black/50">Estatus Fiscal DGII</div>
+                <div className="flex items-center gap-2 text-lg font-semibold">
+                  <span className="inline-block h-2 w-2 rounded-full bg-rose-500" />
+                  Inactivo
+                </div>
+                <div className="text-xs opacity-60">Emisión real apagada · pendiente de certificado</div>
+              </div>
+            </div>
+            <Link
+              href="/dgii/facturas"
+              className="text-sm font-medium text-[color:var(--brand-accent)] hover:underline"
+            >
+              Ver configuración →
+            </Link>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
