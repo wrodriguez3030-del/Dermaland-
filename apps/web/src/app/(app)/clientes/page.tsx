@@ -100,6 +100,45 @@ export default function ClientesPage() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Móvil: tarjetas */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {pag.pageItems.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm opacity-60">
+                Sin clientes que coincidan.
+              </div>
+            )}
+            {pag.pageItems.map((c) => (
+              <Link
+                key={c.id}
+                href={`/clientes/${c.id}`}
+                className="block px-4 py-3 active:bg-black/[0.03]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">
+                      {c.firstName} {c.lastName}
+                    </div>
+                    <div className="font-mono text-xs opacity-60">{c.customerNumber}</div>
+                    <div className="mt-1 text-xs opacity-70">
+                      {c.phone ?? c.whatsapp ?? "—"}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <div className="font-semibold tabular-nums text-[color:var(--brand-accent)]">
+                      {formatCurrency(c.totalSpent)}
+                    </div>
+                    <div className="text-[10px] opacity-50">{c.totalOrders} pedidos</div>
+                    <Badge tone="primary" outlined>
+                      {skinTypeLabel(c.skinType)}
+                    </Badge>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className="hidden md:block">
           <Table>
             <THead>
               <TR>
@@ -225,6 +264,7 @@ export default function ClientesPage() {
               ))}
             </TBody>
           </Table>
+          </div>
           {sorted.length > 0 && (
             <DataPagination
               page={pag.page}
