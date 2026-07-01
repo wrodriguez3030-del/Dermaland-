@@ -1025,6 +1025,38 @@ export function nextFefoLotForBranch(
 }
 
 /**
+ * Helper CENTRAL de selección de lote para vender (FEFO). Ignora vencidos,
+ * cuarentena, recall y sin cantidad, y elige el lote vigente con vencimiento más
+ * próximo. Si NO hay lote vendible devuelve la razón. Además indica si el
+ * producto tiene lotes vencidos coexistiendo (para la alerta suave: se vende el
+ * vigente pero se avisa). Todos los flujos del POS (click, Agregar, escaneo con
+ * lector/cámara, búsqueda) deben usar este único helper.
+ */
+export type SellableLotResult =
+  | { lot: ProductLot; hasExpiredLots: boolean }
+  | { lot: null; reason: LotBlockReason };
+
+export function getSellableLotForProduct(
+  lots: ProductLot[],
+  productId: string,
+  branchId: string,
+  activeBranchIds?: Set<string>,
+): SellableLotResult {
+  const lot = nextFefoLotForBranch(lots, productId, branchId);
+  if (lot) {
+    const hasExpiredLots = lots.some(
+      (l) =>
+        l.productId === productId &&
+        l.branchId === branchId &&
+        (l.status === "expired" || expiryStatus(l.expiresAt) === "expired"),
+    );
+    return { lot, hasExpiredLots };
+  }
+  const reason = lotBlockReason(lots, productId, branchId, activeBranchIds) ?? "no-lot";
+  return { lot: null, reason };
+}
+
+/**
  * Resumen de inventario de un producto en una sucursal (motor ÚNICO de Stock
  * actual, igual regla `isLotSellable` que POS y Productos).
  *

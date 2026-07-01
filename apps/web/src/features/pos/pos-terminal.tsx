@@ -64,6 +64,7 @@ import {
   sellableStockForBranch,
   totalSellableStock,
   nextFefoLotForBranch,
+  getSellableLotForProduct,
   lotBlockReason,
   stockByBranchForProduct,
   fefoLotsForBranch,
@@ -454,8 +455,10 @@ export function PosTerminal() {
       return;
     }
 
-    const lot = nextFefoLotForBranch(lots, productId, branchId);
-    if (!lot) {
+    // Helper CENTRAL FEFO: ignora vencidos/cuarentena/recall y elige el lote
+    // vigente más próximo. Solo bloquea si NO hay lote vendible.
+    const sellable = getSellableLotForProduct(lots, productId, branchId, activeBranchIds);
+    if (!sellable.lot) {
       // No hay lote vendible en esta sucursal — mensaje claro, nunca en silencio.
       const totalStock = totalSellableStock(lots, productId, activeBranchIds);
       if (totalStock > 0) {
@@ -465,21 +468,25 @@ export function PosTerminal() {
         const otherList = otherRows
           .map((r) => `${getBranchDisplayName(r.branchId)} (${r.available})`)
           .join(", ");
-        toast.error(
-          `No se pudo agregar: sin stock en ${branchName}. Disponible en: ${otherList}.`,
-        );
+        toast.error(`No hay stock en ${branchName}. Disponible en: ${otherList}.`);
       } else {
-        const block = lotBlockReason(lots, productId, branchId, activeBranchIds);
-        if (block === "quarantine")
-          toast.error("No se pudo agregar: el lote está en cuarentena.");
-        else if (block === "expired")
-          toast.error("No se pudo agregar: el lote está vencido.");
-        else if (block === "recall")
-          toast.error("No se pudo agregar: el lote está en recall.");
-        else toast.error("No se pudo agregar: no hay lote vendible.");
+        switch (sellable.reason) {
+          case "quarantine":
+            toast.error("Este producto está en cuarentena.");
+            break;
+          case "recall":
+            toast.error("Este producto está bloqueado por recall.");
+            break;
+          case "expired":
+            toast.error("No se puede vender: todos los lotes disponibles están vencidos.");
+            break;
+          default:
+            toast.error("No hay stock vendible en esta sucursal.");
+        }
       }
       return;
     }
+    const lot = sellable.lot;
 
     // nextFefoLotForBranch ya excluye lotes vencidos; no es necesario re-chequear.
     const stockInBranch = sellableStockForBranch(lots, productId, branchId);
@@ -519,7 +526,13 @@ export function PosTerminal() {
       ];
     });
     setCartBranchId(branchId);
-    toast.success("Producto agregado al carrito.");
+    if (sellable.hasExpiredLots) {
+      toast.success(
+        "Agregado. Este producto tiene lotes vencidos; se vende el lote vigente más próximo.",
+      );
+    } else {
+      toast.success("Producto agregado al carrito.");
+    }
     setSearch("");
   };
 
