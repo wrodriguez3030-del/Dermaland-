@@ -6,7 +6,7 @@ export function Table({
   ...props
 }: React.HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-black/5 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <table className={cn("w-full text-sm", className)} {...props} />
     </div>
   );
@@ -32,7 +32,7 @@ export function TBody({
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <tbody className={cn("divide-y divide-black/5", className)} {...props} />
+    <tbody className={cn("divide-y divide-slate-100", className)} {...props} />
   );
 }
 
