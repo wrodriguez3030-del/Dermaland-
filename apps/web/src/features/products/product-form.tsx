@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, ScanBarcode } from "lucide-react";
+import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import {
   Button,
   Card,
@@ -67,6 +68,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   // SKU lo genera el sistema (secuencial, no editable). Previsualización para "nuevo".
   const previewSku = useNextSku(mode === "create");
   const [barcode, setBarcode] = React.useState(product?.barcode ?? "");
+  const [scanOpen, setScanOpen] = React.useState(false);
   const [description, setDescription] = React.useState(
     product?.description ?? "",
   );
@@ -121,7 +123,6 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const [lotNumber, setLotNumber] = React.useState("");
   const [lotQty, setLotQty] = React.useState("");
   const [lotExpiry, setLotExpiry] = React.useState("");
-  const [lotCost, setLotCost] = React.useState("");
 
   const [imageUrl, setImageUrl] = React.useState<string | null>(
     product?.imageUrl ?? null,
@@ -213,7 +214,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           lotNumber,
           initialQuantity: Number(lotQty),
           expiresAt: lotExpiry ? new Date(lotExpiry).toISOString() : "",
-          unitCost: Number(lotCost) || Number(cost) || 0,
+          // El costo del lote inicial SIEMPRE es el costo por unidad del producto.
+          unitCost: Number(cost) || 0,
           reason: "Entrada inicial",
         });
         if (!lotRes.ok) {
@@ -306,13 +308,18 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             description="Datos visibles al cliente y al cajero en POS, e imagen del producto."
           >
             <div>
-              <Label>Nombre comercial *</Label>
+              <Label>
+                Nombre comercial <span className="text-rose-600">*</span>
+              </Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="La Roche-Posay Toleriane Crema 40 ml"
-                className={isMissing("name") ? "border-rose-400" : undefined}
+                className={isMissing("name") ? "border-rose-500 bg-rose-50/60" : undefined}
               />
+              {isMissing("name") && (
+                <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -335,11 +342,32 @@ export function ProductForm({ mode, product }: ProductFormProps) {
               </div>
               <div>
                 <Label>Código de barra (EAN-13)</Label>
-                <Input
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  placeholder="8432598..."
-                />
+                <div className="flex items-stretch gap-2">
+                  <Input
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    onKeyDown={(e) => {
+                      // El lector envía el código + Enter: no enviar el formulario.
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        setBarcode((v) => v.trim());
+                      }
+                    }}
+                    placeholder="8432598..."
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setScanOpen(true)}
+                    className="shrink-0"
+                  >
+                    <ScanBarcode className="h-4 w-4" /> Escanear
+                  </Button>
+                </div>
+                <HelpText>
+                  Escanea el código del empaque (lector o cámara) o escríbelo manualmente.
+                </HelpText>
               </div>
             </div>
             <div>
@@ -519,15 +547,20 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           >
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <Label>Precio venta (DOP) *</Label>
+                <Label>
+                  Precio venta (DOP) <span className="text-rose-600">*</span>
+                </Label>
                 <Input
                   type="number"
                   step="0.01"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="1250.00"
-                  className={isMissing("price") ? "border-rose-400" : undefined}
+                  className={isMissing("price") ? "border-rose-500 bg-rose-50/60" : undefined}
                 />
+                {isMissing("price") && (
+                  <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+                )}
               </div>
               <div>
                 <Label>ITBIS (%)</Label>
@@ -541,7 +574,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                 </Select>
               </div>
               <div>
-                <Label>Costo promedio</Label>
+                <Label>Costo por unidad</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -549,7 +582,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                   onChange={(e) => setCost(e.target.value)}
                   placeholder="850.00"
                 />
-                <HelpText>Si vacío, se calcula al recibir el primer lote.</HelpText>
+                <HelpText>Costo unitario de compra del producto. Se usa para el lote inicial y los reportes.</HelpText>
               </div>
             </div>
           </FormSection>
@@ -625,7 +658,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                     <Select
                       value={lotBranch}
                       onChange={(e) => setLotBranch(e.target.value)}
-                      className={isMissing("branchId") ? "border-rose-400" : undefined}
+                      className={isMissing("branchId") ? "border-rose-500 bg-rose-50/60" : undefined}
                     >
                       <option value="">— Selecciona —</option>
                       {activeBranches.map((b) => (
@@ -634,6 +667,9 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                         </option>
                       ))}
                     </Select>
+                    {isMissing("branchId") && (
+                      <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+                    )}
                   </div>
                   <div>
                     <Label>Número de lote *</Label>
@@ -641,8 +677,11 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       value={lotNumber}
                       onChange={(e) => setLotNumber(e.target.value)}
                       placeholder="LRP24A"
-                      className={isMissing("lotNumber") ? "border-rose-400" : undefined}
+                      className={isMissing("lotNumber") ? "border-rose-500 bg-rose-50/60" : undefined}
                     />
+                    {isMissing("lotNumber") && (
+                      <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+                    )}
                   </div>
                   <div>
                     <Label>Cantidad inicial *</Label>
@@ -653,9 +692,12 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       onChange={(e) => setLotQty(e.target.value)}
                       placeholder="24"
                       className={
-                        isMissing("initialQuantity") ? "border-rose-400" : undefined
+                        isMissing("initialQuantity") ? "border-rose-500 bg-rose-50/60" : undefined
                       }
                     />
+                    {isMissing("initialQuantity") && (
+                      <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+                    )}
                   </div>
                   <div>
                     <Label>Fecha de vencimiento *</Label>
@@ -663,20 +705,18 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                       type="date"
                       value={lotExpiry}
                       onChange={(e) => setLotExpiry(e.target.value)}
-                      className={isMissing("expiresAt") ? "border-rose-400" : undefined}
+                      className={isMissing("expiresAt") ? "border-rose-500 bg-rose-50/60 bg-rose-50/50" : undefined}
                     />
-                  </div>
-                  <div>
-                    <Label>Costo del lote</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={lotCost}
-                      onChange={(e) => setLotCost(e.target.value)}
-                      placeholder="850.00"
-                    />
+                    {isMissing("expiresAt") && (
+                      <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+                    )}
                   </div>
                 </div>
+              )}
+              {withLot && (
+                <p className="mt-3 rounded-lg bg-[color:var(--brand-primary)]/5 px-3 py-2 text-xs opacity-70">
+                  El costo del lote inicial usa el <strong>Costo por unidad</strong> del producto. No hace falta capturarlo aparte.
+                </p>
               )}
             </FormSection>
           )}
@@ -730,6 +770,12 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           </div>
         </div>
       </Modal>
+
+      <BarcodeScanModal
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onDetected={(code) => setBarcode(code)}
+      />
 
       <toast.Toast />
     </form>
