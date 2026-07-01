@@ -11,6 +11,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.20.0] - 2026-07-01
+
+### Changed
+- **El SKU de producto ya no es editable: lo genera el sistema, secuencial**
+  (`DERM-000001`, `DERM-000002`, …, continuando desde el máximo existente). En
+  Nuevo/Editar producto el campo **SKU es de solo lectura** con texto de ayuda
+  ("El SKU se genera automáticamente." / en edición: "no se puede modificar…").
+  El **código de barra (EAN-13) sigue siendo editable** (SKU ≠ código de barra).
+
+### Added
+- Generación **autoritativa del lado servidor** (`product.nextSku` + `create`
+  regeneran y reintentan ante colisión del índice único `business_id+sku`, seguro
+  ante concurrencia) — no depende de la lista cliente (limitada a 1000). Endpoint
+  `GET /api/products/next-sku` para previsualizar el próximo SKU en el formulario.
+  Helper puro `features/products/product-sku.ts` (`nextSkuFromSkus`, `nextSkuAfter`,
+  `parseSkuNumber`, `formatSku`) + hook `useNextSku`. Script opcional
+  `scripts/backfill-product-skus.mjs` (asigna SKU a productos sin SKU; idempotente).
+- Al crear: toast **"Producto creado con SKU DERM-000591."**. Ante SKU duplicado
+  ya no se rechaza: se **genera uno nuevo**.
+
+### Notes
+- No se cambian los SKU existentes (solo se rellenan vacíos, y `products.sku` es
+  NOT NULL → normalmente 0). El índice `unique(business_id, sku)` (mig 0002) evita
+  duplicados; no hizo falta tabla/RPC de secuencia. No se tocó DGII ni datos.
+
 ## [0.19.1] - 2026-07-01
 
 ### Fixed

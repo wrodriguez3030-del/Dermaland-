@@ -7,6 +7,7 @@ import type {
 import { SupabaseRepositoryError, failRepo, getClient } from "./client";
 import { productLotRowToTs, productRowToTs } from "./mappers";
 import { ensureDefaultWarehouseForBranch } from "./warehouse";
+import { SKU_PREFIX, nextSkuAfter } from "@/features/products/product-sku";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -109,12 +110,32 @@ export const productRepository: ProductRepository = {
     );
   },
 
+  async nextSku(ctx: RepoContext): Promise<string> {
+    const sb = await getClient("product.nextSku");
+    // Máximo SKU con formato DERM-###### (order desc lexical = numérico por padding fijo).
+    const { data, error } = await sb
+      .from("products")
+      .select("sku")
+      .eq("business_id", ctx.businessId)
+      .ilike("sku", `${SKU_PREFIX}-%`)
+      .order("sku", { ascending: false })
+      .limit(1);
+    if (error) throw failRepo("product.nextSku", error);
+    return nextSkuAfter(data?.[0]?.sku ?? null);
+  },
+
   async create(ctx: RepoContext, input) {
     const sb = await getClient("product.create");
-    const row: Record<string, unknown> = {
-      business_id: ctx.businessId,
-      sku: input.sku,
-      barcode: input.barcode ?? null,
+    // SKU AUTORITATIVO del servidor: el usuario no lo edita. Se genera el
+    // siguiente secuencial y, ante colisión (23505, concurrencia), se reintenta
+    // con el número siguiente. Un SKU externo (CSV) se respeta solo si no choca.
+    const provided = (input.sku ?? "").trim();
+    let sku = provided || (await this.nextSku(ctx));
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const row: Record<string, unknown> = {
+        business_id: ctx.businessId,
+        sku,
+        barcode: input.barcode ?? null,
       name: input.name,
       description: input.description ?? null,
       brand_id: input.brandId ?? null,
@@ -135,12 +156,20 @@ export const productRepository: ProductRepository = {
       min_stock: input.minStock,
       max_stock: input.maxStock,
       image_url: input.imageUrl ?? null,
-      active: input.active,
-      sellable: input.sellable,
-    };
-    const { data, error } = await sb.from("products").insert(row).select("*").single();
-    if (error) throw failRepo("product.create", error);
-    return productRowToTs(data);
+        active: input.active,
+        sellable: input.sellable,
+      };
+      const { data, error } = await sb.from("products").insert(row).select("*").single();
+      if (!error) return productRowToTs(data);
+      // Colisión de SKU (unique business_id+sku) → regenerar y reintentar.
+      if ((error as { code?: string }).code === "23505") {
+        if (provided && attempt === 0) sku = await this.nextSku(ctx);
+        else sku = nextSkuAfter(sku);
+        continue;
+      }
+      throw failRepo("product.create", error);
+    }
+    throw new Error("No se pudo asignar un SKU único. Intenta nuevamente.");
   },
 
   async update(ctx: RepoContext, id: string, patch) {

@@ -174,6 +174,8 @@ export interface ProductRepository {
   byId(ctx: RepoContext, id: ID): Promise<Product | null>;
   byBarcode(ctx: RepoContext, barcode: string): Promise<Product | null>;
   totalStock(ctx: RepoContext, productId: ID): Promise<number>;
+  /** Próximo SKU secuencial del negocio (DERM-000001…). */
+  nextSku(ctx: RepoContext): Promise<string>;
   create(
     ctx: RepoContext,
     input: Omit<Product, "id" | "createdAt" | "updatedAt" | "deletedAt">,

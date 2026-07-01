@@ -33,16 +33,26 @@ describe("product-store CRUD", () => {
     }
   });
 
-  it("rechaza SKU duplicado", () => {
-    createProduct({ sku: "DUP-1", name: "A", price: 10 });
-    const r = createProduct({ sku: "DUP-1", name: "B", price: 20 });
-    expect(r.ok).toBe(false);
+  it("ante SKU duplicado genera uno nuevo (no rechaza)", () => {
+    const a = createProduct({ sku: "DERM-000100", name: "A", price: 10 });
+    const b = createProduct({ sku: "DERM-000100", name: "B", price: 20 });
+    expect(a.ok && b.ok).toBe(true);
+    if (a.ok && b.ok) expect(a.product.sku).not.toBe(b.product.sku);
   });
 
-  it("rechaza alta sin campos requeridos", () => {
+  it("genera SKU secuencial automático cuando viene vacío", () => {
+    const r = createProduct({ sku: "", name: "Crema auto", price: 100 });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.product.sku).toMatch(/^DERM-\d{6}$/);
+  });
+
+  it("rechaza alta sin campos requeridos (nombre/precio), NO por SKU", () => {
     const r = createProduct({ sku: "", name: "", price: NaN as number });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.missingFields).toContain("sku");
+    if (!r.ok) {
+      expect(r.missingFields).toContain("name");
+      expect(r.missingFields).not.toContain("sku");
+    }
   });
 
   it("edita un producto del seed vía override (nombre y precio)", () => {

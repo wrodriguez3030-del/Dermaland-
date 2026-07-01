@@ -95,6 +95,7 @@ import {
   mockWhatsappTemplates,
 } from "@/lib/mock-data/integrations";
 import { daysUntil } from "@/lib/utils/format";
+import { nextSkuFromSkus, nextSkuAfter } from "@/features/products/product-sku";
 import type {
   SupplierInvoiceRepository,
   ExpenseRepository,
@@ -431,12 +432,21 @@ const product: ProductRepository = {
     guard(ctx);
     return totalStockForProduct(productId);
   },
+  async nextSku(ctx) {
+    guard(ctx);
+    return nextSkuFromSkus(mockProductsView(ctx.businessId).map((p) => p.sku));
+  },
   async create(ctx, input) {
     guard(ctx);
-    const { businessId: _ignoredBusinessId, ...rest } = input;
+    const { businessId: _ignoredBusinessId, sku: providedSku, ...rest } = input;
     const now = new Date().toISOString();
+    // SKU autoritativo: si no viene o choca, se genera secuencial.
+    const existing = new Set(mockProductsView(ctx.businessId).map((p) => p.sku));
+    let sku = (providedSku ?? "").trim() || nextSkuFromSkus([...existing]);
+    while (existing.has(sku)) sku = nextSkuAfter(sku);
     const created: Product = {
       ...rest,
+      sku,
       businessId: ctx.businessId,
       id: mockGenId("prod"),
       createdAt: now,

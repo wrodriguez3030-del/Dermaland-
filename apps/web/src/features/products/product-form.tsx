@@ -30,6 +30,7 @@ import { ProductImageUploader } from "@/features/products/components/product-ima
 import {
   listAllProducts,
   saveProduct,
+  useNextSku,
 } from "@/features/products/product-store";
 import { addLot } from "@/features/inventory/lot-store";
 import {
@@ -63,6 +64,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
 
   const [name, setName] = React.useState(product?.name ?? "");
   const [sku, setSku] = React.useState(product?.sku ?? "");
+  // SKU lo genera el sistema (secuencial, no editable). Previsualización para "nuevo".
+  const previewSku = useNextSku(mode === "create");
   const [barcode, setBarcode] = React.useState(product?.barcode ?? "");
   const [description, setDescription] = React.useState(
     product?.description ?? "",
@@ -140,7 +143,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
   const validate = (): string[] => {
     const m: string[] = [];
     if (!name.trim()) m.push("name");
-    if (!sku.trim()) m.push("sku");
+    // El SKU no se valida: lo genera el sistema automáticamente.
     if (price.trim() === "" || Number.isNaN(Number(price))) m.push("price");
     return m;
   };
@@ -227,8 +230,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       setMissing(new Set());
       toast.success(
         withLot
-          ? `Producto y lote inicial guardados · ${result.product.sku}`
-          : `Producto guardado · ${result.product.sku}`,
+          ? `Producto creado con SKU ${result.product.sku} + lote inicial.`
+          : `Producto creado con SKU ${result.product.sku}.`,
       );
       setTimeout(() => router.push(`/productos/${result.product.id}`), 600);
       return;
@@ -313,13 +316,22 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>SKU *</Label>
+                <Label>SKU</Label>
                 <Input
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  placeholder="DERM-XXXXXX"
-                  className={isMissing("sku") ? "border-rose-400" : undefined}
+                  value={
+                    mode === "create"
+                      ? previewSku || "Se generará automáticamente…"
+                      : sku
+                  }
+                  readOnly
+                  disabled
+                  className="cursor-not-allowed bg-black/[0.03]"
                 />
+                <HelpText>
+                  {mode === "create"
+                    ? "El SKU se genera automáticamente."
+                    : "El SKU no se puede modificar porque identifica el producto en inventario, ventas y reportes."}
+                </HelpText>
               </div>
               <div>
                 <Label>Código de barra (EAN-13)</Label>

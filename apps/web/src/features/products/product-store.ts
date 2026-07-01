@@ -3,6 +3,7 @@
 import * as React from "react";
 import type { Product } from "@/types";
 import { mockProducts } from "@/lib/mock-data/catalog";
+import { nextSkuFromSkus, nextSkuAfter } from "@/features/products/product-sku";
 
 /**
  * Store de productos — MVP.
@@ -114,7 +115,7 @@ function generateId(): string {
 
 export function createProduct(input: CreateProductInput): CreateProductResult {
   const missing: string[] = [];
-  if (!input.sku?.trim()) missing.push("sku");
+  // El SKU NO es requerido: lo genera el sistema automáticamente (secuencial).
   if (!input.name?.trim()) missing.push("name");
   if (input.price == null || Number.isNaN(input.price)) missing.push("price");
   if (missing.length > 0) {
@@ -126,15 +127,16 @@ export function createProduct(input: CreateProductInput): CreateProductResult {
   }
 
   const all = listAllProducts();
-  if (all.some((p) => p.sku === input.sku)) {
-    return { ok: false, error: `Ya existe un producto con SKU ${input.sku}.` };
-  }
+  // SKU autoritativo del sistema: si no viene o choca, se genera secuencial.
+  const existing = new Set(all.map((p) => p.sku));
+  let sku = (input.sku ?? "").trim() || nextSkuFromSkus([...existing]);
+  while (existing.has(sku)) sku = nextSkuAfter(sku);
 
   const now = new Date().toISOString();
   const product: Product = {
     id: generateId(),
     businessId: input.businessId ?? "biz_dermaland",
-    sku: input.sku.trim(),
+    sku,
     barcode: input.barcode?.trim() || undefined,
     name: input.name.trim(),
     description: input.description?.trim() || undefined,
@@ -406,4 +408,34 @@ export function useProduct(id: string | null | undefined): Product | undefined {
   const all = useProducts();
   if (!id) return undefined;
   return all.find((p) => p.id === id);
+}
+
+/** Próximo SKU (servidor autoritativo en supabase; cálculo local en mock). */
+export async function fetchNextSku(): Promise<string> {
+  if (PRODUCT_BACKEND === "supabase") {
+    try {
+      const res = await fetch("/api/products/next-sku", { cache: "no-store" });
+      const body = (await res.json()) as { sku?: string };
+      if (res.ok && body.sku) return body.sku;
+    } catch {
+      /* fallback local */
+    }
+  }
+  return nextSkuFromSkus(listAllProducts().map((p) => p.sku));
+}
+
+/** Hook para previsualizar el próximo SKU en el formulario de nuevo producto. */
+export function useNextSku(enabled: boolean): string {
+  const [sku, setSku] = React.useState("");
+  React.useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    void fetchNextSku().then((s) => {
+      if (alive) setSku(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [enabled]);
+  return sku;
 }
