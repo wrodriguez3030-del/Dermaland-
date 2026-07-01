@@ -11,6 +11,19 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.19.1] - 2026-07-01
+
+### Fixed
+- **Login no dejaba entrar aunque el usuario/clave fueran correctos.** La página
+  `/login` llamaba a `signIn` pero **no redirigía** al éxito (era un stub), así
+  que tras "Entrar" la sesión se creaba pero te quedabas en /login. Ahora
+  **redirige** a `next`/`/` al éxito, **muestra el error** si las credenciales
+  son inválidas, y respeta el `?next=` del middleware.
+- El banner **"Modo demo activo — DATA_SOURCE=mock"** estaba **hardcodeado**
+  (salía siempre, confundía en producción). Ahora solo aparece cuando el backend
+  realmente está en modo mock (`env.DATA_SOURCE === "mock"` o Supabase sin
+  configurar). En producción (supabase) ya no se muestra.
+
 ## [0.19.0] - 2026-07-01
 
 ### Changed

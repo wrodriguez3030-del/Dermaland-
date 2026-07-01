@@ -1,14 +1,27 @@
 import Link from "next/link";
-import { HeartPulse, ShieldCheck } from "lucide-react";
+import { redirect } from "next/navigation";
+import { HeartPulse, ShieldCheck, AlertTriangle } from "lucide-react";
 import { Button, Input, Label } from "@/components/ui";
 import { signIn } from "@/server/auth/actions";
+import { env, isSupabaseConfigured } from "@/lib/env";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; next?: string }>;
+}) {
+  const sp = await searchParams;
+  const nextPath = sp.next && sp.next.startsWith("/") ? sp.next : "/";
+  const demoMode = env.DATA_SOURCE === "mock" || !isSupabaseConfigured();
+
   async function action(formData: FormData): Promise<void> {
     "use server";
-    await signIn(formData);
-    // En implementación real: redirect("/") en éxito,
-    // o setear cookie con error y volver a /login.
+    const res = await signIn(formData);
+    if (res.ok) {
+      const to = formData.get("next");
+      redirect(typeof to === "string" && to.startsWith("/") ? to : "/");
+    }
+    redirect(`/login?error=${encodeURIComponent(res.error ?? "No se pudo iniciar sesión.")}`);
   }
 
   return (
@@ -27,7 +40,15 @@ export default function LoginPage() {
             Accede a tu cuenta. 2FA obligatorio para administradores.
           </p>
 
+          {sp.error && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{sp.error}</span>
+            </div>
+          )}
+
           <form action={action} className="mt-6 space-y-4">
+            <input type="hidden" name="next" value={nextPath} />
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
@@ -61,16 +82,18 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
-          <div className="flex items-center gap-1 font-medium">
-            <ShieldCheck className="h-3 w-3" />
-            Modo demo activo
+        {demoMode && (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+            <div className="flex items-center gap-1 font-medium">
+              <ShieldCheck className="h-3 w-3" />
+              Modo demo activo
+            </div>
+            <p className="mt-1 opacity-80">
+              <code className="font-mono">DATA_SOURCE=mock</code> — cualquier email
+              entra. Configura Supabase en `.env` para auth real.
+            </p>
           </div>
-          <p className="mt-1 opacity-80">
-            <code className="font-mono">DATA_SOURCE=mock</code> — cualquier email
-            entra. Configura Supabase en `.env` para auth real.
-          </p>
-        </div>
+        )}
       </div>
     </div>
   );
