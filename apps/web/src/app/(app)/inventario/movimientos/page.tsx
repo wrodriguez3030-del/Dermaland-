@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -100,6 +101,45 @@ export default function MovimientosPage() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Móvil: tarjetas */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {pag.pageItems.length === 0 && (
+              <div className="px-4 py-10 text-center text-sm opacity-60">Sin movimientos.</div>
+            )}
+            {pag.pageItems.map((m) => {
+              const p = getProductById(m.productId);
+              return (
+                <Link
+                  key={m.id}
+                  href={`/inventario/movimientos/${m.id}`}
+                  className="block px-4 py-3 active:bg-black/[0.03]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{p?.name}</div>
+                      <div className="font-mono text-xs opacity-60">{p?.sku}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <Badge tone={typeColors[m.type] ?? "neutral"}>{m.type}</Badge>
+                        <span className="text-[10px] opacity-50">{m.reason ?? m.reference ?? ""}</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div
+                        className={`font-semibold tabular-nums ${m.quantity < 0 ? "text-rose-700" : "text-emerald-700"}`}
+                      >
+                        {m.quantity > 0 ? "+" : ""}
+                        {m.quantity}
+                      </div>
+                      <div className="text-[10px] opacity-50">{formatDateTime(m.createdAt)}</div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className="hidden md:block">
           <Table>
             <THead>
               <TR>
@@ -168,6 +208,7 @@ export default function MovimientosPage() {
               })}
             </TBody>
           </Table>
+          </div>
           {sorted.length > 0 && (
             <DataPagination
               page={pag.page}

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -159,6 +160,49 @@ export default function StockPorLotePage() {
 
       <Card>
         <CardContent className="p-0">
+          {/* Móvil: tarjetas */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {pag.pageItems.length === 0 && (
+              <div className="px-4 py-10 text-center text-sm opacity-60">Sin lotes que coincidan.</div>
+            )}
+            {pag.pageItems.map((r) => {
+              const lot = r.lot;
+              const tone = r.days < 30 ? "danger" : r.days < 90 ? "warning" : "neutral";
+              return (
+                <Link
+                  key={lot.id}
+                  href={`/productos/${lot.productId}`}
+                  className="flex items-center gap-3 px-4 py-3 active:bg-black/[0.03]"
+                >
+                  <ProductImage
+                    src={r.product?.imageUrl ?? undefined}
+                    alt={r.product?.imageAlt ?? r.productName}
+                    name={r.productName}
+                    size={40}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{r.productName}</div>
+                    <div className="font-mono text-xs opacity-60">
+                      Lote {lot.lotNumber} · {r.branchName}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <Badge tone={tone}>
+                        {r.days < 0 ? `${Math.abs(r.days)}d venc.` : `${r.days}d`}
+                      </Badge>
+                      {lotStatusBadge(lot.status)}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-semibold tabular-nums">{lot.currentQuantity} u.</div>
+                    <div className="text-[10px] opacity-50">{formatDate(lot.expiresAt)}</div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className="hidden md:block">
           <Table>
             <THead>
               <TR>
@@ -263,6 +307,7 @@ export default function StockPorLotePage() {
               })}
             </TBody>
           </Table>
+          </div>
           {sorted.length > 0 && (
             <DataPagination
               page={pag.page}

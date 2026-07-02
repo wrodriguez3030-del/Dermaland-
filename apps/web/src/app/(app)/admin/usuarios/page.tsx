@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Plus, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -72,6 +73,51 @@ export default function UsuariosPage() {
         </select>
       </FilterBar>
 
+      {/* Móvil: tarjetas */}
+      <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white md:hidden">
+        {visible.length === 0 && (
+          <div className="px-4 py-10 text-center text-sm opacity-60">Sin usuarios.</div>
+        )}
+        {visible.map((u) => (
+          <Link
+            key={u.id}
+            href={`/admin/usuarios/${u.id}`}
+            className="flex items-center gap-3 px-4 py-3 active:bg-black/[0.03]"
+          >
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+              style={{ background: u.avatarColor }}
+            >
+              {u.fullName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{u.fullName}</div>
+              <div className="truncate text-xs opacity-60">{u.email}</div>
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                <Badge tone={roleBadgeTone(u.role)}>{roleLabel[u.role] ?? u.role}</Badge>
+                <Badge
+                  tone={u.status === "active" ? "success" : u.status === "invited" ? "info" : "neutral"}
+                >
+                  {u.status === "active" ? "Activo" : u.status === "invited" ? "Invitado" : "Deshabilitado"}
+                </Badge>
+                {u.twoFactorEnabled && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700">
+                    <ShieldCheck className="h-3 w-3" /> 2FA
+                  </span>
+                )}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Desktop: tabla */}
+      <div className="hidden md:block">
       <Table>
         <THead>
           <TR>
@@ -163,6 +209,7 @@ export default function UsuariosPage() {
           ))}
         </TBody>
       </Table>
+      </div>
       <toast.Toast />
     </>
   );
