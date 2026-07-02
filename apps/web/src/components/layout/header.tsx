@@ -11,7 +11,13 @@ import {
   readCachedCurrentBranchName,
 } from "@/features/tenancy/branch-store";
 
-export function Header({ className }: { className?: string }) {
+export function Header({
+  className,
+  showSuperAdmin = true,
+}: {
+  className?: string;
+  showSuperAdmin?: boolean;
+}) {
   const {
     branchId: branch,
     branches,
@@ -58,7 +64,7 @@ export function Header({ className }: { className?: string }) {
         )}
       >
       <div className="flex flex-1 items-center gap-2 md:gap-4">
-        <MobileNav />
+        <MobileNav showSuperAdmin={showSuperAdmin} />
         {mockBusiness.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img

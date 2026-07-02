@@ -195,7 +195,13 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function Sidebar({ className }: { className?: string }) {
+export function Sidebar({
+  className,
+  showSuperAdmin = true,
+}: {
+  className?: string;
+  showSuperAdmin?: boolean;
+}) {
   const pathname = usePathname() ?? "/";
 
   return (
@@ -229,20 +235,22 @@ export function Sidebar({ className }: { className?: string }) {
           />
         ))}
 
-        <div className="mt-4 border-t border-black/5 pt-4">
-          <Link
-            href="/super-admin"
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
-              pathname.startsWith("/super-admin")
-                ? "bg-violet-100 text-violet-900"
-                : "text-violet-700 hover:bg-violet-50",
-            )}
-          >
-            <Shield className="h-4 w-4" />
-            Súper Admin
-          </Link>
-        </div>
+        {showSuperAdmin && (
+          <div className="mt-4 border-t border-black/5 pt-4">
+            <Link
+              href="/super-admin"
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium",
+                pathname.startsWith("/super-admin")
+                  ? "bg-violet-100 text-violet-900"
+                  : "text-violet-700 hover:bg-violet-50",
+              )}
+            >
+              <Shield className="h-4 w-4" />
+              Súper Admin
+            </Link>
+          </div>
+        )}
       </nav>
     </aside>
   );

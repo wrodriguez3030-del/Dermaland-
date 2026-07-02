@@ -40,10 +40,16 @@ describe("MobileNav", () => {
     expect(screen.getByRole("button", { name: "Cerrar menú" })).toBeInTheDocument();
   });
 
-  it("10. incluye Súper Admin en el menú", () => {
-    render(<MobileNav />);
+  it("10. incluye Súper Admin en el menú si tiene permiso", () => {
+    render(<MobileNav showSuperAdmin />);
     fireEvent.click(screen.getByRole("button", { name: "Abrir menú" }));
     expect(screen.getByText("Súper Admin")).toBeInTheDocument();
+  });
+
+  it("10b. oculta Súper Admin si NO tiene permiso", () => {
+    render(<MobileNav showSuperAdmin={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Abrir menú" }));
+    expect(screen.queryByText("Súper Admin")).not.toBeInTheDocument();
   });
 
   it("cierra con la X", () => {

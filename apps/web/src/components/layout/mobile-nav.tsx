@@ -22,7 +22,7 @@ function isActive(pathname: string, href: string): boolean {
  * módulos y el selector de sucursal. Cierra con la X, al tocar fuera y al
  * navegar. La sucursal usa el store compartido, así header y POS se sincronizan.
  */
-export function MobileNav() {
+export function MobileNav({ showSuperAdmin = true }: { showSuperAdmin?: boolean }) {
   const [open, setOpen] = React.useState(false);
   // Portal solo tras montar (document.body no existe en SSR).
   const [mounted, setMounted] = React.useState(false);
@@ -103,19 +103,21 @@ export function MobileNav() {
               {groups.map((g) => (
                 <MobileGroup key={g.label} group={g} pathname={pathname} />
               ))}
-              <div className="mt-3 border-t border-black/5 pt-3">
-                <Link
-                  href="/super-admin"
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-3 text-sm font-medium",
-                    pathname.startsWith("/super-admin")
-                      ? "bg-violet-100 text-violet-900"
-                      : "text-violet-700 hover:bg-violet-50",
-                  )}
-                >
-                  <Shield className="h-4 w-4" /> Súper Admin
-                </Link>
-              </div>
+              {showSuperAdmin && (
+                <div className="mt-3 border-t border-black/5 pt-3">
+                  <Link
+                    href="/super-admin"
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg px-3 py-3 text-sm font-medium",
+                      pathname.startsWith("/super-admin")
+                        ? "bg-violet-100 text-violet-900"
+                        : "text-violet-700 hover:bg-violet-50",
+                    )}
+                  >
+                    <Shield className="h-4 w-4" /> Súper Admin
+                  </Link>
+                </div>
+              )}
             </nav>
           </aside>
           </div>,
