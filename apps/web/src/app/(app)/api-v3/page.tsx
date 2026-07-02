@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -90,12 +89,7 @@ export default function ApiV3Overview() {
         <CardContent>
           <p className="text-sm opacity-70">
             OpenAPI / Swagger en{" "}
-            <Link
-              href="/api-v3/docs"
-              className="text-[color:var(--brand-accent)] hover:underline"
-            >
-              /v3/docs
-            </Link>{" "}
+            <span className="font-mono text-[color:var(--brand-accent)]">/v3/docs</span>{" "}
             · Sandbox con datos de prueba · Postman collection descargable.
           </p>
         </CardContent>
