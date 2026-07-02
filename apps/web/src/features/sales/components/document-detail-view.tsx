@@ -7,6 +7,7 @@ import {
   Download,
   FileText,
   Mail,
+  Pencil,
   Printer,
   Send,
 } from "lucide-react";
@@ -14,6 +15,9 @@ import { Badge, Button, Card, CardContent } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { useProformaDocument } from "@/features/sales/proforma-store";
 import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
+import { documentEditability } from "@/features/sales/editability";
+import { canEditSales } from "@/features/billing/permissions";
+import { mockCurrentUser } from "@/lib/mock-data/users";
 import { documentRouteBase, getDocumentDisplayInfo } from "@/features/sales/document-label";
 import { invoiceDisplayTotals } from "@/features/sales/invoice-totals";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
@@ -114,6 +118,35 @@ export function DocumentDetailView({
           <ArrowLeft className="h-3 w-3" /> {backLabel}
         </Link>
         <div className="flex flex-wrap gap-2">
+          {(() => {
+            const edit = documentEditability(proforma);
+            const canEdit = canEditSales(mockCurrentUser.role);
+            if (canEdit && edit.editable) {
+              return (
+                <Link href={`/ventas/${proforma.id}/editar`}>
+                  <Button size="sm" variant="outline">
+                    <Pencil className="h-4 w-4" />
+                    Editar factura
+                  </Button>
+                </Link>
+              );
+            }
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled
+                title={
+                  !canEdit
+                    ? "No tienes permiso para editar facturas."
+                    : `${edit.reason ?? "No editable."} Usa nota de crédito.`
+                }
+              >
+                <Pencil className="h-4 w-4" />
+                Editar factura
+              </Button>
+            );
+          })()}
           <Button size="sm" variant="outline" onClick={() => openPrint(true)}>
             <Printer className="h-4 w-4" />
             Imprimir ticket

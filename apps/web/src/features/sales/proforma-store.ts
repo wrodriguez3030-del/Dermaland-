@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import type { Proforma } from "@/types";
+import type { Payment, Proforma, SaleItem } from "@/types";
 import { mockProformas } from "@/lib/mock-data/sales";
 import { reserveNext } from "@/features/dgii/numbering-store";
 import { documentEditability } from "@/features/sales/editability";
+import { recalcInvoice, lineFromSaleItem } from "@/features/sales/invoice-edit";
 
 /**
  * Store de proformas — MVP con gate Supabase.
@@ -292,6 +293,100 @@ export async function updateProformaAnywhere(
       ? { customerDocument: patch.customerDocument ?? undefined }
       : {}),
     ...(patch.notes !== undefined ? { notes: patch.notes ?? undefined } : {}),
+    updatedAt: new Date().toISOString(),
+  };
+  list[idx] = next;
+  writeLocal(list);
+  return { ok: true, proforma: next };
+}
+
+/** Patch de edición COMPLETA (ítems, cantidades, precios, descuentos, pagos). */
+export interface FullInvoicePatch {
+  customerName?: string;
+  customerPhone?: string | null;
+  customerDocument?: string | null;
+  notes?: string | null;
+  items: SaleItem[];
+  payments: Payment[];
+  discountPercent?: number;
+}
+
+/**
+ * Edición COMPLETA de una factura/proforma (ítems, cantidades, precios,
+ * descuentos, pagos) — local o Supabase según el gate.
+ *
+ * El SERVIDOR recalcula los totales desde los ítems y reemplaza líneas/pagos;
+ * NUNCA cambia número, NCF/e-CF ni el tipo de documento. El ajuste de stock lo
+ * hace el llamador (cliente) por DELTA, igual que el POS. Cambios sensibles
+ * exigen `reason` (validado también en el servidor).
+ */
+export async function updateProformaFullAnywhere(
+  id: string,
+  patch: FullInvoicePatch,
+  reason: string,
+): Promise<UpdateProformaResult> {
+  if (PROFORMA_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/proformas/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_full", patch, reason }),
+      });
+      const bodyRes = (await res.json().catch(() => ({}))) as {
+        proforma?: Proforma;
+        error?: string;
+      };
+      if (!res.ok || !bodyRes.proforma) {
+        return { ok: false, error: bodyRes.error ?? "No se pudo guardar la factura." };
+      }
+      notifyChanged();
+      return { ok: true, proforma: bodyRes.proforma };
+    } catch {
+      return { ok: false, error: "No se pudo conectar con el servidor. Intenta nuevamente." };
+    }
+  }
+  // Modo local: recomputar y persistir en localStorage.
+  const list = readLocal();
+  const idx = list.findIndex((p) => p.id === id);
+  if (idx === -1) {
+    return { ok: false, error: "Documento no encontrado." };
+  }
+  const current = list[idx]!;
+  const editability = documentEditability(current);
+  if (!editability.editable) {
+    return { ok: false, error: editability.reason ?? "Este documento no se puede editar." };
+  }
+  const recomputed = recalcInvoice({
+    customerName: patch.customerName ?? current.customerName,
+    customerPhone: patch.customerPhone ?? null,
+    customerDocument: patch.customerDocument ?? null,
+    notes: patch.notes ?? null,
+    items: patch.items.map(lineFromSaleItem),
+    globalDiscountPercent: patch.discountPercent ?? 0,
+    payments: patch.payments.map((p) => ({
+      method: p.method,
+      amount: p.amount,
+      reference: p.reference,
+      last4: p.last4,
+    })),
+  });
+  const next: Proforma = {
+    ...current,
+    ...(patch.customerName !== undefined ? { customerName: patch.customerName } : {}),
+    ...(patch.customerPhone !== undefined ? { customerPhone: patch.customerPhone ?? undefined } : {}),
+    ...(patch.customerDocument !== undefined
+      ? { customerDocument: patch.customerDocument ?? undefined }
+      : {}),
+    ...(patch.notes !== undefined ? { notes: patch.notes ?? undefined } : {}),
+    items: recomputed.items,
+    payments: patch.payments.map((p) => ({ ...p, proformaId: id })),
+    subtotal: recomputed.subtotal,
+    discount: recomputed.discount,
+    itbis: recomputed.itbis,
+    total: recomputed.total,
+    discountPercent: recomputed.discountPercent,
+    paid: recomputed.paid,
+    balance: recomputed.balance,
     updatedAt: new Date().toISOString(),
   };
   list[idx] = next;

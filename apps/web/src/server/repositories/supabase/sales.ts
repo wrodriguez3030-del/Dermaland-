@@ -35,6 +35,7 @@ import {
   toDbMoney,
   toDbMoneyNullable,
 } from "./sanitize";
+import { recalcInvoice, lineFromSaleItem } from "@/features/sales/invoice-edit";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -333,6 +334,156 @@ export const proformaRepository: ProformaRepository = {
     const paymentsByProforma = await fetchPaymentsForProformas(sb, ctx.businessId, [id]);
     return proformaRowToTs(
       data,
+      itemsByProforma.get(id) ?? [],
+      paymentsByProforma.get(id) ?? [],
+    );
+  },
+
+  async updateFull(ctx: RepoContext, id: string, patch) {
+    const sb = await getClient("proforma.updateFull");
+
+    // El servidor es la ÚNICA fuente de verdad de los montos: recalculamos
+    // desde los ítems con el MISMO motor que la vista previa del cliente.
+    const recomputed = recalcInvoice({
+      customerName: patch.customerName ?? "",
+      customerPhone: patch.customerPhone ?? null,
+      customerDocument: patch.customerDocument ?? null,
+      notes: patch.notes ?? null,
+      items: patch.items.map(lineFromSaleItem),
+      globalDiscountPercent: patch.discountPercent ?? 0,
+      payments: patch.payments.map((p) => ({
+        method: p.method,
+        amount: p.amount,
+        reference: p.reference,
+        last4: p.last4,
+      })),
+    });
+
+    // Snapshot de hijos actuales para restaurar si falla el reemplazo. NO es una
+    // transacción real (compensación best-effort, igual que en create).
+    const oldItemsByProforma = await fetchItemsForProformas(sb, ctx.businessId, [id]);
+    const oldPaymentsByProforma = await fetchPaymentsForProformas(sb, ctx.businessId, [id]);
+    const oldItems = oldItemsByProforma.get(id) ?? [];
+    const oldPayments = oldPaymentsByProforma.get(id) ?? [];
+
+    const userId = requireUuid(ctx.userId, "Tu sesión de usuario");
+    // Nombre del usuario que edita (para los pagos re-creados).
+    const { data: u } = await sb
+      .from("users")
+      .select("full_name")
+      .eq("id", ctx.userId)
+      .maybeSingle();
+    const editorName: string = u?.full_name ?? "Usuario";
+
+    // 1) Cabecera: montos + cliente + notas. NUNCA número, ncf/ecf ni tipo.
+    const headerRow: Record<string, unknown> = {
+      subtotal: toDbMoney(recomputed.subtotal, "subtotal"),
+      discount: toDbMoney(recomputed.discount, "descuento"),
+      itbis: toDbMoney(recomputed.itbis, "ITBIS"),
+      total: toDbMoney(recomputed.total, "total"),
+      discount_percent: toDbMoneyNullable(recomputed.discountPercent, "% de descuento"),
+      paid: toDbMoney(recomputed.paid, "monto pagado"),
+      balance: toDbMoney(recomputed.balance, "balance"),
+      updated_at: new Date().toISOString(),
+    };
+    if (patch.customerName !== undefined) headerRow.customer_name = patch.customerName;
+    if (patch.customerPhone !== undefined) headerRow.customer_phone = patch.customerPhone ?? null;
+    if (patch.customerDocument !== undefined)
+      headerRow.customer_document = patch.customerDocument ?? null;
+    if (patch.notes !== undefined) headerRow.notes = patch.notes ?? null;
+
+    const { data: header, error: hErr } = await sb
+      .from("proformas")
+      .update(headerRow)
+      .eq("business_id", ctx.businessId)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle();
+    if (hErr) throw new SupabaseRepositoryError("proforma.updateFull:header", hErr);
+    if (!header) throw new Error("Documento no encontrado o no pertenece al negocio");
+
+    // Builders (mismo mapeo que create).
+    const buildItemRow = (it: SaleItem, idx: number) => ({
+      business_id: ctx.businessId,
+      proforma_id: id,
+      line_no: idx + 1,
+      product_id: nullableUuid(it.productId),
+      product_sku: it.productSku,
+      product_name: it.productName,
+      product_lot_id: nullableUuid(it.lotId),
+      lot_number: it.lotNumber ?? null,
+      quantity: toDbInt(it.quantity, "cantidad"),
+      unit_price: toDbMoney(it.unitPrice, "precio unitario"),
+      itbis_rate: toDbMoney(it.itbisRate, "tasa de ITBIS"),
+      discount: toDbMoney(it.discount, "descuento"),
+      subtotal: toDbMoney(it.subtotal, "subtotal"),
+      itbis: toDbMoney(it.itbis, "ITBIS"),
+      total: toDbMoney(it.total, "total"),
+      kind: "bien",
+    });
+    // proforma_payments no tiene columna last4 → se conserva en `reference`.
+    const buildPayRow = (p: Payment) => {
+      const ref = [p.reference, p.last4 ? `····${p.last4}` : ""]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      return {
+        business_id: ctx.businessId,
+        proforma_id: id,
+        method_code: mapPaymentMethod(p.method),
+        amount: toDbMoney(p.amount, "monto del pago"),
+        reference: ref || null,
+        user_id: userId,
+        user_name: p.userName || editorName,
+      };
+    };
+
+    // 2) Reemplazar ítems (borrar + insertar; restaurar viejos si falla).
+    const { error: delItemsErr } = await sb
+      .from("proforma_items")
+      .delete()
+      .eq("business_id", ctx.businessId)
+      .eq("proforma_id", id);
+    if (delItemsErr)
+      throw new SupabaseRepositoryError("proforma.updateFull:items:del", delItemsErr);
+    if (recomputed.items.length) {
+      const { error: insErr } = await sb
+        .from("proforma_items")
+        .insert(recomputed.items.map(buildItemRow));
+      if (insErr) {
+        // Restaurar los ítems originales (best-effort).
+        if (oldItems.length) {
+          await sb.from("proforma_items").insert(oldItems.map(buildItemRow));
+        }
+        throw new SupabaseRepositoryError("proforma.updateFull:items:ins", insErr);
+      }
+    }
+
+    // 3) Reemplazar pagos (borrar + insertar; restaurar viejos si falla).
+    const { error: delPayErr } = await sb
+      .from("proforma_payments")
+      .delete()
+      .eq("business_id", ctx.businessId)
+      .eq("proforma_id", id);
+    if (delPayErr)
+      throw new SupabaseRepositoryError("proforma.updateFull:pay:del", delPayErr);
+    if (patch.payments.length) {
+      const { error: insPayErr } = await sb
+        .from("proforma_payments")
+        .insert(patch.payments.map(buildPayRow));
+      if (insPayErr) {
+        if (oldPayments.length) {
+          await sb.from("proforma_payments").insert(oldPayments.map(buildPayRow));
+        }
+        throw new SupabaseRepositoryError("proforma.updateFull:pay:ins", insPayErr);
+      }
+    }
+
+    // Re-hidratar el agregado completo.
+    const itemsByProforma = await fetchItemsForProformas(sb, ctx.businessId, [id]);
+    const paymentsByProforma = await fetchPaymentsForProformas(sb, ctx.businessId, [id]);
+    return proformaRowToTs(
+      header,
       itemsByProforma.get(id) ?? [],
       paymentsByProforma.get(id) ?? [],
     );

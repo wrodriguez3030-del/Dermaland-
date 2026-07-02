@@ -123,6 +123,72 @@ describe("ProformaRepository (mock) — cancel", () => {
   });
 });
 
+describe("ProformaRepository (mock) — updateFull", () => {
+  it("recalcula el total al cambiar la cantidad y conserva el número/comprobante", async () => {
+    const created = await mockRepositories.proforma.create(ctx, baseInput);
+    const updated = await mockRepositories.proforma.updateFull(ctx, created.id, {
+      customerName: "Cliente Editado",
+      items: [
+        {
+          productId: "prod_001",
+          productSku: "SKU-001",
+          productName: "Producto Test",
+          quantity: 2, // era 1
+          unitPrice: 118,
+          itbisRate: 18,
+          discount: 0,
+          subtotal: 200,
+          itbis: 36,
+          total: 236,
+        },
+      ],
+      payments: [
+        {
+          id: "pay_x",
+          proformaId: created.id,
+          method: "cash",
+          amount: 236,
+          userId: "usr_cashier_1",
+          userName: "Rosa Peralta",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      discountPercent: 0,
+    });
+    expect(updated.total).toBe(236);
+    expect(updated.itbis).toBe(36);
+    expect(updated.customerName).toBe("Cliente Editado");
+    // Blindaje fiscal: el número NO cambia.
+    expect(updated.number).toBe(created.number);
+    expect(updated.items[0]!.quantity).toBe(2);
+  });
+
+  it("aplica descuento global recalculando total e ITBIS", async () => {
+    const created = await mockRepositories.proforma.create(ctx, baseInput);
+    const updated = await mockRepositories.proforma.updateFull(ctx, created.id, {
+      items: [
+        {
+          productId: "prod_001",
+          productSku: "SKU-001",
+          productName: "Producto Test",
+          quantity: 1,
+          unitPrice: 118,
+          itbisRate: 18,
+          discount: 0,
+          subtotal: 100,
+          itbis: 18,
+          total: 118,
+        },
+      ],
+      payments: baseInput.payments,
+      discountPercent: 10,
+    });
+    // 118 - 10% = 106.2 ; ITBIS escala proporcionalmente.
+    expect(updated.total).toBe(106.2);
+    expect(updated.discountPercent).toBe(10);
+  });
+});
+
 describe("ProformaRepository (mock) — convertToEcf", () => {
   it("convertToEcf() lanza — requiere DGII activo (Fase G bloqueada)", async () => {
     await expect(

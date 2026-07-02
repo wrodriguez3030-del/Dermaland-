@@ -96,6 +96,7 @@ import {
 } from "@/lib/mock-data/integrations";
 import { daysUntil } from "@/lib/utils/format";
 import { nextSkuFromSkus, nextSkuAfter } from "@/features/products/product-sku";
+import { recalcInvoice, lineFromSaleItem } from "@/features/sales/invoice-edit";
 import type {
   SupplierInvoiceRepository,
   ExpenseRepository,
@@ -935,6 +936,46 @@ const proforma: ProformaRepository = {
     };
     const updated = mockProformasView(ctx.businessId).find((p) => p.id === id);
     return updated!;
+  },
+  async updateFull(ctx, id, patch) {
+    guard(ctx);
+    const all = mockProformasView(ctx.businessId);
+    const found = all.find((p) => p.id === id);
+    if (!found) throw new Error(`Proforma ${id} no encontrada`);
+    // Recalcular con el mismo motor que el cliente/servidor real.
+    const recomputed = recalcInvoice({
+      customerName: patch.customerName ?? found.customerName,
+      customerPhone: patch.customerPhone ?? null,
+      customerDocument: patch.customerDocument ?? null,
+      notes: patch.notes ?? null,
+      items: patch.items.map(lineFromSaleItem),
+      globalDiscountPercent: patch.discountPercent ?? 0,
+      payments: patch.payments.map((p) => ({
+        method: p.method,
+        amount: p.amount,
+        reference: p.reference,
+        last4: p.last4,
+      })),
+    });
+    const overlay: Partial<Proforma> = {
+      items: recomputed.items,
+      payments: patch.payments.map((p) => ({ ...p, proformaId: id })),
+      subtotal: recomputed.subtotal,
+      discount: recomputed.discount,
+      itbis: recomputed.itbis,
+      total: recomputed.total,
+      discountPercent: recomputed.discountPercent,
+      paid: recomputed.paid,
+      balance: recomputed.balance,
+      updatedAt: new Date().toISOString(),
+    };
+    if (patch.customerName !== undefined) overlay.customerName = patch.customerName;
+    if (patch.customerPhone !== undefined) overlay.customerPhone = patch.customerPhone ?? undefined;
+    if (patch.customerDocument !== undefined)
+      overlay.customerDocument = patch.customerDocument ?? undefined;
+    if (patch.notes !== undefined) overlay.notes = patch.notes ?? undefined;
+    proformaPatches[id] = { ...proformaPatches[id], ...overlay };
+    return mockProformasView(ctx.businessId).find((p) => p.id === id)!;
   },
   async cancel(ctx, id, reason) {
     guard(ctx);

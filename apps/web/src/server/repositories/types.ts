@@ -35,10 +35,12 @@ import type {
   InventoryMovement,
   Laboratory,
   Plan,
+  Payment,
   Product,
   ProductLot,
   Proforma,
   Recommendation,
+  SaleItem,
   RoutineTemplate,
   SkinCondition,
   SkinType,
@@ -302,6 +304,13 @@ export interface ProformaRepository {
   create(ctx: RepoContext, proforma: Omit<Proforma, "id" | "createdAt" | "updatedAt">): Promise<Proforma>;
   /** Edición de datos NO fiscales (cliente del documento, notas). */
   update(ctx: RepoContext, id: ID, patch: ProformaEditPatch): Promise<Proforma>;
+  /**
+   * Edición COMPLETA (ítems, cantidades, precios, descuentos, pagos). El
+   * servidor RECALCULA los totales desde los ítems (no confía en el cliente) y
+   * reemplaza líneas/pagos. NUNCA cambia número, NCF/e-CF ni el tipo de
+   * documento. Bloqueado para e-CF / anulados por la capa de editabilidad.
+   */
+  updateFull(ctx: RepoContext, id: ID, patch: ProformaFullEditPatch): Promise<Proforma>;
   cancel(ctx: RepoContext, id: ID, reason: string): Promise<void>;
   convertToEcf(ctx: RepoContext, id: ID): Promise<{ ecfNumber: string; trackId: string }>;
 }
@@ -312,6 +321,17 @@ export interface ProformaEditPatch {
   customerPhone?: string | null;
   customerDocument?: string | null;
   notes?: string | null;
+}
+
+/**
+ * Patch de edición completa: además de los campos no fiscales, reemplaza ítems
+ * y pagos. Los totales NO se envían — el servidor los recalcula desde `items`.
+ */
+export interface ProformaFullEditPatch extends ProformaEditPatch {
+  items: SaleItem[];
+  payments: Payment[];
+  /** Descuento global en % (0–100). */
+  discountPercent?: number;
 }
 
 export interface CashRegisterRepository {

@@ -7,7 +7,14 @@ import {
   documentEditability,
   pickEditableProformaFields,
 } from "@/features/sales/editability";
+import {
+  isSensitiveChange,
+  diffInvoiceForAudit,
+  lineFromSaleItem,
+  type InvoiceEditDraft,
+} from "@/features/sales/invoice-edit";
 import { canEditSales } from "@/features/billing/permissions";
+import type { Payment, SaleItem } from "@/types";
 
 // C4: helper para mapear errores de autenticación a 401 vs errores genéricos a 400.
 function errorStatus(e: unknown): 400 | 401 {
@@ -143,8 +150,112 @@ export async function PATCH(
       return NextResponse.json({ proforma: updated });
     }
 
+    if (body.action === "update_full") {
+      // Permiso de rol (servidor): el cliente no es fuente de verdad.
+      const session = await getSession();
+      if (!session || !canEditSales(session.user.role)) {
+        return NextResponse.json(
+          { error: "No tienes permiso para editar facturas." },
+          { status: 403 },
+        );
+      }
+      const repos = getRepositories();
+      const current = await repos.proforma.byId(ctx, id);
+      if (!current) {
+        return NextResponse.json({ error: "Documento no encontrado." }, { status: 404 });
+      }
+      // Bloqueo fiscal: e-CF / anulados / emitidos-e-CF no se editan directo.
+      const editability = documentEditability(current);
+      if (!editability.editable) {
+        if (editability.blockedBy === "ecf") {
+          try {
+            await repos.audit.log(ctx, {
+              businessId: ctx.businessId,
+              userId: session.user.id,
+              userName: session.user.fullName,
+              action: "sale.edit_blocked_ecf",
+              entity: "proforma",
+              entityId: id,
+              branchId: ctx.branchId,
+              metadata: { reason: "electronic_invoice_locked" },
+            });
+          } catch {
+            /* la auditoría no debe romper la respuesta */
+          }
+        }
+        return NextResponse.json({ error: editability.reason }, { status: 409 });
+      }
+
+      const raw = (body.patch ?? {}) as {
+        customerName?: string;
+        customerPhone?: string | null;
+        customerDocument?: string | null;
+        notes?: string | null;
+        items?: SaleItem[];
+        payments?: Payment[];
+        discountPercent?: number;
+      };
+      const items = Array.isArray(raw.items) ? raw.items : [];
+      const payments = Array.isArray(raw.payments) ? raw.payments : [];
+      if (items.length === 0) {
+        return NextResponse.json(
+          { error: "La factura debe tener al menos un producto." },
+          { status: 400 },
+        );
+      }
+
+      // Detectar cambios sensibles → exigir motivo (auditoría).
+      const draft: InvoiceEditDraft = {
+        customerName: raw.customerName ?? current.customerName,
+        customerPhone: raw.customerPhone ?? null,
+        customerDocument: raw.customerDocument ?? null,
+        notes: raw.notes ?? null,
+        items: items.map(lineFromSaleItem),
+        globalDiscountPercent: raw.discountPercent ?? 0,
+        payments: payments.map((p) => ({
+          method: p.method,
+          amount: p.amount,
+          reference: p.reference,
+          last4: p.last4,
+        })),
+      };
+      const reason = (body.reason ?? "").trim();
+      if (isSensitiveChange(current, draft) && !reason) {
+        return NextResponse.json(
+          { error: "Indica el motivo de la modificación." },
+          { status: 400 },
+        );
+      }
+
+      const updated = await repos.proforma.updateFull(ctx, id, {
+        customerName: raw.customerName,
+        customerPhone: raw.customerPhone,
+        customerDocument: raw.customerDocument,
+        notes: raw.notes,
+        items,
+        payments,
+        discountPercent: raw.discountPercent,
+      });
+
+      try {
+        await repos.audit.log(ctx, {
+          businessId: ctx.businessId,
+          userId: session.user.id,
+          userName: session.user.fullName,
+          action: "sale.update_full",
+          entity: "proforma",
+          entityId: id,
+          branchId: ctx.branchId,
+          metadata: { changes: diffInvoiceForAudit(current, draft), reason: reason || null },
+        });
+      } catch {
+        /* la auditoría no debe romper el guardado */
+      }
+      return NextResponse.json({ proforma: updated });
+    }
+
     return NextResponse.json(
-      { error: "Acción no soportada. Use action: 'cancel' o 'update'." },
+      { error: "Acción no soportada. Use action: 'cancel', 'update' o 'update_full'." },
       { status: 400 },
     );
   } catch (e) {

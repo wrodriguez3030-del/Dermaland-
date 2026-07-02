@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.32.0] - 2026-07-02
+
+### Added
+- **Edición segura de facturas** en Ventas / Facturas y en el detalle del
+  documento. Nuevo botón **"Editar factura"** (detalle + tabla) y pantalla
+  `/ventas/[id]/editar` con edición de cliente, teléfono, documento, notas,
+  **productos, cantidades, precios, descuentos por línea, descuento global y
+  pagos** (método / monto / últimos 4 / referencia).
+- Motor puro `features/sales/invoice-edit.ts`: `recalcInvoice` (reusa el motor
+  ITBIS-incluido `cartTotals`), `validateInvoiceDraft`, `stockDeltasForEdit`,
+  `isSensitiveChange`, `diffInvoiceForAudit` (+27 tests).
+- Persistencia completa: `ProformaRepository.updateFull` (Supabase + mock) que
+  **recalcula los totales en el servidor** desde los ítems y reemplaza
+  líneas/pagos con compensación best-effort; API `PATCH action:"update_full"`.
+- **Auditoría** `sale.update_full` con diff antes/después + **motivo obligatorio**
+  para cambios sensibles (ítems, precios, descuentos, total, pagos).
+- **Ajuste de stock por delta** al editar (devolver/consumir por lote, FEFO al
+  agregar productos), igual que el POS.
+
+### Security / Fiscal
+- e-CF real → **bloqueo total** de edición directa (camino: nota de crédito).
+- NCF/número/tipo de documento **nunca** se modifican al editar.
+- DGII real se mantiene apagado (`/api/health` → `dgii:false`).
+
 ## [0.22.0] - 2026-07-01
 
 ### Changed
