@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
@@ -18,9 +19,9 @@ import {
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast";
-import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Trash2, Pencil, Plus } from "lucide-react";
+import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Mail, Trash2, Pencil, Plus } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
-import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
+import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import {
   isInvoiceDocument,
   saleDocumentLabel,
@@ -41,11 +42,10 @@ export default function VentasPage() {
   const pag = usePagination(sales);
   const canEdit = canEditSales(mockCurrentUser.role);
 
-  const handleShareWhatsapp = async (p: Proforma) => {
-    const r = await shareProformaWhatsapp(p);
-    if (r.ok) toast.show("Abriendo WhatsApp con la factura en PDF…", "info");
-    else toast.error(r.error);
-  };
+  const [sendDoc, setSendDoc] = React.useState<{
+    doc: Proforma;
+    tab: "whatsapp" | "email";
+  } | null>(null);
   const total = sales.reduce((s, p) => s + p.total, 0);
   const itbis = sales.reduce((s, p) => s + p.itbis, 0);
   const items = sales.reduce(
@@ -176,7 +176,12 @@ export default function VentasPage() {
                         {
                           label: "Enviar WhatsApp",
                           icon: Send,
-                          onClick: () => handleShareWhatsapp(p),
+                          onClick: () => setSendDoc({ doc: p, tab: "whatsapp" }),
+                        },
+                        {
+                          label: "Enviar por correo",
+                          icon: Mail,
+                          onClick: () => setSendDoc({ doc: p, tab: "email" }),
                         },
                         {
                           label: "Eliminar",
@@ -204,6 +209,13 @@ export default function VentasPage() {
           )}
         </CardContent>
       </Card>
+      <SendInvoiceModal
+        proforma={sendDoc?.doc ?? null}
+        open={sendDoc != null}
+        initialTab={sendDoc?.tab ?? "whatsapp"}
+        onClose={() => setSendDoc(null)}
+      />
+
       <toast.Toast />
     </>
   );

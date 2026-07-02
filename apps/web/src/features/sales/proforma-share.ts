@@ -155,6 +155,70 @@ export function buildWhatsappMessage(p: Proforma, business: Business): string {
   return buildWhatsappShareMessage(p, business);
 }
 
+// ─── Correo ──────────────────────────────────────────────────────────────────
+
+/** Asunto del correo: "Factura B0200001247 - DermaLand" / "Proforma …". */
+export function buildEmailSubject(p: Proforma, business: Business): string {
+  const cls = classifySaleDocument(p);
+  const prefix = cls === "proforma" ? "Proforma" : "Factura";
+  const comercio = business.commercialName || "DermaLand";
+  return `${prefix} ${p.ecfNumber ?? p.number} - ${comercio}`;
+}
+
+/**
+ * Cuerpo del correo con el tipo de documento correcto (B0x NCF nunca menciona
+ * e-CF; e-CF sí; proforma = documento no fiscal) y enlace a la factura.
+ */
+export function buildEmailShareMessage(
+  p: Proforma,
+  business: Business,
+  opts: WhatsappShareOptions = {},
+): string {
+  const cls = classifySaleDocument(p);
+  const cliente = p.customerName || "cliente";
+  const comercio = business.commercialName || "DermaLand";
+  const total = formatCurrency(p.total);
+  const lines: string[] = [`Hola ${cliente},`, ""];
+
+  if (cls === "proforma") {
+    lines.push(
+      `Le compartimos su proforma de ${comercio}:`,
+      "",
+      `Documento: Proforma (no fiscal)`,
+      `Número: ${p.number}`,
+      `Total: ${total}`,
+    );
+  } else if (cls === "ncf") {
+    lines.push(
+      `Gracias por su compra en ${comercio}. Le compartimos su factura:`,
+      "",
+      `Documento: ${saleDocLabelNcf(p)}`,
+      `Comprobante: ${p.ecfNumber ?? p.number}`,
+      `Total: ${total}`,
+    );
+  } else {
+    lines.push(
+      `Le compartimos la representación de su comprobante electrónico:`,
+      "",
+      `Tipo: ${proformaDocLabel(p)}`,
+      `e-NCF: ${p.ecfNumber ?? p.number}`,
+      `Total: ${total}`,
+    );
+  }
+
+  if (opts.pdfUrl) lines.push("", "Ver o descargar su factura:", opts.pdfUrl);
+  if (cls === "proforma") {
+    lines.push("", "Esta proforma no tiene validez fiscal hasta ser facturada.");
+  } else if (cls === "ecf") {
+    lines.push(
+      "",
+      "Nota: Documento en ambiente demo/no fiscal. No se emitió comprobante real ante DGII.",
+    );
+  }
+  lines.push("", ...businessFooter(business));
+  return lines.join("\n");
+}
+
 /**
  * Enlace `https://wa.me/...` válido para compartir el comprobante.
  *

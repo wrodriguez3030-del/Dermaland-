@@ -6,13 +6,14 @@ import {
   ArrowLeft,
   Download,
   FileText,
+  Mail,
   Printer,
   Send,
 } from "lucide-react";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { useProformaDocument } from "@/features/sales/proforma-store";
-import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
+import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import { documentRouteBase, getDocumentDisplayInfo } from "@/features/sales/document-label";
 import { invoiceDisplayTotals } from "@/features/sales/invoice-totals";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
@@ -47,6 +48,7 @@ export function DocumentDetailView({
 }) {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
+  const [send, setSend] = React.useState<"whatsapp" | "email" | null>(null);
   const toast = useToast();
 
   const { proforma, loading } = useProformaDocument(id);
@@ -94,12 +96,6 @@ export function DocumentDetailView({
   // Enrutar impresión por TIPO: facturas → /ventas, proformas → /proformas.
   const printBase = documentRouteBase(proforma);
 
-  const handleShareWhatsapp = async () => {
-    const r = await shareProformaWhatsapp(proforma);
-    if (r.ok) toast.show("Abriendo WhatsApp con el documento en PDF…", "info");
-    else toast.error(r.error);
-  };
-
   const openPrint = (auto = false) => {
     if (typeof window === "undefined") return;
     window.open(
@@ -134,7 +130,11 @@ export function DocumentDetailView({
               </Button>
             </Link>
           )}
-          <Button size="sm" onClick={handleShareWhatsapp}>
+          <Button size="sm" variant="outline" onClick={() => setSend("email")}>
+            <Mail className="h-4 w-4" />
+            Correo
+          </Button>
+          <Button size="sm" onClick={() => setSend("whatsapp")}>
             <Send className="h-4 w-4" />
             Enviar WhatsApp
           </Button>
@@ -321,6 +321,13 @@ export function DocumentDetailView({
           </div>
         </CardContent>
       </Card>
+      <SendInvoiceModal
+        proforma={send ? proforma : null}
+        open={send != null}
+        initialTab={send ?? "whatsapp"}
+        onClose={() => setSend(null)}
+      />
+
       <toast.Toast />
     </div>
   );

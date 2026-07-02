@@ -3,6 +3,8 @@ import {
   buildWhatsappMessage,
   buildWhatsappShareMessage,
   buildWhatsappShareUrl,
+  buildEmailSubject,
+  buildEmailShareMessage,
   isDemoDocument,
   normalizeWhatsappPhone,
   proformaDocLabel,
@@ -167,5 +169,39 @@ describe("whatsappPdfFilename", () => {
         makeProforma({ documentKind: "invoice", ecfNumber: "B0200000123" }),
       ),
     ).toBe("Factura-B0200000123.pdf");
+  });
+});
+
+describe("correo — asunto y cuerpo por tipo de documento", () => {
+  const b02 = makeProforma({ documentKind: "invoice", ecfNumber: "B0200001247", total: 2268 });
+  const e32 = makeProforma({ documentKind: "invoice", ecfType: "32", ecfNumber: "E320000000095" });
+  const prof = makeProforma({ documentKind: "proforma", number: "PROF-000045" });
+
+  it("asunto B02 = 'Factura B02... - DermaLand'", () => {
+    expect(buildEmailSubject(b02, business)).toBe("Factura B0200001247 - DermaLand");
+  });
+
+  it("11. B02 NO menciona e-CF en el correo", () => {
+    const msg = buildEmailShareMessage(b02, business, { pdfUrl: "https://x/print" });
+    expect(msg).toMatch(/Factura de Consumo \(B02\)/);
+    expect(msg).not.toMatch(/e-?CF|e-?NCF/i);
+    expect(msg).toContain("https://x/print");
+  });
+
+  it("12. E32 SÍ menciona e-CF/e-NCF en el correo", () => {
+    const msg = buildEmailShareMessage(e32, business);
+    expect(msg).toMatch(/e-?CF|e-?NCF/i);
+  });
+
+  it("13. Proforma dice documento no fiscal y no lleva NCF", () => {
+    const msg = buildEmailShareMessage(prof, business);
+    expect(msg).toMatch(/no fiscal/i);
+    expect(msg).not.toMatch(/NCF/);
+    expect(buildEmailSubject(prof, business)).toMatch(/^Proforma /);
+  });
+
+  it("3. normaliza teléfono dominicano a 1XXXXXXXXXX", () => {
+    expect(normalizeWhatsappPhone("829-714-1975")).toBe("18297141975");
+    expect(normalizeWhatsappPhone("809 226 5252")).toBe("18092265252");
   });
 });
