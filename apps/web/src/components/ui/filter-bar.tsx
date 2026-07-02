@@ -1,6 +1,15 @@
+"use client";
+
 import * as React from "react";
+import { SlidersHorizontal, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
+/**
+ * Barra de filtros. En escritorio (≥ md) muestra los filtros en línea. En móvil
+ * se colapsan detrás de un botón "Filtros" (44px táctil) para no ocupar la
+ * pantalla; al tocarlo se despliegan apilados. Comportamiento central: aplica a
+ * todas las pantallas que usan FilterBar sin tocarlas una por una.
+ */
 export function FilterBar({
   className,
   children,
@@ -8,14 +17,28 @@ export function FilterBar({
   className?: string;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = React.useState(false);
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-center gap-2 rounded-xl border border-black/5 bg-white p-2",
-        className,
-      )}
-    >
-      {children}
+    <div className={cn("rounded-xl border border-black/5 bg-white", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex h-11 w-full items-center justify-between gap-2 px-3 text-sm font-medium md:hidden"
+      >
+        <span className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4" /> Filtros
+        </span>
+        <ChevronDown className={cn("h-4 w-4 opacity-60 transition-transform", open && "rotate-180")} />
+      </button>
+      <div
+        className={cn(
+          "flex-wrap items-center gap-2 p-2 md:flex",
+          open ? "flex border-t border-black/5 md:border-t-0" : "hidden",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
