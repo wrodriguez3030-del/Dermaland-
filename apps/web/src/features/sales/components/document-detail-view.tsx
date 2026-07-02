@@ -13,8 +13,8 @@ import { Badge, Button, Card, CardContent } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { useProformaDocument } from "@/features/sales/proforma-store";
 import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
-import { isDemoDocument, proformaDocLabel } from "@/features/sales/proforma-share";
-import { documentRouteBase } from "@/features/sales/document-label";
+import { documentRouteBase, getDocumentDisplayInfo } from "@/features/sales/document-label";
+import { invoiceDisplayTotals } from "@/features/sales/invoice-totals";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
@@ -88,8 +88,9 @@ export function DocumentDetailView({
     );
   }
 
-  const demo = isDemoDocument(proforma);
-  const docLabel = proformaDocLabel(proforma);
+  const doc = getDocumentDisplayInfo(proforma);
+  const demo = doc.showDemoBanner;
+  const totals = invoiceDisplayTotals(proforma);
   // Enrutar impresión por TIPO: facturas → /ventas, proformas → /proformas.
   const printBase = documentRouteBase(proforma);
 
@@ -125,7 +126,7 @@ export function DocumentDetailView({
             <Download className="h-4 w-4" />
             Descargar PDF
           </Button>
-          {proforma.documentKind === "invoice" && (
+          {doc.isElectronic && (
             <Link href={`/dgii/preview/${proforma.id}`}>
               <Button size="sm" variant="outline">
                 <FileText className="h-4 w-4" />
@@ -168,12 +169,12 @@ export function DocumentDetailView({
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs uppercase tracking-wider opacity-50">
-                {docLabel}
+              <div className="text-sm font-bold leading-tight">{doc.title}</div>
+              <div className="text-xs opacity-70">{doc.subtitle}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-wider opacity-50">
+                {doc.numberLabel}
               </div>
-              <div className="font-mono text-sm font-semibold">
-                {proforma.ecfNumber ?? proforma.number}
-              </div>
+              <div className="font-mono text-sm font-semibold">{doc.number}</div>
               <div className="text-xs opacity-60">
                 {formatDateTime(proforma.createdAt)}
               </div>
@@ -182,8 +183,18 @@ export function DocumentDetailView({
 
           {demo && (
             <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              <strong>DEMO · sin validez fiscal.</strong> Este documento aún no
-              ha sido convertido a comprobante fiscal electrónico (e-CF).
+              {doc.cls === "proforma" ? (
+                <>
+                  <strong>PROFORMA · sin validez fiscal.</strong> Este documento no
+                  es un comprobante fiscal.
+                </>
+              ) : (
+                <>
+                  <strong>Ambiente demo · sin validez fiscal.</strong> Representación
+                  de e-CF en ambiente de pruebas; no se emitió comprobante real ante
+                  la DGII.
+                </>
+              )}
             </div>
           )}
 
@@ -247,19 +258,22 @@ export function DocumentDetailView({
           </div>
 
           <div className="mt-4 ml-auto max-w-xs space-y-1 text-sm">
-            <Row label="Subtotal" value={formatCurrency(proforma.subtotal)} />
-            {proforma.discount > 0 && (
+            <Row label="Subtotal" value={formatCurrency(totals.grossInclusive)} />
+            {totals.discountInclusive > 0 && (
               <Row
                 label={`Descuento${
-                  proforma.discountPercent ? ` (${proforma.discountPercent}%)` : ""
+                  totals.discountPercent ? ` (${totals.discountPercent}%)` : ""
                 }`}
-                value={`- ${formatCurrency(proforma.discount)}`}
+                value={`- ${formatCurrency(totals.discountInclusive)}`}
               />
             )}
-            <Row label="ITBIS" value={formatCurrency(proforma.itbis)} />
+            <Row
+              label="ITBIS (18% incluido)"
+              value={formatCurrency(totals.itbisIncluded)}
+            />
             <div className="flex items-center justify-between border-t border-black/10 pt-1 text-base font-bold">
               <span>Total</span>
-              <span className="tabular-nums">{formatCurrency(proforma.total)}</span>
+              <span className="tabular-nums">{formatCurrency(totals.total)}</span>
             </div>
           </div>
 

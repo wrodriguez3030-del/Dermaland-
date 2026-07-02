@@ -6,6 +6,7 @@ import { mockBusiness, getBranchById } from "@/lib/mock-data/tenancy";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import { billingTypeLabel } from "@/features/customers/billing";
 import { getDocumentPrintContext } from "@/features/sales/document-print-context";
+import { invoiceDisplayTotals } from "@/features/sales/invoice-totals";
 import { cn } from "@/lib/utils/cn";
 
 interface Receipt80mmProps {
@@ -49,6 +50,7 @@ export function Receipt80mm({
   // Contexto de impresión: decide qué datos fiscales se muestran. Una factura
   // NCF tradicional NUNCA muestra datos e-CF; la proforma no muestra nada fiscal.
   const ctx = getDocumentPrintContext(proforma);
+  const rcptTotals = invoiceDisplayTotals(proforma);
   // Código de seguridad DEMO: derivado determinísticamente del número + total.
   // NO es un código fiscal real (mock/demo no firma con cert real). Solo e-CF.
   const demoSecurityCode = ctx.showSecurityCode
@@ -200,21 +202,21 @@ export function Receipt80mm({
 
       <Separator />
 
-      {/* RESUMEN */}
-      <Row label="Subtotal" value={formatCurrency(proforma.subtotal)} />
-      {proforma.discountPercent != null && proforma.discountPercent > 0 && (
-        <>
-          <Row
-            label={`Descuento global (${proforma.discountPercent}%)`}
-            value={`-${formatCurrency(proforma.discountAmount ?? 0)}`}
-          />
-        </>
+      {/* RESUMEN — inclusivo y consistente con las líneas (precios con ITBIS). */}
+      <Row label="Subtotal" value={formatCurrency(rcptTotals.grossInclusive)} />
+      {rcptTotals.discountInclusive > 0 && (
+        <Row
+          label={`Descuento${
+            rcptTotals.discountPercent ? ` (${rcptTotals.discountPercent}%)` : ""
+          }`}
+          value={`-${formatCurrency(rcptTotals.discountInclusive)}`}
+        />
       )}
-      <Row label="ITBIS" value={formatCurrency(proforma.itbis)} />
+      <Row label="ITBIS (18% incl.)" value={formatCurrency(rcptTotals.itbisIncluded)} />
       <div className="mt-1 grid grid-cols-[1fr_auto] text-[13px] font-bold">
         <span>TOTAL</span>
         <span className="text-right tabular-nums">
-          {formatCurrency(proforma.total)}
+          {formatCurrency(rcptTotals.total)}
         </span>
       </div>
 
