@@ -96,7 +96,7 @@ import {
 } from "@/lib/mock-data/integrations";
 import { daysUntil } from "@/lib/utils/format";
 import { nextSkuFromSkus, nextSkuAfter } from "@/features/products/product-sku";
-import { recalcInvoice, lineFromSaleItem } from "@/features/sales/invoice-edit";
+import { recalcInvoice, lineFromSaleItem, isSafeEditStatus } from "@/features/sales/invoice-edit";
 import type {
   SupplierInvoiceRepository,
   ExpenseRepository,
@@ -974,6 +974,13 @@ const proforma: ProformaRepository = {
     if (patch.customerDocument !== undefined)
       overlay.customerDocument = patch.customerDocument ?? undefined;
     if (patch.notes !== undefined) overlay.notes = patch.notes ?? undefined;
+    if (patch.cashierName !== undefined) overlay.cashierName = patch.cashierName;
+    if (patch.status !== undefined && isSafeEditStatus(patch.status)) overlay.status = patch.status;
+    if (patch.emittedAt !== undefined && patch.emittedAt) {
+      const t = new Date(patch.emittedAt).getTime();
+      if (!Number.isNaN(t)) overlay.createdAt = new Date(t).toISOString();
+    }
+    if (patch.billingType !== undefined) overlay.billingType = patch.billingType ?? undefined;
     proformaPatches[id] = { ...proformaPatches[id], ...overlay };
     return mockProformasView(ctx.businessId).find((p) => p.id === id)!;
   },

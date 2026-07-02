@@ -332,6 +332,13 @@ export interface ProformaFullEditPatch extends ProformaEditPatch {
   payments: Payment[];
   /** Descuento global en % (0–100). */
   discountPercent?: number;
+  /** Datos operativos: cajero, estado (solo estados no fiscales). */
+  cashierName?: string;
+  status?: Proforma["status"];
+  /** Fecha de emisión (ISO). Requiere permiso admin (validado en el servidor). */
+  emittedAt?: string;
+  /** Tipo de facturación (consumo/crédito fiscal). Solo si NO emitido. */
+  billingType?: Proforma["billingType"];
 }
 
 export interface CashRegisterRepository {

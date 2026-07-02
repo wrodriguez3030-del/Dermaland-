@@ -266,6 +266,42 @@ describe("diffInvoiceForAudit", () => {
   });
 });
 
+describe("campos operativos (cajero, estado, fecha, tipo)", () => {
+  it("cambiar cajero es sensible y se audita", () => {
+    const p = proforma();
+    const d = draft({ cashierName: "Otro Cajero" });
+    expect(isSensitiveChange(p, d)).toBe(true);
+    expect(diffInvoiceForAudit(p, d).cashierName).toEqual({
+      before: "Rosa",
+      after: "Otro Cajero",
+    });
+  });
+
+  it("cambiar estado a un valor no seguro es inválido", () => {
+    const errs = validateInvoiceDraft(draft({ status: "converted_to_ecf" }));
+    expect(errs.some((e) => e.includes("estado"))).toBe(true);
+  });
+
+  it("cambiar estado a un valor seguro es válido y sensible", () => {
+    const p = proforma({ status: "paid" });
+    const d = draft({ status: "partially_paid" });
+    expect(validateInvoiceDraft(d)).toEqual([]);
+    expect(isSensitiveChange(p, d)).toBe(true);
+    expect(diffInvoiceForAudit(p, d).status).toEqual({ before: "paid", after: "partially_paid" });
+  });
+
+  it("fecha de emisión inválida es rechazada", () => {
+    const errs = validateInvoiceDraft(draft({ emittedAt: "no-es-fecha" }));
+    expect(errs.some((e) => e.includes("fecha de emisión"))).toBe(true);
+  });
+
+  it("cambiar tipo de facturación es sensible", () => {
+    const p = proforma({ billingType: "consumo" });
+    const d = draft({ billingType: "credito_fiscal" });
+    expect(isSensitiveChange(p, d)).toBe(true);
+  });
+});
+
 describe("draftFromProforma / lineFromSaleItem (round-trip)", () => {
   it("reconstruye el descuento inclusivo de una línea", () => {
     const it = saleItem({ unitPrice: 118, quantity: 1, total: 100 });

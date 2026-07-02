@@ -41,6 +41,7 @@ import {
   validateInvoiceDraft,
   isSensitiveChange,
   stockDeltasForEdit,
+  SAFE_EDIT_STATUSES,
   type InvoiceEditDraft,
   type InvoiceEditLine,
 } from "@/features/sales/invoice-edit";
@@ -51,10 +52,10 @@ import {
   sellableStockForBranch,
 } from "@/features/inventory/lot-store";
 import { useProducts } from "@/features/products/product-store";
-import { canEditSales } from "@/features/billing/permissions";
+import { canEditSales, isBillingAdmin } from "@/features/billing/permissions";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
-import type { Payment, PaymentMethod, Proforma } from "@/types";
+import type { DefaultBillingType, Payment, PaymentMethod, Proforma, ProformaStatus } from "@/types";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Efectivo" },
@@ -67,6 +68,29 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "manual", label: "Manual" },
   { value: "other", label: "Otro" },
 ];
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Borrador",
+  issued: "Emitida",
+  paid: "Pagada",
+  partially_paid: "Pago parcial",
+  pending_ecf: "Pendiente e-CF",
+  converted_to_ecf: "Convertida a e-CF",
+  cancelled: "Anulada",
+  expired: "Vencida",
+};
+
+const BILLING_TYPE_LABELS: Record<DefaultBillingType, string> = {
+  consumo: "Factura de consumo (B02)",
+  credito_fiscal: "Crédito fiscal (B01)",
+};
+
+/** ISO → valor de <input type="date"> (YYYY-MM-DD, en UTC). */
+function isoToDateInput(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
 
 /**
  * Editar factura / venta — edición SEGURA y COMPLETA (cliente, ítems,
@@ -174,6 +198,9 @@ export default function EditarVentaPage() {
   const blocked = !editability.editable || !canEdit;
   const doc = getDocumentDisplayInfo(proforma);
   const branchId = proforma.branchId;
+  const admin = isBillingAdmin(mockCurrentUser.role);
+  // Emitido fiscalmente (NCF asignado) → NO se cambia el tipo B02↔B01 aquí.
+  const isEmittedFiscal = proforma.documentKind === "invoice";
 
   const totals = recalcInvoice(draft);
   const sensitive = isSensitiveChange(original, draft);
@@ -285,6 +312,10 @@ export default function EditarVentaPage() {
         items: recomputed.items,
         payments: paymentsForPatch,
         discountPercent: draft.globalDiscountPercent,
+        cashierName: draft.cashierName?.trim() || proforma.cashierName,
+        status: admin ? draft.status : undefined,
+        emittedAt: admin ? draft.emittedAt : undefined,
+        billingType: isEmittedFiscal ? undefined : draft.billingType,
       },
       reason.trim(),
     );
@@ -404,16 +435,102 @@ export default function EditarVentaPage() {
           </CardContent>
         </Card>
 
-        {/* Documento (solo lectura fiscal) */}
+        {/* Documento */}
         <Card>
           <CardHeader><CardTitle>Documento</CardTitle></CardHeader>
-          <CardContent className="grid gap-3 text-sm sm:grid-cols-3">
-            <ReadonlyField label="Tipo" value={doc.title} />
-            <ReadonlyField label={doc.numberLabel} value={doc.number} />
-            <ReadonlyField label="Emisión" value={formatDateTime(proforma.createdAt)} />
-            <p className="sm:col-span-3 text-xs opacity-60">
-              El tipo de documento y el número de comprobante no se editan (blindaje
-              fiscal). Para cambiarlos se requiere anulación o nota de crédito.
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <ReadonlyField label="Tipo de documento" value={doc.title} />
+              <ReadonlyField label={doc.numberLabel} value={doc.number} />
+              <div>
+                <Label className="text-xs">Cajero</Label>
+                <Input
+                  value={draft.cashierName ?? ""}
+                  onChange={(e) => patchDraft({ cashierName: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {/* Fecha de emisión — solo admin */}
+              <div>
+                <Label className="text-xs">Fecha de emisión</Label>
+                {admin ? (
+                  <Input
+                    type="date"
+                    value={isoToDateInput(draft.emittedAt)}
+                    onChange={(e) =>
+                      patchDraft({
+                        emittedAt: e.target.value
+                          ? new Date(`${e.target.value}T12:00:00Z`).toISOString()
+                          : proforma.createdAt,
+                      })
+                    }
+                  />
+                ) : (
+                  <div className="flex h-9 items-center rounded-md border border-black/10 bg-black/[0.02] px-2 text-sm">
+                    {formatDateTime(proforma.createdAt)}
+                  </div>
+                )}
+              </div>
+
+              {/* Estado — solo admin, subconjunto no fiscal */}
+              <div>
+                <Label className="text-xs">Estado</Label>
+                {admin ? (
+                  <select
+                    className="h-9 w-full rounded-md border border-black/10 bg-white px-2 text-sm"
+                    value={draft.status}
+                    onChange={(e) => patchDraft({ status: e.target.value as ProformaStatus })}
+                  >
+                    {SAFE_EDIT_STATUSES.map((s) => (
+                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                    ))}
+                    {/* Estado fiscal actual (no editable) mostrado como referencia. */}
+                    {draft.status && !SAFE_EDIT_STATUSES.includes(draft.status) && (
+                      <option value={draft.status} disabled>
+                        {STATUS_LABELS[draft.status] ?? draft.status}
+                      </option>
+                    )}
+                  </select>
+                ) : (
+                  <div className="flex h-9 items-center rounded-md border border-black/10 bg-black/[0.02] px-2 text-sm">
+                    {STATUS_LABELS[proforma.status] ?? proforma.status}
+                  </div>
+                )}
+              </div>
+
+              {/* Tipo de facturación — solo si NO emitido fiscalmente */}
+              <div>
+                <Label className="text-xs">Tipo de facturación</Label>
+                {isEmittedFiscal ? (
+                  <div className="flex h-9 items-center rounded-md border border-black/10 bg-black/[0.02] px-2 text-xs">
+                    {draft.billingType ? BILLING_TYPE_LABELS[draft.billingType] : "—"}
+                  </div>
+                ) : (
+                  <select
+                    className="h-9 w-full rounded-md border border-black/10 bg-white px-2 text-sm"
+                    value={draft.billingType ?? ""}
+                    onChange={(e) =>
+                      patchDraft({
+                        billingType: (e.target.value || undefined) as DefaultBillingType | undefined,
+                      })
+                    }
+                  >
+                    <option value="">—</option>
+                    <option value="consumo">{BILLING_TYPE_LABELS.consumo}</option>
+                    <option value="credito_fiscal">{BILLING_TYPE_LABELS.credito_fiscal}</option>
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs opacity-60">
+              El número de comprobante y el tipo de documento no se editan (blindaje
+              fiscal). {isEmittedFiscal
+                ? "El tipo de facturación (B02↔B01) de una factura ya emitida se corrige con nota de crédito."
+                : "El tipo de facturación aplica al convertir/facturar la proforma."}
+              {!admin && " La fecha de emisión y el estado solo los edita un administrador."}
             </p>
           </CardContent>
         </Card>

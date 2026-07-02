@@ -35,7 +35,11 @@ import {
   toDbMoney,
   toDbMoneyNullable,
 } from "./sanitize";
-import { recalcInvoice, lineFromSaleItem } from "@/features/sales/invoice-edit";
+import {
+  recalcInvoice,
+  lineFromSaleItem,
+  isSafeEditStatus,
+} from "@/features/sales/invoice-edit";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -391,6 +395,17 @@ export const proformaRepository: ProformaRepository = {
     if (patch.customerDocument !== undefined)
       headerRow.customer_document = patch.customerDocument ?? null;
     if (patch.notes !== undefined) headerRow.notes = patch.notes ?? null;
+    // Datos operativos. `status` solo estados NO fiscales (blindaje: la
+    // conversión e-CF y la anulación tienen sus propios flujos).
+    if (patch.cashierName !== undefined) headerRow.cashier_name = patch.cashierName;
+    if (patch.status !== undefined && isSafeEditStatus(patch.status)) {
+      headerRow.status = patch.status;
+    }
+    if (patch.emittedAt !== undefined && patch.emittedAt) {
+      const t = new Date(patch.emittedAt).getTime();
+      if (!Number.isNaN(t)) headerRow.created_at = new Date(t).toISOString();
+    }
+    if (patch.billingType !== undefined) headerRow.billing_type = patch.billingType ?? null;
 
     const { data: header, error: hErr } = await sb
       .from("proformas")

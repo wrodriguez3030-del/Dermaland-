@@ -11,6 +11,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.33.0] - 2026-07-02
+
+### Added
+- Edición de factura — **campos operativos pendientes**: **cajero**, **fecha de
+  emisión** (solo admin), **estado** (subconjunto no fiscal: borrador / emitida /
+  pagada / pago parcial) y **tipo de facturación** (consumo B02 / crédito fiscal
+  B01, editable solo en documentos NO emitidos). Persisten en `updateFull`
+  (Supabase + mock) con recálculo y auditoría; cambios sensibles siguen exigiendo
+  motivo. +5 tests (44 del módulo de edición).
+
+### Security / Fiscal
+- Fecha de emisión y estado gateados a **admin** (servidor = fuente de verdad).
+- Estados fiscales (`pending_ecf`, `converted_to_ecf`, `cancelled`, `expired`)
+  **no** se fijan al editar (tienen sus propios flujos).
+- **B02↔B01 bloqueado** en facturas emitidas → nota de crédito (recomendación del
+  spec). NCF/número/tipo de documento siguen intactos. DGII real apagado.
+
 ## [0.32.0] - 2026-07-02
 
 ### Added

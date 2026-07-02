@@ -13,8 +13,8 @@ import {
   lineFromSaleItem,
   type InvoiceEditDraft,
 } from "@/features/sales/invoice-edit";
-import { canEditSales } from "@/features/billing/permissions";
-import type { Payment, SaleItem } from "@/types";
+import { canEditSales, isBillingAdmin } from "@/features/billing/permissions";
+import type { DefaultBillingType, Payment, ProformaStatus, SaleItem } from "@/types";
 
 // C4: helper para mapear errores de autenticación a 401 vs errores genéricos a 400.
 function errorStatus(e: unknown): 400 | 401 {
@@ -194,9 +194,22 @@ export async function PATCH(
         items?: SaleItem[];
         payments?: Payment[];
         discountPercent?: number;
+        cashierName?: string;
+        status?: ProformaStatus;
+        emittedAt?: string;
+        billingType?: DefaultBillingType;
       };
       const items = Array.isArray(raw.items) ? raw.items : [];
       const payments = Array.isArray(raw.payments) ? raw.payments : [];
+
+      // Gating de campos operativos/fiscales (servidor = fuente de verdad):
+      //  - fecha de emisión y estado: solo ADMIN.
+      //  - tipo de facturación (B02↔B01): solo documentos NO emitidos (proforma).
+      const admin = isBillingAdmin(session.user.role);
+      const emittedAt = admin ? raw.emittedAt : undefined;
+      const status = admin ? raw.status : undefined;
+      const isEmittedFiscal = current.documentKind === "invoice";
+      const billingType = isEmittedFiscal ? undefined : raw.billingType;
       if (items.length === 0) {
         return NextResponse.json(
           { error: "La factura debe tener al menos un producto." },
@@ -218,6 +231,10 @@ export async function PATCH(
           reference: p.reference,
           last4: p.last4,
         })),
+        cashierName: raw.cashierName,
+        status,
+        emittedAt,
+        billingType,
       };
       const reason = (body.reason ?? "").trim();
       if (isSensitiveChange(current, draft) && !reason) {
@@ -235,6 +252,10 @@ export async function PATCH(
         items,
         payments,
         discountPercent: raw.discountPercent,
+        cashierName: raw.cashierName,
+        status,
+        emittedAt,
+        billingType,
       });
 
       try {

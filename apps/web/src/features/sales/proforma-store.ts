@@ -309,6 +309,10 @@ export interface FullInvoicePatch {
   items: SaleItem[];
   payments: Payment[];
   discountPercent?: number;
+  cashierName?: string;
+  status?: Proforma["status"];
+  emittedAt?: string;
+  billingType?: Proforma["billingType"];
 }
 
 /**
@@ -387,6 +391,10 @@ export async function updateProformaFullAnywhere(
     discountPercent: recomputed.discountPercent,
     paid: recomputed.paid,
     balance: recomputed.balance,
+    ...(patch.cashierName !== undefined ? { cashierName: patch.cashierName } : {}),
+    ...(patch.status !== undefined ? { status: patch.status } : {}),
+    ...(patch.emittedAt ? { createdAt: patch.emittedAt } : {}),
+    ...(patch.billingType !== undefined ? { billingType: patch.billingType } : {}),
     updatedAt: new Date().toISOString(),
   };
   list[idx] = next;

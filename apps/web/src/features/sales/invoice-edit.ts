@@ -15,7 +15,13 @@
  * el ajuste de stock viven en el store/servidor.
  */
 
-import type { Payment, Proforma, SaleItem } from "@/types";
+import type {
+  DefaultBillingType,
+  Payment,
+  Proforma,
+  ProformaStatus,
+  SaleItem,
+} from "@/types";
 import {
   cartTotals,
   lineAmounts,
@@ -25,6 +31,22 @@ import {
 
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Estados que la edición operativa puede fijar. Los estados FISCALES
+ * (`pending_ecf`, `converted_to_ecf`, `cancelled`, `expired`) se gestionan por
+ * sus propios flujos (conversión e-CF / anulación) y NO se tocan al editar.
+ */
+export const SAFE_EDIT_STATUSES: ProformaStatus[] = [
+  "draft",
+  "issued",
+  "paid",
+  "partially_paid",
+];
+
+export function isSafeEditStatus(s: unknown): s is ProformaStatus {
+  return typeof s === "string" && (SAFE_EDIT_STATUSES as string[]).includes(s);
 }
 
 /** Línea editable de la factura (descuento como MONTO inclusivo RD$). */
@@ -61,6 +83,14 @@ export interface InvoiceEditDraft {
   /** Descuento global en % (0–100). */
   globalDiscountPercent: number;
   payments: InvoiceEditPayment[];
+  /** Nombre del cajero (dato operativo). */
+  cashierName?: string;
+  /** Estado operativo (solo `SAFE_EDIT_STATUSES`). */
+  status?: ProformaStatus;
+  /** Fecha de emisión (ISO). Editable solo con permiso admin. */
+  emittedAt?: string;
+  /** Tipo de facturación (consumo/crédito fiscal). Editable solo si NO emitido. */
+  billingType?: DefaultBillingType;
 }
 
 /** Totales recalculados + ítems normalizados listos para persistir. */
@@ -167,6 +197,10 @@ export function draftFromProforma(p: Proforma): InvoiceEditDraft {
       reference: pay.reference,
       last4: pay.last4,
     })),
+    cashierName: p.cashierName ?? "",
+    status: p.status,
+    emittedAt: p.createdAt,
+    billingType: p.billingType,
   };
 }
 
@@ -217,6 +251,15 @@ export function validateInvoiceDraft(
 
   if (draft.globalDiscountPercent < 0 || draft.globalDiscountPercent > 100) {
     errors.push("El descuento global debe estar entre 0% y 100%.");
+  }
+
+  if (draft.status !== undefined && !isSafeEditStatus(draft.status)) {
+    errors.push("El estado seleccionado no es válido para edición.");
+  }
+
+  if (draft.emittedAt !== undefined && draft.emittedAt !== null) {
+    const t = new Date(draft.emittedAt).getTime();
+    if (Number.isNaN(t)) errors.push("La fecha de emisión no es válida.");
   }
 
   // Validación de stock por lote: el aumento neto no puede superar lo disponible.
@@ -341,6 +384,19 @@ export function isSensitiveChange(
   ) {
     return true;
   }
+  // Datos operativos/fiscales sensibles.
+  if (draft.cashierName !== undefined && draft.cashierName.trim() !== (original.cashierName ?? "")) {
+    return true;
+  }
+  if (draft.status !== undefined && draft.status !== original.status) return true;
+  if (draft.billingType !== undefined && draft.billingType !== original.billingType) return true;
+  if (
+    draft.emittedAt !== undefined &&
+    draft.emittedAt &&
+    new Date(draft.emittedAt).getTime() !== new Date(original.createdAt).getTime()
+  ) {
+    return true;
+  }
   return false;
 }
 
@@ -376,6 +432,13 @@ export function diffInvoiceForAudit(
   cmp("total", original.total, recalculated.total);
   cmp("discount", original.discount, recalculated.discount);
   cmp("itbis", original.itbis, recalculated.itbis);
+  if (draft.cashierName !== undefined)
+    cmp("cashierName", original.cashierName ?? null, draft.cashierName.trim() || null);
+  if (draft.status !== undefined) cmp("status", original.status, draft.status);
+  if (draft.billingType !== undefined)
+    cmp("billingType", original.billingType ?? null, draft.billingType ?? null);
+  if (draft.emittedAt !== undefined && draft.emittedAt)
+    cmp("emittedAt", original.createdAt, draft.emittedAt);
 
   if (itemsSignature(original.items) !== itemsSignature(recalculated.items)) {
     changes.items = {
