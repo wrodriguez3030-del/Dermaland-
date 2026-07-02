@@ -3,6 +3,7 @@
 import * as React from "react";
 import { AlertTriangle, Plus, Trash2, FileText, Wallet, Repeat } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
+import { SupplierSelect } from "@/features/purchases/components/supplier-select";
 import { useToast } from "@/components/ui/toast";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { mockProducts } from "@/lib/mock-data/catalog";
@@ -346,6 +347,8 @@ export function InvoiceModal({ open, onClose }: { open: boolean; onClose: () => 
   const [rows, setRows] = React.useState<Row[]>([emptyRow()]);
   const [notes, setNotes] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  const [submitted, setSubmitted] = React.useState(false);
+  const supplierMissing = submitted && !supplierName.trim();
 
   if (!open) return null;
 
@@ -358,6 +361,11 @@ export function InvoiceModal({ open, onClose }: { open: boolean; onClose: () => 
   );
 
   const submit = async () => {
+    setSubmitted(true);
+    if (!supplierName.trim()) {
+      setError("Selecciona o crea un proveedor.");
+      return;
+    }
     const items: SupplierInvoiceItem[] = rows
       .filter((r) => (r.name.trim() || r.productId) && Number(r.quantity) > 0)
       .map((r) => {
@@ -399,8 +407,17 @@ export function InvoiceModal({ open, onClose }: { open: boolean; onClose: () => 
       <Err error={error} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Label>Proveedor *</Label>
-          <Input value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
+          <Label>
+            Proveedor <span className="text-rose-600">*</span>
+          </Label>
+          <SupplierSelect
+            value={supplierName}
+            onChange={setSupplierName}
+            invalid={supplierMissing}
+          />
+          {supplierMissing && (
+            <p className="mt-1 text-xs text-rose-600">Selecciona o crea un proveedor.</p>
+          )}
         </div>
         <div>
           <Label>RNC / cédula</Label>
