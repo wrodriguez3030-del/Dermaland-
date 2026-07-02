@@ -10,6 +10,7 @@ import {
   saveProduct,
   deleteProductAnywhere,
   setProductActiveAnywhere,
+  missingCreateProductFields,
   PRODUCT_BACKEND,
 } from "./product-store";
 import { mockProducts } from "@/lib/mock-data/catalog";
@@ -44,6 +45,19 @@ describe("product-store CRUD", () => {
     const r = createProduct({ sku: "", name: "Crema auto", price: 100 });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.product.sku).toMatch(/^DERM-\d{6}$/);
+  });
+
+  it("missingCreateProductFields: NUNCA exige sku (regresión bug supabase); solo name/price", () => {
+    // Regresión: la ruta de servidor exigía sku y bloqueaba SIEMPRE la creación
+    // en producción ("Complete los campos requeridos.") con SKU vacío.
+    expect(missingCreateProductFields({ name: "Crema", price: 100 })).toEqual([]);
+    expect(missingCreateProductFields({ name: "", price: NaN as number })).toEqual([
+      "name",
+      "price",
+    ]);
+    expect(missingCreateProductFields({ name: "", price: NaN as number })).not.toContain("sku");
+    // ITBIS 0 / precio 0 no son "missing" (0 es válido, no null/NaN).
+    expect(missingCreateProductFields({ name: "Gratis", price: 0 })).toEqual([]);
   });
 
   it("rechaza alta sin campos requeridos (nombre/precio), NO por SKU", () => {

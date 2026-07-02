@@ -49,6 +49,18 @@ interface ProductFormProps {
   product?: Product;
 }
 
+/** Etiquetas legibles de los campos requeridos para la lista de faltantes. */
+const FIELD_LABELS: Record<string, string> = {
+  name: "Nombre comercial",
+  price: "Precio venta",
+  itbisRate: "ITBIS",
+  unit: "Unidad",
+  branchId: "Sucursal (lote inicial)",
+  lotNumber: "Número de lote",
+  initialQuantity: "Cantidad inicial",
+  expiresAt: "Fecha de vencimiento",
+};
+
 /**
  * Formulario único de producto, usado tanto para crear como para editar.
  *
@@ -215,8 +227,17 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         setSubmitting(false);
         if (result.missingFields?.length) {
           setMissing(new Set(result.missingFields));
+          setTimeout(() => {
+            const el = formRef.current?.querySelector<HTMLElement>(".border-rose-500");
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              el.focus?.();
+            }
+          }, 60);
         }
-        setErrorBanner(result.error);
+        setErrorBanner(
+          result.missingFields?.length ? "Completa los campos marcados." : result.error,
+        );
         return;
       }
       // Lote inicial opcional.
@@ -311,7 +332,16 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       {errorBanner && (
         <div className="mb-4 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900">
           <AlertTriangle className="mt-0.5 h-5 w-5" />
-          <div className="text-sm">{errorBanner}</div>
+          <div className="text-sm">
+            <div>{errorBanner}</div>
+            {missing.size > 0 && (
+              <ul className="mt-1 list-disc pl-5 text-xs">
+                {[...missing].map((k) => (
+                  <li key={k}>{FIELD_LABELS[k] ?? k}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 

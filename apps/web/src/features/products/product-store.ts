@@ -113,11 +113,23 @@ function generateId(): string {
   return `prod_${ts}_${rand}`;
 }
 
-export function createProduct(input: CreateProductInput): CreateProductResult {
+/**
+ * Campos REQUERIDOS para crear un producto (única fuente de verdad, usada por la
+ * ruta local y la de servidor). El SKU NO es requerido: lo genera el sistema
+ * (secuencial). ITBIS y Unidad tienen valores por defecto en el payload, así que
+ * el bloqueo real solo es Nombre y Precio.
+ */
+export function missingCreateProductFields(
+  input: Pick<CreateProductInput, "name" | "price">,
+): string[] {
   const missing: string[] = [];
-  // El SKU NO es requerido: lo genera el sistema automáticamente (secuencial).
   if (!input.name?.trim()) missing.push("name");
   if (input.price == null || Number.isNaN(input.price)) missing.push("price");
+  return missing;
+}
+
+export function createProduct(input: CreateProductInput): CreateProductResult {
+  const missing = missingCreateProductFields(input);
   if (missing.length > 0) {
     return {
       ok: false,
@@ -274,10 +286,11 @@ function createInputToServerPayload(input: CreateProductInput) {
 }
 
 async function createProductOnServer(input: CreateProductInput): Promise<CreateProductResult> {
-  const missing: string[] = [];
-  if (!input.sku?.trim()) missing.push("sku");
-  if (!input.name?.trim()) missing.push("name");
-  if (input.price == null || Number.isNaN(input.price)) missing.push("price");
+  // Mismo validador que la ruta local. El SKU NO es requerido: lo genera el
+  // sistema (secuencial, server-side). Antes esta ruta (supabase) exigía SKU y
+  // bloqueaba SIEMPRE la creación en producción con "Complete los campos
+  // requeridos." porque el form envía SKU vacío en modo crear.
+  const missing = missingCreateProductFields(input);
   if (missing.length) return { ok: false, error: "Complete los campos requeridos.", missingFields: missing };
   try {
     const res = await fetch("/api/products", {
