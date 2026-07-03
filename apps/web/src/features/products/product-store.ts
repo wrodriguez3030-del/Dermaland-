@@ -61,13 +61,35 @@ function readDeleted(): Set<string> {
 
 // ─── Lectura ────────────────────────────────────────────────────────────────
 
+// Cache de lectura: re-parsear y mapear todo el seed en cada evento (y por
+// cada hook montado) es costoso. Se reutiliza el resultado mientras las claves
+// crudas de localStorage no cambien (cubre también escrituras directas sin
+// eventos: tests, otras pestañas).
+
+let productsCache: { raw: (string | null)[]; value: Product[] } | null = null;
+
+function rawItem(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 export function listAllProducts(): Product[] {
+  const canCache = typeof window !== "undefined";
+  const raw = canCache ? [KEY_NEW, KEY_OVERRIDES, KEY_DELETED].map(rawItem) : [];
+  if (canCache && productsCache && raw.every((r, i) => r === productsCache!.raw[i])) {
+    return productsCache.value;
+  }
   const overrides = readOverrides();
   const deleted = readDeleted();
   const seedWithOverrides = mockProducts.map((p) =>
     overrides[p.id] ? { ...p, ...overrides[p.id] } : p,
   );
-  return [...seedWithOverrides, ...readNew()].filter((p) => !deleted.has(p.id));
+  const value = [...seedWithOverrides, ...readNew()].filter((p) => !deleted.has(p.id));
+  if (canCache) productsCache = { raw, value };
+  return value;
 }
 
 export function getProductByIdFromStore(id: string): Product | undefined {

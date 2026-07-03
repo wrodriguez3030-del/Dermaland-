@@ -32,12 +32,8 @@ import {
   computeLabProductSales,
   summarizeLabSales,
 } from "@/features/products/lab-sales";
-import {
-  labSalesXlsxBytes,
-  buildLabSalesCsv,
-  labSalesFilename,
-  type LabSalesMeta,
-} from "@/features/products/lab-sales-export";
+// El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
+import type { LabSalesMeta } from "@/features/products/lab-sales-export";
 import {
   useLaboratoriesList,
   saveLaboratory,
@@ -119,8 +115,11 @@ export default function LaboratoriosPage() {
     searchLabel: q.trim() || "—",
   });
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     try {
+      const { labSalesXlsxBytes, labSalesFilename } = await import(
+        "@/features/products/lab-sales-export"
+      );
       const productRows = computeLabProductSales(labs, products, proformas, salesFilters);
       downloadBlob(
         labSalesFilename("xlsx", new Date().toISOString().slice(0, 10)),
@@ -133,8 +132,11 @@ export default function LaboratoriosPage() {
     }
   };
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     try {
+      const { buildLabSalesCsv, labSalesFilename } = await import(
+        "@/features/products/lab-sales-export"
+      );
       downloadBlob(
         labSalesFilename("csv", new Date().toISOString().slice(0, 10)),
         buildLabSalesCsv(rows),

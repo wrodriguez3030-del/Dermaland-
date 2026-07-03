@@ -40,7 +40,6 @@ import {
 } from "@/lib/mock-data/catalog";
 import {
   useAllLots,
-  useInventoryTick,
   sellableStockForBranch,
   totalSellableStock,
 } from "@/features/inventory/lot-store";
@@ -52,23 +51,6 @@ import { NewLotModal } from "@/features/inventory/lot-modals";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
 
-// Lookup de stock compartido con los comparadores (se sincroniza en cada
-// render con el mapa precalculado, para no recorrer todos los lotes por fila).
-const stockLookup = new Map<string, number>();
-const stockOf = (id: string) => stockLookup.get(id) ?? 0;
-
-const comparators = {
-  name: (a: Product, b: Product) => a.name.localeCompare(b.name),
-  sku: (a: Product, b: Product) => a.sku.localeCompare(b.sku),
-  brand: (a: Product, b: Product) => {
-    const an = getBrandById(a.brandId)?.name ?? "";
-    const bn = getBrandById(b.brandId)?.name ?? "";
-    return an.localeCompare(bn);
-  },
-  stock: (a: Product, b: Product) => stockOf(a.id) - stockOf(b.id),
-  price: (a: Product, b: Product) => a.price - b.price,
-};
-
 type StatusFilter = "all" | "active" | "inactive" | "low" | "out";
 
 export default function ProductosPage() {
@@ -79,8 +61,7 @@ export default function ProductosPage() {
     [laboratories],
   );
   const toast = useToast();
-  const tick = useInventoryTick(); // refleja cambios de stock por lotes (modo local)
-  const lots = useAllLots();
+  const lots = useAllLots(); // ya es reactivo a cambios de inventario (local y supabase)
   const { branchId } = useCurrentBranch();
   const activeBranches = useActiveBranches();
   const activeBranchIds = React.useMemo(
@@ -95,18 +76,31 @@ export default function ProductosPage() {
   const [addStockProduct, setAddStockProduct] = React.useState<{ id: string; name: string } | null>(null);
 
   // Mapa de stock total vendible por producto (todas las sucursales activas).
-  // Se recalcula cuando cambian los lotes (tick en modo local, lista en modo supabase).
   const stockMap = React.useMemo(() => {
     const m = new Map<string, number>();
     for (const pid of [...new Set(lots.map((l) => l.productId))]) {
       m.set(pid, totalSellableStock(lots, pid, activeBranchIds));
     }
     return m;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lots, tick, activeBranchIds]);
-  // Sincronizar el lookup que usan los comparadores.
-  stockLookup.clear();
-  stockMap.forEach((v, k) => stockLookup.set(k, v));
+  }, [lots, activeBranchIds]);
+
+  // Comparadores dependientes del stock: memoizados sobre stockMap para que
+  // el orden por stock se recalcule al cambiar el inventario (antes usaban un
+  // Map de módulo mutado en render, que podía dejar el orden desactualizado).
+  const comparators = React.useMemo(() => {
+    const stockOf = (id: string) => stockMap.get(id) ?? 0;
+    return {
+      name: (a: Product, b: Product) => a.name.localeCompare(b.name),
+      sku: (a: Product, b: Product) => a.sku.localeCompare(b.sku),
+      brand: (a: Product, b: Product) => {
+        const an = getBrandById(a.brandId)?.name ?? "";
+        const bn = getBrandById(b.brandId)?.name ?? "";
+        return an.localeCompare(bn);
+      },
+      stock: (a: Product, b: Product) => stockOf(a.id) - stockOf(b.id),
+      price: (a: Product, b: Product) => a.price - b.price,
+    };
+  }, [stockMap]);
 
   const hasFilters =
     q.trim() !== "" || brand !== "" || category !== "" || status !== "all";

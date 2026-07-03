@@ -53,7 +53,7 @@ import {
 } from "@/features/inventory-counts/scan-session-store";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
-import { physicalCountXlsxBytes, physicalCountFilename } from "@/features/inventory/physical-count-export";
+// El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -193,8 +193,11 @@ export default function EscanearPage() {
     });
   };
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     try {
+      const { physicalCountXlsxBytes, physicalCountFilename } = await import(
+        "@/features/inventory/physical-count-export"
+      );
       const report = buildReport();
       downloadBlob(physicalCountFilename(branchName, session.startedAt), physicalCountXlsxBytes(report), XLSX_MIME);
       toast.success("Excel del inventario físico generado.");

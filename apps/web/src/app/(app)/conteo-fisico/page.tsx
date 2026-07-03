@@ -24,12 +24,7 @@ import { formatDateTime, relativeTime } from "@/lib/utils/format";
 import { mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
 import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
 import { buildCountsList, buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
-import {
-  countsListXlsxBytes,
-  countsListFilename,
-  physicalCountXlsxBytes,
-  physicalCountFilename,
-} from "@/features/inventory/physical-count-export";
+// El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 import { downloadBlob } from "@/lib/utils/download";
 import {
   SortableTH,
@@ -85,8 +80,11 @@ export default function InventarioFisicoPage() {
   const { sort, sorted, toggle } = useTableSort(visible, "date", "desc", comparators);
   const pag = usePagination(sorted);
 
-  const exportListExcel = () => {
+  const exportListExcel = async () => {
     try {
+      const { countsListXlsxBytes, countsListFilename } = await import(
+        "@/features/inventory/physical-count-export"
+      );
       const rows = buildCountsList(sorted, {
         branchName: (id) => (id ? getBranchById(id)?.name ?? "" : ""),
       });
@@ -101,8 +99,11 @@ export default function InventarioFisicoPage() {
     }
   };
 
-  const exportSession = (session: CountSession) => {
+  const exportSession = async (session: CountSession) => {
     try {
+      const { physicalCountXlsxBytes, physicalCountFilename } = await import(
+        "@/features/inventory/physical-count-export"
+      );
       const branchName = getBranchById(session.branchId)?.name ?? "Sucursal";
       const systemQuantityFor = (pid: string) => sellableStockForBranch(lots, pid, session.branchId);
       const { count, items, scans } = sessionToCountData(session, { systemQuantityFor });

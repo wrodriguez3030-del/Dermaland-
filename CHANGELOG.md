@@ -11,6 +11,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.35.0] - 2026-07-03
+
+### Performance
+- **xlsx sale del bundle inicial (−95 kB de First Load JS en 4 rutas).** Los
+  módulos de exportación a Excel (`sales-report-export`, `physical-count-export`,
+  `lab-sales-export`) ahora se cargan con `await import()` al pulsar Exportar.
+  Antes/después (First Load JS): `/reportes/ventas` 323→228 kB,
+  `/productos/laboratorios` 316→221 kB, `/conteo-fisico` 309→213 kB,
+  `/conteo-fisico/[id]/escanear` 308→212 kB.
+- **Cache de lectura en stores localStorage** (`lot-store`, `product-store`,
+  `proforma-store`): `listAllLots/listAllProducts/listAllProformas` re-parseaban
+  y mapeaban TODO el seed en cada evento de cambio, multiplicado por cada hook
+  montado. Ahora reutilizan el resultado mientras los strings crudos de
+  localStorage no cambien (cubre tests y otras pestañas sin depender de eventos).
+- **POS: índice de lotes por producto** (`lotsByProduct` con `useMemo`). Cada
+  tarjeta hacía ~4 barridos completos del array de lotes por render
+  (O(productos×lotes)); ahora consulta solo los lotes de su producto.
+
+### Fixed
+- **Productos: orden por Stock podía quedar desactualizado.** Los comparadores
+  usaban un `Map` de módulo mutado durante el render que no invalidaba el memo
+  de ordenamiento; ahora los comparadores se memoizan sobre el mapa de stock y
+  el orden se recalcula al cambiar el inventario. Se eliminó también el listener
+  redundante `useInventoryTick` (doble re-render por evento).
+
 ## [0.34.0] - 2026-07-02
 
 ### Fixed

@@ -5,10 +5,7 @@ import { FileSpreadsheet, Printer } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { downloadBlob } from "@/lib/utils/download";
-import {
-  physicalCountXlsxBytes,
-  physicalCountFilename,
-} from "@/features/inventory/physical-count-export";
+// El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 import type { PhysicalCountReport } from "@/features/inventory/physical-count-report";
 
 const XLSX_MIME =
@@ -29,8 +26,11 @@ export function PhysicalCountExcelButtons({
 }) {
   const toast = useToast();
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     try {
+      const { physicalCountXlsxBytes, physicalCountFilename } = await import(
+        "@/features/inventory/physical-count-export"
+      );
       const bytes = physicalCountXlsxBytes(report);
       const filename = physicalCountFilename(
         report.summary.branchName,

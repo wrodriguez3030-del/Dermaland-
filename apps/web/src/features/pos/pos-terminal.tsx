@@ -303,6 +303,24 @@ export function PosTerminal() {
     [activeBranches],
   );
 
+  // Índice de lotes por producto: evita barrer TODOS los lotes varias veces
+  // por tarjeta visible en cada render (O(productos×lotes) → O(lotes)). Los
+  // helpers de stock filtran por productId, así que darles solo el subset del
+  // producto devuelve exactamente lo mismo.
+  const lotsByProduct = React.useMemo(() => {
+    const map = new Map<string, typeof lots>();
+    for (const l of lots) {
+      const arr = map.get(l.productId);
+      if (arr) arr.push(l);
+      else map.set(l.productId, [l]);
+    }
+    return map;
+  }, [lots]);
+  const lotsFor = React.useCallback(
+    (productId: string) => lotsByProduct.get(productId) ?? [],
+    [lotsByProduct],
+  );
+
   // Cuando se selecciona un cliente, preseleccionar su tipo de facturación
   // por defecto (consumo / credito_fiscal). Si no se especifica → consumo.
   // Mapea a e-CF tipo 32 / 31 cuando DGII esté activo.
@@ -350,10 +368,10 @@ export function PosTerminal() {
       let anyElsewhere = false;
       let altBranchId = "";
       for (const p of filtered) {
-        const here = sellableStockForBranch(lots, p.id, branchId);
+        const here = sellableStockForBranch(lotsFor(p.id), p.id, branchId);
         if (here > 0) { anyHere = true; break; }
         if (!anyElsewhere) {
-          const rows = stockByBranchForProduct(lots, p.id).filter(
+          const rows = stockByBranchForProduct(lotsFor(p.id), p.id).filter(
             (r) => r.branchId !== branchId && r.available > 0 && activeBranchIds.has(r.branchId),
           );
           if (rows.length > 0) {
@@ -364,7 +382,7 @@ export function PosTerminal() {
       }
       if (anyHere) return { noBranchStock: false, noStockAnywhere: false, alternativeBranchName: "" };
       const totalOverAllProducts = filtered.reduce(
-        (s, p) => s + totalSellableStock(lots, p.id, activeBranchIds),
+        (s, p) => s + totalSellableStock(lotsFor(p.id), p.id, activeBranchIds),
         0,
       );
       return {
@@ -372,7 +390,7 @@ export function PosTerminal() {
         noStockAnywhere: totalOverAllProducts === 0,
         alternativeBranchName: altBranchId ? resolveBranchName(altBranchId) : "",
       };
-    }, [branchId, filtered, lots, activeBranchIds]);
+    }, [branchId, filtered, lotsFor, activeBranchIds]);
 
   // Totales con el motor de cálculo (descuento por línea + descuento global).
   const totals = cartTotals(cart, discountGlobalPercent);
@@ -847,17 +865,18 @@ export function PosTerminal() {
 
         <div className="grid flex-1 grid-cols-2 gap-3 overflow-y-auto p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {filtered.map((p) => {
+            const pLots = lotsFor(p.id);
             const stockHere = branchId
-              ? sellableStockForBranch(lots, p.id, branchId)
+              ? sellableStockForBranch(pLots, p.id, branchId)
               : 0;
-            const totalStock = totalSellableStock(lots, p.id, activeBranchIds);
+            const totalStock = totalSellableStock(pLots, p.id, activeBranchIds);
             const lot = branchId
-              ? nextFefoLotForBranch(lots, p.id, branchId)
+              ? nextFefoLotForBranch(pLots, p.id, branchId)
               : null;
             const outOfStockHere = stockHere === 0;
             const availableElsewhere = outOfStockHere && totalStock > 0;
             const block = outOfStockHere
-              ? lotBlockReason(lots, p.id, branchId, activeBranchIds)
+              ? lotBlockReason(pLots, p.id, branchId, activeBranchIds)
               : null;
             const blockLabel =
               block && block !== "no-lot" && block !== "depleted"

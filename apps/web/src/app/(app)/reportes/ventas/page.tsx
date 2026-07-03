@@ -86,12 +86,8 @@ import {
   type SaleStatusKey,
   type SalesReportFilters,
 } from "@/features/sales/sales-report";
-import {
-  buildSalesDetailCsv,
-  salesReportFilename,
-  salesReportXlsxBytes,
-  type SalesReportMeta,
-} from "@/features/sales/sales-report-export";
+// El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
+import type { SalesReportMeta } from "@/features/sales/sales-report-export";
 
 // ─── Ordenamiento (comparadores sobre el documento de venta) ─────────────────
 
@@ -236,8 +232,11 @@ export default function ReporteVentasPage() {
   const stamp = () =>
     (filters.from || "todo") + (filters.to ? `_${filters.to}` : "");
 
-  const exportExcel = () => {
+  const exportExcel = async () => {
     try {
+      const { salesReportXlsxBytes, salesReportFilename } = await import(
+        "@/features/sales/sales-report-export"
+      );
       const bytes = salesReportXlsxBytes(report, reportMeta());
       downloadBlob(
         salesReportFilename("xlsx", stamp()),
@@ -250,8 +249,11 @@ export default function ReporteVentasPage() {
     }
   };
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
     try {
+      const { buildSalesDetailCsv, salesReportFilename } = await import(
+        "@/features/sales/sales-report-export"
+      );
       const csv = buildSalesDetailCsv(report);
       downloadBlob(
         salesReportFilename("csv", stamp()),

@@ -77,8 +77,33 @@ function readNewMoves(): InventoryMovement[] {
 
 // ─── Lectura ────────────────────────────────────────────────────────────────
 
+// Cache de lectura: parsear y aplicar overrides sobre TODO el catálogo
+// (JSON.parse + map de seed+locales) es lo más costoso del store y cada hook
+// montado lo repetía en cada evento de cambio. Se reutiliza el resultado
+// mientras las claves crudas de localStorage no cambien (comparar strings es
+// mucho más barato que re-parsear), lo que también cubre escrituras directas
+// a localStorage sin eventos (tests, otras pestañas).
+
+let lotsCache: { raw: (string | null)[]; value: ProductLot[] } | null = null;
+let movesCache: { raw: string | null; value: InventoryMovement[] } | null = null;
+
+function rawItem(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 /** Todos los lotes (seed + nuevos), con `currentQuantity`, `status` y `notes` ajustados. */
 export function listAllLots(): ProductLot[] {
+  const canCache = typeof window !== "undefined";
+  const raw = canCache
+    ? [KEY_LOTS, KEY_QTY, KEY_STATUS, KEY_NOTES].map(rawItem)
+    : [];
+  if (canCache && lotsCache && raw.every((r, i) => r === lotsCache!.raw[i])) {
+    return lotsCache.value;
+  }
   const qtyOv = readQtyOverrides();
   const statusOv = readStatusOverrides();
   const notesOv = readNotesOverrides();
@@ -91,7 +116,9 @@ export function listAllLots(): ProductLot[] {
   }
   const seed = mockProductLots.map(applyOverrides);
   const local = readNewLots().map(applyOverrides);
-  return [...seed, ...local];
+  const value = [...seed, ...local];
+  if (canCache) lotsCache = { raw, value };
+  return value;
 }
 
 export function listLotsByProduct(productId: string): ProductLot[] {
@@ -110,7 +137,12 @@ export function availableStock(productId: string): number {
 }
 
 export function listAllMovements(): InventoryMovement[] {
-  return [...readNewMoves(), ...mockInventoryMovements];
+  const canCache = typeof window !== "undefined";
+  const raw = canCache ? rawItem(KEY_MOVES) : null;
+  if (canCache && movesCache && raw === movesCache.raw) return movesCache.value;
+  const value = [...readNewMoves(), ...mockInventoryMovements];
+  if (canCache) movesCache = { raw, value };
+  return value;
 }
 
 export function listMovementsByProduct(productId: string): InventoryMovement[] {

@@ -68,12 +68,30 @@ function notifyChanged() {
 
 // ─── Local (mock/demo) helpers ───────────────────────────────────────────────
 
+// Cache de lectura: parsear + ordenar todas las proformas en cada llamada (y
+// por cada hook montado) es costoso. Se reutiliza el resultado mientras el
+// string crudo de localStorage no cambie (cubre también escrituras directas
+// sin eventos: tests, otras pestañas).
+let proformasCache: { raw: string | null; value: Proforma[] } | null = null;
+
 export function listAllProformas(): Proforma[] {
+  const canCache = typeof window !== "undefined";
+  let raw: string | null = null;
+  if (canCache) {
+    try {
+      raw = window.localStorage.getItem(STORAGE_KEY);
+    } catch {
+      raw = null;
+    }
+    if (proformasCache && raw === proformasCache.raw) return proformasCache.value;
+  }
   // Las locales arriba (más recientes), después los seeds.
   const local = readLocal().sort(
     (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
   );
-  return [...local, ...mockProformas];
+  const value = [...local, ...mockProformas];
+  if (canCache) proformasCache = { raw, value };
+  return value;
 }
 
 export function getProformaByIdFromStore(id: string): Proforma | undefined {
