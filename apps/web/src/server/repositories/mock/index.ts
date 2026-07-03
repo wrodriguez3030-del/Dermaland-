@@ -417,7 +417,7 @@ const product: ProductRepository = {
       .filter((p) => !opts?.brandId || p.brandId === opts.brandId)
       .filter((p) => !opts?.categoryId || p.categoryId === opts.categoryId)
       .filter((p) => !opts?.activeOnly || p.active)
-      .slice(0, opts?.limit ?? 100);
+      .slice(opts?.offset ?? 0, (opts?.offset ?? 0) + (opts?.limit ?? 100));
   },
   async byId(ctx, id) {
     guard(ctx);

@@ -11,6 +11,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.34.0] - 2026-07-02
+
+### Fixed
+- **URGENTE: "Producto no encontrado" después de crear un producto.** El insert
+  en Supabase siempre fue correcto (id real, `business_id` correcto, activo);
+  el fallo era de LECTURA: el detalle buscaba el producto dentro de
+  `GET /api/products?limit=1000` ordenado por nombre, y con **1355 productos**
+  todo lo que ordenara después de la posición 1000 quedaba invisible (además
+  PostgREST corta cada request en 1000 filas). Un producto nuevo cuyo nombre
+  caía fuera de la 1ª página "no existía" para la UI.
+- La página **Productos** (y todo consumidor de `useProducts`) ahora ve el
+  catálogo COMPLETO: `fetchProductsFromServer` pagina de a 1000
+  (`limit`+`offset`, repos Supabase con `.range()` y mock con `slice`).
+- En modo Supabase, si el fetch de lista falla ya **no** se cae al catálogo
+  mock/localStorage (mostraba datos que no son de la base compartida); se
+  conserva la última lista buena.
+
+### Added
+- `GET /api/products/[id]`: lectura directa por id (repo `product.byId`,
+  filtrada por `business_id`, 404 si no existe).
+- `fetchProductFromServer(id)` + hook `useProductState(id)` con estado
+  `loading`: el detalle y la edición de producto leen por id directo (ya no
+  dependen de la lista) y muestran "Cargando producto…" mientras resuelven —
+  "Producto no encontrado" solo aparece cuando de verdad no existe.
+- Script de diagnóstico read-only `scripts/check-product-create-read.mjs`
+  (totales, gap de la 1ª página, lectura por id de los recientes,
+  `--id <uuid>` para un producto puntual). Verificado contra la DB cloud:
+  355 productos quedaban fuera de la página 1; el producto reportado
+  (`RADIOCARE`, DERM-000001) existe, activo y legible por id.
+- 9 tests nuevos (paginación, lectura por id 200/404/error, hooks). Suite 1314.
+
 ## [0.33.0] - 2026-07-02
 
 ### Added

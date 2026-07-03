@@ -5,13 +5,33 @@ import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui";
-import { useProduct } from "@/features/products/product-store";
+import { useProductState } from "@/features/products/product-store";
 import { ProductForm } from "@/features/products/product-form";
 
 export default function EditarProductoPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
-  const product = useProduct(id);
+  const { product, loading } = useProductState(id);
+
+  if (loading && !product) {
+    return (
+      <div className="mx-auto w-full max-w-5xl">
+        <PageHeader
+          title="Cargando producto…"
+          breadcrumbs={[
+            { label: "Productos", href: "/productos" },
+            { label: "…" },
+            { label: "Editar" },
+          ]}
+        />
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-sm opacity-60">Cargando información del producto…</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!product) {
     return (

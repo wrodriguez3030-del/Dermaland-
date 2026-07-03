@@ -172,6 +172,8 @@ export interface ProductRepository {
     categoryId?: ID;
     activeOnly?: boolean;
     limit?: number;
+    /** Desplazamiento para paginar catálogos grandes (PostgREST corta en 1000 filas/request). */
+    offset?: number;
   }): Promise<Product[]>;
   byId(ctx: RepoContext, id: ID): Promise<Product | null>;
   byBarcode(ctx: RepoContext, barcode: string): Promise<Product | null>;

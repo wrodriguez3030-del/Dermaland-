@@ -64,7 +64,7 @@ import {
 } from "@/features/inventory/lot-store";
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
 import { ProductImage } from "@/features/products/components/product-image";
-import { useProduct, updateProduct } from "@/features/products/product-store";
+import { useProductState, updateProduct } from "@/features/products/product-store";
 import { useLaboratoriesList } from "@/features/products/catalog-store";
 import { useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
 import type { ProductLot } from "@/types";
@@ -85,7 +85,7 @@ const expiryRowBg: Record<ExpiryStatus, string> = {
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
-  const product = useProduct(id);
+  const { product, loading } = useProductState(id);
   const toast = useToast();
   const allLots = useProductLots(id);
   const movements = useProductMovements(id);
@@ -98,6 +98,22 @@ export default function ProductDetailPage() {
   const [releaseLot, setReleaseLot] = React.useState<ProductLot | null>(null);
   const [recallLot, setRecallLot] = React.useState<ProductLot | null>(null);
   const [confirmInactivate, setConfirmInactivate] = React.useState(false);
+
+  if (loading && !product) {
+    return (
+      <>
+        <PageHeader
+          title="Cargando producto…"
+          breadcrumbs={[{ label: "Productos", href: "/productos" }, { label: "…" }]}
+        />
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-sm opacity-60">Cargando información del producto…</p>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
 
   if (!product) {
     return (

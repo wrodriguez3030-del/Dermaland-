@@ -248,13 +248,49 @@ function notifyProductsChanged() {
   }
 }
 
+/** Página máxima por request: PostgREST corta en 1000 filas aunque se pida más. */
+const SERVER_PAGE_SIZE = 1000;
+/** Tope de seguridad contra loops (30k productos >> catálogo real). */
+const SERVER_MAX_PAGES = 30;
+
+/**
+ * Trae el catálogo COMPLETO paginando de a 1000. Antes hacía un solo request
+ * `?limit=1000`: con >1000 productos, todo lo que ordenara (por nombre) después
+ * de la posición 1000 quedaba invisible para la UI — causa del "Producto no
+ * encontrado" tras crear un producto cuyo nombre caía fuera de la 1ª página.
+ */
 export async function fetchProductsFromServer(): Promise<Product[]> {
-  const res = await fetch(`/api/products?limit=1000`, { cache: "no-store" });
+  const all: Product[] = [];
+  for (let page = 0; page < SERVER_MAX_PAGES; page++) {
+    const offset = page * SERVER_PAGE_SIZE;
+    const res = await fetch(
+      `/api/products?limit=${SERVER_PAGE_SIZE}&offset=${offset}`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    const { products } = (await res.json()) as { products: Product[] };
+    all.push(...products);
+    if (products.length < SERVER_PAGE_SIZE) break;
+  }
+  return all;
+}
+
+/**
+ * Lee UN producto por id directo del servidor (`GET /api/products/[id]`).
+ * `null` = no existe (o no es visible para el negocio actual); otros errores
+ * lanzan. El detalle/edición usan esto en vez de buscar en la lista paginada.
+ */
+export async function fetchProductFromServer(id: string): Promise<Product | null> {
+  const res = await fetch(`/api/products/${id}`, { cache: "no-store" });
+  if (res.status === 404) return null;
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
-  return ((await res.json()) as { products: Product[] }).products;
+  return ((await res.json()) as { product: Product }).product;
 }
 
 function createInputToServerPayload(input: CreateProductInput) {
@@ -398,9 +434,12 @@ export function useProducts(): Product[] {
     let alive = true;
     const refresh = () => {
       if (PRODUCT_BACKEND === "supabase") {
+        // Si el fetch falla se conserva la última lista buena: caer al store
+        // local (mock/localStorage) en modo supabase mostraba un catálogo
+        // que NO es el de la base compartida.
         fetchProductsFromServer()
           .then((p) => { if (alive) setList(p); })
-          .catch(() => { if (alive) setList(listAllProducts()); });
+          .catch(() => { /* mantener lista previa */ });
       } else {
         setList(listAllProducts());
       }
@@ -417,10 +456,61 @@ export function useProducts(): Product[] {
   return list;
 }
 
+export interface ProductState {
+  product: Product | undefined;
+  /** true mientras el fetch por id está en vuelo (solo backend supabase). */
+  loading: boolean;
+}
+
+/**
+ * Producto por id CON estado de carga.
+ *
+ * En supabase lee por id directo (`fetchProductFromServer`) en vez de buscar
+ * dentro de la lista paginada: un catálogo >1000 dejaba productos fuera de la
+ * 1ª página y el detalle mostraba "Producto no encontrado" para productos que
+ * SÍ existen (p. ej. recién creados). `loading` permite a las pantallas
+ * distinguir "cargando" de "no existe".
+ */
+export function useProductState(id: string | null | undefined): ProductState {
+  const [state, setState] = React.useState<ProductState>(() =>
+    PRODUCT_BACKEND === "supabase"
+      ? { product: undefined, loading: !!id }
+      : { product: id ? getProductByIdFromStore(id) : undefined, loading: false },
+  );
+  React.useEffect(() => {
+    if (!id) {
+      setState({ product: undefined, loading: false });
+      return;
+    }
+    let alive = true;
+    const refresh = () => {
+      if (PRODUCT_BACKEND === "supabase") {
+        fetchProductFromServer(id)
+          .then((p) => {
+            if (alive) setState({ product: p ?? undefined, loading: false });
+          })
+          .catch(() => {
+            // Error de red/servidor: conservar lo que hubiera y salir de carga.
+            if (alive) setState((s) => ({ product: s.product, loading: false }));
+          });
+      } else {
+        setState({ product: getProductByIdFromStore(id), loading: false });
+      }
+    };
+    window.addEventListener(CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [id]);
+  return state;
+}
+
 export function useProduct(id: string | null | undefined): Product | undefined {
-  const all = useProducts();
-  if (!id) return undefined;
-  return all.find((p) => p.id === id);
+  return useProductState(id).product;
 }
 
 /** Próximo SKU (servidor autoritativo en supabase; cálculo local en mock). */

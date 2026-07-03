@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
 import {
   createProduct,
   deleteProduct,
@@ -11,9 +12,14 @@ import {
   deleteProductAnywhere,
   setProductActiveAnywhere,
   missingCreateProductFields,
+  fetchProductsFromServer,
+  fetchProductFromServer,
+  useProductState,
+  useProduct,
   PRODUCT_BACKEND,
 } from "./product-store";
 import { mockProducts } from "@/lib/mock-data/catalog";
+import type { Product } from "@/types";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -128,6 +134,138 @@ describe("product-store wrappers (modo local)", () => {
     const del = await deleteProductAnywhere(created.product.id);
     expect(del.ok).toBe(true);
     expect(listAllProducts().some((p) => p.id === created.product.id)).toBe(false);
+  });
+});
+
+// ─── Lectura desde el servidor (regresión "Producto no encontrado" tras crear) ──
+//
+// Con >1000 productos, el fetch viejo de UNA página (?limit=1000, orden por
+// nombre) dejaba fuera todo lo que ordenara después de la posición 1000: el
+// detalle buscaba el producto recién creado en esa lista y mostraba "Producto
+// no encontrado" aunque el insert fue correcto. Ahora: lista paginada completa
+// + lectura por id directa.
+
+function fakeProduct(i: number): Product {
+  return {
+    id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+    businessId: "biz-1",
+    sku: `DERM-${String(i).padStart(6, "0")}`,
+    name: `Producto ${i}`,
+    unit: "unidad",
+    requiresPrescription: false,
+    controlled: false,
+    cost: 0,
+    price: 100,
+    itbisRate: 18,
+    minStock: 0,
+    maxStock: 0,
+    active: true,
+    sellable: true,
+    createdAt: "2026-07-02T00:00:00Z",
+    updatedAt: "2026-07-02T00:00:00Z",
+  } as Product;
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  } as Response;
+}
+
+describe("fetchProductsFromServer (paginado)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("trae TODAS las páginas cuando hay más de 1000 productos", async () => {
+    const page1 = Array.from({ length: 1000 }, (_, i) => fakeProduct(i));
+    const page2 = Array.from({ length: 355 }, (_, i) => fakeProduct(1000 + i));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ products: page1 }))
+      .mockResolvedValueOnce(jsonResponse({ products: page2 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const all = await fetchProductsFromServer();
+    expect(all).toHaveLength(1355);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("offset=0");
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("offset=1000");
+    // El producto "invisible" con el fetch viejo ahora está en la lista.
+    expect(all.some((p) => p.id === page2[354]!.id)).toBe(true);
+  });
+
+  it("con una página corta hace un solo request", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ products: [fakeProduct(1)] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const all = await fetchProductsFromServer();
+    expect(all).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("propaga el error del servidor (no inventa lista)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: "boom" }, 500)),
+    );
+    await expect(fetchProductsFromServer()).rejects.toThrow("boom");
+  });
+});
+
+describe("fetchProductFromServer (lectura por id)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("devuelve el producto cuando existe", async () => {
+    const p = fakeProduct(7);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ product: p })));
+    const got = await fetchProductFromServer(p.id);
+    expect(got?.id).toBe(p.id);
+  });
+
+  it("devuelve null en 404 (no existe / otro negocio)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: "Producto no encontrado." }, 404)),
+    );
+    expect(await fetchProductFromServer("otro-id")).toBeNull();
+  });
+
+  it("lanza en errores que no son 404", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: "server" }, 500)),
+    );
+    await expect(fetchProductFromServer("x")).rejects.toThrow("server");
+  });
+});
+
+describe("useProductState / useProduct", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    clearLocalProducts();
+  });
+
+  it("modo local: resuelve el producto recién creado sin quedarse cargando", async () => {
+    const r = createProduct({ sku: "", name: "Recién creado", price: 50 });
+    if (!r.ok) throw new Error("setup");
+    const { result } = renderHook(() => useProductState(r.product.id));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.product?.name).toBe("Recién creado");
+  });
+
+  it("modo local: id inexistente termina en not-found (loading=false, sin producto)", async () => {
+    const { result } = renderHook(() => useProductState("no-existe"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.product).toBeUndefined();
+  });
+
+  it("useProduct conserva el contrato viejo (Product | undefined)", async () => {
+    const r = createProduct({ sku: "", name: "Contrato", price: 5 });
+    if (!r.ok) throw new Error("setup");
+    const { result } = renderHook(() => useProduct(r.product.id));
+    await waitFor(() => expect(result.current?.name).toBe("Contrato"));
   });
 });
 

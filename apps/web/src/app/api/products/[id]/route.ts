@@ -13,6 +13,24 @@ function notSupabase() {
   );
 }
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  if (env.DATA_SOURCE !== "supabase") return notSupabase();
+  try {
+    const { id } = await params;
+    const ctx = await getRepoContext();
+    const product = await getRepositories().product.byId(ctx, id);
+    if (!product) {
+      return NextResponse.json({ error: "Producto no encontrado." }, { status: 404 });
+    }
+    return NextResponse.json({ product }, { headers: { "Cache-Control": "no-store" } });
+  } catch (e) {
+    return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo cargar el producto. Intenta nuevamente.") }, { status: 400 });
+  }
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },

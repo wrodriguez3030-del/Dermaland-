@@ -24,6 +24,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       categoryId: sp.get("categoryId") ?? undefined,
       activeOnly: sp.get("activeOnly") === "true",
       limit: sp.get("limit") ? Number(sp.get("limit")) : undefined,
+      offset: sp.get("offset") ? Number(sp.get("offset")) : undefined,
     });
     return NextResponse.json({ products }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {

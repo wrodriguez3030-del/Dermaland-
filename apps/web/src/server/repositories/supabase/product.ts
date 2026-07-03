@@ -42,6 +42,7 @@ export const productRepository: ProductRepository = {
     const sb = await getClient("product.list");
     const activeOnly = opts?.activeOnly ?? true;
     const limit = opts?.limit ?? 50;
+    const offset = opts?.offset ?? 0;
 
     let q = sb
       .from("products")
@@ -61,7 +62,10 @@ export const productRepository: ProductRepository = {
       );
     }
 
-    q = q.order("name", { ascending: true }).limit(limit);
+    // `range` (inclusivo) en lugar de `limit` para poder paginar catálogos
+    // > 1000 productos: PostgREST corta cada request en 1000 filas, así que el
+    // cliente pide páginas sucesivas con offset.
+    q = q.order("name", { ascending: true }).range(offset, offset + limit - 1);
 
     const { data, error } = await q;
     if (error) throw new SupabaseRepositoryError("product.list", error);
