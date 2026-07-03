@@ -1,6 +1,14 @@
 import type { DefaultBillingType, PaymentMethod } from "@/types";
 
 /**
+ * @deprecated LEGADO — el POS NO usa este módulo. La fuente única de la
+ * decisión documental (R-FIS-01) es `features/billing/auto-billing-rules.ts`
+ * (`resolveAutoBilling`), que cubre B01/B02/E31/E32 según el modo NCF/e-CF
+ * del negocio y ya diverge de las reglas de abajo (ej. efectivo puede emitir
+ * B02 inmediato en modo NCF). Se conserva solo por sus tests históricos;
+ * NO agregar consumidores nuevos ni ajustar reglas aquí — hacerlo en
+ * auto-billing-rules.
+ *
  * Decide qué documento debe emitirse al cobrar en POS, en función del tipo
  * de facturación del cliente y el método de pago elegido.
  *

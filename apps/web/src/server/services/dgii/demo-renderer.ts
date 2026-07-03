@@ -83,9 +83,12 @@ export function mapMockInvoiceToEcfInput(
   }
   const fechaEmision = new Date(invoice.createdAt);
 
+  // Exento cuando el mock no trae ITBIS; gravado 18% en caso contrario.
+  const esExento = invoice.itbis <= 0;
+
   const item: EcfItem = {
     numeroLinea: 1,
-    indicadorFacturacion: invoice.amount > 0 ? 1 : 4,
+    indicadorFacturacion: esExento ? 4 : 1,
     nombreItem: `Servicios/productos DermaLand (${invoice.ecfNumber})`,
     indicadorBienoServicio: 1,
     cantidadItem: 1,
@@ -108,7 +111,7 @@ export function mapMockInvoiceToEcfInput(
     informacionReferencia = {
       ncfModificado: "E310000000100",
       rncOtroContribuyente: "131234567",
-      fechaNCFModificado: new Date(2026, 3, 10),
+      fechaNCFModificado: new Date(Date.UTC(2026, 3, 10, 12)),
       codigoModificacion: invoice.ecfType === "34" ? 1 : 2,
     };
   }
@@ -120,7 +123,7 @@ export function mapMockInvoiceToEcfInput(
   return {
     tipoEcf: invoice.ecfType,
     eNcf: invoice.ecfNumber,
-    fechaVencimientoSecuencia: new Date(2027, 11, 31),
+    fechaVencimientoSecuencia: new Date(Date.UTC(2027, 11, 31, 12)),
     indicadorNotaCredito,
     tipoIngresos: "01",
     tipoPago: 1,
@@ -129,13 +132,18 @@ export function mapMockInvoiceToEcfInput(
       fechaEmision,
     },
     comprador,
-    totales: {
-      montoGravadoTotal: invoice.amount,
-      itbis1: 18,
-      totalItbis: invoice.itbis,
-      totalItbis1: invoice.itbis,
-      montoTotal: invoice.total,
-    },
+    // MontoGravadoI1 acompaña a TotalITBIS1 (validación aritmética DGII);
+    // exentos van a MontoExento sin inflar el gravado.
+    totales: esExento
+      ? { montoExento: invoice.amount, montoTotal: invoice.total }
+      : {
+          montoGravadoTotal: invoice.amount,
+          montoGravadoI1: invoice.amount,
+          itbis1: 18,
+          totalItbis: invoice.itbis,
+          totalItbis1: invoice.itbis,
+          montoTotal: invoice.total,
+        },
     items: [item],
     informacionReferencia,
     fechaHoraFirma: fechaEmision,
@@ -193,6 +201,8 @@ export async function renderEcfFromMock(
     eNcf: ecfInput.eNcf,
     fechaEmision: ecfInput.emisor.fechaEmision,
     montoTotal: ecfInput.totales.montoTotal,
+    // Misma fecha de firma que lleva el XML (consistencia QR↔XML).
+    fechaFirma: ecfInput.fechaHoraFirma,
     codigoSeguridad: securityCode,
   });
 

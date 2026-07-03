@@ -16,6 +16,14 @@ import { mockBusiness } from "@/lib/mock-data/tenancy";
  *
  * Producción: mapea a la tabla `invoice_numberings` (migración 0011) con RLS
  * por business_id; la reserva de número usa una función atómica en BD.
+ *
+ * ⚠️ LIMITACIÓN CONOCIDA (multi-dispositivo): esta reserva vive en
+ * localStorage — es POR NAVEGADOR. Dos cajas en máquinas distintas parten
+ * del mismo seed y pueden emitir el MISMO número. La reserva atómica en
+ * servidor YA EXISTE: función `reserve_ecf_sequence_number` (mig 0003) +
+ * `POST /api/dgii/sequences/reserve`. PENDIENTE: cablear el POS
+ * (`finalizeCharge`) a ese endpoint cuando DATA_SOURCE=supabase y dejar
+ * este store solo como demo/mock.
  */
 
 export type DocType =

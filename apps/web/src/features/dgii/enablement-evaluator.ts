@@ -99,6 +99,18 @@ export interface EnablementEvaluation {
 const MOCK_NOTICE =
   "Evaluación MOCK / DEMO / NO FISCAL — no representa un estado real ante DGII hasta autorizar Fases C/F/G/H.";
 
+/**
+ * Pasos que alimentan los estados globales "Certificado por DGII" /
+ * "Listo para producción fiscal": no basta con forzar `completed` en el
+ * Select — el checklist completo debe estar marcado. Sin este gate, un
+ * usuario podía llegar a mostrar "Certificado por DGII" sin sustento.
+ */
+const CHECKLIST_GATED_STEPS: ReadonlySet<EnablementStepId> = new Set([
+  "postulacion",
+  "pruebas_ecf",
+  "declaracion_jurada",
+]);
+
 function resolveStatus(
   step: EnablementStepDef,
   progress: EnablementProgress | undefined,
@@ -130,6 +142,19 @@ function resolveStatus(
     }
     return progress.status;
   }
+
+  // Gate por checklist para los pasos clave de certificación: `completed`
+  // forzado sin todos los ítems marcados se degrada a `in_progress`.
+  if (CHECKLIST_GATED_STEPS.has(step.id)) {
+    if (!progress) return step.defaultStatus;
+    if (progress.status === "completed") {
+      const total = step.checklist.length;
+      const done = progress.checklist.filter((c) => c.done).length;
+      if (total > 0 && done < total) return "in_progress";
+    }
+    return progress.status;
+  }
+
   return progress?.status ?? step.defaultStatus;
 }
 

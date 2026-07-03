@@ -61,6 +61,25 @@ function fullyConfirmedRepresentante(): EnablementProgress {
   };
 }
 
+/**
+ * Paso `completed` con TODO su checklist del catálogo marcado — necesario
+ * para los pasos con gate por checklist (postulacion, pruebas_ecf,
+ * declaracion_jurada): un completed forzado sin ítems se degrada.
+ */
+function fullyDoneStep(stepId: EnablementStepId): EnablementProgress {
+  const def = dgiiEnablementSteps.find((s) => s.id === stepId)!;
+  return {
+    stepId,
+    status: "completed",
+    updatedAt: "2026-05-20T00:00:00.000Z",
+    checklist: def.checklist.map((it) => ({
+      id: it.id,
+      label: it.label,
+      done: true,
+    })),
+  };
+}
+
 describe("evaluateEnablement", () => {
   it("estado not_started cuando no hay progreso ni certificado", () => {
     const ev = evaluateEnablement([], cert("not_uploaded"));
@@ -140,7 +159,7 @@ describe("evaluateEnablement", () => {
     const progress = [
       step("certificado_digital", "completed"),
       step("configuracion_fiscal", "completed"),
-      step("pruebas_ecf", "completed"),
+      fullyDoneStep("pruebas_ecf"),
       step("representaciones", "completed"),
       step("postulacion", "in_progress"),
     ];
@@ -152,10 +171,10 @@ describe("evaluateEnablement", () => {
     const progress = [
       step("certificado_digital", "completed"),
       step("configuracion_fiscal", "completed"),
-      step("pruebas_ecf", "completed"),
+      fullyDoneStep("pruebas_ecf"),
       step("representaciones", "completed"),
-      step("postulacion", "completed"),
-      step("declaracion_jurada", "completed"),
+      fullyDoneStep("postulacion"),
+      fullyDoneStep("declaracion_jurada"),
       fullyConfirmedRepresentante(),
     ];
     const ev = evaluateEnablement(progress, cert("valid"));
@@ -166,11 +185,11 @@ describe("evaluateEnablement", () => {
     const progress = [
       step("certificado_digital", "completed"),
       step("configuracion_fiscal", "completed"),
-      step("postulacion", "completed"),
-      step("pruebas_ecf", "completed"),
+      fullyDoneStep("postulacion"),
+      fullyDoneStep("pruebas_ecf"),
       step("representaciones", "completed"),
       step("url_produccion", "completed"),
-      step("declaracion_jurada", "completed"),
+      fullyDoneStep("declaracion_jurada"),
       fullyConfirmedRepresentante(),
       step("roles_ncf", "completed"),
     ];
@@ -209,5 +228,14 @@ describe("evaluateEnablement", () => {
     ];
     const ev = evaluateEnablement(progress, cert("valid"));
     expect(ev.nextStep?.id).toBe("postulacion");
+  });
+
+  it("gate por checklist: completed forzado en postulacion sin ítems se degrada a in_progress", () => {
+    const ev = evaluateEnablement(
+      [step("postulacion", "completed", 0, 0)],
+      cert("valid"),
+    );
+    const d = ev.diagnostics.find((x) => x.stepId === "postulacion");
+    expect(d?.status).toBe("in_progress");
   });
 });

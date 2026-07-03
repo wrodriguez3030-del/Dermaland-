@@ -14,8 +14,8 @@ const baseInvoice: ElectronicInvoice = {
   ecfType: "31",
   ecfNumber: "E310000000186",
   customerName: "Distrimedica SRL",
-  amount: 9609.32,
-  itbis: 1730.68,
+  amount: 9610.17,
+  itbis: 1729.83,
   total: 11340,
   status: "accepted",
   trackId: "DGII-TRK-2026-0000186",
@@ -35,7 +35,7 @@ describe("mapMockInvoiceToEcfInput", () => {
     expect(input.comprador.rncComprador).toBe("131234567");
     expect(input.comprador.razonSocialComprador).toBe("Distrimedica SRL");
     expect(input.items).toHaveLength(1);
-    expect(input.items[0]?.montoItem).toBe(9609.32);
+    expect(input.items[0]?.montoItem).toBe(9610.17);
     expect(input.totales.montoTotal).toBe(11340);
   });
 
@@ -91,9 +91,13 @@ describe("renderEcfFromMock — pipeline completo offline", () => {
     expect(r.unsignedXml).not.toContain("<Signature");
     expect(r.signedXml).toContain("<Signature");
     expect(r.pdfBuffer.subarray(0, 5).toString("ascii")).toBe("%PDF-");
-    expect(r.securityCode).toMatch(/^[a-zA-Z0-9]{8}$/);
+    // Regla DGII: primeros 6 chars del SignatureValue tal cual (base64).
+    expect(r.securityCode).toMatch(/^[A-Za-z0-9+/=]{6}$/);
     expect(r.qrUrl).toContain("ecf.dgii.gov.do");
-    expect(r.qrUrl).toContain(r.securityCode);
+    expect(r.qrUrl).toContain("FechaFirma=");
+    expect(r.qrUrl).toContain(
+      `CodigoSeguridad=${encodeURIComponent(r.securityCode)}`,
+    );
     expect(r.warning).toContain("DEMOSTRACIÓN");
   });
 

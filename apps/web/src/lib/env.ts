@@ -20,6 +20,10 @@ const schema = z.object({
   DGII_ENVIRONMENT: z
     .enum(["testecf", "certecf", "ecf", "cert", "prod"])
     .default("testecf"),
+  // DEPRECADAS: cert en filesystem + password en texto plano en env. El
+  // sistema vigente (Fase F) guarda el .p12 CIFRADO en Supabase con
+  // DGII_CERT_ENCRYPTION_KEY. Se conservan solo como fallback legado de
+  // `isDgiiConfigured()`; no agregar consumidores nuevos.
   DGII_CERTIFICATE_PATH: z.string().optional(),
   DGII_CERTIFICATE_PASSWORD: z.string().optional(),
   DGII_CERT_ENCRYPTION_KEY: z.string().optional(),
@@ -112,8 +116,20 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
+/**
+ * ¿Hay capacidad real de operar con certificado DGII?
+ *
+ * El sistema vigente (Fase F) guarda el `.p12` cifrado en Supabase y se
+ * gobierna por `isCertificateUploadEnabled()`. Las envs legadas
+ * `DGII_CERTIFICATE_PATH/PASSWORD` (deprecadas) quedan como fallback —
+ * antes este helper miraba SOLO las legadas y `/api/health` reportaba un
+ * estado que no correspondía al sistema real de certificados.
+ */
 export function isDgiiConfigured(): boolean {
-  return Boolean(env.DGII_CERTIFICATE_PATH && env.DGII_CERTIFICATE_PASSWORD);
+  return (
+    isCertificateUploadEnabled() ||
+    Boolean(env.DGII_CERTIFICATE_PATH && env.DGII_CERTIFICATE_PASSWORD)
+  );
 }
 
 /**

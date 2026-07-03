@@ -61,7 +61,11 @@ export class EcfBuilderInvalidInput extends Error {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RNC_RE = /^(?:\d{9}|\d{11})$/;
-const ENCF_RE = /^[a-zA-Z0-9]{13}$/;
+// eNCF: 'E' + tipo (2 dígitos, serie oficial 31/32/33/34/41/43/44/45) +
+// secuencia de 10 dígitos = 13 chars. Antes se aceptaba cualquier
+// alfanumérico de 13 chars, lo que dejaba pasar eNCF malformados de
+// inputs externos.
+const ENCF_RE = /^E(?:3[1-4]|4[1345])\d{10}$/;
 /**
  * `NCFModificado` (e-CF 33/34) puede ser un NCF legado (11 chars: 'B0100000001')
  * o un eNCF nuevo (13 chars: 'E310000000001'). El XSD lo declara como
@@ -86,21 +90,34 @@ const TYPES_REQUIRING_COMPRADOR_RNC: ReadonlySet<string> = new Set([
   "34",
 ]);
 
+// Las fechas fiscales SIEMPRE se expresan en hora de República Dominicana
+// (AST, UTC-4 fijo, sin horario de verano) — NUNCA en el TZ del proceso: en
+// serverless (Vercel) el proceso corre en UTC y una venta a las 22:00 AST se
+// firmaría/imprimiría con la fecha del día siguiente.
+const AST_OFFSET_MS = 4 * 60 * 60 * 1000;
+
+/** Corre el instante -4h para leer con getters UTC la hora civil AST. */
+function shiftToAst(d: Date): Date {
+  return new Date(d.getTime() - AST_OFFSET_MS);
+}
+
 export function formatDgiiDate(d: Date): string {
   if (Number.isNaN(d.getTime())) {
     throw new EcfBuilderInvalidInput("fecha", "fecha inválida");
   }
-  const day = String(d.getDate()).padStart(2, "0");
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const yr = d.getFullYear();
+  const a = shiftToAst(d);
+  const day = String(a.getUTCDate()).padStart(2, "0");
+  const mo = String(a.getUTCMonth() + 1).padStart(2, "0");
+  const yr = a.getUTCFullYear();
   return `${day}-${mo}-${yr}`;
 }
 
 export function formatDgiiDateTime(d: Date): string {
   const date = formatDgiiDate(d);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
+  const a = shiftToAst(d);
+  const hh = String(a.getUTCHours()).padStart(2, "0");
+  const mm = String(a.getUTCMinutes()).padStart(2, "0");
+  const ss = String(a.getUTCSeconds()).padStart(2, "0");
   return `${date} ${hh}:${mm}:${ss}`;
 }
 
@@ -118,6 +135,19 @@ export function formatDgiiPrice(n: number): string {
     throw new EcfBuilderInvalidInput("precio", `valor no finito: ${n}`);
   }
   return n.toFixed(4);
+}
+
+/**
+ * Cantidad: 2 decimales por defecto, pero conserva hasta 4 cuando la
+ * cantidad es fraccionaria fina (antes se truncaba a 2 y desalineaba
+ * `cantidad × precio` con `MontoItem`).
+ */
+export function formatDgiiQuantity(n: number): string {
+  if (!Number.isFinite(n)) {
+    throw new EcfBuilderInvalidInput("cantidad", `valor no finito: ${n}`);
+  }
+  const four = n.toFixed(4);
+  return four.endsWith("00") ? n.toFixed(2) : four;
 }
 
 function assertRnc(field: string, value: string): void {
@@ -358,7 +388,7 @@ function buildItem(parent: ReturnType<typeof create>, item: EcfItem): void {
   i.ele("NombreItem").txt(item.nombreItem);
   i.ele("IndicadorBienoServicio").txt(String(item.indicadorBienoServicio));
   if (item.descripcionItem) i.ele("DescripcionItem").txt(item.descripcionItem);
-  i.ele("CantidadItem").txt(formatDgiiAmount(item.cantidadItem));
+  i.ele("CantidadItem").txt(formatDgiiQuantity(item.cantidadItem));
   if (item.unidadMedida !== undefined) {
     i.ele("UnidadMedida").txt(String(item.unidadMedida));
   }
@@ -402,6 +432,119 @@ function buildItem(parent: ReturnType<typeof create>, item: EcfItem): void {
  * @throws EcfBuilderInvalidInput Si algún campo no respeta el XSD o las
  *  reglas por tipo (ej. NC/ND sin informacionReferencia).
  */
+/** ¿a ≈ b dentro de la tolerancia de redondeo? */
+function closeTo(a: number, b: number, tol: number): boolean {
+  return Math.abs(a - b) <= tol;
+}
+
+/**
+ * Validación ARITMÉTICA de negocio (el XSD solo valida estructura):
+ *  - Por línea: `cantidad × precio − descuento ≈ montoItem`.
+ *  - Σ montoItem por indicadorFacturacion ≈ MontoGravadoI1/I2/I3/MontoExento
+ *    (cuando el total granular viene provisto).
+ *  - `MontoGravadoTotal ≈ ΣIi`, `TotalITBIS ≈ Σ TotalITBISi`,
+ *    `TotalITBISi ≈ MontoGravadoIi × tasa` (cuando ambos lados existen).
+ *  - Con `IndicadorMontoGravado = 0` (montos sin ITBIS) y `TotalITBIS`
+ *    presente: `MontoTotal ≈ Σ montoItem + TotalITBIS`.
+ *
+ * Antes cualquier descuadre de redondeo pasaba silencioso hasta el rechazo
+ * de DGII; ahora se corta en el builder con un mensaje accionable.
+ */
+export function assertEcfArithmetic(input: EcfBuilderInput): void {
+  const LINE_TOL = 0.011;
+  const totalsTol = 0.01 + input.items.length * 0.005;
+  const t = input.totales;
+
+  const sums = { g1: 0, g2: 0, g3: 0, exento: 0, todas: 0 };
+  for (const it of input.items) {
+    const calc =
+      it.cantidadItem * it.precioUnitarioItem - (it.descuentoMonto ?? 0);
+    if (!closeTo(calc, it.montoItem, LINE_TOL)) {
+      throw new EcfBuilderInvalidInput(
+        `items[${it.numeroLinea}].montoItem`,
+        `cantidad × precio − descuento = ${calc.toFixed(4)} no cuadra con montoItem = ${it.montoItem.toFixed(2)}`,
+      );
+    }
+    sums.todas += it.montoItem;
+    if (it.indicadorFacturacion === 1) sums.g1 += it.montoItem;
+    else if (it.indicadorFacturacion === 2) sums.g2 += it.montoItem;
+    else if (it.indicadorFacturacion === 3) sums.g3 += it.montoItem;
+    else if (it.indicadorFacturacion === 4) sums.exento += it.montoItem;
+  }
+
+  const granular: Array<[string, number | undefined, number]> = [
+    ["totales.montoGravadoI1", t.montoGravadoI1, sums.g1],
+    ["totales.montoGravadoI2", t.montoGravadoI2, sums.g2],
+    ["totales.montoGravadoI3", t.montoGravadoI3, sums.g3],
+    ["totales.montoExento", t.montoExento, sums.exento],
+  ];
+  for (const [field, declared, fromLines] of granular) {
+    if (declared !== undefined && !closeTo(declared, fromLines, totalsTol)) {
+      throw new EcfBuilderInvalidInput(
+        field,
+        `declarado ${declared.toFixed(2)} pero las líneas suman ${fromLines.toFixed(2)}`,
+      );
+    }
+  }
+
+  const gravadoIs = [t.montoGravadoI1, t.montoGravadoI2, t.montoGravadoI3];
+  if (t.montoGravadoTotal !== undefined && gravadoIs.some((v) => v !== undefined)) {
+    const sumIs = gravadoIs.reduce<number>((s, v) => s + (v ?? 0), 0);
+    if (!closeTo(t.montoGravadoTotal, sumIs, totalsTol)) {
+      throw new EcfBuilderInvalidInput(
+        "totales.montoGravadoTotal",
+        `declarado ${t.montoGravadoTotal.toFixed(2)} pero MontoGravadoI1+I2+I3 = ${sumIs.toFixed(2)}`,
+      );
+    }
+  }
+
+  const itbisIs = [t.totalItbis1, t.totalItbis2, t.totalItbis3];
+  if (t.totalItbis !== undefined && itbisIs.some((v) => v !== undefined)) {
+    const sumItbis = itbisIs.reduce<number>((s, v) => s + (v ?? 0), 0);
+    if (!closeTo(t.totalItbis, sumItbis, totalsTol)) {
+      throw new EcfBuilderInvalidInput(
+        "totales.totalItbis",
+        `declarado ${t.totalItbis.toFixed(2)} pero TotalITBIS1+2+3 = ${sumItbis.toFixed(2)}`,
+      );
+    }
+  }
+
+  const rates: Array<[string, number | undefined, number | undefined, number | undefined]> = [
+    ["totales.totalItbis1", t.totalItbis1, t.montoGravadoI1, t.itbis1],
+    ["totales.totalItbis2", t.totalItbis2, t.montoGravadoI2, t.itbis2],
+    ["totales.totalItbis3", t.totalItbis3, t.montoGravadoI3, t.itbis3],
+  ];
+  // El ITBIS total se acumula desde líneas redondeadas, así que puede
+  // diferir del gravado × tasa por céntimos acumulados; DGII tolera ±1.
+  const RATE_TOL = Math.max(1.0, totalsTol);
+  for (const [field, totalItbisI, gravadoI, tasa] of rates) {
+    if (totalItbisI !== undefined && gravadoI !== undefined && tasa !== undefined) {
+      const expected = gravadoI * (tasa / 100);
+      if (!closeTo(totalItbisI, expected, RATE_TOL)) {
+        throw new EcfBuilderInvalidInput(
+          field,
+          `declarado ${totalItbisI.toFixed(2)} pero MontoGravado × ${tasa}% = ${expected.toFixed(2)}`,
+        );
+      }
+    }
+  }
+
+  // Con montos sin ITBIS (indicadorMontoGravado 0/undefined) y TotalITBIS
+  // presente, el total del comprobante debe ser líneas + ITBIS.
+  if (
+    (input.indicadorMontoGravado === 0 || input.indicadorMontoGravado === undefined) &&
+    t.totalItbis !== undefined
+  ) {
+    const expectedTotal = sums.todas + t.totalItbis;
+    if (!closeTo(t.montoTotal, expectedTotal, totalsTol)) {
+      throw new EcfBuilderInvalidInput(
+        "totales.montoTotal",
+        `declarado ${t.montoTotal.toFixed(2)} pero Σ líneas + TotalITBIS = ${expectedTotal.toFixed(2)}`,
+      );
+    }
+  }
+}
+
 export function buildEcfXml(input: EcfBuilderInput): string {
   if (!SUPPORTED_TYPES.has(input.tipoEcf)) {
     throw new EcfBuilderUnsupported(
@@ -444,6 +587,8 @@ export function buildEcfXml(input: EcfBuilderInput): string {
       `XSD permite máximo 1000 items (recibido: ${input.items.length})`,
     );
   }
+
+  assertEcfArithmetic(input);
 
   const doc = create({ version: "1.0", encoding: "UTF-8" });
   const ecf = doc.ele("ECF");

@@ -4,15 +4,15 @@
 /**
  * Cálculo del "Código de Seguridad" del e-CF.
  *
- * DGII requiere un código de seguridad (6-8 caracteres alfanuméricos)
- * impreso en la representación impresa y embebido en el QR de consulta.
- * Sirve para verificar la integridad del comprobante.
+ * Regla DGII (formato de representación impresa e-CF): el código de
+ * seguridad son los **primeros 6 caracteres del `SignatureValue`** del XML
+ * firmado, tal cual (base64: puede incluir `+`, `/`, `=`, mayúsculas y
+ * minúsculas). Solo se remueve el whitespace de formato (saltos de línea /
+ * indentación del XML), que no forma parte del valor base64.
  *
- * La regla EXACTA del algoritmo está en documentación oficial DGII y
- * **debe validarse antes de certificación** (duda D-06 en
- * `matriz-requisitos-dgii.md`). La implementación abajo es una
- * interpretación común: extraer los primeros 8 caracteres del
- * `SignatureValue` del XML firmado (base64), depurando los no-alfanum.
+ * NO se eliminan caracteres no alfanuméricos: hacerlo cambiaría qué
+ * caracteres quedan y el código impreso/QR no coincidiría con el que DGII
+ * recomputa al validar el comprobante.
  *
  * Esta función NO consume datos sensibles más allá de lo que ya está en el
  * XML firmado público.
@@ -25,8 +25,11 @@ export class DgiiSecurityCodeError extends Error {
   }
 }
 
+/** Longitud oficial del código de seguridad DGII. */
+export const SECURITY_CODE_LENGTH = 6;
+
 export interface SecurityCodeOptions {
-  /** Longitud del código resultante. Default 8 (rango común DGII 6-8). */
+  /** Longitud del código resultante. Default 6 (regla DGII). */
   length?: number;
 }
 
@@ -49,13 +52,14 @@ export function computeSecurityCode(
     );
   }
   const raw = match[1] ?? "";
-  // SignatureValue es base64 con saltos. Limpiamos a chars alfanuméricos.
-  const cleaned = raw.replace(/[^a-zA-Z0-9]/g, "");
-  const length = options.length ?? 8;
-  if (cleaned.length < length) {
+  // Remover SOLO whitespace de formato XML; el valor base64 se conserva
+  // íntegro (incluyendo +, /, =).
+  const value = raw.replace(/\s+/g, "");
+  const length = options.length ?? SECURITY_CODE_LENGTH;
+  if (value.length < length) {
     throw new DgiiSecurityCodeError(
-      `SignatureValue no tiene suficientes chars alfanuméricos (necesarios: ${length}, encontrados: ${cleaned.length})`,
+      `SignatureValue demasiado corto (necesarios: ${length}, encontrados: ${value.length})`,
     );
   }
-  return cleaned.slice(0, length);
+  return value.slice(0, length);
 }

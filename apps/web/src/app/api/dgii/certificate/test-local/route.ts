@@ -160,9 +160,11 @@ export async function POST() {
       { status: 500 },
     );
   } finally {
-    // Limpieza: el material ya no se necesita.
+    // Wipe best-effort: sobreescribir el CONTENIDO del buffer del .p12
+    // (no solo soltar la referencia) antes de dejarlo al GC. El string de
+    // la password no puede sobreescribirse en JS (inmutable) — queda al GC.
     if (material) {
-      // sobreescribir bytes y password reference
+      material.p12Bytes.fill(0);
       material = null;
     }
   }

@@ -197,7 +197,9 @@ export async function uploadCertificateAction(
     }
     throw err;
   } finally {
-    // Limpieza explícita; el GC encarga del rest. NO loggear nada.
+    // Wipe best-effort: sobreescribir el CONTENIDO del buffer (no solo la
+    // referencia) antes de soltarlo al GC. NO loggear nada.
+    bytes.fill(0);
     bytes = new Uint8Array(0);
   }
 

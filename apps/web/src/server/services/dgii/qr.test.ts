@@ -7,9 +7,11 @@ import {
 } from "./qr";
 
 describe("buildDgiiConsultaUrl", () => {
-  const fixedDate = new Date(2026, 4, 17);
+  // Mediodía AST del 17-05-2026 (16:00 UTC) — determinístico en cualquier TZ.
+  const fixedDate = new Date(Date.UTC(2026, 4, 17, 16, 0, 0));
+  const fixedFirma = "17-05-2026 14:30:45";
 
-  it("produce URL con host ecf.dgii.gov.do y path por ambiente", () => {
+  it("produce URL de la PÁGINA de consulta (no endpoint de API) por ambiente", () => {
     const url = buildDgiiConsultaUrl({
       ambiente: "testecf",
       rncEmisor: "13259077503",
@@ -17,12 +19,14 @@ describe("buildDgiiConsultaUrl", () => {
       eNcf: "E310000000001",
       fechaEmision: fixedDate,
       montoTotal: 1180,
-      codigoSeguridad: "ABC12345",
+      fechaFirma: fixedFirma,
+      codigoSeguridad: "ABC123",
     });
-    expect(url).toContain("https://ecf.dgii.gov.do/testecf/ConsultaTimbre");
+    expect(url).toContain("https://ecf.dgii.gov.do/testecf/ConsultaTimbre?");
+    expect(url).not.toContain("/api/");
   });
 
-  it("incluye los parámetros requeridos por DGII", () => {
+  it("incluye los parámetros requeridos por DGII (con FechaFirma y CodigoSeguridad)", () => {
     const url = buildDgiiConsultaUrl({
       ambiente: "ecf",
       rncEmisor: "13259077503",
@@ -30,7 +34,8 @@ describe("buildDgiiConsultaUrl", () => {
       eNcf: "E310000000001",
       fechaEmision: fixedDate,
       montoTotal: 1180.5,
-      codigoSeguridad: "ABC12345",
+      fechaFirma: fixedFirma,
+      codigoSeguridad: "ABC123",
     });
     const u = new URL(url);
     expect(u.searchParams.get("RncEmisor")).toBe("13259077503");
@@ -38,37 +43,87 @@ describe("buildDgiiConsultaUrl", () => {
     expect(u.searchParams.get("ENCF")).toBe("E310000000001");
     expect(u.searchParams.get("FechaEmision")).toBe("17-05-2026");
     expect(u.searchParams.get("MontoTotal")).toBe("1180.50");
-    expect(u.searchParams.get("CodigoSeguridadIeCF")).toBe("ABC12345");
+    expect(u.searchParams.get("FechaFirma")).toBe(fixedFirma);
+    expect(u.searchParams.get("CodigoSeguridad")).toBe("ABC123");
   });
 
-  it("omite RncComprador cuando no se provee (consumidor final)", () => {
+  it("lanza si falta fechaFirma en la consulta general", () => {
+    expect(() =>
+      buildDgiiConsultaUrl({
+        ambiente: "ecf",
+        rncEmisor: "13259077503",
+        rncComprador: "131234567",
+        eNcf: "E310000000001",
+        fechaEmision: fixedDate,
+        montoTotal: 1180,
+        codigoSeguridad: "ABC123",
+      }),
+    ).toThrow(/fechaFirma/);
+  });
+
+  it("consumo (32) < RD$250,000 usa la consulta reducida FC sin fechas ni comprador", () => {
+    const url = buildDgiiConsultaUrl({
+      ambiente: "testecf",
+      rncEmisor: "13259077503",
+      eNcf: "E320000000001",
+      fechaEmision: fixedDate,
+      montoTotal: 1180,
+      codigoSeguridad: "XYZ000",
+    });
+    const u = new URL(url);
+    expect(url).toContain("https://fc.dgii.gov.do/testecf/ConsultaTimbreFC?");
+    expect(u.searchParams.get("RncEmisor")).toBe("13259077503");
+    expect(u.searchParams.get("ENCF")).toBe("E320000000001");
+    expect(u.searchParams.get("MontoTotal")).toBe("1180.00");
+    expect(u.searchParams.get("CodigoSeguridad")).toBe("XYZ000");
+    expect(u.searchParams.has("RncComprador")).toBe(false);
+    expect(u.searchParams.has("FechaEmision")).toBe(false);
+    expect(u.searchParams.has("FechaFirma")).toBe(false);
+  });
+
+  it("consumo (32) >= RD$250,000 usa la consulta general", () => {
     const url = buildDgiiConsultaUrl({
       ambiente: "ecf",
       rncEmisor: "13259077503",
       eNcf: "E320000000001",
       fechaEmision: fixedDate,
+      montoTotal: 250_000,
+      fechaFirma: fixedFirma,
+      codigoSeguridad: "XYZ000",
+    });
+    expect(url).toContain("https://ecf.dgii.gov.do/ecf/ConsultaTimbre?");
+  });
+
+  it("acepta fechaFirma como Date y la formatea dd-MM-yyyy HH:mm:ss", () => {
+    const url = buildDgiiConsultaUrl({
+      ambiente: "ecf",
+      rncEmisor: "13259077503",
+      rncComprador: "131234567",
+      eNcf: "E310000000001",
+      fechaEmision: fixedDate,
       montoTotal: 100,
-      codigoSeguridad: "XYZ00000",
+      fechaFirma: new Date(Date.UTC(2026, 4, 17, 18, 30, 45)), // 14:30:45 AST
+      codigoSeguridad: "ABC123",
     });
     const u = new URL(url);
-    expect(u.searchParams.has("RncComprador")).toBe(false);
-    expect(u.searchParams.get("ENCF")).toBe("E320000000001");
+    expect(u.searchParams.get("FechaFirma")).toBe("17-05-2026 14:30:45");
   });
 
   it("path por ambiente: certecf vs ecf vs testecf", () => {
-    const test = buildDgiiConsultaUrl({
-      ambiente: "testecf",
-      rncEmisor: "1",
-      eNcf: "E",
-      fechaEmision: fixedDate,
-      montoTotal: 0,
-      codigoSeguridad: "0",
-    });
-    const cert = test.replace("testecf", "certecf");
-    const prod = test.replace("testecf", "ecf");
-    expect(test).toContain("/testecf/");
-    expect(cert).toContain("/certecf/");
-    expect(prod).toContain("/ecf/");
+    const build = (ambiente: "testecf" | "certecf" | "ecf") =>
+      buildDgiiConsultaUrl({
+        ambiente,
+        rncEmisor: "130000001",
+        rncComprador: "131234567",
+        eNcf: "E310000000001",
+        fechaEmision: fixedDate,
+        montoTotal: 100,
+        fechaFirma: fixedFirma,
+        codigoSeguridad: "ABC123",
+      });
+    expect(build("testecf")).toContain("/testecf/");
+    expect(build("certecf")).toContain("/certecf/");
+    expect(build("ecf")).toContain("/ecf/");
   });
 });
 

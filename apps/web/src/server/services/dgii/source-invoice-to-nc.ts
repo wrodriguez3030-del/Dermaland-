@@ -121,9 +121,16 @@ export function mapSourceInvoiceToNcInput(
   // completa). Si fuera una NC parcial, el caller debería pasar items
   // específicos — este helper hace el caso simple.
   const subtotalPreItbis = inv.amount; // ya es pre-ITBIS en el mock
+
+  // La tasa ITBIS se DERIVA de la factura origen (antes se hardcodeaba 18%:
+  // una NC de un comprobante exento o tasa 16 salía con ITBIS incorrecto).
+  const ratio = subtotalPreItbis > 0 ? inv.itbis / subtotalPreItbis : 0;
+  const tasaOrigen: 0 | 16 | 18 =
+    inv.itbis <= 0 ? 0 : Math.abs(ratio - 0.16) < 0.01 ? 16 : 18;
+
   const item: EcfItem = {
     numeroLinea: 1,
-    indicadorFacturacion: 1,
+    indicadorFacturacion: tasaOrigen === 0 ? 4 : tasaOrigen === 16 ? 2 : 1,
     nombreItem: `Nota de Crédito — ${inv.ecfNumber}`,
     indicadorBienoServicio: 1,
     cantidadItem: 1,
@@ -135,7 +142,7 @@ export function mapSourceInvoiceToNcInput(
   return {
     tipoEcf: "34",
     eNcf: ncEncf,
-    fechaVencimientoSecuencia: new Date(2027, 11, 31), // ignorado por XSD 34
+    fechaVencimientoSecuencia: new Date(Date.UTC(2027, 11, 31, 12)), // ignorado por XSD 34
     tipoIngresos: "01",
     tipoPago: 1,
     indicadorMontoGravado: 0,
@@ -153,13 +160,26 @@ export function mapSourceInvoiceToNcInput(
       rncComprador,
       razonSocialComprador: razonSocial,
     },
-    totales: {
-      montoGravadoTotal: subtotalPreItbis,
-      itbis1: 18,
-      totalItbis: inv.itbis,
-      totalItbis1: inv.itbis,
-      montoTotal: inv.total,
-    },
+    totales:
+      tasaOrigen === 0
+        ? { montoExento: subtotalPreItbis, montoTotal: inv.total }
+        : tasaOrigen === 16
+          ? {
+              montoGravadoTotal: subtotalPreItbis,
+              montoGravadoI2: subtotalPreItbis,
+              itbis2: 16,
+              totalItbis: inv.itbis,
+              totalItbis2: inv.itbis,
+              montoTotal: inv.total,
+            }
+          : {
+              montoGravadoTotal: subtotalPreItbis,
+              montoGravadoI1: subtotalPreItbis,
+              itbis1: 18,
+              totalItbis: inv.itbis,
+              totalItbis1: inv.itbis,
+              montoTotal: inv.total,
+            },
     items: [item],
     informacionReferencia,
     fechaHoraFirma: now,

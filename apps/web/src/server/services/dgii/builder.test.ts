@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  assertEcfArithmetic,
   buildEcfXml,
   buildEcfXmlPretty,
   formatDgiiAmount,
@@ -11,13 +12,20 @@ import {
 } from "./builder";
 import type { EcfBuilderInput } from "./types";
 
-// Fechas en hora local (constructor con args separados) para que el test
-// sea determinístico en cualquier TZ. `new Date('2027-12-31')` se parsea
-// como UTC y se desplaza un día al formatear en RD (UTC-4) — el fixture
-// usa el constructor local para evitar ese flake.
-// TODO: formatDgiiDate debería forzar TZ America/Santo_Domingo en
-// producción — pendiente confirmar con doc oficial DGII (matriz D-03).
-const fixedDate = new Date(2026, 4, 17, 14, 30, 45); // 2026-05-17 14:30:45 local
+// `formatDgiiDate`/`formatDgiiDateTime` SIEMPRE formatean en hora RD
+// (AST, UTC-4 fijo), independiente del TZ del proceso. Los fixtures se
+// construyen como instantes UTC explícitos (hora AST deseada + 4h) para que
+// el test sea determinístico en cualquier TZ.
+const astDate = (
+  y: number,
+  m: number,
+  d: number,
+  hh = 0,
+  mm = 0,
+  ss = 0,
+): Date => new Date(Date.UTC(y, m, d, hh + 4, mm, ss));
+
+const fixedDate = astDate(2026, 4, 17, 14, 30, 45); // 2026-05-17 14:30:45 AST
 
 /**
  * Fixture mínimo válido para e-CF 31 (Crédito Fiscal).
@@ -27,7 +35,7 @@ function makeValidInput(overrides: Partial<EcfBuilderInput> = {}): EcfBuilderInp
   return {
     tipoEcf: "31",
     eNcf: "E310000000001",
-    fechaVencimientoSecuencia: new Date(2027, 11, 31), // 2027-12-31 local
+    fechaVencimientoSecuencia: astDate(2027, 11, 31), // 2027-12-31 AST
     tipoIngresos: "01",
     tipoPago: 1,
     formasPago: [{ formaPago: 3, montoPago: 1180 }], // Tarjeta
@@ -71,15 +79,22 @@ function makeValidInput(overrides: Partial<EcfBuilderInput> = {}): EcfBuilderInp
 }
 
 describe("formatters", () => {
-  it("formatDgiiDate produce dd-MM-yyyy", () => {
-    expect(formatDgiiDate(new Date(2026, 4, 17, 14, 30, 0))).toBe("17-05-2026");
-    expect(formatDgiiDate(new Date(2027, 0, 3, 0, 0, 0))).toBe("03-01-2027");
+  it("formatDgiiDate produce dd-MM-yyyy en hora RD (AST)", () => {
+    expect(formatDgiiDate(astDate(2026, 4, 17, 14, 30, 0))).toBe("17-05-2026");
+    expect(formatDgiiDate(astDate(2027, 0, 3, 0, 0, 0))).toBe("03-01-2027");
   });
 
-  it("formatDgiiDateTime produce dd-MM-yyyy HH:MM:SS", () => {
-    expect(formatDgiiDateTime(new Date(2026, 4, 17, 14, 30, 45))).toBe(
+  it("formatDgiiDateTime produce dd-MM-yyyy HH:MM:SS en hora RD (AST)", () => {
+    expect(formatDgiiDateTime(astDate(2026, 4, 17, 14, 30, 45))).toBe(
       "17-05-2026 14:30:45",
     );
+  });
+
+  it("una venta nocturna AST NO se corre al día siguiente aunque el proceso corra en UTC", () => {
+    // 22:15 AST del 17-05 = 02:15 UTC del 18-05. La fecha fiscal es 17-05.
+    const nocturna = new Date(Date.UTC(2026, 4, 18, 2, 15, 0));
+    expect(formatDgiiDate(nocturna)).toBe("17-05-2026");
+    expect(formatDgiiDateTime(nocturna)).toBe("17-05-2026 22:15:00");
   });
 
   it("formatDgiiAmount usa 2 decimales, punto y sin separador", () => {
@@ -431,7 +446,7 @@ describe("buildEcfXml — e-CF 33 (Nota de Débito) y 34 (Nota de Crédito)", ()
   const baseInfoRef = {
     ncfModificado: "E310000000100",
     rncOtroContribuyente: "131234567",
-    fechaNCFModificado: new Date(2026, 3, 10),
+    fechaNCFModificado: astDate(2026, 3, 10),
     codigoModificacion: 3 as const,
   };
 
@@ -596,5 +611,83 @@ describe("buildEcfXml — e-CF 33 (Nota de Débito) y 34 (Nota de Crédito)", ()
   it("tipo 31 sin informacionReferencia NO emite el bloque", () => {
     const xml = buildEcfXml(makeValidInput());
     expect(xml).not.toContain("<InformacionReferencia>");
+  });
+});
+
+describe("assertEcfArithmetic — validación aritmética de negocio", () => {
+  it("acepta un input consistente", () => {
+    expect(() => assertEcfArithmetic(makeValidInput())).not.toThrow();
+  });
+
+  it("rechaza línea cuyo cantidad × precio − descuento no cuadra con montoItem", () => {
+    const bad = makeValidInput({
+      items: [
+        {
+          numeroLinea: 1,
+          indicadorFacturacion: 1,
+          nombreItem: "X",
+          indicadorBienoServicio: 1,
+          cantidadItem: 2,
+          precioUnitarioItem: 500,
+          montoItem: 900, // 2×500 = 1000 ≠ 900
+        },
+      ],
+    });
+    expect(() => assertEcfArithmetic(bad)).toThrow(EcfBuilderInvalidInput);
+  });
+
+  it("rechaza MontoGravadoI1 que no cuadra con las líneas de tasa 18", () => {
+    const bad = makeValidInput({
+      totales: {
+        montoGravadoTotal: 900,
+        montoGravadoI1: 900, // líneas suman 1000
+        itbis1: 18,
+        totalItbis: 180,
+        totalItbis1: 180,
+        montoTotal: 1180,
+      },
+    });
+    expect(() => assertEcfArithmetic(bad)).toThrow(/montoGravadoI1/);
+  });
+
+  it("rechaza MontoExento declarado sin líneas exentas que lo respalden", () => {
+    const bad = makeValidInput({
+      totales: {
+        montoGravadoTotal: 1000,
+        montoExento: 250, // no hay líneas con indicadorFacturacion 4
+        itbis1: 18,
+        totalItbis: 180,
+        totalItbis1: 180,
+        montoTotal: 1430,
+      },
+    });
+    expect(() => assertEcfArithmetic(bad)).toThrow(/montoExento/);
+  });
+
+  it("rechaza MontoTotal que no es Σ líneas + TotalITBIS (montos sin ITBIS)", () => {
+    const bad = makeValidInput({
+      totales: {
+        montoGravadoTotal: 1000,
+        itbis1: 18,
+        totalItbis: 180,
+        totalItbis1: 180,
+        montoTotal: 1300, // 1000 + 180 = 1180
+      },
+    });
+    expect(() => assertEcfArithmetic(bad)).toThrow(/montoTotal/);
+  });
+
+  it("tolera diferencia de ±1 entre TotalITBIS1 y gravado × tasa (redondeo por línea)", () => {
+    const ok = makeValidInput({
+      totales: {
+        montoGravadoTotal: 1000,
+        montoGravadoI1: 1000,
+        itbis1: 18,
+        totalItbis: 180.9, // 180 + 0.9 de acumulación por línea
+        totalItbis1: 180.9,
+        montoTotal: 1180.9,
+      },
+    });
+    expect(() => assertEcfArithmetic(ok)).not.toThrow();
   });
 });

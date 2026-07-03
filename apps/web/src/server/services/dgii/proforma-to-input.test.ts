@@ -159,6 +159,67 @@ describe("mapProformaToEcfInput — totales", () => {
     expect(input.totales.totalItbis).toBeCloseTo(p.itbis, 2);
     expect(input.totales.montoTotal).toBeCloseTo(p.total, 2);
   });
+
+  it("emite MontoGravadoI1 junto a TotalITBIS1 (validación aritmética DGII)", () => {
+    const input = mapProformaToEcfInput(makeProforma());
+    expect(input.totales.montoGravadoI1).toBeCloseTo(200, 2);
+    expect(input.totales.totalItbis1).toBeCloseTo(36, 2);
+    expect(input.totales.itbis1).toBe(18);
+    // TotalITBIS1 ≈ MontoGravadoI1 × 18%
+    expect(input.totales.totalItbis1).toBeCloseTo(
+      (input.totales.montoGravadoI1 ?? 0) * 0.18,
+      2,
+    );
+  });
+
+  it("líneas exentas van a MontoExento y NO inflan el gravado", () => {
+    const gravada = makeItem(); // 200 pre-ITBIS, 36 ITBIS
+    const exenta = makeItem({
+      itbisRate: 0,
+      unitPrice: 50,
+      quantity: 1,
+      subtotal: 50,
+      itbis: 0,
+      total: 50,
+    });
+    const p = makeProforma({
+      items: [gravada, exenta],
+      subtotal: 250,
+      itbis: 36,
+      total: 286,
+    });
+    const input = mapProformaToEcfInput(p);
+    expect(input.totales.montoExento).toBeCloseTo(50, 2);
+    expect(input.totales.montoGravadoTotal).toBeCloseTo(200, 2);
+    expect(input.totales.montoGravadoI1).toBeCloseTo(200, 2);
+    expect(input.totales.totalItbis1).toBeCloseTo(36, 2);
+  });
+
+  it("proforma 100% exenta: sin gravado ni ITBIS, solo MontoExento", () => {
+    const exenta = makeItem({
+      itbisRate: 0,
+      unitPrice: 50,
+      quantity: 2,
+      subtotal: 100,
+      itbis: 0,
+      total: 100,
+    });
+    const p = makeProforma({ items: [exenta], subtotal: 100, itbis: 0, total: 100 });
+    const input = mapProformaToEcfInput(p);
+    expect(input.totales.montoExento).toBeCloseTo(100, 2);
+    expect(input.totales.montoGravadoTotal).toBeUndefined();
+    expect(input.totales.totalItbis1).toBeUndefined();
+    expect(input.totales.itbis1).toBeUndefined();
+  });
+
+  it("identidad por línea: cantidad × precio − descuento == montoItem (con descuento)", () => {
+    const conDesc = makeItem({ discount: 7.33, subtotal: 192.67 });
+    const input = mapProformaToEcfInput(makeProforma({ items: [conDesc] }));
+    const it0 = input.items[0]!;
+    expect(
+      it0.cantidadItem * it0.precioUnitarioItem - (it0.descuentoMonto ?? 0),
+    ).toBeCloseTo(it0.montoItem, 2);
+  });
 });
 
 describe("mapProformaToEcfInput — integración con pipeline", () => {

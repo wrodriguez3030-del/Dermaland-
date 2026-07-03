@@ -124,8 +124,13 @@ export function mapProformaToEcfInput(
     // `subtotal` de la proforma es pre-ITBIS post-descuento.
     const subtotalLinea = it.subtotal;
     const unidades = it.quantity > 0 ? it.quantity : 1;
-    // Precio unitario pre-ITBIS pre-descuento.
-    const precioUnitarioPre = it.unitPrice / (1 + it.itbisRate / 100);
+    // Precio unitario derivado del monto de línea para GARANTIZAR la
+    // identidad DGII `cantidad × precio − descuento == montoItem` tras
+    // redondeo (derivarlo de `unitPrice` con ITBIS podía descuadrar la
+    // línea por céntimos en líneas con descuento).
+    const descuento = it.discount > 0 ? it.discount : 0;
+    const precioUnitarioPre =
+      Math.round(((subtotalLinea + descuento) / unidades) * 10_000) / 10_000;
     return {
       numeroLinea: ix + 1,
       indicadorFacturacion: indicadorFacturacionFromItbisRate(it.itbisRate),
@@ -136,7 +141,7 @@ export function mapProformaToEcfInput(
         : `SKU ${it.productSku}`,
       cantidadItem: unidades,
       precioUnitarioItem: precioUnitarioPre,
-      ...(it.discount > 0 ? { descuentoMonto: it.discount } : {}),
+      ...(descuento > 0 ? { descuentoMonto: descuento } : {}),
       montoItem: subtotalLinea,
     };
   });
@@ -163,7 +168,8 @@ export function mapProformaToEcfInput(
   return {
     tipoEcf,
     eNcf,
-    fechaVencimientoSecuencia: new Date(2027, 11, 31),
+    // Mediodía UTC → 31-12-2027 en AST sin depender del TZ del proceso.
+    fechaVencimientoSecuencia: new Date(Date.UTC(2027, 11, 31, 12)),
     tipoIngresos: "01",
     tipoPago: 1,
     indicadorMontoGravado: 0,
@@ -176,15 +182,61 @@ export function mapProformaToEcfInput(
       ...(rncComprador ? { rncComprador } : {}),
       ...(razonSocial ? { razonSocialComprador: razonSocial } : {}),
     },
-    totales: {
-      montoGravadoTotal: proforma.subtotal,
-      itbis1: 18,
-      totalItbis: proforma.itbis,
-      totalItbis1: proforma.itbis,
-      montoTotal: proforma.total,
-    },
+    totales: buildTotalesFromItems(proforma.items, proforma.total),
     items,
     informacionReferencia,
     fechaHoraFirma: fechaFirma,
+  };
+}
+
+function r2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Totales por tasa calculados DESDE las líneas (regla aritmética DGII):
+ *  - `MontoGravadoI1/I2` = Σ subtotal de líneas 18% / 16%.
+ *  - `MontoExento` = Σ subtotal de líneas exentas (tasa 0) — NO infla el
+ *    gravado (antes `montoGravadoTotal = proforma.subtotal` incluía exentos
+ *    y nunca se emitía `MontoGravadoI1`, con lo que la validación
+ *    `TotalITBIS1 ≈ MontoGravadoI1 × 18%` no podía cuadrar).
+ *  - `TotalITBIS1/2` = Σ itbis de las líneas de cada tasa.
+ */
+function buildTotalesFromItems(
+  items: Proforma["items"],
+  montoTotal: number,
+): EcfBuilderInput["totales"] {
+  let gravado1 = 0;
+  let gravado2 = 0;
+  let exento = 0;
+  let itbis1 = 0;
+  let itbis2 = 0;
+  for (const it of items) {
+    if (it.itbisRate === 0) {
+      exento += it.subtotal;
+    } else if (it.itbisRate === 16) {
+      gravado2 += it.subtotal;
+      itbis2 += it.itbis;
+    } else {
+      gravado1 += it.subtotal;
+      itbis1 += it.itbis;
+    }
+  }
+  const gravadoTotal = gravado1 + gravado2;
+  return {
+    ...(gravado1 > 0
+      ? { montoGravadoI1: r2(gravado1), itbis1: 18, totalItbis1: r2(itbis1) }
+      : {}),
+    ...(gravado2 > 0
+      ? { montoGravadoI2: r2(gravado2), itbis2: 16, totalItbis2: r2(itbis2) }
+      : {}),
+    ...(exento > 0 ? { montoExento: r2(exento) } : {}),
+    ...(gravadoTotal > 0
+      ? {
+          montoGravadoTotal: r2(gravadoTotal),
+          totalItbis: r2(itbis1 + itbis2),
+        }
+      : {}),
+    montoTotal,
   };
 }

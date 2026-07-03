@@ -269,9 +269,15 @@ export async function logCertificateUploadAudit(args: {
 }
 
 /**
- * Resuelve la pareja `<p12 bytes, password>` para Fase G (envío real).
- * NO se usa en Fase F. Sigue aquí porque la responsabilidad pertenece
- * a este módulo. Cuando Fase G se autorice, la Edge Function la llama.
+ * Resuelve la pareja `<p12 bytes, password>` — DESCIFRA la clave privada.
+ *
+ * Consumidores actuales (todos server-side, SIN envío a DGII):
+ *  - `/api/dgii/certificate/test-local` (prueba local de firma, Fase F).
+ *  - `testecf-preflight.ts` (dry-run; hace scrub del material).
+ *  - Fase G (envío real) la usará cuando se autorice.
+ *
+ * REGLA: el material descifrado NUNCA sale del proceso server (ni a logs,
+ * ni al navegador); cada caller debe hacer wipe best-effort al terminar.
  */
 export async function resolveSigningMaterial(args: {
   businessId: string;

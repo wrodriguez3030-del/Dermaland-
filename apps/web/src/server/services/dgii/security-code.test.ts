@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeSecurityCode,
   DgiiSecurityCodeError,
+  SECURITY_CODE_LENGTH,
 } from "./security-code";
 
 const SIGNED_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
@@ -17,10 +18,23 @@ const SIGNED_FIXTURE = `<?xml version="1.0" encoding="UTF-8"?>
 </ECF>`;
 
 describe("computeSecurityCode", () => {
-  it("extrae 8 chars alfanum del SignatureValue", () => {
+  it("extrae los primeros 6 caracteres del SignatureValue tal cual (regla DGII)", () => {
     const code = computeSecurityCode(SIGNED_FIXTURE);
-    expect(code).toHaveLength(8);
-    expect(code).toMatch(/^[a-zA-Z0-9]{8}$/);
+    expect(code).toBe("aBcD12");
+    expect(code).toHaveLength(SECURITY_CODE_LENGTH);
+  });
+
+  it("NO filtra caracteres base64 (+, /, =) — se toman tal cual", () => {
+    const xml = `<Signature><SignatureValue>+/=abcDEF123</SignatureValue></Signature>`;
+    expect(computeSecurityCode(xml)).toBe("+/=abc");
+  });
+
+  it("ignora whitespace de formato XML dentro del SignatureValue", () => {
+    const xml = `<Signature><SignatureValue>
+      aBcD12
+      34EfGh
+    </SignatureValue></Signature>`;
+    expect(computeSecurityCode(xml)).toBe("aBcD12");
   });
 
   it("es reproducible para el mismo XML", () => {
@@ -30,17 +44,10 @@ describe("computeSecurityCode", () => {
   });
 
   it("permite longitud configurable", () => {
-    const code6 = computeSecurityCode(SIGNED_FIXTURE, { length: 6 });
+    const code8 = computeSecurityCode(SIGNED_FIXTURE, { length: 8 });
     const code10 = computeSecurityCode(SIGNED_FIXTURE, { length: 10 });
-    expect(code6).toHaveLength(6);
+    expect(code8).toBe("aBcD1234");
     expect(code10).toHaveLength(10);
-  });
-
-  it("filtra caracteres no alfanuméricos del SignatureValue", () => {
-    const code = computeSecurityCode(SIGNED_FIXTURE);
-    // El SignatureValue del fixture tiene '/', '+', '=' que no deben
-    // aparecer en el código de seguridad.
-    expect(code).not.toMatch(/[\/+=]/);
   });
 
   it("acepta SignatureValue con prefijo de namespace (ds:)", () => {
@@ -49,7 +56,7 @@ describe("computeSecurityCode", () => {
       "<ds:SignatureValue>",
     ).replace(/<\/SignatureValue>/g, "</ds:SignatureValue>");
     const code = computeSecurityCode(xmlNs);
-    expect(code).toHaveLength(8);
+    expect(code).toBe("aBcD12");
   });
 
   it("lanza si no hay SignatureValue", () => {
@@ -58,7 +65,7 @@ describe("computeSecurityCode", () => {
     ).toThrow(DgiiSecurityCodeError);
   });
 
-  it("lanza si SignatureValue no tiene suficientes chars alfanum", () => {
+  it("lanza si SignatureValue es demasiado corto", () => {
     const xmlCorto = `<Signature><SignatureValue>a==</SignatureValue></Signature>`;
     expect(() => computeSecurityCode(xmlCorto)).toThrow(
       DgiiSecurityCodeError,

@@ -156,6 +156,8 @@ export async function generateEcfPdf(
     eNcf: input.ecf.eNcf,
     fechaEmision: input.ecf.emisor.fechaEmision,
     montoTotal: input.ecf.totales.montoTotal,
+    // Misma fecha de firma que lleva el XML (consistencia QR↔XML).
+    fechaFirma: input.ecf.fechaHoraFirma,
     codigoSeguridad,
   });
 

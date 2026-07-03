@@ -11,6 +11,66 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.36.0] - 2026-07-03
+
+Correcciones al módulo DGII derivadas de la revisión fiscal completa.
+**Nada de esto activa emisión real** — Fase G sigue bloqueada (killswitch
+`DGII_TESTECF_SEND_ENABLED=false` + gates intactos).
+
+### Fixed (núcleo fiscal e-CF)
+- **Código de seguridad**: ahora son los **primeros 6 caracteres del
+  `SignatureValue` tal cual** (base64 con `+`/`/`/`=`; solo se remueve
+  whitespace de formato). Antes tomaba 8 caracteres y eliminaba los
+  no-alfanuméricos ANTES de cortar → el código impreso/QR no habría
+  coincidido con el que DGII recomputa.
+- **QR de consulta del timbre** (`qr.ts`): se agregó **`FechaFirma`**
+  (obligatoria en la consulta general), el parámetro se renombró
+  `CodigoSeguridadIeCF` → **`CodigoSeguridad`**, la URL apunta a la
+  **página** de consulta (no a `/api/Consulta`), y consumo (e-CF 32)
+  **< RD$250,000** usa la consulta reducida
+  `fc.dgii.gov.do/{amb}/ConsultaTimbreFC` sin comprador ni fechas.
+- **Zona horaria**: `formatDgiiDate`/`formatDgiiDateTime` SIEMPRE formatean
+  en hora RD (**AST, UTC-4 fijo**). Antes usaban el TZ del proceso: en
+  Vercel (UTC) una venta a las 22:00 se firmaba con fecha del día siguiente.
+- **Totales por tasa**: los mappers (`proforma-to-input`,
+  `source-invoice-to-nc`, `demo-renderer`) ahora emiten **`MontoGravadoI1/I2`
+  junto a `TotalITBIS1/2`**, separan exentos en **`MontoExento`** (ya no
+  inflan el gravado) y la **NC deriva la tasa de la factura origen** (antes
+  hardcodeaba 18% aunque el origen fuera exento).
+- **Identidad por línea**: `precioUnitarioItem` se deriva del monto de línea
+  para garantizar `cantidad × precio − descuento == montoItem` tras redondeo.
+- **eNCF estricto**: el builder valida `E + tipo oficial + 10 dígitos`
+  (antes cualquier alfanumérico de 13 chars pasaba).
+
+### Added
+- **Validación aritmética de negocio en el builder**
+  (`assertEcfArithmetic`): identidad por línea, granulares vs líneas,
+  `MontoGravadoTotal ≈ ΣIi`, `TotalITBIS ≈ ΣITBISi`,
+  `TotalITBISi ≈ gravado × tasa` (tolerancia ±1 por redondeo por línea) y
+  `MontoTotal ≈ Σ líneas + ITBIS`. El XSD solo validaba estructura.
+- **`POST /api/dgii/sequences/reserve`**: reserva **atómica** del siguiente
+  número e-CF vía la RPC existente `reserve_ecf_sequence_number` (mig 0003,
+  `FOR UPDATE`), multi-tenant por RLS. Base de Fase C — pendiente cablear el
+  POS a este endpoint en modo supabase (hoy reserva en localStorage POR
+  NAVEGADOR: dos cajas en máquinas distintas pueden repetir número; la
+  limitación quedó documentada en `numbering-store.ts`).
+
+### Fixed (gating/observabilidad)
+- `/api/health` reporta `dgii` según el **sistema real de certificados**
+  (Fase F, cert cifrado en Supabase) además de las envs legadas
+  `DGII_CERTIFICATE_PATH/PASSWORD` (ahora marcadas deprecadas).
+- **Gate por checklist** en habilitación: `postulacion`, `pruebas_ecf` y
+  `declaracion_jurada` ya no aceptan `completed` forzado sin todos los
+  ítems marcados (antes se podía mostrar "Certificado por DGII" sin
+  sustento).
+- Wipe best-effort REAL de material sensible (`.p12`): se sobreescribe el
+  contenido del buffer, no solo la referencia; comentario de
+  `resolveSigningMaterial` corregido (SÍ se usa en Fase F test-local).
+- `document-resolver.ts` marcado **deprecado**: la fuente única de la
+  decisión documental (R-FIS-01) es `features/billing/auto-billing-rules.ts`
+  (lo que ejecuta el POS).
+- `CantidadItem` conserva hasta 4 decimales en cantidades fraccionarias.
+
 ## [0.35.0] - 2026-07-03
 
 ### Performance
