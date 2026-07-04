@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.38.0] - 2026-07-04
+
+### Added
+- **Pantalla DGII > Numeraciones portada a Supabase.** En modo supabase,
+  `/dgii/secuencias` lee y administra `invoice_numberings` — la MISMA tabla
+  que consume el POS al reservar (una sola fuente de verdad; ya NO usa
+  localStorage). En modo mock sigue el store local como demo.
+- Endpoints seguros (sesión + RLS; business_id NUNCA del cliente):
+  `GET/POST /api/dgii/sequences`, `PATCH/DELETE /api/dgii/sequences/[id]`,
+  `POST .../prefer|activate|deactivate`, `GET .../history` (auditoría desde
+  `audit_logs`, incluye los números reservados por el POS).
+- Validaciones servidor (`features/dgii/numbering-rules.ts`, puras +
+  testeadas): siguiente dentro del rango, una sola preferida activa por
+  tipo+ambiente (también el índice parcial de la DB), **ambiente
+  `produccion` BLOQUEADO** mientras DGII real esté apagado, en ediciones no
+  se puede bajar el siguiente número ni mover/encoger el rango con
+  comprobantes emitidos; eliminar = soft-delete y SOLO sin uso.
+- UI: KPIs (activas, por agotarse, vencidas, fuente), filtros por
+  tipo/ambiente/estado/electrónica, paginación, alerta de tipos POS sin
+  preferida activa, historial en el detalle, errores amigables (sin UUIDs
+  ni errores técnicos).
+- Verificado EN VIVO: reserva del POS subió B02 de 1300→1301 y la pantalla
+  (misma tabla) lo refleja; segunda preferida activa rechazada por la DB.
+
 ## [0.37.0] - 2026-07-03
 
 **REQUIERE MIGRACIÓN**: `0011_invoice_numberings.sql` + `0018_pos_numbering_wiring.sql`

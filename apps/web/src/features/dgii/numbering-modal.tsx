@@ -5,14 +5,19 @@ import { AlertTriangle, Hash } from "lucide-react";
 import { Button, Input, Label, Select, Textarea } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import {
-  createNumbering,
-  updateNumbering,
   DOC_TYPE_LABEL,
+  NUMBERING_BACKEND,
   type DocType,
   type Environment,
   type Numbering,
   type NumberingInput,
 } from "@/features/dgii/numbering-store";
+import {
+  saveNumberingAnywhere,
+  useNumberingHistory,
+  HISTORY_ACTION_LABEL,
+} from "@/features/dgii/numbering-client";
+import { formatDateTime } from "@/lib/utils/format";
 
 type Mode = "create" | "edit" | "view";
 
@@ -23,12 +28,14 @@ interface Props {
   onClose: () => void;
 }
 
-const ENVIRONMENTS: { value: Environment; label: string }[] = [
+// `produccion` se muestra pero BLOQUEADA: la emisión fiscal real está
+// apagada (Fase G) y el servidor también la rechaza.
+const ENVIRONMENTS: { value: Environment; label: string; disabled?: boolean }[] = [
   { value: "mock", label: "Mock (pruebas internas)" },
   { value: "demo", label: "Demo (no fiscal)" },
   { value: "testecf", label: "TesteCF (DGII pruebas)" },
   { value: "certecf", label: "CerteCF (DGII certificación)" },
-  { value: "produccion", label: "Producción (fiscal)" },
+  { value: "produccion", label: "Producción (BLOQUEADA — DGII real apagado)", disabled: true },
 ];
 
 export function NumberingModal({ open, mode, numbering, onClose }: Props) {
@@ -84,9 +91,11 @@ export function NumberingModal({ open, mode, numbering, onClose }: Props) {
     setError(null);
   }, [open, numbering]);
 
+  const [saving, setSaving] = React.useState(false);
+
   if (!open) return null;
 
-  const submit = () => {
+  const submit = async () => {
     const payload: NumberingInput = {
       name,
       documentType,
@@ -102,10 +111,12 @@ export function NumberingModal({ open, mode, numbering, onClose }: Props) {
       status,
       note: note || undefined,
     };
-    const res =
-      mode === "edit" && numbering
-        ? updateNumbering(numbering.id, payload)
-        : createNumbering(payload);
+    setSaving(true);
+    const res = await saveNumberingAnywhere(
+      payload,
+      mode === "edit" && numbering ? numbering.id : undefined,
+    );
+    setSaving(false);
     if (!res.ok) {
       setError(res.error);
       return;
@@ -193,7 +204,7 @@ export function NumberingModal({ open, mode, numbering, onClose }: Props) {
               disabled={readOnly}
             >
               {ENVIRONMENTS.map((e) => (
-                <option key={e.value} value={e.value}>
+                <option key={e.value} value={e.value} disabled={e.disabled}>
                   {e.label}
                 </option>
               ))}
@@ -266,10 +277,14 @@ export function NumberingModal({ open, mode, numbering, onClose }: Props) {
                 Próximo: <strong>{numbering.nextNumber}</strong>
               </span>
             </div>
-            <p className="mt-1 opacity-60">
-              El historial detallado de documentos aparecerá al vincularse
-              comprobantes a esta numeración.
-            </p>
+            {NUMBERING_BACKEND === "supabase" ? (
+              <NumberingHistory numberingId={numbering.id} />
+            ) : (
+              <p className="mt-1 opacity-60">
+                El historial detallado está disponible en modo servidor
+                (Supabase).
+              </p>
+            )}
           </div>
         )}
 
@@ -285,12 +300,46 @@ export function NumberingModal({ open, mode, numbering, onClose }: Props) {
             {readOnly ? "Cerrar" : "Cancelar"}
           </Button>
           {!readOnly && (
-            <Button type="button" size="sm" onClick={submit}>
-              {mode === "edit" ? "Guardar cambios" : "Crear numeración"}
+            <Button type="button" size="sm" onClick={submit} disabled={saving}>
+              {saving
+                ? "Guardando…"
+                : mode === "edit"
+                  ? "Guardar cambios"
+                  : "Crear numeración"}
             </Button>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Historial de auditoría de la numeración (creación/edición/reservas). */
+function NumberingHistory({ numberingId }: { numberingId: string }) {
+  const { history, loading } = useNumberingHistory(numberingId);
+  if (loading) return <p className="mt-2 opacity-60">Cargando historial…</p>;
+  if (history.length === 0) {
+    return <p className="mt-2 opacity-60">Sin movimientos registrados todavía.</p>;
+  }
+  return (
+    <div className="mt-2 max-h-48 space-y-1 overflow-y-auto">
+      {history.map((h, i) => (
+        <div
+          key={i}
+          className="flex flex-wrap items-baseline gap-x-2 border-b border-black/5 py-1 last:border-0"
+        >
+          <span className="font-medium">
+            {HISTORY_ACTION_LABEL[h.action] ?? h.action}
+          </span>
+          {h.action === "dgii.sequence_reserved" &&
+            typeof h.metadata?.formatted === "string" && (
+              <span className="font-mono">{h.metadata.formatted}</span>
+            )}
+          <span className="opacity-60">
+            {h.userName || "—"} · {formatDateTime(h.createdAt)}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

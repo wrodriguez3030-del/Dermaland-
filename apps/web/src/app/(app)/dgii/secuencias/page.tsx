@@ -30,18 +30,23 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import {
-  useNumberings,
-  deleteNumbering,
-  setNumberingActive,
-  setPreferred,
   effectiveStatus,
   remaining,
   isLowRange,
   DOC_TYPE_LABEL,
+  NUMBERING_BACKEND,
   type DocType,
+  type Environment,
   type Numbering,
 } from "@/features/dgii/numbering-store";
+import {
+  useNumberingsAnywhere,
+  deleteNumberingAnywhere,
+  setActiveAnywhere,
+  setPreferredAnywhere,
+} from "@/features/dgii/numbering-client";
 import { NumberingModal } from "@/features/dgii/numbering-modal";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 
 const envTone: Record<string, "success" | "info" | "warning" | "neutral"> = {
   produccion: "success",
@@ -58,10 +63,16 @@ const statusBadge = (n: Numbering) => {
   return <Badge tone="danger">Vencida</Badge>;
 };
 
+// Tipos que el POS necesita con preferida activa para emitir.
+const POS_CRITICAL_TYPES: DocType[] = ["consumo", "credito_fiscal", "ecf_32", "ecf_31"];
+
 export default function NumeracionesPage() {
-  const numberings = useNumberings();
+  const { numberings, loading, error, refresh } = useNumberingsAnywhere();
   const toast = useToast();
   const [docFilter, setDocFilter] = React.useState<"all" | DocType>("all");
+  const [envFilter, setEnvFilter] = React.useState<"all" | Environment>("all");
+  const [statusFilter, setStatusFilter] = React.useState<"all" | "active" | "inactive">("all");
+  const [elecFilter, setElecFilter] = React.useState<"all" | "yes" | "no">("all");
   const [modal, setModal] = React.useState<{
     open: boolean;
     mode: "create" | "edit" | "view";
@@ -69,11 +80,25 @@ export default function NumeracionesPage() {
   }>({ open: false, mode: "create" });
 
   const rows = numberings.filter(
-    (n) => docFilter === "all" || n.documentType === docFilter,
+    (n) =>
+      (docFilter === "all" || n.documentType === docFilter) &&
+      (envFilter === "all" || n.environment === envFilter) &&
+      (statusFilter === "all" || n.status === statusFilter) &&
+      (elecFilter === "all" || n.isElectronic === (elecFilter === "yes")),
   );
+  const pag = usePagination(rows, {
+    resetKey: [docFilter, envFilter, statusFilter, elecFilter].join("|"),
+  });
 
+  const activeCount = numberings.filter((n) => effectiveStatus(n) === "active").length;
   const lowOnes = numberings.filter(isLowRange);
   const expiredOnes = numberings.filter((n) => effectiveStatus(n) === "expired");
+  const missingPreferred = POS_CRITICAL_TYPES.filter(
+    (t) =>
+      !numberings.some(
+        (n) => n.documentType === t && n.isPreferred && effectiveStatus(n) === "active",
+      ),
+  );
 
   return (
     <>
@@ -95,13 +120,67 @@ export default function NumeracionesPage() {
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
           <div>
-            <strong>Las numeraciones e-CF reales no se emiten desde aquí.</strong>{" "}
-            Los ambientes <code>testecf/certecf/producción</code> requieren
-            postulación DGII, certificado y rango autorizado. Los ambientes{" "}
-            <code>mock/demo</code> nunca consumen secuencia fiscal real.
+            <strong>Producción fiscal APAGADA.</strong> Las numeraciones e-CF
+            reales no se emiten desde aquí: los ambientes{" "}
+            <code>testecf/certecf/producción</code> requieren postulación DGII,
+            certificado y rango autorizado. Los ambientes <code>mock/demo</code>{" "}
+            nunca consumen secuencia fiscal real.
+            {NUMBERING_BACKEND === "supabase" && (
+              <>
+                {" "}Esta pantalla y el POS usan la <strong>misma numeración
+                del servidor</strong> (reserva atómica compartida entre cajas).
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-semibold tabular-nums">{activeCount}</div>
+            <div className="text-xs opacity-60">Numeraciones activas</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-semibold tabular-nums">{lowOnes.length}</div>
+            <div className="text-xs opacity-60">Por agotarse</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-semibold tabular-nums">{expiredOnes.length}</div>
+            <div className="text-xs opacity-60">Vencidas</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-2xl font-semibold">
+              {NUMBERING_BACKEND === "supabase" ? "Servidor" : "Demo local"}
+            </div>
+            <div className="text-xs opacity-60">Fuente de numeración</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+          {error}{" "}
+          <button className="underline" onClick={refresh}>
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {missingPreferred.length > 0 && !loading && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <strong>Sin numeración preferida activa:</strong>{" "}
+          {missingPreferred.map((t) => DOC_TYPE_LABEL[t]).join(", ")}. El POS
+          usará cualquier numeración activa del tipo, o bloqueará la emisión
+          si no existe.
+        </div>
+      )}
 
       {(lowOnes.length > 0 || expiredOnes.length > 0) && (
         <div className="mb-4 space-y-2">
@@ -138,9 +217,44 @@ export default function NumeracionesPage() {
             </option>
           ))}
         </Select>
+        <Select
+          value={envFilter}
+          onChange={(e) => setEnvFilter(e.target.value as "all" | Environment)}
+        >
+          <option value="all">Todos los ambientes</option>
+          {["mock", "demo", "testecf", "certecf", "produccion"].map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={statusFilter}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as "all" | "active" | "inactive")
+          }
+        >
+          <option value="all">Todos los estados</option>
+          <option value="active">Activas</option>
+          <option value="inactive">Inactivas</option>
+        </Select>
+        <Select
+          value={elecFilter}
+          onChange={(e) => setElecFilter(e.target.value as "all" | "yes" | "no")}
+        >
+          <option value="all">Electrónicas y no electrónicas</option>
+          <option value="yes">Solo electrónicas (e-CF)</option>
+          <option value="no">Solo no electrónicas</option>
+        </Select>
       </FilterBar>
 
-      {rows.length === 0 ? (
+      {loading ? (
+        <Card>
+          <CardContent className="p-8 text-center text-sm opacity-60">
+            Cargando numeraciones…
+          </CardContent>
+        </Card>
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={Hash}
           title="No tienes numeraciones configuradas"
@@ -171,7 +285,7 @@ export default function NumeracionesPage() {
                 </TR>
               </THead>
               <TBody>
-                {rows.map((n) => {
+                {pag.pageItems.map((n) => {
                   const active = effectiveStatus(n) === "active";
                   const low = isLowRange(n);
                   return (
@@ -224,8 +338,8 @@ export default function NumeracionesPage() {
                           onEdit={() =>
                             setModal({ open: true, mode: "edit", numbering: n })
                           }
-                          onDelete={() => {
-                            const res = deleteNumbering(n.id);
+                          onDelete={async () => {
+                            const res = await deleteNumberingAnywhere(n.id);
                             if (!res.ok) toast.error(res.error);
                             else toast.success("Numeración eliminada.");
                           }}
@@ -242,11 +356,13 @@ export default function NumeracionesPage() {
                                   {
                                     label: "Marcar preferida",
                                     icon: Star,
-                                    onClick: () => {
-                                      setPreferred(n.id);
-                                      toast.success(
-                                        `${n.name} marcada como preferida.`,
-                                      );
+                                    onClick: async () => {
+                                      const res = await setPreferredAnywhere(n.id);
+                                      if (!res.ok) toast.error(res.error);
+                                      else
+                                        toast.success(
+                                          `${n.name} marcada como preferida.`,
+                                        );
                                     },
                                   },
                                 ]
@@ -255,9 +371,10 @@ export default function NumeracionesPage() {
                               ? {
                                   label: "Inactivar",
                                   icon: Power,
-                                  onClick: () => {
-                                    setNumberingActive(n.id, false);
-                                    toast.success(`${n.name} inactivada.`);
+                                  onClick: async () => {
+                                    const res = await setActiveAnywhere(n.id, false);
+                                    if (!res.ok) toast.error(res.error);
+                                    else toast.success(`${n.name} inactivada.`);
                                   },
                                   confirm: {
                                     title: "Inactivar numeración",
@@ -267,9 +384,10 @@ export default function NumeracionesPage() {
                               : {
                                   label: "Activar",
                                   icon: RotateCcw,
-                                  onClick: () => {
-                                    setNumberingActive(n.id, true);
-                                    toast.success(`${n.name} activada.`);
+                                  onClick: async () => {
+                                    const res = await setActiveAnywhere(n.id, true);
+                                    if (!res.ok) toast.error(res.error);
+                                    else toast.success(`${n.name} activada.`);
                                   },
                                 },
                           ]}
@@ -280,6 +398,13 @@ export default function NumeracionesPage() {
                 })}
               </TBody>
             </Table>
+            <DataPagination
+              page={pag.page}
+              pageSize={pag.pageSize}
+              total={pag.total}
+              onPageChange={pag.setPage}
+              onPageSizeChange={pag.setPageSize}
+            />
           </CardContent>
         </Card>
       )}
