@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { Plus, ShieldCheck } from "lucide-react";
+import * as React from "react";
+import { Plus, ShieldCheck, Pencil, Power } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -13,76 +13,77 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { SearchInput } from "@/components/ui/search-input";
-import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
-import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
 import {
-  mockUsers,
   roleBadgeTone,
   roleDefinitions,
+  mockCurrentUser,
 } from "@/lib/mock-data/users";
 import { mockBranches } from "@/lib/mock-data/tenancy";
 import { relativeTime } from "@/lib/utils/format";
+import {
+  useUsersList,
+  setUserStatus,
+  USER_BACKEND,
+} from "@/features/admin/user-store";
+import { UserModal } from "@/features/admin/components/user-modal";
+import { canManageIncentiveRules } from "@/features/billing/permissions";
+import type { User } from "@/types";
 
 export default function UsuariosPage() {
-  const { visible, hide } = useLocalSoftDelete(mockUsers);
+  const { users, loading, error, refresh } = useUsersList();
   const toast = useToast();
   const branchById = Object.fromEntries(mockBranches.map((b) => [b.id, b]));
   const roleLabel = Object.fromEntries(
     roleDefinitions.map((r) => [r.key, r.label]),
   );
+  const canManage = canManageIncentiveRules(mockCurrentUser.role);
+  const [modal, setModal] = React.useState<{ open: boolean; user?: User | null }>({
+    open: false,
+  });
+  const visible = users;
 
   return (
     <>
       <PageHeader
         title="Usuarios"
-        description="Operadores del negocio: admin, gerentes, cajeros, inventario, supervisores, auditores."
+        description="Personal del negocio: admin, gerentes, cajeros, vendedores, inventario, supervisores. Los vendedores aparecen en el POS y generan incentivos."
         breadcrumbs={[{ label: "Administración" }, { label: "Usuarios" }]}
         actions={
-          <Button size="sm">
-            <Plus className="h-4 w-4" />
-            Invitar usuario
-          </Button>
+          canManage && (
+            <Button size="sm" onClick={() => setModal({ open: true, user: null })}>
+              <Plus className="h-4 w-4" />
+              Nuevo usuario
+            </Button>
+          )
         }
       />
 
-      <FilterBar className="mb-4">
-        <SearchInput
-          placeholder="Buscar por nombre o email…"
-          containerClassName="flex-1 min-w-[240px]"
-        />
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todos los roles</option>
-          {roleDefinitions.map((r) => (
-            <option key={r.key}>{r.label}</option>
-          ))}
-        </select>
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todas las sucursales</option>
-          {mockBranches.map((b) => (
-            <option key={b.id}>{b.name}</option>
-          ))}
-        </select>
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Estado: todos</option>
-          <option>Activos</option>
-          <option>Invitados</option>
-          <option>Deshabilitados</option>
-        </select>
-      </FilterBar>
+      {error && (
+        <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+          {error}{" "}
+          <button className="underline" onClick={refresh}>
+            Reintentar
+          </button>
+        </div>
+      )}
+      {loading && (
+        <div className="mb-4 rounded-lg border border-black/5 bg-black/[0.02] px-3 py-6 text-center text-sm opacity-60">
+          Cargando usuarios…
+        </div>
+      )}
 
       {/* Móvil: tarjetas */}
       <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white md:hidden">
-        {visible.length === 0 && (
+        {!loading && visible.length === 0 && (
           <div className="px-4 py-10 text-center text-sm opacity-60">Sin usuarios.</div>
         )}
         {visible.map((u) => (
-          <Link
+          <button
             key={u.id}
-            href={`/admin/usuarios/${u.id}`}
-            className="flex items-center gap-3 px-4 py-3 active:bg-black/[0.03]"
+            onClick={() => canManage && setModal({ open: true, user: u })}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-black/[0.03]"
           >
             <span
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
@@ -112,7 +113,7 @@ export default function UsuariosPage() {
                 )}
               </div>
             </div>
-          </Link>
+          </button>
         ))}
       </div>
 
@@ -195,14 +196,39 @@ export default function UsuariosPage() {
               </TD>
               <TD className="pr-4">
                 <RowActions
-                  viewHref={`/admin/usuarios/${u.id}`}
-                  editHref={`/admin/usuarios/${u.id}/editar`}
-                  onDelete={() => {
-                    hide(u.id);
-                    toast.success("Usuario eliminado correctamente.");
-                  }}
-                  deleteLabel="Eliminar"
+                  onEdit={canManage ? () => setModal({ open: true, user: u }) : undefined}
                   entityName={u.fullName}
+                  customActions={
+                    canManage
+                      ? [
+                          {
+                            label: u.status === "disabled" ? "Activar" : "Desactivar",
+                            icon: u.status === "disabled" ? Power : Power,
+                            onClick: async () => {
+                              const res = await setUserStatus(
+                                u.id,
+                                u.status === "disabled" ? "active" : "disabled",
+                              );
+                              if (!res.ok) toast.error(res.error);
+                              else
+                                toast.success(
+                                  u.status === "disabled"
+                                    ? "Usuario activado."
+                                    : "Usuario desactivado.",
+                                );
+                            },
+                            ...(u.status === "disabled"
+                              ? {}
+                              : {
+                                  confirm: {
+                                    title: "Desactivar usuario",
+                                    message: `${u.fullName} dejará de aparecer como vendedor y no podrá operar.`,
+                                  },
+                                }),
+                          },
+                        ]
+                      : []
+                  }
                 />
               </TD>
             </TR>
@@ -210,6 +236,12 @@ export default function UsuariosPage() {
         </TBody>
       </Table>
       </div>
+
+      <UserModal
+        open={modal.open}
+        user={modal.user}
+        onClose={() => setModal({ open: false })}
+      />
       <toast.Toast />
     </>
   );

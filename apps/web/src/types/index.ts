@@ -68,7 +68,8 @@ export type UserRole =
   | "cashier"
   | "inventory"
   | "supervisor"
-  | "auditor";
+  | "auditor"
+  | "vendedor";
 
 export interface User extends Audited, SoftDeletable, BusinessScoped {
   id: ID;

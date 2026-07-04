@@ -235,6 +235,19 @@ export const roleDefinitions: RoleDefinition[] = [
       "dgii:invoices:download_pdf",
     ],
   },
+  {
+    key: "vendedor",
+    label: "Vendedor",
+    description:
+      "Atiende y gestiona ventas en POS; se le atribuyen ventas para incentivos.",
+    permissions: [
+      "products:read",
+      "inventory:read",
+      "sales:create",
+      "proformas:create|read",
+      "payments:create",
+    ],
+  },
 ];
 
 /**
@@ -515,6 +528,8 @@ export function roleBadgeTone(role: UserRole) {
       return "purple" as const;
     case "auditor":
       return "neutral" as const;
+    case "vendedor":
+      return "info" as const;
     case "super_admin":
       return "danger" as const;
   }

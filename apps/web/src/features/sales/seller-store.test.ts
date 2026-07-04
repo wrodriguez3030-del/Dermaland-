@@ -97,3 +97,14 @@ describe("eligibleSellers", () => {
     ]);
   });
 });
+
+describe("rol vendedor (nuevo)", () => {
+  it("un usuario con rol 'vendedor' activo es elegible", () => {
+    expect(
+      isEligibleSeller(
+        { role: "vendedor" as never, status: "active", branchIds: [] },
+        "br_santiago",
+      ),
+    ).toBe(true);
+  });
+});

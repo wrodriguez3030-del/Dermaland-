@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.42.0] - 2026-07-04
+
+Alta de personal/vendedores cableada a Supabase (cierra el gap del selector
+de vendedor: ya se pueden registrar vendedores reales). Migración
+`0021_users_vendedor_role.sql` aplicada. No toca DGII real.
+
+### Added
+- **Rol `vendedor`**: nuevo rol en `users` (mig 0021 amplía el CHECK) + en
+  `UserRole`/`roleDefinitions`/`roleBadgeTone`. `users.id` ahora tiene default
+  `gen_random_uuid()` para registrar personal sin cuenta de login.
+- **Crear/editar personal desde la app** (antes la pantalla era demo mock):
+  - `POST /api/users` (crea registro de personal; solo admin/manager; valida
+    email único, rol; business_id de la sesión) y `PATCH /api/users/[id]`
+    (editar nombre/rol/sucursales/estado). Auditoría en `audit_logs`.
+  - `features/admin/user-store.ts` (`useUsersList`, `saveUser`,
+    `setUserStatus`; gate mock/supabase) + `UserModal`.
+  - **Pantalla Administración → Usuarios reescrita a datos reales**
+    (`useUsersList` en vez de `mockUsers`): botón "Nuevo usuario", modal
+    crear/editar, activar/desactivar; el vendedor registrado aparece de
+    inmediato en el selector del POS.
+- Aclaración en la UI: registrar personal habilita al vendedor para POS e
+  incentivos, pero **no crea una cuenta de acceso (login)** — eso es Supabase
+  Auth aparte (no se manejan contraseñas desde la app).
+- Verificado en vivo: crear vendedor → elegible en POS → desactivar lo
+  excluye → limpieza. 6 tests nuevos (store + rol vendedor).
+
 ## [0.41.0] - 2026-07-04
 
 Incentivos: pago, dashboard, Excel y devoluciones (Fase 3, cierra la épica).
