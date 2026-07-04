@@ -46,6 +46,9 @@ export interface IncentiveRecord {
   id: string;
   saleId: string;
   saleNumber?: string;
+  saleCashier?: string;
+  saleCustomer?: string;
+  saleBranchId?: string;
   sellerId: string | null;
   sellerName: string | null;
   ruleId: string | null;

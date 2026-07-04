@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.41.0] - 2026-07-04
+
+Incentivos: pago, dashboard, Excel y devoluciones (Fase 3, cierra la épica).
+No toca DGII real.
+
+### Added
+- **Ajuste por devolución**: al anular una venta
+  (`PATCH /api/proformas/[id]` action:cancel) se anulan (status→void) sus
+  incentivos pendientes/aprobados; los ya PAGADOS quedan marcados para ajuste
+  manual (no se borra historial). Lógica pura `incentivesToVoidForCancelledSale`.
+- **Dashboard/ranking**: KPIs (generados, pendientes, pagados, vendedor top,
+  ventas incentivadas, promedio por venta) + tabla ranking por vendedor
+  (ventas, generado, pagado, pendiente). Agregación pura `incentive-report.ts`.
+- **Excel de 6 hojas** (`incentive-export.ts`, on-demand): Resumen, Por
+  vendedor, Detalle por venta (Fecha/Factura/Sucursal/Vendedor/Cajero/Cliente/
+  Regla/Tipo/Base/Incentivo/Estado/Fecha pago), Detalle por producto, Pagados,
+  Pendientes. Endpoint de incentivos enriquecido con cajero/cliente/sucursal.
+- **Permisos**: `canManageIncentiveRules` (admin/manager), `canPayIncentives`
+  (admin/super_admin), `canViewIncentives`. La UI oculta "Nueva regla" y el
+  pago según rol.
+- 7 tests nuevos (ranking, summary, Excel 6 hojas). Total incentivos: 25 tests.
+
+### Épica de incentivos — completa
+Vendedor en venta (0.39.0) → motor + reglas + generación (0.40.0) → pago +
+dashboard + Excel + devoluciones (0.41.0).
+
 ## [0.40.0] - 2026-07-04
 
 Motor de incentivos por vendedor (Fase 2 de la épica). Migración

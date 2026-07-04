@@ -34,6 +34,15 @@ import {
   type IncentiveStatus,
 } from "@/features/incentives/incentive-store";
 import { IncentiveRuleModal } from "@/features/incentives/components/rule-modal";
+import {
+  canManageIncentiveRules,
+  canPayIncentives,
+} from "@/features/billing/permissions";
+import { mockCurrentUser } from "@/lib/mock-data/users";
+import { rankSellers, summarize } from "@/features/incentives/incentive-report";
+import { downloadBlob } from "@/lib/utils/download";
+import { useBranches } from "@/features/tenancy/branch-store";
+import { FileSpreadsheet } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 
 const STATUS_TONE: Record<IncentiveStatus, "warning" | "info" | "success" | "neutral"> = {
@@ -57,19 +66,44 @@ export default function IncentivosPage() {
   });
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [paying, setPaying] = React.useState(false);
+  const canManage = canManageIncentiveRules(mockCurrentUser.role);
+  const canPay = canPayIncentives(mockCurrentUser.role);
 
-  // KPIs desde los incentivos cargados.
-  const kpis = React.useMemo(() => {
-    let generated = 0,
-      pending = 0,
-      paid = 0;
-    for (const i of incentives) {
-      generated += i.incentiveAmount;
-      if (i.status === "pending" || i.status === "approved") pending += i.incentiveAmount;
-      if (i.status === "paid") paid += i.incentiveAmount;
+  const branches = useBranches();
+  const branchName = React.useCallback(
+    (id: string | undefined) =>
+      (id && branches.find((b) => b.id === id)?.name) || "—",
+    [branches],
+  );
+
+  // KPIs + ranking (agregación pura).
+  const kpis = React.useMemo(() => summarize(incentives), [incentives]);
+  const ranking = React.useMemo(() => rankSellers(incentives), [incentives]);
+
+  const exportExcel = async () => {
+    try {
+      const { incentivesXlsxBytes, incentivesFilename } = await import(
+        "@/features/incentives/incentive-export"
+      );
+      const bytes = incentivesXlsxBytes(incentives, {
+        businessName: "DermaLand",
+        generatedAt: new Date().toISOString(),
+        rangeLabel: "Todo",
+        filtersLabel:
+          (sellerFilter ? "Vendedor filtrado · " : "") +
+          (statusFilter !== "all" ? `Estado: ${statusFilter}` : "Todos"),
+        branchName,
+      });
+      downloadBlob(
+        incentivesFilename(new Date().toISOString().slice(0, 10)),
+        bytes,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      toast.success("Excel de incentivos generado.");
+    } catch {
+      toast.error("No se pudo generar el Excel.");
     }
-    return { generated, pending, paid };
-  }, [incentives]);
+  };
 
   // Vendedores presentes (para el filtro).
   const sellerOptions = React.useMemo(() => {
@@ -114,9 +148,16 @@ export default function IncentivosPage() {
         description="Comisiones por vendedor: reglas configurables e incentivos generados al pagar cada venta."
         breadcrumbs={[{ label: "Ventas" }, { label: "Incentivos" }]}
         actions={
-          <Button size="sm" onClick={() => setModal({ open: true, rule: null })}>
-            <Plus className="h-4 w-4" /> Nueva regla
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={exportExcel}>
+              <FileSpreadsheet className="h-4 w-4" /> Exportar Excel
+            </Button>
+            {canManage && (
+              <Button size="sm" onClick={() => setModal({ open: true, rule: null })}>
+                <Plus className="h-4 w-4" /> Nueva regla
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -131,8 +172,52 @@ export default function IncentivosPage() {
         <StatCard label="Incentivos generados" value={formatCurrency(kpis.generated)} icon={Coins} tone="primary" />
         <StatCard label="Pendientes" value={formatCurrency(kpis.pending)} icon={Clock} tone="warning" />
         <StatCard label="Pagados" value={formatCurrency(kpis.paid)} icon={CheckCircle2} tone="success" />
-        <StatCard label="Reglas activas" value={rules.filter((r) => r.active).length} icon={Gift} />
+        <StatCard
+          label="Vendedor top"
+          value={kpis.topSeller ?? "—"}
+          hint={`${kpis.incentivizedSales} ventas incentivadas`}
+          icon={Gift}
+        />
       </div>
+
+      {/* ── Ranking por vendedor ── */}
+      {ranking.length > 0 && (
+        <Card className="mb-6">
+          <CardContent className="p-0">
+            <div className="border-b border-black/5 px-4 py-3">
+              <h2 className="text-sm font-semibold">Ranking por vendedor</h2>
+            </div>
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Vendedor</TH>
+                  <TH className="text-right">Ventas</TH>
+                  <TH className="text-right">Generado</TH>
+                  <TH className="text-right">Pagado</TH>
+                  <TH className="text-right">Pendiente</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {ranking.map((r) => (
+                  <TR key={r.sellerId}>
+                    <TD className="font-medium">{r.sellerName}</TD>
+                    <TD className="text-right tabular-nums">{r.sales}</TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      {formatCurrency(r.generated)}
+                    </TD>
+                    <TD className="text-right tabular-nums text-emerald-700">
+                      {formatCurrency(r.paid)}
+                    </TD>
+                    <TD className="text-right tabular-nums text-amber-700">
+                      {formatCurrency(r.pending)}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Reglas ── */}
       <Card className="mb-6">
@@ -232,7 +317,7 @@ export default function IncentivosPage() {
           <option value="approved">Aprobados</option>
           <option value="paid">Pagados</option>
         </Select>
-        {payableSelected.length > 0 && (
+        {canPay && payableSelected.length > 0 && (
           <Button size="sm" onClick={handlePay} disabled={paying}>
             <CheckCircle2 className="h-4 w-4" />
             {paying
@@ -268,7 +353,8 @@ export default function IncentivosPage() {
               </THead>
               <TBody>
                 {incentives.map((i) => {
-                  const selectable = i.status === "pending" || i.status === "approved";
+                  const selectable =
+                    canPay && (i.status === "pending" || i.status === "approved");
                   return (
                     <TR key={i.id}>
                       <TD>

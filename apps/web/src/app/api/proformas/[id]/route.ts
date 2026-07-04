@@ -86,6 +86,16 @@ export async function PATCH(
     if (body.action === "cancel") {
       const reason = body.reason ?? "";
       await getRepositories().proforma.cancel(ctx, id, reason);
+      // Devolución: anular los incentivos pendientes/aprobados de esta venta
+      // (no se borra historial; los ya PAGADOS quedan para ajuste manual).
+      try {
+        const { voidIncentivesForCancelledSale } = await import(
+          "@/server/services/incentives/incentive-admin"
+        );
+        await voidIncentivesForCancelledSale(id, reason);
+      } catch {
+        /* best-effort: no romper la anulación de la venta */
+      }
       return NextResponse.json({ ok: true });
     }
 

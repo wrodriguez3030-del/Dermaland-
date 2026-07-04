@@ -92,3 +92,29 @@ const SALES_EDIT_ROLES: ReadonlyArray<UserRole> = [
 export function canEditSales(role: UserRole = mockCurrentUser.role): boolean {
   return SALES_EDIT_ROLES.includes(role);
 }
+
+// ─── Incentivos / comisiones ─────────────────────────────────────────────────
+
+const INCENTIVE_MANAGE_ROLES: ReadonlyArray<UserRole> = [
+  "super_admin",
+  "admin",
+  "manager",
+];
+const INCENTIVE_PAY_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin"];
+
+/** Ver incentivos (lectura amplia; ajuste futuro por permiso granular). */
+export function canViewIncentives(_role: UserRole = mockCurrentUser.role): boolean {
+  return true;
+}
+
+/** Crear/editar reglas de incentivo: admin/manager. */
+export function canManageIncentiveRules(
+  role: UserRole = mockCurrentUser.role,
+): boolean {
+  return INCENTIVE_MANAGE_ROLES.includes(role);
+}
+
+/** Aprobar/pagar incentivos: solo admin/super_admin. */
+export function canPayIncentives(role: UserRole = mockCurrentUser.role): boolean {
+  return INCENTIVE_PAY_ROLES.includes(role);
+}

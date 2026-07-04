@@ -22,7 +22,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const sp = req.nextUrl.searchParams;
   let q = sb
     .from("sales_incentives")
-    .select("*, proformas(number)")
+    .select("*, proformas(number, cashier_name, customer_name, branch_id)")
     .neq("status", "void")
     .order("earned_at", { ascending: false });
 

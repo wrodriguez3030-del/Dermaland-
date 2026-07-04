@@ -53,6 +53,9 @@ export function incentiveRowToClient(row: Row) {
     id: row.id as string,
     saleId: row.sale_id as string,
     saleNumber: (row.proformas?.number as string | undefined) ?? undefined,
+    saleCashier: (row.proformas?.cashier_name as string | undefined) ?? undefined,
+    saleCustomer: (row.proformas?.customer_name as string | undefined) ?? undefined,
+    saleBranchId: (row.proformas?.branch_id as string | undefined) ?? undefined,
     sellerId: (row.seller_id as string | null) ?? null,
     sellerName: (row.seller_name as string | null) ?? null,
     ruleId: (row.rule_id as string | null) ?? null,
@@ -91,6 +94,44 @@ export async function auditIncentive(
   } catch {
     /* best-effort */
   }
+}
+
+/**
+ * Devolución/anulación: marca como 'void' los incentivos pendientes o
+ * aprobados de una venta anulada. Los ya PAGADOS NO se tocan (requieren
+ * ajuste manual en el próximo pago) — se registran en la nota. No borra.
+ * Devuelve cuántos se anularon y cuántos pagados quedaron para ajuste.
+ */
+export async function voidIncentivesForCancelledSale(
+  saleId: string,
+  reason: string,
+): Promise<{ voided: number; paidPending: number }> {
+  const sb = await createServer();
+  if (!sb) return { voided: 0, paidPending: 0 };
+
+  const { data: existing } = await sb
+    .from("sales_incentives")
+    .select("id, status")
+    .eq("sale_id", saleId);
+  if (!existing || existing.length === 0) return { voided: 0, paidPending: 0 };
+
+  const toVoid = existing
+    .filter((i: Row) => i.status === "pending" || i.status === "approved")
+    .map((i: Row) => i.id);
+  const paidPending = existing.filter((i: Row) => i.status === "paid").length;
+
+  if (toVoid.length > 0) {
+    const now = new Date().toISOString();
+    await sb
+      .from("sales_incentives")
+      .update({
+        status: "void",
+        note: `Venta anulada: ${reason}`.slice(0, 500),
+        updated_at: now,
+      })
+      .in("id", toVoid);
+  }
+  return { voided: toVoid.length, paidPending };
 }
 
 /**
