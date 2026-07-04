@@ -1,3 +1,6 @@
+"use client";
+
+import * as React from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Card,
@@ -12,17 +15,34 @@ import {
   TD,
 } from "@/components/ui";
 import { ShoppingBag } from "lucide-react";
-import {
-  getBrandById,
-  mockProducts,
-  totalStockForProduct,
-} from "@/lib/mock-data/catalog";
+import { getBrandById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
+import { useAllLots, totalSellableStock } from "@/features/inventory/lot-store";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 
 export default function BajoStockPage() {
-  const rows = mockProducts
-    .map((p) => ({ p, stock: totalStockForProduct(p.id) }))
-    .filter(({ p, stock }) => stock <= p.minStock)
-    .sort((a, b) => a.stock - b.stock);
+  // Catálogo y stock REALES (Supabase o local según DATA_SOURCE); antes se
+  // leía el seed estático `mockProducts` + `mockProductLots` y el listado de
+  // reorden salía vacío/incorrecto en producción.
+  const products = useProducts();
+  const lots = useAllLots();
+  const activeBranches = useActiveBranches();
+  const activeBranchIds = React.useMemo(
+    () => new Set(activeBranches.map((b) => b.id)),
+    [activeBranches],
+  );
+
+  const rows = React.useMemo(
+    () =>
+      products
+        .map((p) => ({
+          p,
+          stock: totalSellableStock(lots, p.id, activeBranchIds),
+        }))
+        .filter(({ p, stock }) => stock <= p.minStock)
+        .sort((a, b) => a.stock - b.stock),
+    [products, lots, activeBranchIds],
+  );
 
   return (
     <>

@@ -1,3 +1,6 @@
+"use client";
+
+import * as React from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -28,46 +31,98 @@ import {
   daysUntil,
   formatDate,
 } from "@/lib/utils/format";
-import { mockProformas } from "@/lib/mock-data/sales";
+import { useProformas } from "@/features/sales/proforma-store";
+import { useProducts } from "@/features/products/product-store";
 import {
-  mockProductLots,
-  mockProducts,
-  totalStockForProduct,
-  getProductById,
-} from "@/lib/mock-data/catalog";
-import { mockCustomers } from "@/lib/mock-data/customers";
+  useAllLots,
+  totalSellableStock,
+  expiryStatus,
+} from "@/features/inventory/lot-store";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { useCustomers } from "@/features/customers/customer-store";
+import { getProductById } from "@/lib/mock-data/catalog";
 import { mockAuditLogs } from "@/lib/mock-data/users";
 import { mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
+import type { Proforma } from "@/types";
+
+/** ¿La fecha ISO cae en el día de hoy (hora local)? */
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+const SALE_DONE = new Set(["paid", "partially_paid", "issued", "converted_to_ecf"]);
 
 export default function DashboardPage() {
-  const todayProformas = mockProformas;
+  // Datos REALES (Supabase o local según DATA_SOURCE). Antes el dashboard
+  // leía seeds estáticos y los KPIs mostraban cifras fijas.
+  const proformas = useProformas();
+  const products = useProducts();
+  const lots = useAllLots();
+  const customers = useCustomers();
+  const activeBranches = useActiveBranches();
+  const activeBranchIds = React.useMemo(
+    () => new Set(activeBranches.map((b) => b.id)),
+    [activeBranches],
+  );
+
+  // Ventas del día (antes sumaba TODAS las proformas bajo la etiqueta "hoy").
+  const todayProformas = React.useMemo(
+    () =>
+      proformas
+        .filter((p) => isToday(p.createdAt) && SALE_DONE.has(p.status))
+        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
+    [proformas],
+  );
   const salesToday = todayProformas.reduce((s, p) => s + p.total, 0);
   const transactionsToday = todayProformas.length;
 
-  const expiringSoon = mockProductLots
-    .filter((l) => l.status === "available")
-    .filter((l) => {
-      const d = daysUntil(l.expiresAt);
-      return d >= 0 && d <= 90;
-    })
-    .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt))
-    .slice(0, 5);
+  const expiringSoon = React.useMemo(
+    () =>
+      lots
+        .filter((l) => l.status === "available")
+        .filter((l) => {
+          const d = daysUntil(l.expiresAt);
+          return d >= 0 && d <= 90;
+        })
+        .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt))
+        .slice(0, 5),
+    [lots],
+  );
 
-  const lowStockProducts = mockProducts
-    .map((p) => ({ p, stock: totalStockForProduct(p.id) }))
-    .filter((x) => x.stock <= x.p.minStock)
-    .slice(0, 5);
+  const lowStockProducts = React.useMemo(
+    () =>
+      products
+        .map((p) => ({ p, stock: totalSellableStock(lots, p.id, activeBranchIds) }))
+        .filter((x) => x.stock <= x.p.minStock)
+        .slice(0, 5),
+    [products, lots, activeBranchIds],
+  );
 
-  const quarantined = mockProductLots.filter(
-    (l) => l.status === "quarantine" || l.status === "recalled",
+  const quarantined = lots.filter(
+    (l) =>
+      l.status === "quarantine" ||
+      l.status === "recalled" ||
+      expiryStatus(l.expiresAt) === "expired",
   );
 
   const recentLogs = mockAuditLogs.slice(0, 6);
 
-  const newCustomersThisMonth = mockCustomers.filter((c) => {
-    const d = new Date(c.createdAt);
-    return d.getFullYear() === 2026 && d.getMonth() === 4; // Mayo
-  }).length;
+  // Clientes nuevos del mes ACTUAL (antes: Mayo 2026 hardcodeado).
+  const newCustomersThisMonth = React.useMemo(() => {
+    const now = new Date();
+    return customers.filter((c) => {
+      const d = new Date(c.createdAt);
+      return (
+        d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+      );
+    }).length;
+  }, [customers]);
 
   const pendingCounts = mockInventoryCounts.filter(
     (c) => c.status === "in_progress" || c.status === "draft",
@@ -105,8 +160,8 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Productos en catálogo"
-          value="1,342"
-          hint="13 marcas activas"
+          value={products.length.toLocaleString("es-DO")}
+          hint="activos e inactivos"
           icon={Package}
         />
         <StatCard
@@ -199,6 +254,11 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             <ul className="divide-y divide-black/5">
+              {expiringSoon.length === 0 && (
+                <li className="px-6 py-8 text-center text-sm opacity-60">
+                  Sin lotes próximos a vencer en los próximos 90 días.
+                </li>
+              )}
               {expiringSoon.map((lot) => {
                 const product = getProductById(lot.productId);
                 const days = daysUntil(lot.expiresAt);
@@ -291,7 +351,12 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             <ul className="divide-y divide-black/5">
-              {todayProformas.map((p) => (
+              {todayProformas.length === 0 && (
+                <li className="px-6 py-8 text-center text-sm opacity-60">
+                  Aún no hay ventas registradas hoy.
+                </li>
+              )}
+              {todayProformas.slice(0, 8).map((p) => (
                 <li
                   key={p.id}
                   className="flex items-center justify-between gap-3 px-6 py-3"
@@ -415,10 +480,10 @@ export default function DashboardPage() {
 function ProformaStatusBadge({
   status,
 }: {
-  status: (typeof mockProformas)[number]["status"];
+  status: Proforma["status"];
 }) {
   const map: Record<
-    typeof status,
+    Proforma["status"],
     { label: string; tone: "success" | "warning" | "info" | "neutral" | "danger" }
   > = {
     paid: { label: "Pagada", tone: "success" },

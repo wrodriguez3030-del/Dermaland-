@@ -11,6 +11,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.38.2] - 2026-07-04
+
+### Fixed
+- **Auditoría y corrección de pantallas que leían seeds `mock*`
+  transaccionales como si fueran datos reales** (misma causa raíz de v0.18
+  Laboratorios y v0.38.1 perfil de cliente). Un barrido de las 56 páginas que
+  importan `@/lib/mock-data` encontró 4 bugs de alto impacto:
+  - **Dashboard raíz** (`page.tsx`): KPIs y listados leían
+    `mockProformas/mockProductLots/mockProducts/mockCustomers` → cifras fijas.
+    Ahora usa `useProformas/useAllLots/useProducts/useCustomers`. Además:
+    "Ventas hoy" ahora filtra el DÍA (antes sumaba TODAS las proformas),
+    "Clientes nuevos" usa el mes actual (antes Mayo 2026 hardcodeado) y
+    "Productos en catálogo" muestra el conteo real.
+  - **Pagos** (`pagos/page.tsx`): `mockProformas` → `useProformas`; los pagos
+    reales del POS no aparecían. Ruteo correcto factura/proforma
+    (`documentRouteBase`) + estado vacío.
+  - **Inventario > Bajo stock**: `mockProducts`+`mockProductLots` →
+    `useProducts`+`useAllLots`+`totalSellableStock`; el listado de reorden
+    salía vacío/incorrecto.
+  - **Inventario > Recall**: `mockProductLots` → `useAllLots`; los lotes en
+    recall (estado cambiado en runtime) no aparecían.
+- Guardia de regresión `app/(app)/dashboard-data-source.test.ts`: falla si
+  esas pantallas vuelven a importar un mock transaccional en vez del hook.
+- Sin tocar los casos "borderline" que son placeholders intencionales (aún
+  no existe hook Supabase): grilla e-CF en DGII, conteos, auditoría —
+  quedan documentados como trabajo futuro. Catálogos estáticos (tipos de
+  piel, condiciones, roles, empresa) NO se tocan: es correcto leerlos del seed.
+
 ## [0.38.1] - 2026-07-04
 
 ### Fixed

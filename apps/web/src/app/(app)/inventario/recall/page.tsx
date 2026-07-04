@@ -1,3 +1,5 @@
+"use client";
+
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Card,
@@ -11,15 +13,17 @@ import {
   TD,
 } from "@/components/ui";
 import { Megaphone } from "lucide-react";
-import {
-  getProductById,
-  mockProductLots,
-} from "@/lib/mock-data/catalog";
+import { getProductById } from "@/lib/mock-data/catalog";
+import { useAllLots } from "@/features/inventory/lot-store";
 import { formatDate } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 
 export default function RecallPage() {
-  const lots = mockProductLots.filter((l) => l.status === "recalled");
+  // Lotes REALES (Supabase o local según DATA_SOURCE); el estado `recalled`
+  // se cambia en runtime desde Cuarentena — antes se leía el seed estático
+  // y la lista salía vacía en producción.
+  const allLots = useAllLots();
+  const lots = allLots.filter((l) => l.status === "recalled");
   return (
     <>
       <PageHeader

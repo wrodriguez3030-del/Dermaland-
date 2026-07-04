@@ -19,10 +19,12 @@ import {
 } from "@/components/ui/sortable-table-header";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { Printer, Send } from "lucide-react";
-import { mockProformas } from "@/lib/mock-data/sales";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
+import { useProformas } from "@/features/sales/proforma-store";
 import { buildWhatsappShareUrl } from "@/features/sales/proforma-share";
+import { documentRouteBase } from "@/features/sales/document-label";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import type { Proforma } from "@/types";
 
 interface PaymentRow {
   id: string;
@@ -36,6 +38,10 @@ interface PaymentRow {
   userId: string;
   userName: string;
   createdAt: string;
+  /** Ruta base del documento (/ventas para facturas, /proformas si no). */
+  routeBase: string;
+  /** Documento origen para compartir por WhatsApp. */
+  proforma: Proforma;
 }
 
 const comparators = {
@@ -48,11 +54,16 @@ const comparators = {
 };
 
 export default function PagosPage() {
-  const payments: PaymentRow[] = mockProformas.flatMap((p) =>
-    p.payments.map((pay) => ({
+  // Ventas REALES (Supabase o local según DATA_SOURCE); antes se leía el seed
+  // estático `mockProformas` y los pagos reales del POS no aparecían.
+  const proformas = useProformas();
+  const payments: PaymentRow[] = proformas.flatMap((p) =>
+    (p.payments ?? []).map((pay) => ({
       ...pay,
       proformaNumber: p.number,
       customerName: p.customerName,
+      routeBase: documentRouteBase(p),
+      proforma: p,
     })),
   );
 
@@ -100,6 +111,13 @@ export default function PagosPage() {
               </TR>
             </THead>
             <TBody>
+              {payments.length === 0 && (
+                <TR>
+                  <TD colSpan={8} className="py-8 text-center text-sm opacity-60">
+                    Aún no hay pagos registrados.
+                  </TD>
+                </TR>
+              )}
               {pag.pageItems.map((p) => (
                 <TR key={p.id}>
                   <TD className="text-xs whitespace-nowrap">
@@ -121,30 +139,21 @@ export default function PagosPage() {
                   <TD className="text-xs">{p.userName}</TD>
                   <TD className="pr-4">
                     <RowActions
-                      viewHref={`/proformas/${p.proformaId}`}
+                      viewHref={`${p.routeBase}/${p.proformaId}`}
                       canEdit={false}
                       canDelete={false}
                       customActions={[
                         {
                           label: "Imprimir recibo",
                           icon: Printer,
-                          href: `/proformas/${p.proformaId}/print`,
+                          href: `${p.routeBase}/${p.proformaId}/imprimir`,
                         },
-                        ...(() => {
-                          const pf = mockProformas.find(
-                            (x) => x.id === p.proformaId,
-                          );
-                          return pf
-                            ? [
-                                {
-                                  label: "Enviar recibo por WhatsApp",
-                                  icon: Send,
-                                  href: buildWhatsappShareUrl(pf, mockBusiness),
-                                  external: true,
-                                },
-                              ]
-                            : [];
-                        })(),
+                        {
+                          label: "Enviar recibo por WhatsApp",
+                          icon: Send,
+                          href: buildWhatsappShareUrl(p.proforma, mockBusiness),
+                          external: true,
+                        },
                       ]}
                     />
                   </TD>
