@@ -11,6 +11,46 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.37.0] - 2026-07-03
+
+**REQUIERE MIGRACIÓN**: `0011_invoice_numberings.sql` + `0018_pos_numbering_wiring.sql`
+deben aplicarse a la DB ANTES de desplegar (sin ellas, la emisión de
+B02/B01/E32/E31 en modo supabase falla con "no hay numeración"). Nada activa
+DGII real — Fase G sigue bloqueada.
+
+### Added
+- **POS cableado a reserva ATÓMICA de secuencias en servidor** (Fase C).
+  En modo supabase el POS reserva el comprobante vía
+  `POST /api/dgii/sequences/reserve` → tabla `invoice_numberings` + RPC
+  `reserve_invoice_number` (`UPDATE ... RETURNING` con lock de fila,
+  RLS/`auth_business_id()`): dos cajas en dispositivos distintos JAMÁS
+  reciben el mismo número. **localStorage ya NO numera comprobantes fiscales
+  en modo supabase** (era por navegador → duplicados entre cajas), y si el
+  servidor no puede reservar la venta se aborta con error (sin fallback
+  silencioso). Proforma sigue local (no consume secuencia fiscal).
+- `reserveNextPreferredAnywhere` en `numbering-store` (server en supabase /
+  localStorage en mock, misma preferencia de ambiente; nunca `produccion`).
+- La factura guarda la trazabilidad de la reserva: `numbering_id` +
+  `sequence_environment` (columnas nuevas en `proformas`), además de
+  `number`/`ecf_number`/`ecf_type`/`sequence_type`/`document_kind`/
+  `billing_type` existentes. Auditoría best-effort `dgii.sequence_reserved`
+  en `audit_logs` con cajero/sucursal.
+- Migración `0018_pos_numbering_wiring.sql`: columnas de trazabilidad +
+  seeds de numeraciones del negocio con `next_number` POR ENCIMA del máximo
+  ya emitido en la DB (B02→1300 vs B0200001247 emitido; E32→150 vs
+  E3200000095) para no colisionar con contadores localStorage previos.
+- 9 tests nuevos del cableado (fetch correcto, sin localStorage, sin
+  fallback, proforma local, nunca produccion, sin duplicados locales).
+
+### Docs
+- **`docs/dgii/QR_CONSULTA_VERIFICACION.md`** — duda D-06 CERRADA: los
+  parámetros del QR implementados en v0.36.0 quedaron CONFIRMADOS contra la
+  Descripción Técnica de Facturación Electrónica v1.6 (DGII) y las páginas
+  vivas de consulta (`ecf.dgii.gov.do/.../ConsultaTimbre` y
+  `fc.dgii.gov.do/.../ConsultaTimbreFC`). Sin cambios de código; quedan 3
+  dudas menores documentadas (segmento certecf en FC, mayúsculas del path,
+  URL-encoding del código) para validar en certificación.
+
 ## [0.36.0] - 2026-07-03
 
 Correcciones al módulo DGII derivadas de la revisión fiscal completa.

@@ -1172,6 +1172,83 @@ export type Database = {
           },
         ]
       }
+      invoice_numberings: {
+        Row: {
+          branch_id: string | null
+          business_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          document_type: string
+          end_date: string | null
+          environment: string
+          id: string
+          is_electronic: boolean
+          is_preferred: boolean
+          name: string
+          next_number: number
+          note: string | null
+          prefix: string
+          range_end: number
+          range_start: number
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          branch_id?: string | null
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          document_type: string
+          end_date?: string | null
+          environment?: string
+          id?: string
+          is_electronic?: boolean
+          is_preferred?: boolean
+          name: string
+          next_number: number
+          note?: string | null
+          prefix: string
+          range_end: number
+          range_start: number
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          branch_id?: string | null
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          document_type?: string
+          end_date?: string | null
+          environment?: string
+          id?: string
+          is_electronic?: boolean
+          is_preferred?: boolean
+          name?: string
+          next_number?: number
+          note?: string | null
+          prefix?: string
+          range_end?: number
+          range_start?: number
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_numberings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ecf_sequences: {
         Row: {
           ambiente: string
@@ -2874,6 +2951,8 @@ export type Database = {
           number: string
           paid: number
           sequence_type: string | null
+          numbering_id: string | null
+          sequence_environment: string | null
           status: string
           subtotal: number
           total: number
@@ -2907,6 +2986,8 @@ export type Database = {
           number: string
           paid?: number
           sequence_type?: string | null
+          numbering_id?: string | null
+          sequence_environment?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -2940,6 +3021,8 @@ export type Database = {
           number?: string
           paid?: number
           sequence_type?: string | null
+          numbering_id?: string | null
+          sequence_environment?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -3225,6 +3308,10 @@ export type Database = {
     Functions: {
       auth_business_id: { Args: never; Returns: string }
       auth_is_platform_admin: { Args: never; Returns: boolean }
+      reserve_invoice_number: {
+        Args: { p_numbering_id: string }
+        Returns: number
+      }
       reserve_ecf_sequence_number: {
         Args: { p_ambiente: string; p_business_id: string; p_tipo_ecf: string }
         Returns: number

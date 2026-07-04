@@ -418,6 +418,99 @@ export function reserveNextPreferred(
   return { ok: true, numbering: n, value, formatted: formatNumber(n, value) };
 }
 
+// ─── Reserva "anywhere" (servidor en supabase, localStorage en mock) ─────────
+
+/**
+ * Backend de numeración:
+ *  - "supabase" → reserva ATÓMICA en servidor vía POST /api/dgii/sequences/
+ *    reserve (invoice_numberings + RPC reserve_invoice_number). El
+ *    localStorage NO se toca: la numeración fiscal es compartida entre
+ *    dispositivos.
+ *  - "local"    → este store (localStorage), solo demo/mock por navegador.
+ */
+export const NUMBERING_BACKEND: "local" | "supabase" =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase"
+    ? "supabase"
+    : "local";
+
+export type ReserveAnywhereResult =
+  | {
+      ok: true;
+      formatted: string;
+      value: number;
+      /** Id de la numeración (invoice_numberings.id en supabase; id local en mock). */
+      numberingId: string;
+      environment: string;
+      /** De dónde salió la reserva. */
+      source: "server" | "local";
+    }
+  | { ok: false; error: string };
+
+/**
+ * Reserva el siguiente número del tipo de comprobante, preferiblemente en el
+ * ambiente indicado. En modo supabase JAMÁS usa localStorage ni cae a él
+ * silenciosamente: si el servidor no puede reservar, la venta se aborta con
+ * el error (numerar por navegador produciría duplicados entre cajas).
+ * `proforma` NUNCA se reserva en servidor (no consume secuencia fiscal).
+ */
+export async function reserveNextPreferredAnywhere(
+  documentType: DocType,
+  preferredEnv: Environment,
+  opts: { branchId?: string; cashierId?: string } = {},
+): Promise<ReserveAnywhereResult> {
+  if (NUMBERING_BACKEND === "supabase" && documentType !== "proforma") {
+    try {
+      const res = await fetch("/api/dgii/sequences/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docType: documentType,
+          environment: preferredEnv === "produccion" ? undefined : preferredEnv,
+          branchId: opts.branchId,
+          cashierId: opts.cashierId,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        formatted?: string;
+        number?: number;
+        sequenceId?: string;
+        environment?: string;
+        error?: string;
+      };
+      if (!res.ok || !body.formatted) {
+        return {
+          ok: false,
+          error: body.error ?? `No pude reservar el número (HTTP ${res.status}).`,
+        };
+      }
+      return {
+        ok: true,
+        formatted: body.formatted,
+        value: body.number ?? 0,
+        numberingId: body.sequenceId ?? "",
+        environment: body.environment ?? String(preferredEnv),
+        source: "server",
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        error: `No pude reservar el número de comprobante: ${(e as Error).message}`,
+      };
+    }
+  }
+  const r = reserveNextPreferred(documentType, preferredEnv);
+  if (!r.ok) return r;
+  return {
+    ok: true,
+    formatted: r.formatted,
+    value: r.value,
+    numberingId: r.numbering.id,
+    environment: r.numbering.environment,
+    source: "local",
+  };
+}
+
 export function clearLocalNumberings() {
   write([...seed]);
 }

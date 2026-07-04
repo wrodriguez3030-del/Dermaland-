@@ -218,6 +218,8 @@ export const proformaRepository: ProformaRepository = {
       document_kind: proforma.documentKind ?? "proforma",
       ecf_type: proforma.ecfType ?? null,
       sequence_type: proforma.sequenceType ?? null,
+      numbering_id: nullableUuid(proforma.numberingId),
+      sequence_environment: proforma.sequenceEnvironment ?? null,
     };
 
     const { data: inserted, error } = await sb

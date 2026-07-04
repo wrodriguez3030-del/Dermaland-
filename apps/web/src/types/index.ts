@@ -515,6 +515,13 @@ export interface Proforma extends Audited, BranchScoped {
   ecfType?: "31" | "32";
   /** Secuencia DGII a usar — backend la materializa en producción. */
   sequenceType?: "consumo" | "credito_fiscal";
+  /**
+   * Numeración de `invoice_numberings` que reservó el comprobante
+   * (modo supabase — reserva atómica en servidor, mig 0011/0018).
+   */
+  numberingId?: ID;
+  /** Ambiente de la numeración al reservar (mock/demo/testecf/certecf). */
+  sequenceEnvironment?: string;
 }
 
 export interface CashRegisterSession extends Audited, BranchScoped {

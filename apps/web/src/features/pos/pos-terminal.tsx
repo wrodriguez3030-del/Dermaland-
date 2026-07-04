@@ -49,7 +49,7 @@ import {
   comprobanteToDocType,
 } from "@/features/billing/auto-billing-rules";
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
-import { reserveNextPreferred } from "@/features/dgii/numbering-store";
+import { reserveNextPreferredAnywhere } from "@/features/dgii/numbering-store";
 import type { DefaultBillingType, Proforma } from "@/types";
 import {
   billingTypeEcf,
@@ -612,18 +612,30 @@ export function PosTerminal() {
     let ecfType: "31" | "32" | undefined;
     let sequenceType: "consumo" | "credito_fiscal" | undefined;
     let comprobante: string | undefined; // NCF (B02/B01) o e-CF (E32/E31)
+    let numberingId: string | undefined;
+    let sequenceEnvironment: string | undefined;
 
     if (decision.documentKind === "ncf" || decision.documentKind === "ecf") {
       const dt = comprobanteToDocType(decision.comprobanteType);
       if (dt) {
-        // Reserva el siguiente número de la secuencia activa/preferida (mock/demo;
-        // nunca producción). Si no hay secuencia o se agotó → mensaje claro y aborta.
-        const reservation = reserveNextPreferred(dt, billingSettings.ecfEnvironment);
+        // Reserva el siguiente número de la secuencia activa/preferida
+        // (nunca producción). En modo supabase la reserva es ATÓMICA en
+        // servidor (compartida entre cajas); en mock usa el store local.
+        // Si no hay secuencia o se agotó → mensaje claro y aborta.
+        const reservation = await reserveNextPreferredAnywhere(
+          dt,
+          billingSettings.ecfEnvironment,
+          { branchId, cashierId: "usr_cashier_1" },
+        );
         if (!reservation.ok) {
           toast.error(reservation.error);
           return;
         }
         comprobante = reservation.formatted;
+        if (reservation.source === "server") {
+          numberingId = reservation.numberingId;
+          sequenceEnvironment = reservation.environment;
+        }
       }
       docKind = "invoice";
       sequenceType =
@@ -698,6 +710,9 @@ export function PosTerminal() {
       ...(sequenceType ? { sequenceType } : {}),
       // Comprobante fiscal generado (NCF B02/B01 o e-CF E32/E31) en mock/demo.
       ...(comprobante ? { ecfNumber: comprobante } : {}),
+      // Trazabilidad de la reserva atómica en servidor (modo supabase).
+      ...(numberingId ? { numberingId } : {}),
+      ...(sequenceEnvironment ? { sequenceEnvironment } : {}),
       createdAt: now,
       updatedAt: now,
     };
