@@ -11,6 +11,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.38.1] - 2026-07-04
+
+### Fixed
+- **Perfil de cliente mostraba RD$0.00 / 0 compras aunque el cliente tuviera
+  facturas pagadas.** CAUSA RAÍZ: `clientes/[id]` filtraba el seed estático
+  `mockProformas` (siempre vacío para clientes reales) y los KPIs leían
+  `customers.total_spent/total_orders/last_visit_at`, columnas que el POS
+  nunca actualiza. Los datos en la DB estaban BIEN (las facturas sí tienen
+  `customer_id`). FIX: el perfil ahora usa las ventas REALES (`useProformas`,
+  Supabase o local según DATA_SOURCE) con lógica pura en
+  `features/customers/customer-purchases.ts`: relación principal por
+  `customer_id` + fallback seguro por documento/teléfono normalizados
+  (031-0327428-2 == 03103274282; +1 829 714 1975 == 8297141975) SOLO cuando
+  la venta trae ese dato — walk-ins nunca se mezclan.
+- KPIs derivados de las ventas: Total gastado = Σ facturas pagadas (pago
+  parcial suma lo pagado; anuladas/borradores NO cuentan), Compras = número
+  de facturas pagadas, Última visita = última venta; proformas pendientes se
+  listan con estado "Proforma" sin sumar.
+- Pestaña Compras: columnas Fecha/Comprobante/Tipo/Items/Total/Estado +
+  acciones Ver/Imprimir/WhatsApp/Correo (reusa `SendInvoiceModal`); estados
+  con etiquetas amigables (sin errores técnicos ni UUIDs).
+- Script `scripts/backfill-invoice-customers.mjs` (dry-run default,
+  `--apply`): enlaza ventas viejas sin customer_id por documento/teléfono/
+  email con reporte de ambiguas. Ejecutado contra la DB real: **0 ventas sin
+  customer_id** — no hizo falta enlazar nada.
+- 12 tests nuevos (normalizadores, fallback, walk-in, KPIs, anuladas).
+
 ## [0.38.0] - 2026-07-04
 
 ### Added

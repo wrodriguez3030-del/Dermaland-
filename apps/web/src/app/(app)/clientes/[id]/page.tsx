@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import * as React from "react";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -41,8 +42,18 @@ import {
 import { StatCard } from "@/components/ui/stat-card";
 import { useCustomer } from "@/features/customers/customer-store";
 import { getCustomerNotes } from "@/lib/mock-data/customers";
-import { mockProformas } from "@/lib/mock-data/sales";
+import { useProformas } from "@/features/sales/proforma-store";
+import {
+  purchasesForCustomer,
+  computeCustomerPurchaseStats,
+} from "@/features/customers/customer-purchases";
+import {
+  comprobanteLabel,
+} from "@/features/sales/sales-report";
+import { documentRouteBase } from "@/features/sales/document-label";
+import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import { mockRecommendations } from "@/lib/mock-data/dermatology";
+import type { Proforma } from "@/types";
 import {
   billingTypeEcf,
   billingTypeLabel,
@@ -55,10 +66,27 @@ import {
   relativeTime,
 } from "@/lib/utils/format";
 
+const SALE_STATUS_BADGE: Record<string, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
+  paid: { label: "Pagada", tone: "success" },
+  partially_paid: { label: "Pago parcial", tone: "warning" },
+  issued: { label: "Emitida", tone: "warning" },
+  pending: { label: "Pendiente", tone: "warning" },
+  draft: { label: "Proforma", tone: "neutral" },
+  cancelled: { label: "Anulada", tone: "danger" },
+  expired: { label: "Vencida", tone: "danger" },
+};
+
 export default function ClienteDetallePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
   const c = useCustomer(id);
+  // Ventas REALES (Supabase o local segun DATA_SOURCE) — antes se filtraba
+  // el seed estatico mockProformas y el perfil salia vacio en produccion.
+  const allSales = useProformas();
+  const [sendModal, setSendModal] = React.useState<{
+    proforma: Proforma | null;
+    tab: "whatsapp" | "email";
+  }>({ proforma: null, tab: "whatsapp" });
 
   if (!c) {
     return (
@@ -89,7 +117,10 @@ export default function ClienteDetallePage() {
   }
 
   const notes = getCustomerNotes(c.id);
-  const proformas = mockProformas.filter((p) => p.customerId === c.id);
+  // customer_id primero; fallback seguro por documento/telefono normalizados
+  // (para ventas viejas sin id — un walk-in sin datos nunca se mezcla).
+  const proformas = purchasesForCustomer(allSales, c);
+  const stats = computeCustomerPurchaseStats(proformas);
   const recommendations = mockRecommendations.filter(
     (r) => r.customerId === c.id,
   );
@@ -135,14 +166,14 @@ export default function ClienteDetallePage() {
       <div className="mb-6 grid gap-4 lg:grid-cols-4">
         <StatCard
           label="Total gastado"
-          value={formatCurrency(c.totalSpent)}
+          value={formatCurrency(stats.totalSpent)}
           icon={CreditCard}
           tone="primary"
         />
-        <StatCard label="Compras" value={c.totalOrders} icon={ShoppingCart} />
+        <StatCard label="Compras" value={stats.purchases} icon={ShoppingCart} />
         <StatCard
           label="Última visita"
-          value={c.lastVisitAt ? relativeTime(c.lastVisitAt) : "—"}
+          value={stats.lastVisitAt ? relativeTime(stats.lastVisitAt) : "—"}
           icon={CalendarRange}
         />
         <StatCard
@@ -249,33 +280,64 @@ export default function ClienteDetallePage() {
               <Table>
                 <THead>
                   <TR>
-                    <TH>Proforma</TH>
                     <TH>Fecha</TH>
+                    <TH>Comprobante</TH>
+                    <TH>Tipo</TH>
                     <TH className="text-right">Items</TH>
                     <TH className="text-right">Total</TH>
                     <TH>Estado</TH>
+                    <TH className="text-right pr-4">Acciones</TH>
                   </TR>
                 </THead>
                 <TBody>
                   {proformas.length === 0 && (
                     <TR>
-                      <TD colSpan={5} className="py-8 text-center text-sm opacity-60">
-                        Aún sin compras registradas.
+                      <TD colSpan={7} className="py-8 text-center text-sm opacity-60">
+                        Este cliente aún no tiene compras registradas.
                       </TD>
                     </TR>
                   )}
                   {proformas.map((p) => (
                     <TR key={p.id}>
-                      <TD className="font-mono text-xs">{p.number}</TD>
                       <TD className="text-xs">{formatDateTime(p.createdAt)}</TD>
+                      <TD className="font-mono text-xs">{p.number}</TD>
+                      <TD className="text-xs">{comprobanteLabel(p)}</TD>
                       <TD className="text-right tabular-nums">{p.items.length}</TD>
                       <TD className="text-right tabular-nums font-medium">
                         {formatCurrency(p.total)}
                       </TD>
                       <TD>
-                        <Badge tone={p.status === "paid" ? "success" : "warning"}>
-                          {p.status}
+                        <Badge tone={(SALE_STATUS_BADGE[p.status] ?? { tone: "neutral" as const }).tone}>
+                          {(SALE_STATUS_BADGE[p.status] ?? { label: p.status }).label}
                         </Badge>
+                      </TD>
+                      <TD className="pr-4">
+                        <div className="flex items-center justify-end gap-2 text-xs">
+                          <Link
+                            className="text-[color:var(--brand-accent)] hover:underline"
+                            href={`${documentRouteBase(p)}/${p.id}`}
+                          >
+                            Ver
+                          </Link>
+                          <Link
+                            className="text-[color:var(--brand-accent)] hover:underline"
+                            href={`${documentRouteBase(p)}/${p.id}/imprimir`}
+                          >
+                            Imprimir
+                          </Link>
+                          <button
+                            className="text-[color:var(--brand-accent)] hover:underline"
+                            onClick={() => setSendModal({ proforma: p, tab: "whatsapp" })}
+                          >
+                            WhatsApp
+                          </button>
+                          <button
+                            className="text-[color:var(--brand-accent)] hover:underline"
+                            onClick={() => setSendModal({ proforma: p, tab: "email" })}
+                          >
+                            Correo
+                          </button>
+                        </div>
                       </TD>
                     </TR>
                   ))}
@@ -283,6 +345,12 @@ export default function ClienteDetallePage() {
               </Table>
             </CardContent>
           </Card>
+          <SendInvoiceModal
+            proforma={sendModal.proforma}
+            open={sendModal.proforma !== null}
+            onClose={() => setSendModal({ proforma: null, tab: "whatsapp" })}
+            initialTab={sendModal.tab}
+          />
         </TabsContent>
 
         <TabsContent value="recommendations">
