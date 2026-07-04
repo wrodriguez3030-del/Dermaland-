@@ -253,6 +253,14 @@ export function DocumentDetailView({
                 Cajero
               </div>
               <div className="font-medium">{proforma.cashierName}</div>
+              <div className="mt-2 text-xs uppercase tracking-wider opacity-50">
+                Vendedor
+              </div>
+              <div className="font-medium">
+                {proforma.sellerName ?? (
+                  <span className="opacity-40">No asignado</span>
+                )}
+              </div>
             </div>
           </div>
 

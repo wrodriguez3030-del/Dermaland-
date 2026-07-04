@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   CardContent,
+  Select,
   Table,
   THead,
   TBody,
@@ -17,6 +18,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast";
 import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Mail, Trash2, Pencil, Plus } from "lucide-react";
@@ -33,13 +35,37 @@ import { mockCurrentUser } from "@/lib/mock-data/users";
 import type { Proforma } from "@/types";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
+const NO_SELLER = "__none__";
+
 export default function VentasPage() {
   // Ventas / Facturas: documentos fiscales emitidos (NCF B02/B01 y e-CF E32/E31).
   // Las proformas pendientes viven en la pantalla Proformas.
   const toast = useToast();
   const allDocuments = useProformas();
-  const sales = allDocuments.filter(isInvoiceDocument);
-  const pag = usePagination(sales);
+  const allSales = allDocuments.filter(isInvoiceDocument);
+  const [sellerFilter, setSellerFilter] = React.useState<string>("all");
+
+  // Vendedores presentes en las ventas (para el filtro), por id → nombre.
+  const sellerOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    let hasUnassigned = false;
+    for (const s of allSales) {
+      if (s.sellerId) map.set(s.sellerId, s.sellerName || "Vendedor");
+      else hasUnassigned = true;
+    }
+    return {
+      list: [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es")),
+      hasUnassigned,
+    };
+  }, [allSales]);
+
+  const sales = React.useMemo(() => {
+    if (sellerFilter === "all") return allSales;
+    if (sellerFilter === NO_SELLER) return allSales.filter((s) => !s.sellerId);
+    return allSales.filter((s) => s.sellerId === sellerFilter);
+  }, [allSales, sellerFilter]);
+
+  const pag = usePagination(sales, { resetKey: sellerFilter });
   const canEdit = canEditSales(mockCurrentUser.role);
 
   const [sendDoc, setSendDoc] = React.useState<{
@@ -74,6 +100,24 @@ export default function VentasPage() {
         <StatCard label="Transacciones" value={sales.length} icon={Receipt} />
         <StatCard label="Items vendidos" value={items} icon={ShoppingCart} />
       </div>
+
+      <FilterBar className="mb-4">
+        <Select
+          value={sellerFilter}
+          onChange={(e) => setSellerFilter(e.target.value)}
+          aria-label="Filtrar por vendedor"
+        >
+          <option value="all">Todos los vendedores</option>
+          {sellerOptions.list.map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+          {sellerOptions.hasUnassigned && (
+            <option value={NO_SELLER}>No asignado</option>
+          )}
+        </Select>
+      </FilterBar>
 
       <Card>
         <CardContent className="p-0">
@@ -122,6 +166,7 @@ export default function VentasPage() {
                 <TH>Documento</TH>
                 <TH>Cliente</TH>
                 <TH>Cajero</TH>
+                <TH>Vendedor</TH>
                 <TH className="text-right">Total</TH>
                 <TH>Estado</TH>
                 <TH className="text-right pr-4">Acciones</TH>
@@ -141,6 +186,11 @@ export default function VentasPage() {
                   </TD>
                   <TD className="text-sm">{p.customerName}</TD>
                   <TD className="text-sm opacity-70">{p.cashierName}</TD>
+                  <TD className="text-sm">
+                    {p.sellerName ?? (
+                      <span className="opacity-40">No asignado</span>
+                    )}
+                  </TD>
                   <TD className="text-right tabular-nums font-medium">
                     {formatCurrency(p.total)}
                   </TD>

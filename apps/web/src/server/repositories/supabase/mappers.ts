@@ -380,6 +380,8 @@ export function proformaRowToTs(
       (row.sequence_type as Proforma["sequenceType"] | null) ?? undefined,
     numberingId: (row.numbering_id as string | null) ?? undefined,
     sequenceEnvironment: (row.sequence_environment as string | null) ?? undefined,
+    sellerId: (row.seller_id as string | null) ?? undefined,
+    sellerName: (row.seller_name as string | null) ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

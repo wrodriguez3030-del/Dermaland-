@@ -192,6 +192,8 @@ export interface SalesReportFilters {
   comprobante?: ComprobanteKey | "";
   status?: SaleStatusKey | "";
   cashierId?: string;
+  /** Filtra por vendedor (users.id). "__none__" = sin vendedor asignado. */
+  sellerId?: string;
   /** Busca en nombre, teléfono, documento (cédula/RNC) del cliente. */
   customerQuery?: string;
   /** Busca por producto vendido (nombre o SKU). */
@@ -208,6 +210,7 @@ export const EMPTY_FILTERS: SalesReportFilters = {
   comprobante: "",
   status: "",
   cashierId: "",
+  sellerId: "",
   customerQuery: "",
   productQuery: "",
   includeProformas: false,
@@ -260,6 +263,13 @@ export function filterSales(
     if (f.comprobante && key !== f.comprobante) return false;
     if (f.status && saleStatusKey(p.status) !== f.status) return false;
     if (f.cashierId && p.cashierId !== f.cashierId) return false;
+    if (f.sellerId) {
+      if (f.sellerId === "__none__") {
+        if (p.sellerId) return false;
+      } else if (p.sellerId !== f.sellerId) {
+        return false;
+      }
+    }
     if (!matchesCustomer(p, f.customerQuery ?? "")) return false;
     if (!matchesProduct(p, f.productQuery ?? "")) return false;
     return true;
@@ -464,6 +474,30 @@ export function byCashier(filtered: Proforma[]): NamedTotalRow[] {
       acc.get(id) ??
       acc
         .set(id, { id, name: p.cashierName || "Cajero", transactions: 0, total: 0 })
+        .get(id)!;
+    row.transactions += 1;
+    row.total += p.total;
+  }
+  return [...acc.values()]
+    .map((r) => ({ ...r, total: round2(r.total) }))
+    .sort((a, b) => b.total - a.total);
+}
+
+/** Ventas por VENDEDOR (excluye anuladas). Sin vendedor → "No asignado". */
+export function bySeller(filtered: Proforma[]): NamedTotalRow[] {
+  const acc = new Map<string, NamedTotalRow>();
+  for (const p of filtered) {
+    if (isCancelled(p)) continue;
+    const id = p.sellerId || "__none__";
+    const row =
+      acc.get(id) ??
+      acc
+        .set(id, {
+          id,
+          name: p.sellerName || (p.sellerId ? "Vendedor" : "No asignado"),
+          transactions: 0,
+          total: 0,
+        })
         .get(id)!;
     row.transactions += 1;
     row.total += p.total;
@@ -691,6 +725,7 @@ export interface SalesReport {
   methods: MethodBreakdownRow[];
   branches: NamedTotalRow[];
   cashiers: NamedTotalRow[];
+  sellers: NamedTotalRow[];
   products: ProductSalesRow[];
   customers: CustomerSalesRow[];
   comprobantes: ComprobanteBreakdownRow[];
@@ -718,6 +753,7 @@ export function buildSalesReport(
     methods: byPaymentMethod(filtered),
     branches: byBranch(filtered, branchNames),
     cashiers: byCashier(filtered),
+    sellers: bySeller(filtered),
     products: topProducts(filtered, cost),
     customers: topCustomers(filtered),
     comprobantes: byComprobante(filtered),

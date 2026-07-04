@@ -77,6 +77,8 @@ function makeSale(partial: Partial<Proforma> = {}): Proforma {
     customerPhone: partial.customerPhone,
     customerDocument: partial.customerDocument,
     discountAmount: partial.discountAmount,
+    sellerId: partial.sellerId,
+    sellerName: partial.sellerName,
   };
 }
 
@@ -266,5 +268,63 @@ describe("quickRange", () => {
     expect(quickRange("yesterday", now)).toEqual({ from: "2026-06-14", to: "2026-06-14" });
     expect(quickRange("all", now)).toEqual({ from: "", to: "" });
     expect(quickRange("thisMonth", now).from).toBe("2026-06-01");
+  });
+});
+
+describe("bySeller — ventas por vendedor (incentivos)", () => {
+  it("agrupa por vendedor, cuenta transacciones y suma total", () => {
+    const all = [
+      makeSale({ sellerId: "s1", sellerName: "Ana", total: 1000 }),
+      makeSale({ sellerId: "s1", sellerName: "Ana", total: 500 }),
+      makeSale({ sellerId: "s2", sellerName: "Beto", total: 2000 }),
+    ];
+    const report = buildSalesReport(all, EMPTY_FILTERS, { branchNames });
+    const ana = report.sellers.find((s) => s.id === "s1");
+    const beto = report.sellers.find((s) => s.id === "s2");
+    expect(ana).toMatchObject({ name: "Ana", transactions: 2, total: 1500 });
+    expect(beto).toMatchObject({ name: "Beto", transactions: 1, total: 2000 });
+    // ordenado por total desc
+    expect(report.sellers[0]!.id).toBe("s2");
+  });
+
+  it("ventas sin vendedor caen en 'No asignado'", () => {
+    const all = [makeSale({ sellerId: undefined, total: 300 })];
+    const report = buildSalesReport(all, EMPTY_FILTERS, { branchNames });
+    expect(report.sellers[0]).toMatchObject({
+      name: "No asignado",
+      transactions: 1,
+      total: 300,
+    });
+  });
+
+  it("ventas anuladas no cuentan para el vendedor", () => {
+    const all = [
+      makeSale({ sellerId: "s1", sellerName: "Ana", total: 1000, status: "cancelled" as ProformaStatus }),
+      makeSale({ sellerId: "s1", sellerName: "Ana", total: 500 }),
+    ];
+    const report = buildSalesReport(all, EMPTY_FILTERS, { branchNames });
+    expect(report.sellers.find((s) => s.id === "s1")).toMatchObject({
+      transactions: 1,
+      total: 500,
+    });
+  });
+
+  it("filterSales filtra por sellerId", () => {
+    const all = [
+      makeSale({ sellerId: "s1", sellerName: "Ana" }),
+      makeSale({ sellerId: "s2", sellerName: "Beto" }),
+    ];
+    expect(filterSales(all, { sellerId: "s1" })).toHaveLength(1);
+    expect(filterSales(all, { sellerId: "s1" })[0]!.sellerId).toBe("s1");
+  });
+
+  it("filterSales con sellerId='__none__' devuelve solo sin vendedor", () => {
+    const all = [
+      makeSale({ sellerId: "s1", sellerName: "Ana" }),
+      makeSale({ sellerId: undefined }),
+    ];
+    const out = filterSales(all, { sellerId: "__none__" });
+    expect(out).toHaveLength(1);
+    expect(out[0]!.sellerId).toBeUndefined();
   });
 });

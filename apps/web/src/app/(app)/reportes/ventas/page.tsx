@@ -171,6 +171,15 @@ export default function ReporteVentasPage() {
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
   }, [all]);
 
+  // Vendedores que tienen ventas (para el filtro).
+  const sellerOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of all) {
+      if (p.sellerId) map.set(p.sellerId, p.sellerName || "Vendedor");
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
+  }, [all]);
+
   const report = React.useMemo(
     () => buildSalesReport(all, filters, { branchNames, costByProductId }),
     [all, filters, branchNames, costByProductId],
@@ -333,6 +342,13 @@ export default function ReporteVentasPage() {
     const n = cashierOptions.find((c) => c[0] === filters.cashierId)?.[1];
     if (n) filterChips.push({ label: "Cajero", value: n });
   }
+  if (filters.sellerId) {
+    const n =
+      filters.sellerId === "__none__"
+        ? "No asignado"
+        : sellerOptions.find((c) => c[0] === filters.sellerId)?.[1];
+    if (n) filterChips.push({ label: "Vendedor", value: n });
+  }
   if (filters.customerQuery)
     filterChips.push({ label: "Cliente", value: filters.customerQuery });
   if (filters.productQuery)
@@ -485,7 +501,7 @@ export default function ReporteVentasPage() {
               </Select>
             </div>
             <div>
-              <Label>Cajero / vendedor</Label>
+              <Label>Cajero</Label>
               <Select
                 value={filters.cashierId ?? ""}
                 onChange={(e) => set("cashierId", e.target.value)}
@@ -496,6 +512,21 @@ export default function ReporteVentasPage() {
                     {name}
                   </option>
                 ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Vendedor</Label>
+              <Select
+                value={filters.sellerId ?? ""}
+                onChange={(e) => set("sellerId", e.target.value)}
+              >
+                <option value="">Todos</option>
+                {sellerOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+                <option value="__none__">No asignado</option>
               </Select>
             </div>
             <div>
@@ -587,6 +618,50 @@ export default function ReporteVentasPage() {
             ) : (
               <p className="text-sm opacity-60">Sin datos.</p>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Ventas por vendedor (base de incentivos) ── */}
+      <div className="mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Ventas por vendedor</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Vendedor</TH>
+                  <TH className="text-right">Ventas</TH>
+                  <TH className="text-right">Total vendido</TH>
+                  <TH className="text-right">Ticket promedio</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {report.sellers.map((s) => (
+                  <TR key={s.id}>
+                    <TD className="text-sm">{s.name}</TD>
+                    <TD className="text-right tabular-nums">{s.transactions}</TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      {formatCurrency(s.total)}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {formatCurrency(
+                        s.transactions ? s.total / s.transactions : 0,
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+                {!report.sellers.length && (
+                  <TR>
+                    <TD colSpan={4} className="py-6 text-center text-sm opacity-60">
+                      Sin ventas con vendedor.
+                    </TD>
+                  </TR>
+                )}
+              </TBody>
+            </Table>
           </CardContent>
         </Card>
       </div>

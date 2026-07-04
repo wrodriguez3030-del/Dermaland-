@@ -522,6 +522,10 @@ export interface Proforma extends Audited, BranchScoped {
   numberingId?: ID;
   /** Ambiente de la numeración al reservar (mock/demo/testecf/certecf). */
   sequenceEnvironment?: string;
+  /** Vendedor responsable de la venta (users.id) — base de incentivos. */
+  sellerId?: ID;
+  /** Snapshot del nombre del vendedor al momento de la venta. */
+  sellerName?: string;
 }
 
 export interface CashRegisterSession extends Audited, BranchScoped {

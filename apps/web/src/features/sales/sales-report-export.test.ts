@@ -103,6 +103,7 @@ describe("Excel", () => {
       "Ventas detalle",
       "Métodos de pago",
       "Por cajero",
+      "Por vendedor",
       "Por sucursal",
       "Productos vendidos",
       "Clientes",

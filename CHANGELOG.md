@@ -11,6 +11,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.39.0] - 2026-07-04
+
+Base para incentivos/comisiones por vendedor (Fase 1 de la épica).
+Migración `0019_sale_seller.sql` aplicada. No toca DGII real.
+
+### Added
+- **Vendedor responsable de la venta**, separado del cajero:
+  - **POS**: selector obligatorio "Vendedor *" (combobox buscable
+    `SellerSelect`) en la columna Venta actual, entre cliente y tipo de
+    facturación. Lista los usuarios activos con rol que puede vender
+    (admin/manager/cashier/supervisor + roles de venta) de la sucursal
+    activa; al cambiar de sucursal se refresca y limpia la selección si el
+    vendedor ya no pertenece. No permite cobrar sin vendedor.
+  - **Persistencia**: la venta guarda `seller_id` (FK users, relación por id)
+    + `seller_name` (snapshot para historial). Columnas nuevas en `proformas`
+    (mig 0019) + mapeo en repo/tipos.
+  - **Fuente de vendedores**: `GET /api/users` (RLS por business) +
+    `useSellers(branchId)` con reglas puras testeadas (`seller-store`).
+  - **Ventas/Facturas**: columna Vendedor ("No asignado" en ventas viejas) +
+    filtro por vendedor.
+  - **Detalle de venta**: muestra Cajero y Vendedor separados.
+  - **Reporte de ventas**: filtro por vendedor + sección "Ventas por
+    vendedor" (ventas, total, ticket promedio) + hoja "Por vendedor" en el
+    Excel. `bySeller` y filtro `sellerId` en la lógica pura.
+- Ventas previas sin vendedor se muestran como "No asignado" (no se inventa
+  vendedor). Los incentivos (reglas, generación, pago, dashboard, Excel,
+  devoluciones) son las Fases 2-3 siguientes de esta épica.
+
 ## [0.38.2] - 2026-07-04
 
 ### Fixed

@@ -245,6 +245,22 @@ function cashiersSheet(report: SalesReport): XLSX.WorkSheet {
   return sheetFromAoa(aoa, [28, 16, 18], [2], 1);
 }
 
+function sellersSheet(report: SalesReport): XLSX.WorkSheet {
+  const aoa: Cell[][] = [
+    ["Vendedor", "Ventas", "Total vendido", "Ticket promedio"],
+    ...report.sellers.map(
+      (s) =>
+        [
+          s.name,
+          s.transactions,
+          s.total,
+          s.transactions ? r2(s.total / s.transactions) : 0,
+        ] as Cell[],
+    ),
+  ];
+  return sheetFromAoa(aoa, [28, 14, 18, 18], [2, 3], 1);
+}
+
 function branchesSheet(report: SalesReport): XLSX.WorkSheet {
   const aoa: Cell[][] = [
     ["Sucursal", "Transacciones", "Total"],
@@ -293,6 +309,7 @@ export function buildSalesReportWorkbook(
   XLSX.utils.book_append_sheet(wb, detailSheet(report), "Ventas detalle");
   XLSX.utils.book_append_sheet(wb, methodsSheet(report), "Métodos de pago");
   XLSX.utils.book_append_sheet(wb, cashiersSheet(report), "Por cajero");
+  XLSX.utils.book_append_sheet(wb, sellersSheet(report), "Por vendedor");
   XLSX.utils.book_append_sheet(wb, branchesSheet(report), "Por sucursal");
   XLSX.utils.book_append_sheet(wb, productsSheet(report), "Productos vendidos");
   XLSX.utils.book_append_sheet(wb, customersSheet(report), "Clientes");

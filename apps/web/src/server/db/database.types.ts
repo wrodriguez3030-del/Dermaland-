@@ -2953,6 +2953,8 @@ export type Database = {
           sequence_type: string | null
           numbering_id: string | null
           sequence_environment: string | null
+          seller_id: string | null
+          seller_name: string | null
           status: string
           subtotal: number
           total: number
@@ -2988,6 +2990,8 @@ export type Database = {
           sequence_type?: string | null
           numbering_id?: string | null
           sequence_environment?: string | null
+          seller_id?: string | null
+          seller_name?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -3023,6 +3027,8 @@ export type Database = {
           sequence_type?: string | null
           numbering_id?: string | null
           sequence_environment?: string | null
+          seller_id?: string | null
+          seller_name?: string | null
           status?: string
           subtotal?: number
           total?: number

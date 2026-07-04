@@ -34,6 +34,8 @@ import {
   CustomerSearchSelect,
   type CustomerSearchSelectHandle,
 } from "@/features/customers/components/customer-search-select";
+import { SellerSelect } from "@/features/sales/components/seller-select";
+import { useSellers, type SellerOption } from "@/features/sales/seller-store";
 import { QuickCreateCustomerModal } from "./components/quick-create-customer-modal";
 import {
   CUSTOMER_REQUIRED_MESSAGE,
@@ -222,6 +224,9 @@ export function PosTerminal() {
   // Cliente OBLIGATORIO para facturar: marca el selector en rojo y muestra
   // el mensaje cuando se intenta cobrar sin cliente.
   const [customerRequired, setCustomerRequired] = React.useState(false);
+  // Vendedor responsable de la venta (para incentivos) — obligatorio.
+  const [seller, setSeller] = React.useState<SellerOption | null>(null);
+  const [sellerRequired, setSellerRequired] = React.useState(false);
   const [quickCreateOpen, setQuickCreateOpen] = React.useState(false);
   const customerSelectRef = React.useRef<CustomerSearchSelectHandle>(null);
   const [discountGlobalPercent, setDiscountGlobalPercent] = React.useState(0);
@@ -255,6 +260,16 @@ export function PosTerminal() {
   const branchName =
     branches.find((b) => b.id === branchId)?.name ??
     getBranchDisplayName(branchId, "Sucursal seleccionada");
+
+  // Vendedores elegibles de la sucursal activa (reactivo al cambio de sucursal).
+  const { sellers, loading: sellersLoading } = useSellers(branchId);
+  // Al cambiar de sucursal, si el vendedor elegido ya no pertenece → limpiar.
+  React.useEffect(() => {
+    if (seller && !sellers.some((s) => s.id === seller.id)) {
+      setSeller(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sellers]);
 
   // Producto para el que se abrió "Agregar stock aquí" (modal de alta de lote).
   const [addStockProduct, setAddStockProduct] = React.useState<{
@@ -589,6 +604,13 @@ export function PosTerminal() {
       toast.error("Selecciona una sucursal.");
       return;
     }
+    // Vendedor obligatorio (base de incentivos).
+    if (!seller) {
+      toast.error("Selecciona el vendedor responsable de la venta.");
+      setSellerRequired(true);
+      setChargeOpen(false);
+      return;
+    }
     if (!canCharge) {
       toast.error(chargeBlockReason ?? "No se puede facturar.");
       return;
@@ -664,6 +686,9 @@ export function PosTerminal() {
       customerDocument: customer?.documentNumber,
       cashierId: "usr_cashier_1",
       cashierName: "Rosa Peralta",
+      // Vendedor responsable (para incentivos): relación por id + snapshot.
+      sellerId: seller.id,
+      sellerName: seller.name,
       items: cart.map((l) => {
         // Montos por línea con descuento aplicado (motor único).
         const a = lineAmounts(l);
@@ -783,6 +808,8 @@ export function PosTerminal() {
     setCartBranchId("");
     setDiscountGlobalPercent(0);
     setCustomerId("");
+    setSeller(null);
+    setSellerRequired(false);
     setChargeOpen(false);
   };
 
@@ -1006,6 +1033,27 @@ export function PosTerminal() {
               ))}
             </div>
           )}
+
+          <div className="mt-3">
+            <label className="mb-1 block text-[11px] font-medium opacity-70">
+              Vendedor <span className="text-rose-600">*</span>
+            </label>
+            <SellerSelect
+              sellers={sellers}
+              value={seller}
+              loading={sellersLoading}
+              invalid={sellerRequired}
+              onChange={(s) => {
+                setSeller(s);
+                if (s) setSellerRequired(false);
+              }}
+            />
+            {sellerRequired && !seller && (
+              <p className="mt-1 text-[11px] text-rose-600">
+                Selecciona el vendedor responsable de la venta.
+              </p>
+            )}
+          </div>
 
           <div className="mt-3">
             <label className="mb-1 flex items-center justify-between text-[11px] font-medium opacity-70">
