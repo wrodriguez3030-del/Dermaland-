@@ -72,6 +72,7 @@ export const groups: NavGroup[] = [
       { label: "Ventas", href: "/ventas" },
       { label: "Proformas", href: "/proformas" },
       { label: "Pagos", href: "/pagos" },
+      { label: "Incentivos", href: "/ventas/incentivos" },
       { label: "Devoluciones", href: "/devoluciones" },
       { label: "Notas de crédito", href: "/notas-credito" },
       { label: "Caja", href: "/caja" },

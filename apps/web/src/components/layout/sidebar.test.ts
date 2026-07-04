@@ -16,6 +16,7 @@ describe("Sidebar — submenú Ventas", () => {
       "Ventas",
       "Proformas",
       "Pagos",
+      "Incentivos",
       "Devoluciones",
       "Notas de crédito",
       "Caja",

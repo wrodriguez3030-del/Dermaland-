@@ -36,6 +36,7 @@ import {
 } from "@/features/customers/components/customer-search-select";
 import { SellerSelect } from "@/features/sales/components/seller-select";
 import { useSellers, type SellerOption } from "@/features/sales/seller-store";
+import { generateIncentivesForSale } from "@/features/incentives/incentive-store";
 import { QuickCreateCustomerModal } from "./components/quick-create-customer-modal";
 import {
   CUSTOMER_REQUIRED_MESSAGE,
@@ -753,6 +754,9 @@ export function PosTerminal() {
     // servidor; en local es el id generado. NUNCA usar el id local temporal
     // para ver/imprimir en producción (rompía con "documento no encontrado").
     const savedId = res.proforma?.id ?? id;
+
+    // Generar incentivos del vendedor (fire-and-forget; no bloquea la venta).
+    void generateIncentivesForSale(savedId);
 
     // Descontar stock por cada línea del carrito (FEFO, multi-lote).
     // Usamos el snapshot `lots` del render (reactivo: Supabase o local según DATA_SOURCE).

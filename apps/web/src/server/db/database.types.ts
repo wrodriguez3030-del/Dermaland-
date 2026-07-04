@@ -1172,6 +1172,132 @@ export type Database = {
           },
         ]
       }
+      sales_incentive_rules: {
+        Row: {
+          active: boolean
+          business_id: string
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          ends_at: string | null
+          fixed_amount: number | null
+          id: string
+          laboratory_id: string | null
+          min_sales_amount: number | null
+          name: string
+          note: string | null
+          percentage: number | null
+          product_id: string | null
+          rule_type: string
+          starts_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          business_id: string
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          ends_at?: string | null
+          fixed_amount?: number | null
+          id?: string
+          laboratory_id?: string | null
+          min_sales_amount?: number | null
+          name: string
+          note?: string | null
+          percentage?: number | null
+          product_id?: string | null
+          rule_type: string
+          starts_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          business_id?: string
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          ends_at?: string | null
+          fixed_amount?: number | null
+          id?: string
+          laboratory_id?: string | null
+          min_sales_amount?: number | null
+          name?: string
+          note?: string | null
+          percentage?: number | null
+          product_id?: string | null
+          rule_type?: string
+          starts_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_incentives: {
+        Row: {
+          base_amount: number
+          business_id: string
+          created_at: string
+          earned_at: string
+          id: string
+          incentive_amount: number
+          note: string | null
+          paid_at: string | null
+          payment_batch_id: string | null
+          product_id: string | null
+          rule_id: string | null
+          rule_name: string | null
+          rule_type: string | null
+          sale_id: string
+          seller_id: string | null
+          seller_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          base_amount?: number
+          business_id: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          incentive_amount?: number
+          note?: string | null
+          paid_at?: string | null
+          payment_batch_id?: string | null
+          product_id?: string | null
+          rule_id?: string | null
+          rule_name?: string | null
+          rule_type?: string | null
+          sale_id: string
+          seller_id?: string | null
+          seller_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          base_amount?: number
+          business_id?: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          incentive_amount?: number
+          note?: string | null
+          paid_at?: string | null
+          payment_batch_id?: string | null
+          product_id?: string | null
+          rule_id?: string | null
+          rule_name?: string | null
+          rule_type?: string | null
+          sale_id?: string
+          seller_id?: string | null
+          seller_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invoice_numberings: {
         Row: {
           branch_id: string | null

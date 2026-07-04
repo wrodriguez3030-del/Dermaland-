@@ -11,6 +11,38 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.40.0] - 2026-07-04
+
+Motor de incentivos por vendedor (Fase 2 de la épica). Migración
+`0020_sales_incentives.sql` aplicada. No toca DGII real.
+
+### Added
+- **Motor de cálculo de incentivos PURO** (`incentive-engine.ts`, 18 tests):
+  6 tipos de regla — monto fijo por producto, % sobre venta, % sobre margen,
+  por laboratorio, por categoría, por meta. Base = **venta neta sin ITBIS**
+  después de descuentos; margen = neto − costo×cantidad. Resultado es un
+  SNAPSHOT: reglas futuras NO alteran incentivos ya generados. Respeta
+  vigencia por fechas; sin vendedor o venta no pagada → no genera.
+- **Tablas** `sales_incentive_rules` (reglas configurables) y
+  `sales_incentives` (snapshot, estados pending/approved/paid/void), RLS por
+  business, unique(sale_id, rule_id, product_id) para generación idempotente.
+- **Endpoints** (sesión + RLS): `GET/POST /api/incentives/rules`,
+  `PATCH/DELETE /api/incentives/rules/[id]`, `GET /api/incentives` (filtros
+  vendedor/estado/fecha, con nº de factura), `POST /api/incentives/generate`
+  (idempotente, corre el motor server-side), `POST /api/incentives/pay`
+  (lote pagado con payment_batch_id). Auditoría en `audit_logs`.
+- **Generación automática**: al completar una venta con vendedor en el POS
+  (modo supabase) se dispara `/api/incentives/generate` (fire-and-forget, no
+  bloquea la venta).
+- **Pantalla `/ventas/incentivos`**: KPIs (generados/pendientes/pagados/reglas
+  activas), tabla de reglas + modal crear/editar/activar/eliminar, tabla de
+  incentivos generados con filtro por vendedor/estado y acción "Marcar como
+  pagado". Entrada en el menú Ventas.
+- Verificado en vivo contra la DB: regla 5% → snapshot RD$137.29 sobre neto
+  2745.76 de la factura E3200000095 → marcado pagado → limpieza.
+- Devoluciones (ajuste de incentivo), dashboard/ranking y Excel 6 hojas son
+  la Fase 3 siguiente.
+
 ## [0.39.0] - 2026-07-04
 
 Base para incentivos/comisiones por vendedor (Fase 1 de la épica).

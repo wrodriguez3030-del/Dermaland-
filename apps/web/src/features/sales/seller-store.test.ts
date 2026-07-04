@@ -25,7 +25,7 @@ describe("isEligibleSeller", () => {
   });
 
   it("usuario INACTIVO no es elegible", () => {
-    expect(isEligibleSeller(user({ status: "inactive" }), "br_santiago")).toBe(
+    expect(isEligibleSeller(user({ status: "disabled" }), "br_santiago")).toBe(
       false,
     );
   });
@@ -75,7 +75,7 @@ describe("eligibleSellers", () => {
       user({ id: "1", fullName: "Zoe", role: "cashier" }),
       user({ id: "2", fullName: "Ana", role: "manager" }),
       user({ id: "3", fullName: "Beto", role: "inventory" }), // fuera
-      user({ id: "4", fullName: "Carla", status: "inactive" }), // fuera
+      user({ id: "4", fullName: "Carla", status: "disabled" }), // fuera
     ];
     const result = eligibleSellers(users, "br_santiago");
     expect(result.map((s) => s.name)).toEqual(["Ana", "Zoe"]);
