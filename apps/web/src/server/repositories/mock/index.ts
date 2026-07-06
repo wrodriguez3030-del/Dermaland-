@@ -59,6 +59,8 @@ import {
   getCustomerNotes,
   mockCustomers,
 } from "@/lib/mock-data/customers";
+import { purchasesForCustomer } from "@/features/customers/customer-purchases";
+import { filterSalesForPeriod } from "@/features/customers/customer-metrics";
 import {
   getCurrentSession,
   getProformaById,
@@ -901,6 +903,19 @@ const proforma: ProformaRepository = {
     guard(ctx);
     const all = mockProformasView(ctx.businessId);
     return all.find((p) => p.id === id) ?? null;
+  },
+  async listForCustomer(ctx, customer) {
+    guard(ctx);
+    // Mismas reglas puras que el perfil (id → doc/teléfono fallback).
+    return purchasesForCustomer(mockProformasView(ctx.businessId), customer);
+  },
+  async listHeaders(ctx, opts) {
+    guard(ctx);
+    return filterSalesForPeriod(mockProformasView(ctx.businessId), {
+      branchId: opts?.branchId,
+      from: opts?.from,
+      to: opts?.to,
+    }).map((p) => ({ ...p, items: [], payments: [] }));
   },
   async create(ctx, input) {
     guard(ctx);

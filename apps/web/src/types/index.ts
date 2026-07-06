@@ -527,6 +527,12 @@ export interface Proforma extends Audited, BranchScoped {
   sellerId?: ID;
   /** Snapshot del nombre del vendedor al momento de la venta. */
   sellerName?: string;
+  /**
+   * Proforma ORIGEN cuando este documento es la factura que la convierte
+   * (mig 0022). Las métricas cuentan solo el documento final: la proforma
+   * referenciada queda visible en el historial pero no suma dos veces.
+   */
+  sourceProformaId?: ID;
 }
 
 export interface CashRegisterSession extends Audited, BranchScoped {

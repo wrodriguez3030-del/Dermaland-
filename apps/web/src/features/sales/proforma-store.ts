@@ -41,6 +41,8 @@ export const PROFORMA_BACKEND: "local" | "supabase" =
 
 const STORAGE_KEY = "dermaland.proformas";
 const CHANGE_EVENT = "dermaland:proformas-changed";
+/** Evento de invalidación: se emite al crear/editar/anular ventas. */
+export const PROFORMAS_CHANGE_EVENT = CHANGE_EVENT;
 
 function readLocal(): Proforma[] {
   if (typeof window === "undefined") return [];

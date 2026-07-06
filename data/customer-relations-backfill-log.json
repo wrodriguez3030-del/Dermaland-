@@ -1,0 +1,21 @@
+[
+  {
+    "fecha": "2026-07-06T19:20:47.103Z",
+    "modo": "dry-run",
+    "linkConversions": false,
+    "revisadas": 0,
+    "porDocumento": 0,
+    "porTelefono": 0,
+    "walkInSinDatos": 0,
+    "ambiguas": 0,
+    "sinMatch": 0,
+    "enlacesCustomerId": 0,
+    "enlacesConversionUnicos": 0,
+    "aplicado": {
+      "customerId": 0,
+      "conversions": 0
+    },
+    "customerLinks": [],
+    "conversionLinks": []
+  }
+]

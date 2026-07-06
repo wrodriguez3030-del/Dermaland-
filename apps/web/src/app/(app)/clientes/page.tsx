@@ -25,37 +25,40 @@ import {
 } from "@/components/ui/sortable-table-header";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { useToast } from "@/components/ui/toast";
-import {
-  deleteCustomerAnywhere,
-  useCustomers,
-} from "@/features/customers/customer-store";
+import { deleteCustomerAnywhere } from "@/features/customers/customer-store";
+import { useCustomersReport } from "@/features/customers/customer-profile-hooks";
+import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
 import { skinTypeLabel } from "@/features/customers/billing";
 import {
   formatCurrency,
   formatDate,
   relativeTime,
 } from "@/lib/utils/format";
-import type { Customer } from "@/types";
 
+// Compras / Total gastado / Última visita salen de la capa CENTRAL de
+// métricas (mismos números que el perfil y el Reporte de Clientes) — antes
+// leían columnas estáticas del cliente que nunca se actualizaban (RD$0.00).
 const comparators = {
-  createdAt: (a: Customer, b: Customer) =>
-    +new Date(a.createdAt) - +new Date(b.createdAt),
-  name: (a: Customer, b: Customer) =>
-    `${a.firstName} ${a.lastName}`.localeCompare(
-      `${b.firstName} ${b.lastName}`,
+  createdAt: (a: CustomerMetricsRow, b: CustomerMetricsRow) =>
+    +new Date(a.customer.createdAt) - +new Date(b.customer.createdAt),
+  name: (a: CustomerMetricsRow, b: CustomerMetricsRow) =>
+    `${a.customer.firstName} ${a.customer.lastName}`.localeCompare(
+      `${b.customer.firstName} ${b.customer.lastName}`,
     ),
-  totalOrders: (a: Customer, b: Customer) => a.totalOrders - b.totalOrders,
-  totalSpent: (a: Customer, b: Customer) => a.totalSpent - b.totalSpent,
-  lastVisit: (a: Customer, b: Customer) =>
-    +new Date(a.lastVisitAt ?? 0) - +new Date(b.lastVisitAt ?? 0),
+  totalOrders: (a: CustomerMetricsRow, b: CustomerMetricsRow) =>
+    a.stats.purchases - b.stats.purchases,
+  totalSpent: (a: CustomerMetricsRow, b: CustomerMetricsRow) =>
+    a.stats.totalSpent - b.stats.totalSpent,
+  lastVisit: (a: CustomerMetricsRow, b: CustomerMetricsRow) =>
+    +new Date(a.stats.lastVisitAt ?? 0) - +new Date(b.stats.lastVisitAt ?? 0),
 };
 
 export default function ClientesPage() {
   const router = useRouter();
-  const customers = useCustomers();
+  const { rows } = useCustomersReport();
   const toast = useToast();
   const { sort, sorted, toggle } = useTableSort(
-    customers,
+    rows,
     "createdAt",
     "desc",
     comparators,
@@ -107,7 +110,7 @@ export default function ClientesPage() {
                 Sin clientes que coincidan.
               </div>
             )}
-            {pag.pageItems.map((c) => (
+            {pag.pageItems.map(({ customer: c, stats }) => (
               <Link
                 key={c.id}
                 href={`/clientes/${c.id}`}
@@ -125,9 +128,9 @@ export default function ClientesPage() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <div className="font-semibold tabular-nums text-[color:var(--brand-accent)]">
-                      {formatCurrency(c.totalSpent)}
+                      {formatCurrency(stats.totalSpent)}
                     </div>
-                    <div className="text-[10px] opacity-50">{c.totalOrders} pedidos</div>
+                    <div className="text-[10px] opacity-50">{stats.purchases} pedidos</div>
                     <Badge tone="primary" outlined>
                       {skinTypeLabel(c.skinType)}
                     </Badge>
@@ -185,7 +188,7 @@ export default function ClientesPage() {
                   </TD>
                 </TR>
               )}
-              {pag.pageItems.map((c) => (
+              {pag.pageItems.map(({ customer: c, stats }) => (
                 <TR
                   key={c.id}
                   // Doble click sobre la fila → perfil. Single click no
@@ -231,12 +234,12 @@ export default function ClientesPage() {
                       {skinTypeLabel(c.skinType)}
                     </Badge>
                   </TD>
-                  <TD className="text-right tabular-nums">{c.totalOrders}</TD>
+                  <TD className="text-right tabular-nums">{stats.purchases}</TD>
                   <TD className="text-right tabular-nums font-medium">
-                    {formatCurrency(c.totalSpent)}
+                    {formatCurrency(stats.totalSpent)}
                   </TD>
                   <TD className="text-xs opacity-70">
-                    {c.lastVisitAt ? relativeTime(c.lastVisitAt) : "—"}
+                    {stats.lastVisitAt ? relativeTime(stats.lastVisitAt) : "—"}
                   </TD>
                   <TD
                     className="pr-4"

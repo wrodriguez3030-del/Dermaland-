@@ -16,6 +16,43 @@ function notSupabase() {
   );
 }
 
+/**
+ * GET /api/customers/[id] — UN cliente por id (perfil). 404 real cuando no
+ * existe (la UI distingue "cargando" de "no encontrado"). Nunca expone
+ * errores técnicos.
+ */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  if (env.DATA_SOURCE !== "supabase") return notSupabase();
+  try {
+    const { id } = await params;
+    const ctx = await getRepoContext();
+    const customer = await getRepositories().customer.byId(ctx, id);
+    if (!customer) {
+      return NextResponse.json(
+        { error: "No encontramos este cliente." },
+        { status: 404 },
+      );
+    }
+    return NextResponse.json(
+      { customer },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (e) {
+    return NextResponse.json(
+      {
+        error: toUserFacingMessage(
+          e,
+          "No pudimos cargar la información del cliente. Intenta nuevamente.",
+        ),
+      },
+      { status: 400 },
+    );
+  }
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },

@@ -40,6 +40,11 @@ import {
   lineFromSaleItem,
   isSafeEditStatus,
 } from "@/features/sales/invoice-edit";
+import { saleBelongsToCustomer } from "@/features/customers/customer-purchases";
+import {
+  normalizeDocument,
+  normalizePhone,
+} from "@/features/customers/customer-normalization";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -166,6 +171,120 @@ export const proformaRepository: ProformaRepository = {
     );
   },
 
+  async listForCustomer(ctx: RepoContext, customer) {
+    const sb = await getClient("proforma.listForCustomer");
+
+    // 1) Relación principal: customer_id (usa proformas_business_customer_idx).
+    const byIdQuery = isUuid(customer.id)
+      ? sb
+          .from("proformas")
+          .select("*")
+          .eq("business_id", ctx.businessId)
+          .eq("customer_id", customer.id)
+      : null;
+
+    // 2) Fallback legacy: ventas SIN customer_id cuyo snapshot de documento o
+    //    teléfono coincide. Se consultan variantes exactas (raw + normalizada)
+    //    y el filtro fino lo hace la MISMA lógica pura del perfil.
+    const docVariants = [
+      ...new Set(
+        [customer.documentNumber, normalizeDocument(customer.documentNumber)]
+          .map((v) => (v ?? "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    const normPhone = normalizePhone(customer.phone);
+    const phoneVariants = [
+      ...new Set(
+        [customer.phone, normPhone, normPhone ? `1${normPhone}` : "", normPhone ? `+1${normPhone}` : ""]
+          .map((v) => (v ?? "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    const orParts: string[] = [];
+    if (docVariants.length)
+      orParts.push(`customer_document.in.("${docVariants.join('","')}")`);
+    if (phoneVariants.length)
+      orParts.push(`customer_phone.in.("${phoneVariants.join('","')}")`);
+
+    const legacyQuery = orParts.length
+      ? sb
+          .from("proformas")
+          .select("*")
+          .eq("business_id", ctx.businessId)
+          .is("customer_id", null)
+          .or(orParts.join(","))
+      : null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let idRows: any[] = [];
+    if (byIdQuery) {
+      const { data, error } = await byIdQuery;
+      if (error)
+        throw new SupabaseRepositoryError("proforma.listForCustomer:id", error);
+      idRows = data ?? [];
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let legacyRows: any[] = [];
+    if (legacyQuery) {
+      const { data, error } = await legacyQuery;
+      if (error)
+        throw new SupabaseRepositoryError(
+          "proforma.listForCustomer:legacy",
+          error,
+        );
+      legacyRows = data ?? [];
+    }
+
+    // Dedup + filtro fino con la lógica pura compartida (id → doc/teléfono).
+    const seen = new Set<string>();
+    const rows = [...idRows, ...legacyRows].filter((r: { id: string }) => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
+    const headers = rows
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((r) => proformaRowToTs(r as any))
+      .filter((p) => saleBelongsToCustomer(p, customer))
+      .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+
+    // Ítems y pagos SOLO de las ventas del cliente.
+    const ids = headers.map((p) => p.id);
+    const [itemsByProforma, paymentsByProforma] = await Promise.all([
+      fetchItemsForProformas(sb, ctx.businessId, ids),
+      fetchPaymentsForProformas(sb, ctx.businessId, ids),
+    ]);
+    return headers.map((p) => ({
+      ...p,
+      items: itemsByProforma.get(p.id) ?? [],
+      payments: paymentsByProforma.get(p.id) ?? [],
+    }));
+  },
+
+  async listHeaders(ctx: RepoContext, opts) {
+    const sb = await getClient("proforma.listHeaders");
+    // select("*") en vez de lista de columnas: tolera que la mig 0022
+    // (source_proforma_id) aún no esté aplicada. Lo pesado NO son las
+    // columnas de cabecera sino los hijos (ítems/pagos), que aquí no se piden.
+    let q = sb
+      .from("proformas")
+      .select("*")
+      .eq("business_id", ctx.businessId)
+      .order("created_at", { ascending: false });
+    if (opts?.branchId) q = q.eq("branch_id", opts.branchId);
+    if (opts?.from) q = q.gte("created_at", opts.from);
+    if (opts?.to) {
+      // Inclusivo hasta el fin del día.
+      const end = new Date(Date.parse(opts.to) + 24 * 60 * 60 * 1000 - 1);
+      q = q.lte("created_at", end.toISOString());
+    }
+    const { data, error } = await q;
+    if (error) throw new SupabaseRepositoryError("proforma.listHeaders", error);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ((data ?? []) as any[]).map((r) => proformaRowToTs(r));
+  },
+
   async create(
     ctx: RepoContext,
     proforma: Omit<Proforma, "id" | "createdAt" | "updatedAt">,
@@ -222,6 +341,12 @@ export const proformaRepository: ProformaRepository = {
       sequence_environment: proforma.sequenceEnvironment ?? null,
       seller_id: nullableUuid(proforma.sellerId),
       seller_name: proforma.sellerName ?? null,
+      // Enlace proforma→factura (anti doble conteo, mig 0022). Solo se envía
+      // cuando viene seteado: así el insert no referencia la columna si la
+      // migración aún no está aplicada.
+      ...(proforma.sourceProformaId
+        ? { source_proforma_id: nullableUuid(proforma.sourceProformaId) }
+        : {}),
     };
 
     const { data: inserted, error } = await sb

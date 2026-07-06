@@ -6,6 +6,8 @@ import {
   saleBelongsToCustomer,
   purchasesForCustomer,
   computeCustomerPurchaseStats,
+  collectConvertedSourceIds,
+  isFinalCustomerTransaction,
 } from "./customer-purchases";
 import type { Proforma } from "@/types";
 
@@ -150,5 +152,94 @@ describe("computeCustomerPurchaseStats", () => {
     ]);
     expect(s.totalSpent).toBe(400);
     expect(s.purchases).toBe(1);
+  });
+
+  it("ticket promedio = total / compras", () => {
+    const s = computeCustomerPurchaseStats([
+      sale({ id: "a", total: 100 }),
+      sale({ id: "b", total: 300 }),
+    ]);
+    expect(s.avgTicket).toBe(200);
+  });
+
+  it("voided NO cuenta (estado extendido de la DB)", () => {
+    const s = computeCustomerPurchaseStats([
+      sale({ id: "a", status: "voided" as never, total: 900 }),
+    ]);
+    expect(s.totalSpent).toBe(0);
+    expect(s.purchases).toBe(0);
+  });
+});
+
+describe("proforma convertida en factura — anti doble conteo", () => {
+  it("la proforma origen NO suma cuando otra factura la referencia", () => {
+    const prof = sale({
+      id: "prof_1",
+      number: "PROF-2026-89236",
+      documentKind: "proforma",
+      status: "paid",
+      total: 5000,
+    });
+    const invoice = sale({
+      id: "inv_1",
+      number: "B0200001301",
+      documentKind: "invoice",
+      status: "paid",
+      total: 5000,
+      sourceProformaId: "prof_1",
+    });
+    const s = computeCustomerPurchaseStats([prof, invoice]);
+    // Una sola compra (el documento final), no dos.
+    expect(s.purchases).toBe(1);
+    expect(s.totalSpent).toBe(5000);
+  });
+
+  it("collectConvertedSourceIds ignora facturas anuladas", () => {
+    const ids = collectConvertedSourceIds([
+      sale({ id: "inv_x", status: "cancelled", sourceProformaId: "prof_9" }),
+    ]);
+    expect(ids.size).toBe(0);
+  });
+
+  it("isFinalCustomerTransaction: reglas centrales", () => {
+    const converted = new Set(["prof_1"]);
+    expect(isFinalCustomerTransaction(sale({ id: "prof_1" }), converted)).toBe(false);
+    expect(isFinalCustomerTransaction(sale({ id: "x", status: "cancelled" }))).toBe(false);
+    expect(isFinalCustomerTransaction(sale({ id: "x", status: "paid" }))).toBe(true);
+    expect(
+      isFinalCustomerTransaction(
+        sale({ id: "x", status: "issued", documentKind: "proforma" }),
+      ),
+    ).toBe(false);
+  });
+
+  it("proforma convertida sigue visible para última visita", () => {
+    const s = computeCustomerPurchaseStats([
+      sale({
+        id: "prof_1",
+        documentKind: "proforma",
+        status: "paid",
+        total: 100,
+        createdAt: "2026-07-05T10:00:00Z",
+      }),
+      sale({
+        id: "inv_1",
+        documentKind: "invoice",
+        status: "paid",
+        total: 100,
+        sourceProformaId: "prof_1",
+        createdAt: "2026-07-01T10:00:00Z",
+      }),
+    ]);
+    // La visita más reciente es la proforma (aunque no sume dos veces).
+    expect(s.lastVisitAt).toBe("2026-07-05T10:00:00Z");
+    expect(s.purchases).toBe(1);
+  });
+});
+
+describe("normalizeDocument con pasaportes (letras)", () => {
+  it("no confunde dos pasaportes distintos con los mismos dígitos", () => {
+    expect(normalizeDocument("AB-123456")).not.toBe(normalizeDocument("CD-123456"));
+    expect(normalizeDocument("ab123456")).toBe("AB123456");
   });
 });

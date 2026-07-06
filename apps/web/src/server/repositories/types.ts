@@ -303,6 +303,23 @@ export interface ExpenseCategoryRepository {
 export interface ProformaRepository {
   list(ctx: RepoContext): Promise<Proforma[]>;
   byId(ctx: RepoContext, id: ID): Promise<Proforma | null>;
+  /**
+   * Ventas de UN cliente (perfil): filtra en SERVIDOR por customer_id, con
+   * fallback legacy por documento/teléfono normalizados para ventas sin id.
+   * Trae ítems y pagos SOLO de esas ventas — nunca de todo el negocio.
+   */
+  listForCustomer(
+    ctx: RepoContext,
+    customer: Pick<Customer, "id" | "documentNumber" | "phone">,
+  ): Promise<Proforma[]>;
+  /**
+   * Cabeceras de ventas para métricas agregadas (reporte de clientes):
+   * solo columnas de cabecera, sin ítems ni pagos — payload liviano.
+   */
+  listHeaders(
+    ctx: RepoContext,
+    opts?: { branchId?: ID; from?: string; to?: string },
+  ): Promise<Proforma[]>;
   create(ctx: RepoContext, proforma: Omit<Proforma, "id" | "createdAt" | "updatedAt">): Promise<Proforma>;
   /** Edición de datos NO fiscales (cliente del documento, notas). */
   update(ctx: RepoContext, id: ID, patch: ProformaEditPatch): Promise<Proforma>;

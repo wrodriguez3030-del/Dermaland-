@@ -54,7 +54,16 @@ describe("pantallas usan hooks reactivos, no seeds transaccionales", () => {
   }
 
   it("las páginas de datos vivos usan al menos un hook reactivo", () => {
-    const hooks = ["useProformas", "useAllLots", "useProducts", "useCustomers"];
+    const hooks = [
+      "useProformas",
+      "useAllLots",
+      "useProducts",
+      "useCustomers",
+      // Hooks del módulo de Clientes con estados explícitos (loading/notFound/
+      // error) y fetch por-cliente en servidor (v0.43).
+      "useCustomerProfile",
+      "useCustomersReport",
+    ];
     for (const page of GUARDED_PAGES) {
       const src = read(page);
       expect(

@@ -11,6 +11,78 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.43.0] - 2026-07-06
+
+Revisión TOTAL del módulo de Clientes: elimina el falso "Cliente no
+encontrado" (race de carga), unifica perfil/listado/reporte en UNA capa de
+métricas, filtra las compras por cliente en el servidor (rendimiento) y
+agrega auditoría/backfill seguro de relaciones cliente↔ventas. Migración
+`0022_customer_sales_relations.sql` (aditiva) APLICADA a cloud. No toca
+DGII real ni datos.
+
+### Fixed
+- **Falso "Cliente no encontrado" con UUID al abrir un perfil**: en modo
+  supabase `useCustomer` devolvía `undefined` mientras el fetch estaba en
+  vuelo y la página lo trataba como not-found. Ahora `useCustomerProfile`
+  expone estados explícitos `loading / notFound / error` — skeleton
+  profesional durante la carga, "No encontramos este cliente." (sin UUID)
+  solo cuando la consulta TERMINÓ, error de red con botón Reintentar.
+- **Reporte de Clientes en RD$0.00 / 0 compras**: el reporte y el listado
+  leían `clients.total_spent/total_orders/last_visit_at` — columnas
+  estáticas que ninguna venta actualiza. Ahora TODAS las pantallas
+  calculan desde las ventas reales con la misma capa del perfil
+  (caso de regresión WILLIAN CLI-420678: 16 compras / RD$34,908 en
+  perfil, listado y reporte por igual).
+
+### Added
+- **Capa central de métricas** `features/customers/customer-metrics.ts` +
+  `customer-purchases.ts` ampliado: `isFinalCustomerTransaction()`,
+  `collectConvertedSourceIds()`, `computeCustomersReport()` (agrupación
+  O(N+M) sin N+1), `computeCustomersReportKpis()`, `isVipCustomer()` con
+  regla VIP configurable central, `avgTicket`, filtros período/sucursal
+  (`filterSalesForPeriod`). Estado `voided` excluido.
+- **Anti doble conteo proforma→factura**: columna `proformas.
+  source_proforma_id` (mig 0022) + tipo `sourceProformaId`. Una proforma
+  referenciada por una factura final no suma dos veces en gasto/compras
+  (perfil, reporte de clientes y topCustomers del reporte de ventas).
+- **API por cliente**: `GET /api/customers/[id]` (404 real),
+  `GET /api/customers/[id]/purchases` (ventas del cliente filtradas en
+  SERVIDOR con fallback legacy doc/teléfono; ítems/pagos solo de esas
+  ventas), `GET /api/customers/metrics` (agregado liviano de cabeceras
+  para reporte/listado — 2 queries, sin N+1).
+- **Reporte de Clientes**: filtros (fechas, sucursal, cliente, tipo de
+  piel, segmento, compras mínimas, gasto mínimo — KPIs y tabla comparten
+  el MISMO conjunto), columna Ticket promedio y Segmento, acciones con
+  íconos (Ver cliente / WhatsApp / Correo / Ver compras), skeleton y
+  estado de error con Reintentar.
+- **Normalización canónica** `customer-normalization.ts` (documento
+  alfanumérico mayúsculas — pasaportes ya no colisionan por dígitos,
+  teléfono sin prefijo país, email lowercase) — compartida por matching,
+  detección de duplicados y scripts.
+- **Scripts seguros**: `scripts/audit-customer-sales-relations.mjs`
+  (auditoría solo-lectura → `data/customer-relations-audit.json`) y
+  `scripts/backfill-customer-relations-safe.mjs` (dry-run default,
+  `--apply`, `--link-conversions` solo pares 1:1 inequívocos, log de
+  auditoría persistente; nunca borra).
+- **Índices** (mig 0022): `proformas(business_id, customer_id,
+  created_at desc)`, `proformas(business_id, created_at desc)`, parcial
+  sobre `source_proforma_id`.
+- `Skeleton` UI primitive (`components/ui/skeleton.tsx`).
+
+### Changed
+- Perfil/listado/reporte se invalidan al crear/editar/anular ventas o
+  clientes (eventos compartidos `CUSTOMERS_CHANGE_EVENT` /
+  `PROFORMAS_CHANGE_EVENT` + `storage`) — sin cachés divergentes.
+- El perfil ya NO descarga todas las ventas del negocio (antes
+  `/api/proformas` completo: 691 ms / 23 KB con apenas 16 ventas y
+  crecimiento lineal): pide su cliente + sus compras en paralelo.
+
+### Auditoría de datos (2026-07-06)
+- 1 cliente, 16 ventas, TODAS con `customer_id` (0 huérfanas, 0 sin
+  cliente). 3 posibles dobles conteos proforma↔factura AMBIGUOS
+  (PROF-2026-28372, PROF-2026-89148, PROF-2026-89236) — requieren
+  decisión manual; el backfill seguro no los enlaza por regla.
+
 ## [0.42.0] - 2026-07-04
 
 Alta de personal/vendedores cableada a Supabase (cierra el gap del selector

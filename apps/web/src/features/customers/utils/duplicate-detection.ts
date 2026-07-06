@@ -9,9 +9,19 @@
  */
 
 import type { Customer } from "@/types";
-import { onlyDigits } from "@/lib/utils/formatters";
+import {
+  normalizeDocument,
+  normalizeEmail,
+  normalizePhone,
+} from "../customer-normalization";
 
 // ─── Normalización ──────────────────────────────────────────────────────────
+// Documento / teléfono / email viven en `customer-normalization` (canónico,
+// compartido con el emparejamiento de ventas). Aquí solo lo específico de
+// nombres/fechas para detección de duplicados.
+
+// Re-export para compat con los imports existentes de este módulo.
+export { normalizeDocument, normalizeEmail, normalizePhone };
 
 // Combining Diacritical Marks block: U+0300..U+036F.
 const removeAccents = (s: string) =>
@@ -27,24 +37,6 @@ export function normalizeFullName(
   lastName: string | undefined,
 ): string {
   return `${normalizeName(firstName)} ${normalizeName(lastName)}`.trim();
-}
-
-/** Conserva solo dígitos. Si arranca con "1" y total 11, quita el +1 prefix. */
-export function normalizePhone(value: string | undefined): string {
-  if (!value) return "";
-  const d = onlyDigits(value);
-  if (d.length === 11 && d.startsWith("1")) return d.slice(1);
-  return d;
-}
-
-export function normalizeEmail(value: string | undefined): string {
-  if (!value) return "";
-  return value.toLowerCase().trim();
-}
-
-export function normalizeDocument(value: string | undefined): string {
-  if (!value) return "";
-  return value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 }
 
 export function normalizeDate(value: string | undefined): string {

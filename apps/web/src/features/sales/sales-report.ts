@@ -6,6 +6,7 @@
 
 import type { PaymentMethod, Proforma, ProformaStatus } from "@/types";
 import { classifySaleDocument } from "./document-label";
+import { collectConvertedSourceIds } from "@/features/customers/customer-purchases";
 
 // ─── Método de pago: agrupación de alto nivel ────────────────────────────────
 
@@ -568,14 +569,20 @@ export interface CustomerSalesRow {
   total: number;
 }
 
-/** Clientes principales por gasto (excluye anuladas). */
+/**
+ * Clientes principales por gasto (excluye anuladas). No cuenta dos veces una
+ * proforma convertida en factura (enlace `sourceProformaId`) — misma regla
+ * central que el perfil y el Reporte de Clientes.
+ */
 export function topCustomers(
   filtered: Proforma[],
   limit?: number,
 ): CustomerSalesRow[] {
+  const convertedIds = collectConvertedSourceIds(filtered);
   const acc = new Map<string, CustomerSalesRow>();
   for (const p of filtered) {
     if (isCancelled(p)) continue;
+    if (convertedIds.has(p.id)) continue;
     const key = p.customerId || p.customerName || "anon";
     const row =
       acc.get(key) ??

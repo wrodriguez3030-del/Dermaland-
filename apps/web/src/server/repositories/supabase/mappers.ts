@@ -382,6 +382,12 @@ export function proformaRowToTs(
     sequenceEnvironment: (row.sequence_environment as string | null) ?? undefined,
     sellerId: (row.seller_id as string | null) ?? undefined,
     sellerName: (row.seller_name as string | null) ?? undefined,
+    // Columna agregada en mig 0022 — cast defensivo mientras database.types
+    // no se regenere.
+    sourceProformaId:
+      ((row as { source_proforma_id?: string | null }).source_proforma_id as
+        | string
+        | null) ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

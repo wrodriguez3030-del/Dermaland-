@@ -48,6 +48,8 @@ export const CUSTOMER_BACKEND: "local" | "supabase" =
 
 export const STORAGE_KEY = "dermaland.clients";
 const CHANGE_EVENT = "dermaland:clients-changed";
+/** Evento de invalidación: se emite al crear/editar/eliminar clientes. */
+export const CUSTOMERS_CHANGE_EVENT = CHANGE_EVENT;
 
 // ─── Persistencia ───────────────────────────────────────────────────────────
 

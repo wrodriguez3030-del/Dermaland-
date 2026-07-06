@@ -28,6 +28,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Skeleton,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -40,13 +41,8 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
-import { useCustomer } from "@/features/customers/customer-store";
+import { useCustomerProfile } from "@/features/customers/customer-profile-hooks";
 import { getCustomerNotes } from "@/lib/mock-data/customers";
-import { useProformas } from "@/features/sales/proforma-store";
-import {
-  purchasesForCustomer,
-  computeCustomerPurchaseStats,
-} from "@/features/customers/customer-purchases";
 import {
   comprobanteLabel,
 } from "@/features/sales/sales-report";
@@ -79,37 +75,80 @@ const SALE_STATUS_BADGE: Record<string, { label: string; tone: "success" | "warn
 export default function ClienteDetallePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
-  const c = useCustomer(id);
-  // Ventas REALES (Supabase o local segun DATA_SOURCE) — antes se filtraba
-  // el seed estatico mockProformas y el perfil salia vacio en produccion.
-  const allSales = useProformas();
+  // Estados EXPLÍCITOS: loading (skeleton) / notFound / error / success.
+  // El perfil pide SOLO su cliente y SOLO sus compras (filtradas en servidor)
+  // — nunca todas las ventas del negocio.
+  const {
+    customer: c,
+    purchases: proformas,
+    stats,
+    loading,
+    notFound,
+    error,
+    retry,
+  } = useCustomerProfile(id);
   const [sendModal, setSendModal] = React.useState<{
     proforma: Proforma | null;
     tab: "whatsapp" | "email";
   }>({ proforma: null, tab: "whatsapp" });
 
-  if (!c) {
+  // ── Cargando: skeleton profesional. NUNCA "no encontrado" durante la carga.
+  if (loading) {
+    return <ClienteDetalleSkeleton />;
+  }
+
+  // ── Error de red/servidor: mensaje amigable + reintentar (sin jerga técnica).
+  if (error) {
     return (
       <>
         <PageHeader
-          title="Cliente no encontrado"
-          breadcrumbs={[
-            { label: "Clientes", href: "/clientes" },
-            { label: id },
-          ]}
+          title="Cliente"
+          breadcrumbs={[{ label: "Clientes", href: "/clientes" }, { label: "Detalle" }]}
         />
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-sm opacity-70">
-              No encontramos el cliente con id <code>{id}</code>. Puede haberse
-              creado en otro navegador o haber sido eliminado.
+              No pudimos cargar la información del cliente. Intenta nuevamente.
             </p>
-            <Link
-              href="/clientes"
-              className="mt-4 inline-block text-sm text-[color:var(--brand-accent)] hover:underline"
-            >
-              ← Volver al listado
-            </Link>
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <Button size="sm" onClick={retry}>
+                Reintentar
+              </Button>
+              <Link href="/clientes">
+                <Button variant="outline" size="sm">
+                  Volver a clientes
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </>
+    );
+  }
+
+  // ── Not found REAL: la consulta terminó y el cliente no existe.
+  //    Mensaje amigable, sin UUID técnico.
+  if (notFound || !c) {
+    return (
+      <>
+        <PageHeader
+          title="Cliente no encontrado"
+          breadcrumbs={[{ label: "Clientes", href: "/clientes" }, { label: "Detalle" }]}
+        />
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-sm opacity-70">
+              No encontramos este cliente. Puede haber sido eliminado o el
+              enlace no es válido.
+            </p>
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <Link href="/clientes">
+                <Button size="sm">Volver a clientes</Button>
+              </Link>
+              <Button variant="outline" size="sm" onClick={retry}>
+                Reintentar
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </>
@@ -117,10 +156,6 @@ export default function ClienteDetallePage() {
   }
 
   const notes = getCustomerNotes(c.id);
-  // customer_id primero; fallback seguro por documento/telefono normalizados
-  // (para ventas viejas sin id — un walk-in sin datos nunca se mezcla).
-  const proformas = purchasesForCustomer(allSales, c);
-  const stats = computeCustomerPurchaseStats(proformas);
   const recommendations = mockRecommendations.filter(
     (r) => r.customerId === c.id,
   );
@@ -462,6 +497,70 @@ function DataRow({
         {label}
       </dt>
       <dd className="mt-0.5">{value}</dd>
+    </div>
+  );
+}
+
+/**
+ * Skeleton del perfil mientras carga: encabezado, KPIs, datos personales e
+ * historial. Reemplaza al antiguo flash de "Cliente no encontrado".
+ */
+function ClienteDetalleSkeleton() {
+  return (
+    <div data-testid="cliente-detalle-skeleton">
+      {/* Volver + encabezado */}
+      <Skeleton className="mb-4 h-3 w-28" />
+      <div className="mb-6">
+        <Skeleton className="h-7 w-64" />
+        <Skeleton className="mt-2 h-4 w-40" />
+      </div>
+
+      {/* KPIs */}
+      <div className="mb-6 grid gap-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="py-4">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="mt-3 h-6 w-28" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Datos personales + notas */}
+      <div className="mb-6 grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardContent className="py-5">
+            <Skeleton className="h-4 w-36" />
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-2.5 w-16" />
+                  <Skeleton className="mt-2 h-4 w-32" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="py-5">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="mt-4 h-16 w-full" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Historial */}
+      <Card>
+        <CardContent className="py-5">
+          <Skeleton className="h-4 w-40" />
+          <div className="mt-4 space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
