@@ -16,6 +16,8 @@ import {
   type ReportKpi,
 } from "@/components/reporting/report-layout";
 import { useCashSessionHistory } from "@/features/sales/cash-session-store";
+import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { buildCashWorkbookSpec } from "@/features/sales/cash-report-excel";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
@@ -58,7 +60,25 @@ export default function ReporteCajaPage() {
         title="Reporte de caja"
         description="Aperturas, cierres y diferencias por sesión y cajero."
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Caja" }]}
-        actions={<PrintReportButton />}
+        actions={
+          <>
+            <ExportExcelButton
+              getSpec={() =>
+                buildCashWorkbookSpec(ordered, {
+                  title: "Reporte de caja",
+                  subtitle: "Aperturas, cierres y diferencias por sesión y cajero.",
+                  rangeLabel: "Historial de sesiones",
+                  branchLabel: "Todas las sucursales",
+                  filtersLabel: "Sin filtros adicionales",
+                  generatedBy: mockCurrentUser.fullName,
+                  generatedAtLabel: formatDateTime(new Date().toISOString()),
+                })
+              }
+              fileSlug="Reporte_Caja"
+            />
+            <PrintReportButton />
+          </>
+        }
       />
 
       <ReportLayout>

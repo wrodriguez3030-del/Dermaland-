@@ -26,6 +26,8 @@ import {
 import { useProducts } from "@/features/products/product-store";
 import { useAllLots, useAllMovements } from "@/features/inventory/lot-store";
 import { useActiveBranches, useBranches } from "@/features/tenancy/branch-store";
+import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { buildInventoryWorkbookSpec } from "@/features/inventory/inventory-report-excel";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils/format";
 import type { Product, ProductLot } from "@/types";
@@ -159,13 +161,56 @@ export default function ReporteInventarioPage() {
 
   const productName = (id: string) => productById.get(id)?.name ?? "Producto";
 
+  // Excel profesional: mismas cifras y agregados que esta pantalla.
+  const excelSpec = () =>
+    buildInventoryWorkbookSpec(
+      {
+        detail,
+        byBranch: byBranch.map((b) => ({
+          name: b.branch.name,
+          units: b.units,
+          value: b.value,
+        })),
+        lowStock,
+        noStock,
+        expiringLots,
+        expiredLots,
+        movements,
+        lots,
+        productName,
+        branchName: (id) => branchNames.get(id) ?? "Sucursal",
+        movementLabel: (t) => MOVEMENT_LABEL[t] ?? t,
+        daysUntil,
+        kpis: {
+          skus: products.length,
+          totalUnits,
+          totalValue,
+          branches: branches.length,
+        },
+      },
+      {
+        title: "Reporte de inventario",
+        subtitle: "Existencias, valor de inventario, alertas de stock y vencimientos.",
+        rangeLabel: "Inventario actual",
+        branchLabel: "Todas las sucursales",
+        filtersLabel: "Sin filtros adicionales",
+        generatedBy: mockCurrentUser.fullName,
+        generatedAtLabel: formatDateTime(new Date().toISOString()),
+      },
+    );
+
   return (
     <>
       <PageHeader
         title="Reporte de inventario"
         description="Existencias, valor, alertas de stock y vencimientos por sucursal."
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Inventario" }]}
-        actions={<PrintReportButton />}
+        actions={
+          <>
+            <ExportExcelButton getSpec={excelSpec} fileSlug="Reporte_Inventario" />
+            <PrintReportButton />
+          </>
+        }
       />
 
       <ReportLayout>

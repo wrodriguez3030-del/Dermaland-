@@ -11,6 +11,53 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.44.0] - 2026-07-06
+
+Exportación a Excel profesional (.xlsx real) en TODOS los reportes con datos:
+Ventas, Inventario, Caja, Clientes, Conteos y Productos. Sistema central
+reutilizable con ExcelJS + identidad DermaLand. No toca DGII real ni datos.
+
+### Added
+- **Motor central** `lib/reports/excel/` (ExcelJS, .xlsx real — nunca CSV/HTML
+  renombrado): `buildProfessionalWorkbook`, `exportProfessionalWorkbook`
+  (dynamic import, no engorda el bundle), `reportFileName`. Cada hoja lleva
+  encabezado corporativo (DermaLand + título + Rango/Sucursal/Filtros/Generado
+  por/fecha), KPIs, tablas con encabezado teal `#00685F` texto blanco, filas
+  alternas, bordes suaves, **AutoFilter**, **freeze panes**, fila TOTAL
+  destacada. Formatos: RD$ `"RD$"#,##0.00`, enteros `#,##0`, `0.00%`,
+  `dd/mm/yyyy`, `dd/mm/yyyy hh:mm AM/PM` (montos/fechas SIEMPRE numéricos, nunca
+  texto). Helper `toExcelDate` conserva la hora de pared RD.
+- **Botón central** `ExportExcelButton` en todas las pantallas de Reportes con
+  datos: estados "Generando Excel…" → "Excel generado correctamente." / error
+  amigable. El spec se evalúa AL CLICK → refleja exactamente los filtros
+  vigentes.
+- **Spec builders PUROS** (testeables, mismos datos/filtros que pantalla):
+  - Ventas `sales-report-excel.ts` — 8 hojas (Resumen, Ventas detalle **con
+    Vendedor**, Métodos de pago, Por cajero, Por vendedor, Por sucursal,
+    Productos vendidos, Clientes). `SalesTableRow.seller` agregado.
+  - Inventario `inventory-report-excel.ts` — 8 hojas (Resumen, Stock actual,
+    Stock por lote, Vencimientos, Bajo stock, Movimientos, Cuarentena, Recall).
+  - Caja `cash-report-excel.ts` — 3 hojas (Resumen con ventas por método,
+    Sesiones con base/esperado/contado/diferencia, Diferencias).
+  - Clientes `customers-report-excel.ts` — 6 hojas usando la MISMA capa
+    `customer-metrics` que el perfil (paridad garantizada).
+  - Conteos `counts-report-excel.ts` — 5 hojas (Resumen, Conteos, Diferencias,
+    No encontrados, Detalle).
+  - Productos `products-report-excel.ts` — 7 hojas (Resumen, Catálogo con
+    marca/categoría/lab/margen, Ventas por producto, Baja rotación, Marcas,
+    Categorías, Laboratorios).
+- Reportes que ya exportaban Excel (Incentivos, Laboratorios, Inventario
+  físico operativo) se conservan.
+
+### Notes
+- RLS/seguridad: los datos salen de los mismos hooks/APIs con `business_id` de
+  la sesión — el Excel nunca cruza negocios. Sin UUIDs/tokens/secretos en el
+  archivo (test guardián).
+- Tests: paridad pantalla↔Excel (KPIs, totales, ITBIS, métodos, filtros
+  fecha/sucursal/método/vendedor/cliente/producto) + round-trip que re-abre el
+  .xlsx con ExcelJS (archivo válido) + formatos numéricos/fechas/AutoFilter/
+  freeze + sin UUIDs.
+
 ## [0.43.0] - 2026-07-06
 
 Revisión TOTAL del módulo de Clientes: elimina el falso "Cliente no

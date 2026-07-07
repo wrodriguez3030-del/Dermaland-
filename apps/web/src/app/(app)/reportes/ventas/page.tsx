@@ -226,6 +226,13 @@ export default function ReporteVentasPage() {
       const name = cashierOptions.find((c) => c[0] === filters.cashierId)?.[1];
       if (name) parts.push(`Cajero: ${name}`);
     }
+    if (filters.sellerId) {
+      const name =
+        filters.sellerId === "__none__"
+          ? "Sin vendedor"
+          : sellerOptions.find((c) => c[0] === filters.sellerId)?.[1];
+      if (name) parts.push(`Vendedor: ${name}`);
+    }
     if (filters.customerQuery) parts.push(`Cliente: ${filters.customerQuery}`);
     if (filters.productQuery) parts.push(`Producto: ${filters.productQuery}`);
     if (filters.includeProformas) parts.push("Incluye proformas");
@@ -241,18 +248,26 @@ export default function ReporteVentasPage() {
   const stamp = () =>
     (filters.from || "todo") + (filters.to ? `_${filters.to}` : "");
 
+  // Excel profesional (ExcelJS, motor central) — mismas cifras que pantalla.
   const exportExcel = async () => {
+    toast.show("Generando Excel…", "info");
     try {
-      const { salesReportXlsxBytes, salesReportFilename } = await import(
-        "@/features/sales/sales-report-export"
-      );
-      const bytes = salesReportXlsxBytes(report, reportMeta());
-      downloadBlob(
-        salesReportFilename("xlsx", stamp()),
-        bytes,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
-      toast.show("Excel generado.", "success");
+      const [{ exportProfessionalWorkbook, reportFileName }, { buildSalesWorkbookSpec }] =
+        await Promise.all([
+          import("@/lib/reports/excel/professional-workbook"),
+          import("@/features/sales/sales-report-excel"),
+        ]);
+      const m = reportMeta();
+      const spec = buildSalesWorkbookSpec(report, {
+        title: "Reporte de ventas",
+        rangeLabel: m.rangeLabel,
+        branchLabel: m.branchLabel,
+        filtersLabel: m.filtersLabel,
+        generatedBy: mockCurrentUser.fullName,
+        generatedAtLabel: formatDateTime(m.generatedAt),
+      });
+      await exportProfessionalWorkbook(spec, reportFileName("Reporte_Ventas"));
+      toast.show("Excel generado correctamente.", "success");
     } catch {
       toast.error("No se pudo generar el Excel. Intenta nuevamente.");
     }

@@ -18,7 +18,14 @@ import {
 import { useProformas } from "@/features/sales/proforma-store";
 import { isInvoiceDocument } from "@/features/sales/document-label";
 import { useProducts } from "@/features/products/product-store";
+import {
+  useBrandsList,
+  useCategoriesList,
+  useLaboratoriesList,
+} from "@/features/products/catalog-store";
 import { useAllLots } from "@/features/inventory/lot-store";
+import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { buildProductsWorkbookSpec } from "@/features/products/products-report-excel";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDateTime, daysUntil } from "@/lib/utils/format";
 
@@ -82,13 +89,50 @@ export default function ReporteProductosPage() {
     { label: "Baja rotación", value: lowRotation.length, tone: lowRotation.length ? "warning" : "default" },
   ];
 
+  // Excel profesional — mismos agregados que esta pantalla + catálogo.
+  const brands = useBrandsList();
+  const categories = useCategoriesList();
+  const laboratories = useLaboratoriesList();
+  const excelSpec = () => {
+    const brandName = new Map(brands.map((b) => [b.id, b.name]));
+    const categoryName = new Map(categories.map((c) => [c.id, c.name]));
+    const labName = new Map(laboratories.map((l) => [l.id, l.name]));
+    return buildProductsWorkbookSpec(
+      {
+        products,
+        top,
+        lowRotation,
+        stockByProduct,
+        brandName: (id) => (id ? brandName.get(id) ?? "Sin marca" : "Sin marca"),
+        categoryName: (id) =>
+          id ? categoryName.get(id) ?? "Sin categoría" : "Sin categoría",
+        laboratoryName: (id) =>
+          id ? labName.get(id) ?? "Sin laboratorio" : "Sin laboratorio",
+      },
+      {
+        title: "Reporte de productos",
+        subtitle: "Más vendidos, catálogo, margen y baja rotación.",
+        rangeLabel: "Todo",
+        branchLabel: "Todas las sucursales",
+        filtersLabel: "Sin filtros adicionales",
+        generatedBy: mockCurrentUser.fullName,
+        generatedAtLabel: formatDateTime(new Date().toISOString()),
+      },
+    );
+  };
+
   return (
     <>
       <PageHeader
         title="Reporte de productos"
         description="Más vendidos y productos con baja rotación."
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Productos" }]}
-        actions={<PrintReportButton />}
+        actions={
+          <>
+            <ExportExcelButton getSpec={excelSpec} fileSlug="Reporte_Productos" />
+            <PrintReportButton />
+          </>
+        }
       />
 
       <ReportLayout>

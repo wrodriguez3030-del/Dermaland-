@@ -17,6 +17,9 @@ import {
   type ReportBadgeTone,
 } from "@/components/reporting/report-layout";
 import { mockCountItems, mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
+import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { buildCountsWorkbookSpec } from "@/features/inventory/counts-report-excel";
+import { useBranches } from "@/features/tenancy/branch-store";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatDateTime } from "@/lib/utils/format";
 
@@ -34,10 +37,15 @@ const STATUS_TONE: Record<string, ReportBadgeTone> = {
 };
 
 export default function ReporteConteosPage() {
+  const allBranches = useBranches();
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
   }, []);
+  const branchNames = React.useMemo(
+    () => new Map(allBranches.map((b) => [b.id, b.name])),
+    [allBranches],
+  );
 
   const approvedCounts = mockInventoryCounts.filter((c) => c.status === "approved").length;
   const totalShortages = mockCountItems.filter((i) => i.status === "shortage").length;
@@ -63,7 +71,31 @@ export default function ReporteConteosPage() {
         title="Reporte de inventario físico"
         description="Diferencias acumuladas, faltantes, sobrantes y lotes vencidos detectados."
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Inventario físico" }]}
-        actions={<PrintReportButton />}
+        actions={
+          <>
+            <ExportExcelButton
+              getSpec={() =>
+                buildCountsWorkbookSpec(
+                  mockInventoryCounts,
+                  mockCountItems,
+                  {
+                    title: "Reporte de inventario físico",
+                    subtitle:
+                      "Diferencias acumuladas, faltantes, sobrantes y lotes vencidos detectados.",
+                    rangeLabel: "Historial de conteos",
+                    branchLabel: "Todas las sucursales",
+                    filtersLabel: "Sin filtros adicionales",
+                    generatedBy: mockCurrentUser.fullName,
+                    generatedAtLabel: formatDateTime(new Date().toISOString()),
+                  },
+                  (id) => branchNames.get(id) ?? "Sucursal",
+                )
+              }
+              fileSlug="Inventario_Fisico"
+            />
+            <PrintReportButton />
+          </>
+        }
       />
 
       <ReportLayout>

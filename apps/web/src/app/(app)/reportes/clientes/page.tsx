@@ -40,6 +40,8 @@ import {
 import { normalizePhone } from "@/features/customers/customer-normalization";
 import { skinTypeOptions, skinTypeLabel } from "@/features/customers/billing";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { buildCustomersWorkbookSpec } from "@/features/customers/customers-report-excel";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDateTime, relativeTime } from "@/lib/utils/format";
 
@@ -141,13 +143,44 @@ export default function ReporteClientesPage() {
 
   const clearFilters = () => setFilters({});
 
+  // Excel profesional: mismas filas FILTRADAS y misma capa de métricas
+  // (customer-metrics) que esta pantalla y el perfil del cliente.
+  const excelSpec = () => {
+    const parts: string[] = [];
+    if (filters.search) parts.push(`Cliente: ${filters.search}`);
+    if (filters.skinType)
+      parts.push(`Tipo de piel: ${skinTypeLabel(filters.skinType as never)}`);
+    if (filters.segment) parts.push(`Segmento: ${filters.segment}`);
+    if (filters.minPurchases) parts.push(`Compras mínimas: ${filters.minPurchases}`);
+    if (filters.minSpent) parts.push(`Gasto mínimo: RD$${filters.minSpent}`);
+    return buildCustomersWorkbookSpec(filtered, {
+      title: "Reporte de clientes",
+      subtitle: "Frecuentes, segmentación, total gastado y ticket promedio.",
+      rangeLabel:
+        filters.from || filters.to
+          ? `${filters.from || "inicio"} a ${filters.to || "hoy"}`
+          : "Todo",
+      branchLabel: filters.branchId
+        ? activeBranches.find((b) => b.id === filters.branchId)?.name ?? "Sucursal"
+        : "Todas las sucursales",
+      filtersLabel: parts.length ? parts.join(" · ") : "Sin filtros adicionales",
+      generatedBy: mockCurrentUser.fullName,
+      generatedAtLabel: formatDateTime(new Date().toISOString()),
+    });
+  };
+
   return (
     <>
       <PageHeader
         title="Reporte de clientes"
         description="Frecuentes, segmentación, total gastado y ticket promedio — mismas métricas que el perfil."
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Clientes" }]}
-        actions={<PrintReportButton />}
+        actions={
+          <>
+            <ExportExcelButton getSpec={excelSpec} fileSlug="Reporte_Clientes" />
+            <PrintReportButton />
+          </>
+        }
       />
 
       {/* Filtros — KPIs y tabla usan exactamente este mismo conjunto. */}

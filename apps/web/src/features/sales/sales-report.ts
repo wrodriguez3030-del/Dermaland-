@@ -678,6 +678,8 @@ export interface SalesTableRow {
   documentType: string;
   customer: string;
   cashier: string;
+  /** Vendedor responsable (snapshot) — requerido en el Excel de detalle. */
+  seller: string;
   items: number;
   method: SaleMethodSummary;
   methodLabel: string;
@@ -710,6 +712,7 @@ export function toSalesTableRow(
     documentType: comprobanteLabel(p),
     customer: p.customerName || "Consumidor final",
     cashier: p.cashierName || "—",
+    seller: p.sellerName || "—",
     items: saleItemsCount(p),
     method,
     methodLabel: SALE_METHOD_LABEL[method],
