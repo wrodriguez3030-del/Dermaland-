@@ -31,3 +31,32 @@ export function validateProductForm(v: ProductFormValues): string[] {
   }
   return m;
 }
+
+/**
+ * ¿El SKU ya lo tiene OTRO producto al EDITAR? (pre-chequeo de cliente).
+ *
+ * REGLA: al editar, la unicidad debe excluir el id del producto actual.
+ *
+ * En modo `supabase` la fuente ÚNICA es el servidor: la unicidad la garantiza el
+ * índice único `(business_id, sku)` en la base (ver `product.create` que
+ * reintenta ante 23505) y el SKU es READONLY, así que al editar nunca cambia y no
+ * puede colisionar. El catálogo local (`listAllProducts()` = seed mock +
+ * localStorage) tiene OTROS ids que los reales de Supabase (p. ej. el mismo
+ * producto ISDIN es `prod_isd_005` en el mock pero un UUID en Supabase). Por eso
+ * `p.id !== currentId` jamás coincidía con el gemelo mock y el pre-chequeo
+ * reportaba un falso "Ya existe otro producto con SKU …" en CADA edición. En
+ * `supabase` se delega 100% al servidor → devuelve `false`.
+ *
+ * En modo `local` sí tiene sentido chequear contra el store (los ids coinciden),
+ * excluyendo el producto que se está editando.
+ */
+export function skuTakenOnEdit(params: {
+  backend: "local" | "supabase";
+  products: ReadonlyArray<{ id: string; sku: string }>;
+  sku: string;
+  currentId: string;
+}): boolean {
+  if (params.backend !== "local") return false;
+  const target = params.sku.trim();
+  return params.products.some((p) => p.id !== params.currentId && p.sku === target);
+}

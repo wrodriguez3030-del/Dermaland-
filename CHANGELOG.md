@@ -11,6 +11,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.44.1] - 2026-07-07
+
+Corrección de raíz: **editar un producto fallaba con "Ya existe otro producto
+con SKU DERM-000201"** aunque se estuviera editando ese mismo producto. No toca
+DGII real, secuencias fiscales ni datos.
+
+### Fixed
+- **Falso duplicado de SKU al editar producto** (`features/products/product-form.tsx`).
+  Causa raíz: el pre-chequeo de unicidad en el cliente comparaba contra
+  `listAllProducts()` (seed mock + localStorage), pero la app corre en modo
+  `PRODUCT_BACKEND="supabase"` (`NEXT_PUBLIC_DATA_SOURCE=supabase`). El producto
+  editado llega de Supabase con `id` UUID, mientras el catálogo mock tiene el
+  MISMO producto con otro id (p. ej. ISDIN Fusion Water = `prod_isd_005`), así
+  que la exclusión `p.id !== product.id` nunca coincidía con el gemelo mock y
+  reportaba un duplicado inexistente en CADA edición. El SKU además es `readonly`:
+  al editar nunca cambia, por lo que ese chequeo de cliente jamás podía atrapar
+  una colisión real.
+- La unicidad de SKU ahora se delega al servidor en modo supabase (índice único
+  `(business_id, sku)` + reintento 23505 en `product.create`; `product.update`
+  actúa sobre la misma fila por `id`, sin colisión). El pre-chequeo de cliente
+  solo aplica en modo `local`, donde los ids sí coinciden.
+
+### Added
+- Helper puro y testeable `skuTakenOnEdit(...)` en
+  `features/products/product-form-validation.ts` (excluye el id actual; `false`
+  en modo supabase) + 5 pruebas que reproducen el escenario del bug.
+
 ## [0.44.0] - 2026-07-06
 
 Exportación a Excel profesional (.xlsx real) en TODOS los reportes con datos:

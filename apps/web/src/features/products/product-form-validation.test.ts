@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateProductForm, type ProductFormValues } from "./product-form-validation";
+import { validateProductForm, skuTakenOnEdit, type ProductFormValues } from "./product-form-validation";
 
 const base: ProductFormValues = {
   name: "Crema",
@@ -52,5 +52,71 @@ describe("validateProductForm", () => {
   it("14. producto válido con lote inicial completo no tiene faltantes", () => {
     const m = validateProductForm({ ...base, withLot: true, lotBranch: "br1", lotNumber: "LRP24A", lotQty: "24", lotExpiry: "2027-06-01" });
     expect(m).toEqual([]);
+  });
+});
+
+describe("skuTakenOnEdit", () => {
+  // Catálogo local (mock/localStorage): el mismo producto ISDIN existe con un id
+  // mock, mientras que en Supabase su id es un UUID distinto.
+  const catalog = [
+    { id: "prod_isd_005", sku: "DERM-000201" },
+    { id: "prod_isd_006", sku: "DERM-000202" },
+  ];
+
+  it("supabase: NO reporta duplicado aunque el catálogo mock tenga el mismo SKU con otro id (bug real de edición)", () => {
+    // El producto real (Supabase) tiene UUID; el gemelo mock tiene id 'prod_isd_005'.
+    // Antes esto devolvía true → falso 'Ya existe otro producto con SKU DERM-000201'.
+    expect(
+      skuTakenOnEdit({
+        backend: "supabase",
+        products: catalog,
+        sku: "DERM-000201",
+        currentId: "8f2a7c1e-0000-4000-8000-000000000201", // UUID Supabase
+      }),
+    ).toBe(false);
+  });
+
+  it("local: reporta duplicado cuando OTRO producto (distinto id) tiene el mismo SKU", () => {
+    expect(
+      skuTakenOnEdit({
+        backend: "local",
+        products: [...catalog, { id: "prod_dupe", sku: "DERM-000201" }],
+        sku: "DERM-000201",
+        currentId: "prod_isd_005",
+      }),
+    ).toBe(true);
+  });
+
+  it("local: NO reporta duplicado cuando el único match es el propio producto (excluye id actual)", () => {
+    expect(
+      skuTakenOnEdit({
+        backend: "local",
+        products: catalog,
+        sku: "DERM-000201",
+        currentId: "prod_isd_005",
+      }),
+    ).toBe(false);
+  });
+
+  it("local: NO reporta duplicado cuando ningún producto comparte el SKU", () => {
+    expect(
+      skuTakenOnEdit({
+        backend: "local",
+        products: catalog,
+        sku: "DERM-999999",
+        currentId: "prod_isd_005",
+      }),
+    ).toBe(false);
+  });
+
+  it("recorta espacios del SKU antes de comparar", () => {
+    expect(
+      skuTakenOnEdit({
+        backend: "local",
+        products: [{ id: "a", sku: "DERM-000201" }],
+        sku: "  DERM-000201  ",
+        currentId: "b",
+      }),
+    ).toBe(true);
   });
 });

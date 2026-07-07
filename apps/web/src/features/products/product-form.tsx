@@ -18,7 +18,7 @@ import { FormSection } from "@/components/ui/filter-bar";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { recordLabChange } from "@/features/products/laboratory-audit";
-import { validateProductForm } from "@/features/products/product-form-validation";
+import { validateProductForm, skuTakenOnEdit } from "@/features/products/product-form-validation";
 import {
   saveBrand,
   saveCategory,
@@ -33,6 +33,7 @@ import {
   listAllProducts,
   saveProduct,
   useNextSku,
+  PRODUCT_BACKEND,
 } from "@/features/products/product-store";
 import { addLot } from "@/features/inventory/lot-store";
 import {
@@ -280,10 +281,16 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       setErrorBanner("No se encontró el producto a editar.");
       return;
     }
-    // SKU único (excluyendo el propio producto).
-    const skuTaken = listAllProducts().some(
-      (p) => p.id !== product.id && p.sku === sku.trim(),
-    );
+    // SKU único al editar, EXCLUYENDO el producto actual. En modo supabase la
+    // unicidad la garantiza el servidor (índice único business_id+sku) y el SKU
+    // es readonly; el catálogo local usa otros ids, por lo que este pre-chequeo
+    // solo aplica en modo local (ver skuTakenOnEdit).
+    const skuTaken = skuTakenOnEdit({
+      backend: PRODUCT_BACKEND,
+      products: listAllProducts(),
+      sku,
+      currentId: product.id,
+    });
     if (skuTaken) {
       setSubmitting(false);
       setMissing(new Set(["sku"]));
