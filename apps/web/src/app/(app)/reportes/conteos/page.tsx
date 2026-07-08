@@ -12,16 +12,18 @@ import {
   ReportFooter,
   ReportEmptyState,
   ReportBadge,
-  PrintReportButton,
   type ReportKpi,
   type ReportBadgeTone,
 } from "@/components/reporting/report-layout";
 import { mockCountItems, mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { buildCountsWorkbookSpec } from "@/features/inventory/counts-report-excel";
+import { buildCountsPdfSpec } from "@/features/inventory/counts-report-pdf";
+import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { useBranches } from "@/features/tenancy/branch-store";
 import { mockCurrentUser } from "@/lib/mock-data/users";
-import { formatDateTime } from "@/lib/utils/format";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 const STATUS_LABEL: Record<string, string> = {
   shortage: "Faltante",
@@ -73,6 +75,26 @@ export default function ReporteConteosPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Inventario físico" }]}
         actions={
           <>
+            <ExportPdfButton
+              getSpec={() =>
+                buildCountsPdfSpec(
+                  mockCountItems,
+                  makePdfMeta({
+                    title: "Inventario físico",
+                    subtitle:
+                      "Diferencias acumuladas, faltantes, sobrantes y lotes vencidos",
+                    reportKind: "Inventario físico",
+                    cutLabel: `Fecha de corte: ${formatDate(new Date().toISOString())}`,
+                    periodLabel: "Historial de conteos",
+                    branchLabel: "Todas las sucursales",
+                    filtersLabel: "Sin filtros adicionales",
+                    generatedBy: mockCurrentUser.fullName,
+                    generatedAtLabel: formatDateTime(new Date().toISOString()),
+                  }),
+                )
+              }
+              fileSlug="Inventario_Fisico"
+            />
             <ExportExcelButton
               getSpec={() =>
                 buildCountsWorkbookSpec(
@@ -93,7 +115,6 @@ export default function ReporteConteosPage() {
               }
               fileSlug="Inventario_Fisico"
             />
-            <PrintReportButton />
           </>
         }
       />

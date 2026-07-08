@@ -20,14 +20,16 @@ import {
   ReportFooter,
   ReportEmptyState,
   ReportBadge,
-  PrintReportButton,
   type ReportKpi,
 } from "@/components/reporting/report-layout";
 import { useProducts } from "@/features/products/product-store";
 import { useAllLots, useAllMovements } from "@/features/inventory/lot-store";
 import { useActiveBranches, useBranches } from "@/features/tenancy/branch-store";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
-import { buildInventoryWorkbookSpec } from "@/features/inventory/inventory-report-excel";
+import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
+import { buildInventoryWorkbookSpec, type InventoryWorkbookInput } from "@/features/inventory/inventory-report-excel";
+import { buildInventoryPdfSpec } from "@/features/inventory/inventory-report-pdf";
+import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils/format";
 import type { Product, ProductLot } from "@/types";
@@ -161,42 +163,57 @@ export default function ReporteInventarioPage() {
 
   const productName = (id: string) => productById.get(id)?.name ?? "Producto";
 
-  // Excel profesional: mismas cifras y agregados que esta pantalla.
+  // Entrada común a Excel y PDF: mismos agregados que esta pantalla.
+  const reportInput = (): InventoryWorkbookInput => ({
+    detail,
+    byBranch: byBranch.map((b) => ({
+      name: b.branch.name,
+      units: b.units,
+      value: b.value,
+    })),
+    lowStock,
+    noStock,
+    expiringLots,
+    expiredLots,
+    movements,
+    lots,
+    productName,
+    branchName: (id) => branchNames.get(id) ?? "Sucursal",
+    movementLabel: (t) => MOVEMENT_LABEL[t] ?? t,
+    daysUntil,
+    kpis: {
+      skus: products.length,
+      totalUnits,
+      totalValue,
+      branches: branches.length,
+    },
+  });
+
   const excelSpec = () =>
-    buildInventoryWorkbookSpec(
-      {
-        detail,
-        byBranch: byBranch.map((b) => ({
-          name: b.branch.name,
-          units: b.units,
-          value: b.value,
-        })),
-        lowStock,
-        noStock,
-        expiringLots,
-        expiredLots,
-        movements,
-        lots,
-        productName,
-        branchName: (id) => branchNames.get(id) ?? "Sucursal",
-        movementLabel: (t) => MOVEMENT_LABEL[t] ?? t,
-        daysUntil,
-        kpis: {
-          skus: products.length,
-          totalUnits,
-          totalValue,
-          branches: branches.length,
-        },
-      },
-      {
-        title: "Reporte de inventario",
-        subtitle: "Existencias, valor de inventario, alertas de stock y vencimientos.",
-        rangeLabel: "Inventario actual",
+    buildInventoryWorkbookSpec(reportInput(), {
+      title: "Reporte de inventario",
+      subtitle: "Existencias, valor de inventario, alertas de stock y vencimientos.",
+      rangeLabel: "Inventario actual",
+      branchLabel: "Todas las sucursales",
+      filtersLabel: "Sin filtros adicionales",
+      generatedBy: mockCurrentUser.fullName,
+      generatedAtLabel: formatDateTime(new Date().toISOString()),
+    });
+
+  const pdfSpec = () =>
+    buildInventoryPdfSpec(
+      reportInput(),
+      makePdfMeta({
+        title: "Inventario de productos",
+        subtitle: "Reporte de existencias por sucursal",
+        reportKind: "Reporte de inventario",
+        cutLabel: `Fecha de corte: ${formatDate(new Date().toISOString())}`,
+        periodLabel: "Inventario actual",
         branchLabel: "Todas las sucursales",
         filtersLabel: "Sin filtros adicionales",
         generatedBy: mockCurrentUser.fullName,
         generatedAtLabel: formatDateTime(new Date().toISOString()),
-      },
+      }),
     );
 
   return (
@@ -207,8 +224,8 @@ export default function ReporteInventarioPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Inventario" }]}
         actions={
           <>
+            <ExportPdfButton getSpec={pdfSpec} fileSlug="Inventario" />
             <ExportExcelButton getSpec={excelSpec} fileSlug="Reporte_Inventario" />
-            <PrintReportButton />
           </>
         }
       />

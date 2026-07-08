@@ -25,9 +25,12 @@ import {
 } from "@/features/products/catalog-store";
 import { useAllLots } from "@/features/inventory/lot-store";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
-import { buildProductsWorkbookSpec } from "@/features/products/products-report-excel";
+import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
+import { buildProductsWorkbookSpec, type ProductsWorkbookInput } from "@/features/products/products-report-excel";
+import { buildProductsPdfSpec } from "@/features/products/products-report-pdf";
+import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { mockCurrentUser } from "@/lib/mock-data/users";
-import { formatCurrency, formatDateTime, daysUntil } from "@/lib/utils/format";
+import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils/format";
 
 export default function ReporteProductosPage() {
   const allDocs = useProformas();

@@ -12,14 +12,16 @@ import {
   ReportFooter,
   ReportEmptyState,
   ReportBadge,
-  PrintReportButton,
   type ReportKpi,
 } from "@/components/reporting/report-layout";
 import { useCashSessionHistory } from "@/features/sales/cash-session-store";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { buildCashWorkbookSpec } from "@/features/sales/cash-report-excel";
+import { buildCashPdfSpec } from "@/features/sales/cash-report-pdf";
+import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { mockCurrentUser } from "@/lib/mock-data/users";
-import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 
 export default function ReporteCajaPage() {
   const { sessions, loading } = useCashSessionHistory();
@@ -62,6 +64,25 @@ export default function ReporteCajaPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Caja" }]}
         actions={
           <>
+            <ExportPdfButton
+              getSpec={() =>
+                buildCashPdfSpec(
+                  ordered,
+                  makePdfMeta({
+                    title: "Reporte de caja",
+                    subtitle: "Aperturas, cierres y diferencias por sesión y cajero",
+                    reportKind: "Reporte de caja",
+                    cutLabel: `Fecha de corte: ${formatDate(new Date().toISOString())}`,
+                    periodLabel: "Historial de sesiones",
+                    branchLabel: "Todas las sucursales",
+                    filtersLabel: "Sin filtros adicionales",
+                    generatedBy: mockCurrentUser.fullName,
+                    generatedAtLabel: formatDateTime(new Date().toISOString()),
+                  }),
+                )
+              }
+              fileSlug="Cierre_Caja"
+            />
             <ExportExcelButton
               getSpec={() =>
                 buildCashWorkbookSpec(ordered, {
@@ -76,7 +97,6 @@ export default function ReporteCajaPage() {
               }
               fileSlug="Reporte_Caja"
             />
-            <PrintReportButton />
           </>
         }
       />

@@ -11,6 +11,44 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.45.0] - 2026-07-07
+
+Exportación a **PDF profesional** en TODOS los reportes con datos (paralela al
+Excel de v0.44.0) + corrección de una regla de `.gitignore` que ocultaba de git
+código fuente REQUERIDO. No toca DGII real ni datos.
+
+### Fixed
+- **`.gitignore` regla `reports/` (sin anclar) excluía código fuente de git**:
+  `apps/web/src/lib/reports/excel/*` (motor ExcelJS que v0.44.0 necesita),
+  `lib/reports/pdf/*`, `app/api/reports/*` y `server/services/reports/*`. Como no
+  estaban versionados, **todo deploy por integración GitHub quedaba en ERROR** y
+  solo funcionaban los deploy por CLI (que suben el working dir completo).
+  Anclada a `/reports/` (solo el dir de salida en la raíz) y **se versionan los
+  9 archivos fuente** → git/Vercel-Git ya pueden construir.
+- **Build roto por WIP PDF** (`report-pdf.ts:67`, TS2358): rama
+  `v instanceof Date` inalcanzable sobre un primitivo (`PdfCellValue` no incluye
+  `Date`). `toDate` ahora solo parsea strings ISO; null/undefined/number → null.
+
+### Added
+- **Motor central PDF** `server/services/reports/report-pdf.ts` (pdfkit,
+  server-only): toma un `ReportPdfSpec` (mismos datos/filtros que la pantalla y
+  que el Excel) y renderiza un PDF con identidad DermaLand — encabezado
+  (título + período/sucursal), KPI cards, tablas teal `#00685F` con fila TOTAL
+  resaltada, auto-paginación con encabezado repetido y footer "Página X de Y".
+  No imprime UUIDs. Formatos currency RD$/int/decimal/percent/date/datetime.
+- **Endpoint** `POST /api/reports/pdf` (`runtime = "nodejs"`, `force-dynamic`),
+  con **sesión requerida** (401 si anónimo); devuelve `application/pdf` como
+  adjunto. El spec solo contiene datos ya visibles al usuario (RLS), no cruza
+  negocios.
+- **Botón central** `ExportPdfButton` (`components/reporting/`) en las 6
+  pantallas de Reportes: evalúa el spec AL CLICK (refleja filtros vigentes),
+  genera PDF REAL server-side (no `window.print`), estados Generando/OK/error.
+- **Spec builders PUROS** por reporte (mismos datos que pantalla y Excel):
+  Ventas, Caja, Clientes, Conteos, Inventario, Productos (`features/*/*-report-pdf.ts`).
+- **Helpers** `lib/reports/pdf/` (`types`, `meta`, `filename`).
+- **Config**: `pdfkit` en `serverExternalPackages` para que sus fuentes `.afm`
+  viajen al lambda (verificado: render OK).
+
 ## [0.44.1] - 2026-07-07
 
 Corrección de raíz: **editar un producto fallaba con "Ya existe otro producto

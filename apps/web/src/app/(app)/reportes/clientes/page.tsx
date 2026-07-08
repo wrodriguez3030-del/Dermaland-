@@ -28,7 +28,6 @@ import {
   ReportSummaryCards,
   ReportSection,
   ReportFooter,
-  PrintReportButton,
   type ReportKpi,
 } from "@/components/reporting/report-layout";
 import { useCustomersReport } from "@/features/customers/customer-profile-hooks";
@@ -41,7 +40,10 @@ import { normalizePhone } from "@/features/customers/customer-normalization";
 import { skinTypeOptions, skinTypeLabel } from "@/features/customers/billing";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
+import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { buildCustomersWorkbookSpec } from "@/features/customers/customers-report-excel";
+import { buildCustomersPdfSpec } from "@/features/customers/customers-report-pdf";
+import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatCurrency, formatDateTime, relativeTime } from "@/lib/utils/format";
 
@@ -143,9 +145,15 @@ export default function ReporteClientesPage() {
 
   const clearFilters = () => setFilters({});
 
-  // Excel profesional: mismas filas FILTRADAS y misma capa de métricas
-  // (customer-metrics) que esta pantalla y el perfil del cliente.
-  const excelSpec = () => {
+  // Metadata compartida (filtros/rango/sucursal) para Excel y PDF.
+  const rangeLabel =
+    filters.from || filters.to
+      ? `${filters.from || "inicio"} a ${filters.to || "hoy"}`
+      : "Todo";
+  const branchLabel = filters.branchId
+    ? activeBranches.find((b) => b.id === filters.branchId)?.name ?? "Sucursal"
+    : "Todas las sucursales";
+  const filtersLabel = (() => {
     const parts: string[] = [];
     if (filters.search) parts.push(`Cliente: ${filters.search}`);
     if (filters.skinType)
@@ -153,21 +161,37 @@ export default function ReporteClientesPage() {
     if (filters.segment) parts.push(`Segmento: ${filters.segment}`);
     if (filters.minPurchases) parts.push(`Compras mínimas: ${filters.minPurchases}`);
     if (filters.minSpent) parts.push(`Gasto mínimo: RD$${filters.minSpent}`);
-    return buildCustomersWorkbookSpec(filtered, {
+    return parts.length ? parts.join(" · ") : "Sin filtros adicionales";
+  })();
+
+  // Excel profesional: mismas filas FILTRADAS y misma capa de métricas
+  // (customer-metrics) que esta pantalla y el perfil del cliente.
+  const excelSpec = () =>
+    buildCustomersWorkbookSpec(filtered, {
       title: "Reporte de clientes",
       subtitle: "Frecuentes, segmentación, total gastado y ticket promedio.",
-      rangeLabel:
-        filters.from || filters.to
-          ? `${filters.from || "inicio"} a ${filters.to || "hoy"}`
-          : "Todo",
-      branchLabel: filters.branchId
-        ? activeBranches.find((b) => b.id === filters.branchId)?.name ?? "Sucursal"
-        : "Todas las sucursales",
-      filtersLabel: parts.length ? parts.join(" · ") : "Sin filtros adicionales",
+      rangeLabel,
+      branchLabel,
+      filtersLabel,
       generatedBy: mockCurrentUser.fullName,
       generatedAtLabel: formatDateTime(new Date().toISOString()),
     });
-  };
+
+  const pdfSpec = () =>
+    buildCustomersPdfSpec(
+      filtered,
+      makePdfMeta({
+        title: "Reporte de clientes",
+        subtitle: "Frecuentes, segmentación, total gastado y ticket promedio",
+        reportKind: "Reporte de clientes",
+        cutLabel: `Fecha de corte: ${formatDateTime(new Date().toISOString())}`,
+        periodLabel: rangeLabel,
+        branchLabel,
+        filtersLabel,
+        generatedBy: mockCurrentUser.fullName,
+        generatedAtLabel: formatDateTime(new Date().toISOString()),
+      }),
+    );
 
   return (
     <>
@@ -177,8 +201,8 @@ export default function ReporteClientesPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Clientes" }]}
         actions={
           <>
+            <ExportPdfButton getSpec={pdfSpec} fileSlug="Reporte_Clientes" />
             <ExportExcelButton getSpec={excelSpec} fileSlug="Reporte_Clientes" />
-            <PrintReportButton />
           </>
         }
       />

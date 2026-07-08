@@ -37,4 +37,6 @@ certificates/
 
 # local tooling / Claude harness
 .claude/
-reports/
+# Solo el dir de salida de reportes en la raíz — anclado con "/" para NO ignorar
+# el código fuente en src/**/reports (lib/reports/excel, api/reports, etc.).
+/reports/

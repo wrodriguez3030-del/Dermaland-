@@ -34,10 +34,12 @@ import {
   ReportSummaryCards,
   ReportFiltersSummary,
   ReportFooter,
-  PrintReportButton,
   type ReportKpi,
   type ReportFilterChip,
 } from "@/components/reporting/report-layout";
+import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
+import { buildSalesPdfSpec } from "@/features/sales/sales-report-pdf";
+import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { useToast } from "@/components/ui/toast";
 import {
   Boxes,
@@ -248,6 +250,25 @@ export default function ReporteVentasPage() {
   const stamp = () =>
     (filters.from || "todo") + (filters.to ? `_${filters.to}` : "");
 
+  // PDF profesional (pdfkit server-side, motor central) — mismas cifras.
+  const pdfSpec = () => {
+    const m = reportMeta();
+    return buildSalesPdfSpec(
+      report,
+      makePdfMeta({
+        title: "Reporte de ventas",
+        subtitle: "Resumen de ventas por período, sucursal y método de pago",
+        reportKind: "Reporte de ventas",
+        cutLabel: `Fecha de corte: ${formatDate(new Date().toISOString())}`,
+        periodLabel: m.rangeLabel,
+        branchLabel: m.branchLabel,
+        filtersLabel: m.filtersLabel,
+        generatedBy: mockCurrentUser.fullName,
+        generatedAtLabel: formatDateTime(m.generatedAt),
+      }),
+    );
+  };
+
   // Excel profesional (ExcelJS, motor central) — mismas cifras que pantalla.
   const exportExcel = async () => {
     toast.show("Generando Excel…", "info");
@@ -379,7 +400,7 @@ export default function ReporteVentasPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Ventas" }]}
         actions={
           <div className="flex flex-wrap gap-2">
-            <PrintReportButton />
+            <ExportPdfButton getSpec={pdfSpec} fileSlug="Reporte_Ventas" />
             <Button
               variant="outline"
               size="sm"
