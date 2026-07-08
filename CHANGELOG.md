@@ -11,6 +11,42 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.45.1] - 2026-07-08
+
+Corrección de raíz: **los PDF de reportes generaban páginas en blanco** y tablas
+infladas. Verificado visual y programáticamente: 0 páginas en blanco. No toca
+DGII real ni datos.
+
+### Fixed
+- **Páginas en blanco en TODOS los PDF de reportes** (`server/services/reports/report-pdf.ts`,
+  motor central que usan los 6 reportes). Dos causas de raíz:
+  1. **Footer dibujado FUERA del margen** (`y = pageH - MARGIN + 4`, por debajo
+     del maxY de pdfkit): cada `text()` del footer disparaba la auto-paginación
+     de pdfkit (`_text → LineWrapper → continueOnNewPage`) creando **3 páginas
+     en blanco por reporte**, constante — incluso con 0 filas (0 filas producían
+     4 páginas). Ahora el footer se dibuja DENTRO de la banda reservada
+     `[bottom, pageH-MARGIN]`, sobre el maxY → nunca se crea una página extra.
+  2. **Doble avance del cursor por fila**: `doc.text(x,y,…)` ya movía `doc.y`
+     (+13.8) y además se sumaba `doc.y += rowH` (+18) → ~1.77× de espacio por
+     fila, inflando cada tabla ~2× (80 filas = 24 páginas). Ahora `drawRow` fija
+     `doc.y = y + rowH` (avance ÚNICO y determinista).
+- **Gestor de paginación centralizado**: `ensureSpace(requiredHeight)` +
+  `remainingHeight()` — REGLA: nunca se crea una página sin contenido real que
+  dibujar después (el salto ocurre ANTES de la fila/sección y repite el
+  encabezado de la tabla). El título de sección se mantiene junto al inicio de su
+  tabla (no queda un título solo al pie con la tabla en otra página).
+- **Fila TOTAL legible**: la etiqueta "TOTAL" va en la primera columna de TEXTO
+  (ya no forzada en la columna de índice angosta, donde se truncaba a "TOT"); las
+  columnas de índice quedan vacías en la fila TOTAL. El monto sigue visible.
+
+### Tests
+- `report-pdf.test.ts`: 11 pruebas con **detector de páginas en blanco**
+  (descomprime el content stream de cada página y verifica operadores de texto
+  reales) + conteos por caso: 0 filas → 1 pág, página exacta → 1 (no deja pág. 2
+  vacía), +1 fila → 2, 200 filas multipágina sin blancas, TOTAL sin página
+  vacía, portrait y landscape, multi-sección. Resultado antes→después: 0 filas
+  4→1, 80 filas 24→3, 200 filas 52→6; **0 páginas en blanco**.
+
 ## [0.45.0] - 2026-07-07
 
 Exportación a **PDF profesional** en TODOS los reportes con datos (paralela al

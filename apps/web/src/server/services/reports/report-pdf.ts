@@ -165,6 +165,34 @@ interface Ctx {
   meta: ReportPdfMeta;
 }
 
+// ── Gestor CENTRAL de paginación ─────────────────────────────────────────────
+// Geometría única para TODOS los reportes (ver Ctx: `bottom` = fin del área de
+// contenido; la banda [bottom, pageH-MARGIN] queda reservada SOLO para el
+// footer). Nadie dibuja texto por debajo de `pageH - MARGIN` (maxY de pdfkit) →
+// se evita por completo la auto-paginación de pdfkit (que creaba páginas en
+// blanco cuando el footer se dibujaba fuera del margen).
+
+/** Alto libre restante en la página actual, sobre la banda de footer. */
+function remainingHeight(ctx: Ctx): number {
+  return ctx.bottom - ctx.doc.y;
+}
+
+/**
+ * REGLA PRINCIPAL: nunca crear una página sin contenido real que dibujar
+ * después. Se llama ANTES de dibujar un bloque (fila, título, TOTAL) con el
+ * alto que ese bloque necesita. Si NO cabe en el alto restante, crea UNA página
+ * nueva y dibuja el encabezado de continuación. Devuelve `true` si saltó de
+ * página (para que el caller redibuje lo que corresponda, p.ej. el encabezado
+ * de la tabla). Si cabe, no hace nada y devuelve `false`.
+ */
+function ensureSpace(ctx: Ctx, requiredHeight: number): boolean {
+  if (requiredHeight <= remainingHeight(ctx)) return false;
+  ctx.doc.addPage();
+  ctx.doc.y = MARGIN;
+  drawContinuationHeader(ctx);
+  return true;
+}
+
 function resolveLandscape(spec: ReportPdfSpec): boolean {
   if (spec.orientation === "landscape") return true;
   if (spec.orientation === "portrait") return false;
@@ -316,6 +344,36 @@ const HEADER_H = 18;
 const BODY_FONT = 8.5;
 const PAD_X = 4;
 const PAD_Y = 4;
+/** Alto mínimo de fila (1 línea + padding). */
+const MIN_ROW_H = BODY_FONT * 1.18 + PAD_Y * 2;
+
+/**
+ * Alto que ocupará una fila (fuente única de verdad para el pre-chequeo de
+ * salto de página Y para el dibujo → nunca discrepan). El texto envuelve hasta
+ * 2 líneas; las columnas no-texto son de 1 línea.
+ */
+function estimateRowHeight(
+  ctx: Ctx,
+  columns: PdfColumn[],
+  widths: number[],
+  row: Record<string, PdfCellValue>,
+  rowIndex: number,
+): number {
+  const lineH = BODY_FONT * 1.18;
+  let contentH = lineH;
+  columns.forEach((c, i) => {
+    if ((c.format ?? "text") !== "text") return;
+    ctx.doc.font("Helvetica").fontSize(BODY_FONT);
+    const h = Math.min(
+      ctx.doc.heightOfString(formatValue(row[c.key], c.format, rowIndex), {
+        width: widths[i]! - PAD_X * 2,
+      }),
+      lineH * 2,
+    );
+    if (h > contentH) contentH = h;
+  });
+  return contentH + PAD_Y * 2;
+}
 
 function drawTableHeader(
   ctx: Ctx,
@@ -349,20 +407,8 @@ function drawRow(
   opts: { zebra?: boolean; total?: boolean } = {},
 ): number {
   const { doc } = ctx;
-  const lineH = BODY_FONT * 1.18;
-  // Alto de fila = mayor celda (texto envuelve hasta 2 líneas).
-  let contentH = lineH;
-  columns.forEach((c, i) => {
-    if ((c.format ?? "text") !== "text") return;
-    const str = formatValue(row[c.key], c.format, rowIndex);
-    doc.font("Helvetica").fontSize(BODY_FONT);
-    const h = Math.min(
-      doc.heightOfString(str, { width: widths[i]! - PAD_X * 2 }),
-      lineH * 2,
-    );
-    if (h > contentH) contentH = h;
-  });
-  const rowH = contentH + PAD_Y * 2;
+  const rowH = estimateRowHeight(ctx, columns, widths, row, rowIndex);
+  const contentH = rowH - PAD_Y * 2;
   const y = doc.y;
 
   if (opts.total) {
@@ -382,13 +428,34 @@ function drawRow(
     warn: C.warn,
     bad: C.bad,
   };
+  // Fila TOTAL: si el reporte NO trae su propia etiqueta (una celda de texto no
+  // vacía), se coloca "TOTAL" en la primera columna de TEXTO legible (nunca en
+  // una columna de índice, que es angosta y truncaría "TOTAL" → "TOT"). Las
+  // columnas de índice quedan vacías en la fila TOTAL.
+  let totalLabelCol = -1;
+  if (opts.total) {
+    const hasLabel = columns.some(
+      (c) =>
+        (c.format ?? "text") !== "index" &&
+        typeof row[c.key] === "string" &&
+        (row[c.key] as string).trim() !== "",
+    );
+    if (!hasLabel) {
+      totalLabelCol = columns.findIndex((c) => (c.format ?? "text") === "text");
+      if (totalLabelCol === -1) {
+        totalLabelCol = columns.findIndex((c) => (c.format ?? "text") !== "index");
+      }
+    }
+  }
   let x = MARGIN;
   columns.forEach((c, i) => {
     const w = widths[i]!;
     const str = opts.total
-      ? row[c.key] == null && i === 0
-        ? "TOTAL"
-        : formatValue(row[c.key], c.format, rowIndex)
+      ? (c.format ?? "text") === "index"
+        ? ""
+        : i === totalLabelCol
+          ? "TOTAL"
+          : formatValue(row[c.key], c.format, rowIndex)
       : formatValue(row[c.key], c.format, rowIndex);
     // Color de celda: por tono (Estado verde/amarillo/rojo) o el default.
     let cellColor = opts.total ? C.primary : C.fg;
@@ -424,6 +491,10 @@ function drawRow(
     doc.moveTo(x, y).lineTo(x, y + rowH).stroke();
   }
 
+  // Avance DETERMINISTA: la fila empezó en `y` y mide `rowH`. `doc.text` movió
+  // `doc.y` como efecto colateral; se fija explícitamente para que el caller NO
+  // vuelva a sumar (antes: doble avance ~1.77× → tablas infladas).
+  doc.y = y + rowH;
   return rowH;
 }
 
@@ -431,7 +502,7 @@ function drawTable(ctx: Ctx, table: PdfTable): void {
   const { doc } = ctx;
   const widths = columnWidths(table.columns, ctx.contentW);
 
-  let y = drawTableHeader(ctx, table.columns, widths);
+  const y = drawTableHeader(ctx, table.columns, widths);
   doc.y = y;
 
   if (table.rows.length === 0) {
@@ -448,47 +519,23 @@ function drawTable(ctx: Ctx, table: PdfTable): void {
   }
 
   table.rows.forEach((row, idx) => {
-    // Estimar alto para decidir salto de página.
-    const lineH = BODY_FONT * 1.18;
-    let contentH = lineH;
-    table.columns.forEach((c, i) => {
-      if ((c.format ?? "text") !== "text") return;
-      doc.font("Helvetica").fontSize(BODY_FONT);
-      const h = Math.min(
-        doc.heightOfString(formatValue(row[c.key], c.format, idx), {
-          width: widths[i]! - PAD_X * 2,
-        }),
-        lineH * 2,
-      );
-      if (h > contentH) contentH = h;
-    });
-    const rowH = contentH + PAD_Y * 2;
-
-    if (doc.y + rowH > ctx.bottom) {
-      doc.addPage();
-      drawContinuationHeader(ctx);
-      y = drawTableHeader(ctx, table.columns, widths);
-      doc.y = y;
+    // Salto SOLO si la fila real no cabe → tras el salto se repite el encabezado
+    // de la tabla. `drawRow` fija `doc.y` (avance único, sin doble conteo).
+    const rowH = estimateRowHeight(ctx, table.columns, widths, row, idx);
+    if (ensureSpace(ctx, rowH)) {
+      doc.y = drawTableHeader(ctx, table.columns, widths);
     }
-    const h = drawRow(ctx, table.columns, widths, row, idx, {
-      zebra: idx % 2 === 1,
-    });
-    doc.y += h;
+    drawRow(ctx, table.columns, widths, row, idx, { zebra: idx % 2 === 1 });
   });
 
-  // Fila TOTAL (no dejarla sola en página nueva).
+  // Fila TOTAL: nueva página SOLO si de verdad no cabe (y se repite el
+  // encabezado de la tabla), nunca dejando una página previa vacía.
   if (table.totals) {
-    const estH = BODY_FONT * 1.18 + PAD_Y * 2;
-    if (doc.y + estH > ctx.bottom) {
-      doc.addPage();
-      drawContinuationHeader(ctx);
-      const yy = drawTableHeader(ctx, table.columns, widths);
-      doc.y = yy;
+    const estH = estimateRowHeight(ctx, table.columns, widths, table.totals, 0);
+    if (ensureSpace(ctx, estH)) {
+      doc.y = drawTableHeader(ctx, table.columns, widths);
     }
-    const h = drawRow(ctx, table.columns, widths, table.totals, 0, {
-      total: true,
-    });
-    doc.y += h;
+    drawRow(ctx, table.columns, widths, table.totals, 0, { total: true });
   }
 }
 
@@ -496,10 +543,14 @@ function drawTable(ctx: Ctx, table: PdfTable): void {
 function drawSection(ctx: Ctx, section: PdfSection): void {
   const { doc } = ctx;
   if (section.title) {
-    if (doc.y + 40 > ctx.bottom) {
-      doc.addPage();
-      drawContinuationHeader(ctx);
-    }
+    // Mantener el título JUNTO al inicio de su tabla (encabezado + 1ª fila):
+    // así nunca queda un título solo al pie con la tabla saltando a otra página
+    // (que dejaría una página casi vacía).
+    const widths = columnWidths(section.table.columns, ctx.contentW);
+    const firstRowH = section.table.rows.length
+      ? estimateRowHeight(ctx, section.table.columns, widths, section.table.rows[0]!, 0)
+      : MIN_ROW_H;
+    ensureSpace(ctx, 20 + HEADER_H + firstRowH);
     const y = doc.y + 4;
     doc.rect(MARGIN, y, 3, 12).fill(C.primary);
     doc
@@ -507,10 +558,11 @@ function drawSection(ctx: Ctx, section: PdfSection): void {
       .fontSize(11)
       .fillColor(C.fg)
       .text(section.title, MARGIN + 8, y - 1, { width: ctx.contentW - 8 });
-    doc.y = doc.y + 4;
+    doc.y = y + 16; // avance determinista bajo el título
   }
   drawTable(ctx, section.table);
   if (section.footnote) {
+    ensureSpace(ctx, 20);
     doc
       .font("Helvetica-Oblique")
       .fontSize(8)
@@ -528,7 +580,12 @@ function drawFooters(ctx: Ctx): void {
   const total = range.count;
   for (let i = 0; i < total; i++) {
     doc.switchToPage(range.start + i);
-    const y = ctx.pageH - MARGIN + 4;
+    // El footer se dibuja DENTRO de la banda reservada [ctx.bottom, pageH-MARGIN]
+    // (por encima del maxY de pdfkit = pageH-MARGIN). Antes se dibujaba en
+    // `pageH - MARGIN + 4` (POR DEBAJO del margen) y cada `text()` disparaba la
+    // auto-paginación de pdfkit → páginas en blanco. Ahora nada se dibuja bajo
+    // el margen, así que no se crea ninguna página extra.
+    const y = ctx.bottom + 4;
     doc
       .moveTo(MARGIN, y)
       .lineTo(MARGIN + ctx.contentW, y)
