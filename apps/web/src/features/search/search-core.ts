@@ -18,15 +18,19 @@ export function normalizeDigits(input: string): string {
   return (input ?? "").replace(/\D+/g, "");
 }
 
+/** Mínimo de dígitos para tratar una consulta como teléfono/documento. */
+export const MIN_DIGITS_FOR_NUMERIC_MATCH = 3;
+
 /**
  * Patrón ILIKE que matchea una secuencia de dígitos IGNORANDO separadores.
  * "8297141975" → "%8%2%9%7%1%4%1%9%7%5%" — casa tanto "829-714-1975" como
  * "8297141975" en la columna cruda, sin necesitar columnas normalizadas ni DDL.
- * Devuelve null si no hay dígitos (para no agregar un filtro inútil).
+ * Devuelve null con menos de 3 dígitos: un fragmento tan corto (p. ej. el "32"
+ * de "E32") produciría coincidencias ruidosas por documento/teléfono.
  */
 export function digitsIlikePattern(input: string): string | null {
   const digits = normalizeDigits(input);
-  if (digits.length === 0) return null;
+  if (digits.length < MIN_DIGITS_FOR_NUMERIC_MATCH) return null;
   return `%${digits.split("").join("%")}%`;
 }
 

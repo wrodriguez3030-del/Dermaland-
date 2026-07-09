@@ -9,6 +9,7 @@ import {
   customerHref,
   documentHref,
   lotHref,
+  MIN_DIGITS_FOR_NUMERIC_MATCH,
   normalizeDigits,
   productHref,
 } from "./search-core";
@@ -151,9 +152,9 @@ export function lotItem(l: LotRecord): SearchResultItem {
 function includesCI(haystack: string | undefined, needleLower: string): boolean {
   return !!haystack && haystack.toLowerCase().includes(needleLower);
 }
-/** Compara por dígitos: "8297141975" casa con "829-714-1975". */
+/** Compara por dígitos: "8297141975" casa con "829-714-1975". Mín. 3 dígitos. */
 function digitsMatch(value: string | undefined, digits: string): boolean {
-  if (!digits) return false;
+  if (digits.length < MIN_DIGITS_FOR_NUMERIC_MATCH) return false;
   return normalizeDigits(value ?? "").includes(digits);
 }
 

@@ -33,9 +33,14 @@ describe("digitsIlikePattern — matchea ignorando separadores", () => {
   it("intercala % entre dígitos para tolerar guiones/espacios", () => {
     expect(digitsIlikePattern("8297141975")).toBe("%8%2%9%7%1%4%1%9%7%5%");
   });
-  it("cadena vacía devuelve null (no filtra)", () => {
+  it("cadena vacía o sin dígitos devuelve null (no filtra)", () => {
     expect(digitsIlikePattern("")).toBeNull();
     expect(digitsIlikePattern("abc")).toBeNull();
+  });
+  it("menos de 3 dígitos devuelve null (evita ruido tipo 'E32' → '32')", () => {
+    expect(digitsIlikePattern("32")).toBeNull();
+    expect(digitsIlikePattern("E32")).toBeNull();
+    expect(digitsIlikePattern("197")).toBe("%1%9%7%"); // 3 dígitos sí
   });
 });
 

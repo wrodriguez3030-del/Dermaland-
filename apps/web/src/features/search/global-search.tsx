@@ -167,14 +167,23 @@ function ResultsList({
                     <Icon className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
+                    {/* Título en su propia línea → nunca lo aplasta un meta largo (lotes). */}
                     <span className="block truncate text-sm font-medium">{item.title}</span>
-                    {item.subtitle && (
-                      <span className="block truncate text-xs opacity-60">{item.subtitle}</span>
+                    {(item.subtitle || item.meta) && (
+                      <span className="flex items-center justify-between gap-2 text-xs opacity-60">
+                        {item.subtitle ? (
+                          <span className="truncate">{item.subtitle}</span>
+                        ) : (
+                          <span />
+                        )}
+                        {item.meta && (
+                          <span className="max-w-[62%] shrink-0 truncate text-right tabular-nums">
+                            {item.meta}
+                          </span>
+                        )}
+                      </span>
                     )}
                   </span>
-                  {item.meta && (
-                    <span className="shrink-0 text-xs tabular-nums opacity-60">{item.meta}</span>
-                  )}
                 </button>
               );
             })}
