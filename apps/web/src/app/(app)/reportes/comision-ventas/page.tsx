@@ -34,7 +34,7 @@ import {
 import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { useToast } from "@/components/ui/toast";
-import { FileSpreadsheet, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, HandCoins, Layers, SlidersHorizontal } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
 import { useBranches, useActiveBranches } from "@/features/tenancy/branch-store";
 import { mockCurrentUser } from "@/lib/mock-data/users";
@@ -68,6 +68,10 @@ import {
   excludedComprobantes,
   exclusionReasonMap,
 } from "@/features/reports/commission/commission-exclusions-store";
+import { usePayouts, setPayout } from "@/features/reports/commission/commission-payout-store";
+import { createBatch } from "@/features/reports/commission/commission-batch-store";
+import { recordCommissionAudit } from "@/features/reports/commission/commission-audit-store";
+import { CommissionPaymentsModal } from "@/features/reports/commission/commission-payments-modal";
 import { buildCommissionPdfSpec } from "@/features/reports/commission/commission-report-pdf";
 import type { ReportMeta } from "@/lib/reports/excel/types";
 
@@ -134,9 +138,12 @@ export default function ReporteComisionVentasPage() {
   const exclusions = useCommissionExclusions();
   const exclusionList = React.useMemo(() => excludedComprobantes(exclusions), [exclusions]);
   const reasonMap = React.useMemo(() => exclusionReasonMap(exclusions), [exclusions]);
+  const payouts = usePayouts();
 
   const [filters, setFilters] = React.useState<CommissionFilters>(EMPTY);
   const [rulesOpen, setRulesOpen] = React.useState(false);
+  const [paymentsOpen, setPaymentsOpen] = React.useState(false);
+  const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [excludeTarget, setExcludeTarget] = React.useState<CommissionLine | null>(null);
   const [excludeReason, setExcludeReason] = React.useState("");
   const [generatedAt, setGeneratedAt] = React.useState("");
@@ -167,8 +174,9 @@ export default function ReporteComisionVentasPage() {
         branchNames,
         manualExclusions: exclusionList,
         exclusionReasons: reasonMap,
+        payoutByComprobante: payouts,
       }),
-    [all, filters, rules, branchNames, exclusionList, reasonMap],
+    [all, filters, rules, branchNames, exclusionList, reasonMap, payouts],
   );
 
   const { sort, sorted, toggle } = useTableSort(report.rows, "date", "desc", COMPARATORS);
@@ -203,6 +211,75 @@ export default function ReporteComisionVentasPage() {
   const includeBack = (l: CommissionLine) => {
     deleteExclusion(l.comprobante);
     toast.success(`Comprobante ${l.comprobante} vuelve a comisionar.`);
+  };
+
+  // ── Selección y pago de comisiones (§12/§13) ──
+  const toggleSelect = (comprobante: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(comprobante)) next.delete(comprobante);
+      else next.add(comprobante);
+      return next;
+    });
+  const selectableOnPage = () =>
+    pag.pageItems.filter((l) => l.status === "commissionable").map((l) => l.comprobante);
+  const allPageSelected = () => {
+    const s = selectableOnPage();
+    return s.length > 0 && s.every((c) => selected.has(c));
+  };
+  const toggleSelectAllPage = () =>
+    setSelected((prev) => {
+      const s = selectableOnPage();
+      const next = new Set(prev);
+      if (s.every((c) => next.has(c))) s.forEach((c) => next.delete(c));
+      else s.forEach((c) => next.add(c));
+      return next;
+    });
+
+  const selectedLines = report.rows.filter(
+    (l) => l.status === "commissionable" && selected.has(l.comprobante),
+  );
+  const selectedTotal = selectedLines.reduce((s, l) => s + l.commission, 0);
+  const who = mockCurrentUser.fullName;
+
+  const approveSelected = () => {
+    if (!selectedLines.length) return;
+    const comps = selectedLines.map((l) => l.comprobante);
+    setPayout(comps, "approved", { userName: who });
+    recordCommissionAudit({ action: "approved", comprobantes: comps, amount: selectedTotal, userName: who });
+    toast.success(`${comps.length} comisión(es) aprobada(s).`);
+    setSelected(new Set());
+  };
+  const paySelected = () => {
+    if (!selectedLines.length) return;
+    const comps = selectedLines.map((l) => l.comprobante);
+    setPayout(comps, "paid", { userName: who });
+    recordCommissionAudit({ action: "paid", comprobantes: comps, amount: selectedTotal, userName: who });
+    toast.success(`${comps.length} comisión(es) marcada(s) como pagada(s).`);
+    setSelected(new Set());
+  };
+  const createBatchFromSelected = () => {
+    if (!selectedLines.length) return;
+    const comps = selectedLines.map((l) => l.comprobante);
+    const sellerName =
+      filters.sellerId && filters.sellerId !== "__none__"
+        ? sellerOptions.find((c) => c[0] === filters.sellerId)?.[1]
+        : undefined;
+    const res = createBatch({
+      comprobantes: comps,
+      total: selectedTotal,
+      periodFrom: filters.from,
+      periodTo: filters.to,
+      sellerId: filters.sellerId || undefined,
+      sellerName,
+      userName: who,
+    });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success(`Lote de pago creado: ${comps.length} comisión(es), ${formatCurrency(selectedTotal)}.`);
+    setSelected(new Set());
   };
 
   // ── Metadatos compartidos por Excel y PDF ──
@@ -337,6 +414,12 @@ export default function ReporteComisionVentasPage() {
               <SlidersHorizontal className="h-4 w-4" />
               {canManage ? "Gestionar reglas" : "Ver reglas"}
             </Button>
+            {canManage && (
+              <Button variant="outline" size="sm" onClick={() => setPaymentsOpen(true)}>
+                <HandCoins className="h-4 w-4" />
+                Pagos y auditoría
+              </Button>
+            )}
             {canExport && (
               <>
                 <ExportPdfButton getSpec={pdfSpec} fileSlug="Reporte_Comision_Ventas" />
@@ -621,10 +704,42 @@ export default function ReporteComisionVentasPage() {
           <CardHeader>
             <CardTitle>Detalle de comisiones</CardTitle>
           </CardHeader>
+          {canManage && selected.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-black/5 bg-[color:var(--brand-primary)]/[0.04] px-4 py-2 text-sm">
+              <span className="font-medium">
+                {selectedLines.length} seleccionada(s) · {formatCurrency(selectedTotal)}
+              </span>
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={approveSelected}>
+                  <CheckCircle2 className="h-4 w-4" /> Aprobar
+                </Button>
+                <Button size="sm" variant="outline" onClick={paySelected}>
+                  <HandCoins className="h-4 w-4" /> Marcar pagadas
+                </Button>
+                <Button size="sm" onClick={createBatchFromSelected}>
+                  <Layers className="h-4 w-4" /> Crear lote de pago
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
+                  Limpiar
+                </Button>
+              </div>
+            </div>
+          )}
           <CardContent className="p-0">
             <Table>
               <THead>
                 <TR>
+                  {canManage && (
+                    <TH className="w-8 pl-4">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        aria-label="Seleccionar todo"
+                        checked={allPageSelected()}
+                        onChange={toggleSelectAllPage}
+                      />
+                    </TH>
+                  )}
                   <SortableTH sortKey="date" state={sort} onClick={toggle}>Fecha</SortableTH>
                   <SortableTH sortKey="comprobante" state={sort} onClick={toggle}>Comprobante</SortableTH>
                   <TH>Cliente</TH>
@@ -646,13 +761,26 @@ export default function ReporteComisionVentasPage() {
               <TBody>
                 {empty && (
                   <TR>
-                    <TD colSpan={canManage ? 16 : 15} className="py-10 text-center text-sm opacity-60">
+                    <TD colSpan={canManage ? 17 : 15} className="py-10 text-center text-sm opacity-60">
                       No hay ventas para los filtros seleccionados.
                     </TD>
                   </TR>
                 )}
                 {pag.pageItems.map((l) => (
                   <TR key={l.id}>
+                    {canManage && (
+                      <TD className="pl-4">
+                        {l.status === "commissionable" ? (
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            aria-label={`Seleccionar ${l.comprobante}`}
+                            checked={selected.has(l.comprobante)}
+                            onChange={() => toggleSelect(l.comprobante)}
+                          />
+                        ) : null}
+                      </TD>
+                    )}
                     <TD className="text-xs">{formatDate(l.date)}</TD>
                     <TD className="font-mono text-xs">{l.comprobante}</TD>
                     <TD className="text-sm">{l.customer}</TD>
@@ -720,6 +848,8 @@ export default function ReporteComisionVentasPage() {
         branches={activeBranches.map((b) => ({ id: b.id, name: b.name }))}
         canManage={canManage}
       />
+
+      <CommissionPaymentsModal open={paymentsOpen} onClose={() => setPaymentsOpen(false)} />
 
       <Modal
         open={!!excludeTarget}

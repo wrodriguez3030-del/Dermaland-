@@ -11,6 +11,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.51.0] - 2026-07-09
+
+**Comisión ventas: aprobación, pago, lotes y auditoría (§12/§13/§15).** Cierra el
+flujo del reporte: seleccionar comisiones pendientes, aprobarlas, marcarlas
+pagadas, crear lotes de pago y ver la bitácora. No toca DGII real ni datos.
+
+### Added
+- **Estado de pago real** (`commission-payout-store`, localStorage): las KPIs
+  "Pagada"/"Pendiente" y el estado por fila (Pendiente/Aprobada/Pagada) ahora
+  reflejan lo que se aprobó/pagó. El motor recibe el `payoutByComprobante` — misma
+  capa central (Pantalla = Excel = PDF).
+- **Selección múltiple** en el detalle (solo ADMIN): checkbox por comisión
+  comisionable + "seleccionar todo" de la página. Barra de acciones con
+  **Aprobar**, **Marcar pagadas** y **Crear lote de pago** (usa el período/vendedor
+  del filtro).
+- **Lotes de pago** (`commission-batch-store`): crear un lote marca sus comisiones
+  como pagadas y lo registra. **Auditoría** (`commission-audit-store`): aprobó/pagó/
+  excluyó/lote con usuario, fecha, monto y motivo.
+- **Modal "Pagos y auditoría"**: lista los lotes (período, vendedor, #comisiones,
+  total) y la bitácora completa.
+- Tests: stores puros (payout/batch/audit) + integración con el motor (marcar
+  pagada mueve la comisión a "Pagada"; aprobar cuenta como pendiente de pago).
+
+### Notes
+- Persistencia por dispositivo (localStorage), como el resto de la config de
+  comisiones. Migrar el libro de pagos a Supabase (`commission_payouts`,
+  `commission_payment_batches`, `commission_audit`) es la Fase 2 recomendada para
+  compartir/auditar los pagos entre equipos; la API de los stores ya está lista.
+- Devoluciones (§14): una venta anulada/devuelta ya aparece como "Anulada"
+  (comisión 0); el ajuste proporcional de devoluciones parciales queda para Fase 2.
+
 ## [0.50.0] - 2026-07-09
 
 **Comisión ventas: exclusiones manuales.** Completa la parte del análisis del Excel
