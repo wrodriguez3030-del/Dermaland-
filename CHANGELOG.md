@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.49.0] - 2026-07-09
+
+**Comisión ventas: reglas editables y agregables desde la UI.** Antes las reglas
+(3% efectivo/transferencia, 1% tarjeta) eran configuración fija; ahora se pueden
+crear, editar, activar/desactivar y eliminar desde el reporte. No toca DGII real
+ni datos.
+
+### Added
+- **Store de reglas editable** `commission-rules-store.ts` (persistencia en
+  localStorage, sembrado con las reglas de referencia; helpers puros
+  `validateRule`/`upsertRule`/`removeRule`/`toggleRuleIn` + hook
+  `useCommissionRules`). API estable para migrar luego a la tabla
+  `sales_commission_rules` (Fase 2) sin tocar los llamadores.
+- **Modal "Gestionar reglas"** en `/reportes/comision-ventas`: lista las reglas
+  (nombre, %, métodos, sucursal, prioridad, estado), permite **Agregar** (nombre,
+  porcentaje 0–100, métodos de pago, sucursal opcional, prioridad, vigencia,
+  activa), **Editar**, **Activar/Desactivar**, **Eliminar** y **Restablecer** a las
+  de referencia. Validación con mensajes claros. Solo ADMIN modifica
+  (`commission.manage`); los demás pueden verlas.
+- El reporte (pantalla + Excel + PDF) ahora **recalcula con las reglas vigentes**
+  del store; el filtro "Regla de comisión" se llena dinámicamente.
+- Tests: store (validación, alta/edición/borrado/toggle, `paymentGroups` vacío =
+  cualquier método) + **integración con el motor** (editar la tasa cambia el
+  cálculo; desactivar una regla la excluye; una regla nueva de mayor prioridad
+  gana).
+
 ## [0.48.0] - 2026-07-09
 
 **Reportes → Comisión ventas.** Nuevo reporte profesional que calcula comisiones

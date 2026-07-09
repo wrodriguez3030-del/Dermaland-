@@ -33,13 +33,14 @@ import {
 import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { useToast } from "@/components/ui/toast";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, SlidersHorizontal } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
 import { useBranches, useActiveBranches } from "@/features/tenancy/branch-store";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import {
   canViewCommissionReport,
   canExportCommissionReport,
+  canManageCommission,
 } from "@/features/billing/permissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 import {
@@ -57,7 +58,8 @@ import {
   type CommissionLine,
   type CommissionStatus,
 } from "@/features/reports/commission/commission-engine";
-import { DEFAULT_COMMISSION_RULES } from "@/features/reports/commission/commission-rules";
+import { useCommissionRules } from "@/features/reports/commission/commission-rules-store";
+import { CommissionRulesModal } from "@/features/reports/commission/commission-rules-modal";
 import { buildCommissionPdfSpec } from "@/features/reports/commission/commission-report-pdf";
 import type { ReportMeta } from "@/lib/reports/excel/types";
 
@@ -119,8 +121,11 @@ export default function ReporteComisionVentasPage() {
 
   const canView = canViewCommissionReport(mockCurrentUser.role);
   const canExport = canExportCommissionReport(mockCurrentUser.role);
+  const canManage = canManageCommission(mockCurrentUser.role);
+  const rules = useCommissionRules();
 
   const [filters, setFilters] = React.useState<CommissionFilters>(EMPTY);
+  const [rulesOpen, setRulesOpen] = React.useState(false);
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
@@ -144,9 +149,8 @@ export default function ReporteComisionVentasPage() {
   }, [all]);
 
   const report = React.useMemo(
-    () =>
-      buildCommissionReport(all, filters, DEFAULT_COMMISSION_RULES, { branchNames }),
-    [all, filters, branchNames],
+    () => buildCommissionReport(all, filters, rules, { branchNames }),
+    [all, filters, rules, branchNames],
   );
 
   const { sort, sorted, toggle } = useTableSort(report.rows, "date", "desc", COMPARATORS);
@@ -173,7 +177,7 @@ export default function ReporteComisionVentasPage() {
     if (filters.commissionStatus)
       parts.push(`Estado comisión: ${COMMISSION_STATUS_LABEL[filters.commissionStatus]}`);
     if (filters.ruleId)
-      parts.push(`Regla: ${DEFAULT_COMMISSION_RULES.find((r) => r.id === filters.ruleId)?.name ?? ""}`);
+      parts.push(`Regla: ${rules.find((r) => r.id === filters.ruleId)?.name ?? ""}`);
     if (filters.sellerId)
       parts.push(
         `Vendedor: ${
@@ -187,7 +191,7 @@ export default function ReporteComisionVentasPage() {
     if (filters.customerQuery) parts.push(`Cliente: ${filters.customerQuery}`);
     if (filters.comprobanteQuery) parts.push(`Comprobante: ${filters.comprobanteQuery}`);
     return parts.length ? parts.join(" · ") : "Sin filtros adicionales";
-  }, [filters, sellerOptions, cashierOptions]);
+  }, [filters, sellerOptions, cashierOptions, rules]);
 
   const excelMeta = (): ReportMeta => ({
     title: "Reporte de Comisión de Ventas",
@@ -287,15 +291,21 @@ export default function ReporteComisionVentasPage() {
         description="Comisiones calculadas sobre ventas reales, por vendedor, método de pago y sucursal."
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Comisión ventas" }]}
         actions={
-          canExport ? (
-            <div className="flex flex-wrap gap-2">
-              <ExportPdfButton getSpec={pdfSpec} fileSlug="Reporte_Comision_Ventas" />
-              <Button variant="outline" size="sm" onClick={exportExcel}>
-                <FileSpreadsheet className="h-4 w-4" />
-                Exportar Excel
-              </Button>
-            </div>
-          ) : undefined
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => setRulesOpen(true)}>
+              <SlidersHorizontal className="h-4 w-4" />
+              {canManage ? "Gestionar reglas" : "Ver reglas"}
+            </Button>
+            {canExport && (
+              <>
+                <ExportPdfButton getSpec={pdfSpec} fileSlug="Reporte_Comision_Ventas" />
+                <Button variant="outline" size="sm" onClick={exportExcel}>
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Exportar Excel
+                </Button>
+              </>
+            )}
+          </div>
         }
       />
 
@@ -413,7 +423,7 @@ export default function ReporteComisionVentasPage() {
                 <Label>Regla de comisión</Label>
                 <Select value={filters.ruleId ?? ""} onChange={(e) => set("ruleId", e.target.value)}>
                   <option value="">Todas</option>
-                  {DEFAULT_COMMISSION_RULES.map((r) => (
+                  {rules.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name}
                     </option>
@@ -638,6 +648,13 @@ export default function ReporteComisionVentasPage() {
 
         <ReportFooter businessName="DermaLand" reportName="Comisión de ventas" generatedAt={generatedAt} />
       </ReportLayout>
+
+      <CommissionRulesModal
+        open={rulesOpen}
+        onClose={() => setRulesOpen(false)}
+        branches={activeBranches.map((b) => ({ id: b.id, name: b.name }))}
+        canManage={canManage}
+      />
 
       <toast.Toast />
     </>
