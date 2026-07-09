@@ -18,8 +18,9 @@ import "server-only";
  * `dgii`/`purchases` exponen helpers propios.
  */
 
+import { createHash } from "node:crypto";
 import type { RepoContext } from "../types";
-import { SupabaseRepositoryError, failRepo, getClient } from "./client";
+import { type AnySupabase, SupabaseRepositoryError, failRepo, getClient } from "./client";
 import { DEFAULT_COMMISSION_RULES, type CommissionRule } from "@/features/reports/commission/commission-rules";
 import type { PaymentGroup } from "@/features/sales/sales-report";
 import type { CommissionExclusion } from "@/features/reports/commission/commission-exclusions-store";
@@ -125,11 +126,36 @@ function ruleInputToRow(ctx: RepoContext, input: RuleInput): Record<string, unkn
   };
 }
 
-const RULE_ORDER = { column: "priority", ascending: false } as const;
+/**
+ * UUID DETERMINISTA por (negocio, clave de regla por defecto). Hace la siembra
+ * idempotente: dos GET concurrentes que encuentran la tabla vacía calculan los
+ * MISMOS ids y el `upsert on-conflict-do-nothing` (sobre el PK) evita duplicar.
+ */
+function defaultRuleId(businessId: string, key: string): string {
+  const h = createHash("md5").update(`${businessId}:${key}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
 
-async function insertDefaultRules(sb: unknown, ctx: RepoContext): Promise<CommissionRule[]> {
-  const rows = DEFAULT_COMMISSION_RULES.map((r) =>
-    ruleInputToRow(ctx, {
+async function selectRules(sb: AnySupabase, ctx: RepoContext): Promise<CommissionRule[]> {
+  const { data, error } = await sb
+    .from("sales_commission_rules")
+    .select("*")
+    .eq("business_id", ctx.businessId)
+    .order("priority", { ascending: false })
+    .order("name", { ascending: true });
+  if (error) throw new SupabaseRepositoryError("commission.listRules", error);
+  return (data ?? []).map(ruleRowToTs);
+}
+
+/**
+ * Siembra las reglas por defecto (idempotente). El reporte comisiona desde el
+ * minuto cero, igual que el fallback localStorage devolvía `DEFAULT_COMMISSION_
+ * RULES` cuando no había nada — pero aquí persistidas para poder editarlas.
+ */
+async function seedDefaultRules(sb: AnySupabase, ctx: RepoContext): Promise<void> {
+  const rows = DEFAULT_COMMISSION_RULES.map((r) => ({
+    id: defaultRuleId(ctx.businessId, r.id),
+    ...ruleInputToRow(ctx, {
       name: r.name,
       percentage: r.percentage,
       paymentGroups: r.paymentGroups,
@@ -140,30 +166,20 @@ async function insertDefaultRules(sb: unknown, ctx: RepoContext): Promise<Commis
       priority: r.priority,
       active: r.active,
     }),
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (sb as any)
+  }));
+  const { error } = await sb
     .from("sales_commission_rules")
-    .insert(rows)
-    .select("*");
+    .upsert(rows, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw failRepo("commission.seedRules", error);
-  return (data ?? []).map(ruleRowToTs);
 }
 
 export async function listRules(ctx: RepoContext): Promise<CommissionRule[]> {
   const sb = await getClient("commission.listRules");
-  const { data, error } = await sb
-    .from("sales_commission_rules")
-    .select("*")
-    .eq("business_id", ctx.businessId)
-    .order(RULE_ORDER.column, { ascending: RULE_ORDER.ascending })
-    .order("name", { ascending: true });
-  if (error) throw new SupabaseRepositoryError("commission.listRules", error);
-  const rows = (data ?? []).map(ruleRowToTs);
-  // Siembra las reglas por defecto la primera vez (tabla vacía para el negocio)
-  // para que el reporte comisione desde el minuto cero, igual que el fallback
-  // localStorage devolvía `DEFAULT_COMMISSION_RULES` cuando no había nada.
-  if (rows.length === 0) return insertDefaultRules(sb, ctx);
+  let rows = await selectRules(sb, ctx);
+  if (rows.length === 0) {
+    await seedDefaultRules(sb, ctx);
+    rows = await selectRules(sb, ctx);
+  }
   return rows;
 }
 
@@ -236,7 +252,8 @@ export async function resetRules(ctx: RepoContext): Promise<CommissionRule[]> {
     .delete()
     .eq("business_id", ctx.businessId);
   if (error) throw failRepo("commission.resetRules", error);
-  return insertDefaultRules(sb, ctx);
+  await seedDefaultRules(sb, ctx);
+  return selectRules(sb, ctx);
 }
 
 // ─── Exclusiones ─────────────────────────────────────────────────────────────
