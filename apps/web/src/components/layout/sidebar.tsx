@@ -131,6 +131,7 @@ export const groups: NavGroup[] = [
       { label: "Clientes", href: "/reportes/clientes" },
       { label: "Conteos", href: "/reportes/conteos" },
       { label: "Productos", href: "/reportes/productos" },
+      { label: "Comisión ventas", href: "/reportes/comision-ventas" },
     ],
   },
   {

@@ -11,6 +11,49 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.48.0] - 2026-07-09
+
+**Reportes → Comisión ventas.** Nuevo reporte profesional que calcula comisiones
+sobre las ventas reales de DermaLand, con la lógica derivada del Excel de
+referencia `COMISION VENTAS MAYO 2026 - CUTIS.xlsx`. No toca DGII real, ni pagos ni
+facturas históricas (solo lee y agrega).
+
+### Added
+- **Reglas analizadas y documentadas** en `docs/reports/COMISION_VENTAS_RULES.md`
+  (análisis programático de las 222 filas): base = subtotal − descuento (antes de
+  ITBIS), **Efectivo/Transferencia → 3%**, **Tarjeta (crédito) → 1%**, el ITBIS
+  nunca comisiona, y **13 exclusiones manuales** (no derivables por fórmula).
+- **Motor puro central** `features/reports/commission/commission-engine.ts`
+  (única fuente de cálculo → Pantalla = Excel = PDF): `commissionForSale`,
+  `buildCommissionReport` (KPIs + por vendedor/método/sucursal), exclusión manual,
+  ventas anuladas y sin-regla. Reglas **configurables** (`commission-rules.ts`,
+  default = Excel) — nada hardcodeado en la página. Reutiliza el catálogo canónico
+  de métodos de pago (`paymentMethodGroup`).
+- **Página `/reportes/comision-ventas`**: accesos rápidos (Hoy…Todo), filtros
+  (sucursal, vendedor, cajero, método, estado de venta, estado de comisión, regla,
+  cliente, número de comprobante), 8 KPIs, **Comisión por vendedor / por método /
+  por sucursal**, tabla detallada con paginación (25/50/100) y orden. Ítem de menú
+  "Comisión ventas" + tarjeta en el hub de Reportes.
+- **Excel profesional** (9 hojas: Resumen, Detalle, Por vendedor, Por método, Por
+  sucursal, Pendientes, Pagadas, Excluidas, Ajustes) compatible con el archivo de
+  referencia; **PDF profesional** (KPIs + detalle + resumen por vendedor y método,
+  motor central sin páginas en blanco).
+- **Permisos** `commission_report.view/export` y `commission.manage` (Fase 2) en
+  `features/billing/permissions.ts`; RLS por `business_id` desde la sesión.
+- Tests: motor (§26: base pre-ITBIS, descuento reduce base, ITBIS no comisiona,
+  3%/1%, excluida/anulada/sin-regla no suman, vendedor≠cajero, agrupaciones) +
+  Excel/PDF (9 hojas, columnas de referencia, **Pantalla = Excel = PDF**).
+
+### Notes
+- **Vendedor ≠ cajero**: el reporte agrupa por vendedor (`sellerId`); ventas sin
+  vendedor → "No asignado" (con filtro dedicado).
+- **Fase 2 (requiere migraciones Supabase):** aprobar/pagar comisión, lotes de pago
+  (`commission_payment_batches`), reglas/exclusiones editables por UI
+  (`sales_commission_rules`), auditoría persistida y ajustes por devolución. El
+  motor ya recibe reglas/exclusiones/estados como parámetros para conectarlos sin
+  reescribir el cálculo. Todas las comisiones se muestran como **Pendientes** hasta
+  que exista esa persistencia.
+
 ## [0.47.0] - 2026-07-09
 
 **Buscador global del header, funcional de verdad.** La barra superior era un

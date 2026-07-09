@@ -118,3 +118,36 @@ export function canManageIncentiveRules(
 export function canPayIncentives(role: UserRole = mockCurrentUser.role): boolean {
   return INCENTIVE_PAY_ROLES.includes(role);
 }
+
+// ─── Comisión de ventas (Reportes > Comisión ventas) ─────────────────────────
+//
+// §24 del requerimiento. Fase 1 cubre view/export; approve/pay/adjust y la
+// gestión de reglas se activan con la Fase 2 (persistencia en DB).
+
+const COMMISSION_VIEW_ROLES: ReadonlyArray<UserRole> = [
+  "super_admin",
+  "admin",
+  "manager",
+  "supervisor",
+];
+
+/** `commission_report.view` — ver el reporte de comisiones (admin/gerencia). */
+export function canViewCommissionReport(
+  role: UserRole = mockCurrentUser.role,
+): boolean {
+  return COMMISSION_VIEW_ROLES.includes(role);
+}
+
+/** `commission_report.export` — exportar Excel/PDF de comisiones. */
+export function canExportCommissionReport(
+  role: UserRole = mockCurrentUser.role,
+): boolean {
+  return COMMISSION_VIEW_ROLES.includes(role);
+}
+
+/** `commission_rules.manage` / `commission.approve` / `commission.pay` — solo ADMIN (Fase 2). */
+export function canManageCommission(
+  role: UserRole = mockCurrentUser.role,
+): boolean {
+  return ADMIN_ROLES.includes(role);
+}

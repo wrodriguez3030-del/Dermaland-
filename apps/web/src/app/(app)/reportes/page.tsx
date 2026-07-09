@@ -22,6 +22,7 @@ import {
   FileText,
   ShieldCheck,
   Building2,
+  HandCoins,
   type LucideIcon,
 } from "lucide-react";
 import { mockProformas } from "@/lib/mock-data/sales";
@@ -46,6 +47,7 @@ const CATEGORIES: ReportCategory[] = [
     label: "Ventas",
     items: [
       { title: "Resumen de ventas", description: "Ventas, ITBIS e items por período.", href: "/reportes/ventas", icon: ShoppingBag },
+      { title: "Comisión ventas", description: "Comisiones por vendedor, método y sucursal.", href: "/reportes/comision-ventas", icon: HandCoins },
       { title: "Pagos recibidos", description: "Pagos por método y cajero.", href: "/pagos", icon: Wallet },
       { title: "Proformas", description: "Proformas emitidas y su estado.", href: "/proformas", icon: Receipt },
     ],
