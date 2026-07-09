@@ -194,9 +194,9 @@ export default function ReporteComisionVentasPage() {
     setExcludeReason("");
     setExcludeTarget(l);
   };
-  const confirmExclude = () => {
+  const confirmExclude = async () => {
     if (!excludeTarget) return;
-    const res = saveExclusion({
+    const res = await saveExclusion({
       comprobante: excludeTarget.comprobante,
       reason: excludeReason,
       userName: mockCurrentUser.fullName,
@@ -208,8 +208,12 @@ export default function ReporteComisionVentasPage() {
     toast.success(`Comprobante ${excludeTarget.comprobante} excluido de comisión.`);
     setExcludeTarget(null);
   };
-  const includeBack = (l: CommissionLine) => {
-    deleteExclusion(l.comprobante);
+  const includeBack = async (l: CommissionLine) => {
+    const res = await deleteExclusion(l.comprobante);
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo incluir la comisión.");
+      return;
+    }
     toast.success(`Comprobante ${l.comprobante} vuelve a comisionar.`);
   };
 
@@ -242,30 +246,38 @@ export default function ReporteComisionVentasPage() {
   const selectedTotal = selectedLines.reduce((s, l) => s + l.commission, 0);
   const who = mockCurrentUser.fullName;
 
-  const approveSelected = () => {
+  const approveSelected = async () => {
     if (!selectedLines.length) return;
     const comps = selectedLines.map((l) => l.comprobante);
-    setPayout(comps, "approved", { userName: who });
-    recordCommissionAudit({ action: "approved", comprobantes: comps, amount: selectedTotal, userName: who });
+    const res = await setPayout(comps, "approved", { userName: who });
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo aprobar la comisión.");
+      return;
+    }
+    await recordCommissionAudit({ action: "approved", comprobantes: comps, amount: selectedTotal, userName: who });
     toast.success(`${comps.length} comisión(es) aprobada(s).`);
     setSelected(new Set());
   };
-  const paySelected = () => {
+  const paySelected = async () => {
     if (!selectedLines.length) return;
     const comps = selectedLines.map((l) => l.comprobante);
-    setPayout(comps, "paid", { userName: who });
-    recordCommissionAudit({ action: "paid", comprobantes: comps, amount: selectedTotal, userName: who });
+    const res = await setPayout(comps, "paid", { userName: who });
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo marcar como pagada.");
+      return;
+    }
+    await recordCommissionAudit({ action: "paid", comprobantes: comps, amount: selectedTotal, userName: who });
     toast.success(`${comps.length} comisión(es) marcada(s) como pagada(s).`);
     setSelected(new Set());
   };
-  const createBatchFromSelected = () => {
+  const createBatchFromSelected = async () => {
     if (!selectedLines.length) return;
     const comps = selectedLines.map((l) => l.comprobante);
     const sellerName =
       filters.sellerId && filters.sellerId !== "__none__"
         ? sellerOptions.find((c) => c[0] === filters.sellerId)?.[1]
         : undefined;
-    const res = createBatch({
+    const res = await createBatch({
       comprobantes: comps,
       total: selectedTotal,
       periodFrom: filters.from,

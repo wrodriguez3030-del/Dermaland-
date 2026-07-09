@@ -2,13 +2,15 @@
 
 // Estado de PAGO de comisiones (por número de comprobante).
 //
-// Persistencia en localStorage (patrón `commission-exclusions-store`). El motor
-// lee un `Map<comprobante, PayoutStatus>`; por defecto todo es "pending", y aquí
-// se guardan solo las que pasan a "approved" o "paid". API estable para migrar a
-// la tabla `commission_payouts` (Fase 2). Helpers puros testeables sin DOM.
+// El motor lee un `Map<comprobante, PayoutStatus>`; por defecto todo es
+// "pending", y aquí se guardan solo las que pasan a "approved" o "paid".
+// Fase 2: fuente ÚNICA en Supabase (`commission_payouts`) vía
+// `/api/commission/payouts`; localStorage como fallback. Helpers puros
+// testeables sin DOM y sin cambios.
 
 import * as React from "react";
 import type { PayoutStatus } from "./commission-engine";
+import { COMMISSION_BACKEND, apiGetList, apiSend } from "./commission-backend";
 
 /** Estados que gestiona este store (subconjunto de PayoutStatus). */
 export type ManagedPayout = "approved" | "paid";
@@ -73,28 +75,60 @@ export function listPayouts(): PayoutRecord[] {
   return read();
 }
 
-export function setPayout(
+/** Notifica a los hooks que el estado de pago cambió. */
+function notify(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+}
+
+export async function setPayout(
   comprobantes: string[],
   status: ManagedPayout,
   opts: { userName?: string; batchId?: string } = {},
-): void {
+): Promise<{ ok: boolean; error?: string }> {
+  if (COMMISSION_BACKEND === "supabase") {
+    const res = await apiSend("POST", "payouts", {
+      comprobantes,
+      status,
+      userName: opts.userName,
+      batchId: opts.batchId,
+    });
+    if (res.ok) notify();
+    return res.ok ? { ok: true } : { ok: false, error: res.error };
+  }
   write(
     setPayoutIn(read(), comprobantes, status, opts.userName || "Administrador", new Date().toISOString(), opts.batchId),
   );
+  return { ok: true };
 }
 
-export function clearPayout(comprobantes: string[]): void {
+export async function clearPayout(comprobantes: string[]): Promise<{ ok: boolean; error?: string }> {
+  if (COMMISSION_BACKEND === "supabase") {
+    const res = await apiSend("DELETE", "payouts", { comprobantes });
+    if (res.ok) notify();
+    return res.ok ? { ok: true } : { ok: false, error: res.error };
+  }
   write(clearPayoutIn(read(), comprobantes));
+  return { ok: true };
 }
 
 export function usePayouts(): Map<string, PayoutStatus> {
   const [map, setMap] = React.useState<Map<string, PayoutStatus>>(new Map());
   React.useEffect(() => {
-    const refresh = () => setMap(payoutMap(read()));
+    let alive = true;
+    const refresh = () => {
+      if (COMMISSION_BACKEND === "supabase") {
+        apiGetList<PayoutRecord>("payouts", "payouts")
+          .then((list) => { if (alive) setMap(payoutMap(list)); })
+          .catch(() => { if (alive) setMap(payoutMap(read())); });
+      } else {
+        setMap(payoutMap(read()));
+      }
+    };
     window.addEventListener(CHANGE_EVENT, refresh);
     window.addEventListener("storage", refresh);
     refresh();
     return () => {
+      alive = false;
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };

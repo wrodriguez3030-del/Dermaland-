@@ -2,9 +2,11 @@
 
 // Bitácora de auditoría de comisiones (§15). Registra aprobaciones, pagos,
 // exclusiones, lotes y cambios de regla con usuario, fecha, monto y motivo.
-// Persistencia en localStorage; API estable para migrar a `commission_audit`.
+// Fase 2: fuente ÚNICA en Supabase (`commission_audit`) vía
+// `/api/commission/audit`; localStorage como fallback.
 
 import * as React from "react";
+import { COMMISSION_BACKEND, apiGetList, apiSend } from "./commission-backend";
 
 export type CommissionAuditAction =
   | "approved"
@@ -69,14 +71,31 @@ function auditId(): string {
   return `ca_${Date.now().toString(36)}_${counter.toString(36)}`;
 }
 
-export function recordCommissionAudit(input: {
+/** Notifica a los hooks que la auditoría cambió. */
+function notify(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+}
+
+export async function recordCommissionAudit(input: {
   action: CommissionAuditAction;
   comprobantes: string[];
   amount?: number;
   batchId?: string;
   userName?: string;
   reason?: string;
-}): void {
+}): Promise<void> {
+  if (COMMISSION_BACKEND === "supabase") {
+    const res = await apiSend("POST", "audit", {
+      action: input.action,
+      comprobantes: input.comprobantes,
+      amount: input.amount,
+      batchId: input.batchId,
+      userName: input.userName,
+      reason: input.reason,
+    });
+    if (res.ok) notify();
+    return;
+  }
   write(
     addAuditIn(read(), {
       id: auditId(),
@@ -98,11 +117,21 @@ export function listCommissionAudit(): CommissionAuditEntry[] {
 export function useCommissionAudit(): CommissionAuditEntry[] {
   const [list, setList] = React.useState<CommissionAuditEntry[]>([]);
   React.useEffect(() => {
-    const refresh = () => setList(read());
+    let alive = true;
+    const refresh = () => {
+      if (COMMISSION_BACKEND === "supabase") {
+        apiGetList<CommissionAuditEntry>("audit", "audit")
+          .then((d) => { if (alive) setList(d); })
+          .catch(() => { if (alive) setList(read()); });
+      } else {
+        setList(read());
+      }
+    };
     window.addEventListener(CHANGE_EVENT, refresh);
     window.addEventListener("storage", refresh);
     refresh();
     return () => {
+      alive = false;
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };

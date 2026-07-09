@@ -4,11 +4,12 @@
 //
 // El Excel de referencia tenía 13 ventas excluidas a mano (decisiones del
 // negocio, no derivables por fórmula). Esto permite marcar una venta concreta
-// como "excluida de comisión" con un motivo, sin migración de DB. Persistencia
-// en localStorage (patrón `commission-rules-store`); API estable para migrar a
-// `commission_exclusions` (Fase 2). Helpers puros testeables sin DOM.
+// como "excluida de comisión" con un motivo. Fase 2: fuente ÚNICA en Supabase
+// (`commission_exclusions`) vía `/api/commission/exclusions`; localStorage como
+// fallback. Los helpers puros son testeables sin DOM y NO cambian.
 
 import * as React from "react";
+import { COMMISSION_BACKEND, apiGetList, apiSend } from "./commission-backend";
 
 export interface CommissionExclusion {
   /** Número de comprobante (NCF/e-NCF) — clave única. */
@@ -82,26 +83,42 @@ export function listCommissionExclusions(): CommissionExclusion[] {
   return read();
 }
 
+/** Notifica a los hooks que las exclusiones cambiaron. */
+function notify(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+}
+
 export type ExclusionResult = { ok: true } | { ok: false; error: string };
 
-export function saveExclusion(input: {
+export async function saveExclusion(input: {
   comprobante: string;
   reason: string;
   userName?: string;
-}): ExclusionResult {
+}): Promise<ExclusionResult> {
   const err = validateExclusion(input.comprobante, input.reason);
   if (err) return { ok: false, error: err };
-  const entry: CommissionExclusion = {
+  const payload = {
     comprobante: input.comprobante.trim(),
     reason: input.reason.trim(),
     userName: input.userName || "Administrador",
-    createdAt: new Date().toISOString(),
   };
+  if (COMMISSION_BACKEND === "supabase") {
+    const res = await apiSend("POST", "exclusions", payload);
+    if (!res.ok) return { ok: false, error: res.error };
+    notify();
+    return { ok: true };
+  }
+  const entry: CommissionExclusion = { ...payload, createdAt: new Date().toISOString() };
   write(addExclusionIn(read(), entry));
   return { ok: true };
 }
 
-export function deleteExclusion(comprobante: string): { ok: boolean } {
+export async function deleteExclusion(comprobante: string): Promise<{ ok: boolean; error?: string }> {
+  if (COMMISSION_BACKEND === "supabase") {
+    const res = await apiSend("DELETE", `exclusions?comprobante=${encodeURIComponent(comprobante)}`);
+    if (res.ok) notify();
+    return res.ok ? { ok: true } : { ok: false, error: res.error };
+  }
   write(removeExclusionIn(read(), comprobante));
   return { ok: true };
 }
@@ -111,11 +128,21 @@ export function deleteExclusion(comprobante: string): { ok: boolean } {
 export function useCommissionExclusions(): CommissionExclusion[] {
   const [list, setList] = React.useState<CommissionExclusion[]>([]);
   React.useEffect(() => {
-    const refresh = () => setList(read());
+    let alive = true;
+    const refresh = () => {
+      if (COMMISSION_BACKEND === "supabase") {
+        apiGetList<CommissionExclusion>("exclusions", "exclusions")
+          .then((d) => { if (alive) setList(d); })
+          .catch(() => { if (alive) setList(read()); });
+      } else {
+        setList(read());
+      }
+    };
     window.addEventListener(CHANGE_EVENT, refresh);
     window.addEventListener("storage", refresh);
     refresh();
     return () => {
+      alive = false;
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };

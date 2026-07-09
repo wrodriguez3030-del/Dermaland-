@@ -2,12 +2,21 @@
 
 // Lotes de pago de comisión (§13). Un lote agrupa las comisiones pagadas en un
 // período/vendedor. Crear un lote marca sus comisiones como "pagadas" y deja
-// constancia en la auditoría. Persistencia en localStorage; API estable para
-// migrar a `commission_payment_batches` (Fase 2).
+// constancia en la auditoría. Fase 2: fuente ÚNICA en Supabase
+// (`commission_payment_batches`) vía `/api/commission/batches` — el servidor
+// orquesta lote + pagos + auditoría en una sola llamada; localStorage como
+// fallback (encadena las tres escrituras locales).
 
 import * as React from "react";
 import { setPayout } from "./commission-payout-store";
 import { recordCommissionAudit } from "./commission-audit-store";
+import {
+  COMMISSION_BACKEND,
+  COMMISSION_EVENTS,
+  apiGetList,
+  apiSend,
+  dispatchCommission,
+} from "./commission-backend";
 
 export interface CommissionBatch {
   id: string;
@@ -53,11 +62,7 @@ function batchId(): string {
 
 export type BatchResult = { ok: true; batch: CommissionBatch } | { ok: false; error: string };
 
-/**
- * Crea un lote de pago: marca las comisiones como pagadas y registra auditoría.
- * `comprobantes` debe ser no vacío.
- */
-export function createBatch(input: {
+export interface BatchInput {
   comprobantes: string[];
   total: number;
   periodFrom?: string;
@@ -65,9 +70,25 @@ export function createBatch(input: {
   sellerId?: string;
   sellerName?: string;
   userName?: string;
-}): BatchResult {
+}
+
+/**
+ * Crea un lote de pago: marca las comisiones como pagadas y registra auditoría.
+ * `comprobantes` debe ser no vacío. En supabase todo ocurre server-side (una
+ * llamada, consistente); en local se encadenan las tres escrituras.
+ */
+export async function createBatch(input: BatchInput): Promise<BatchResult> {
   if (!input.comprobantes.length)
     return { ok: false, error: "Selecciona al menos una comisión para el lote." };
+
+  if (COMMISSION_BACKEND === "supabase") {
+    const res = await apiSend<CommissionBatch>("POST", "batches", input, "batch");
+    if (!res.ok) return { ok: false, error: res.error };
+    // El lote también marcó pagos y auditoría server-side: refresca los tres.
+    dispatchCommission(COMMISSION_EVENTS.batches, COMMISSION_EVENTS.payouts, COMMISSION_EVENTS.audit);
+    return { ok: true, batch: res.item! };
+  }
+
   const id = batchId();
   const batch: CommissionBatch = {
     id,
@@ -83,8 +104,8 @@ export function createBatch(input: {
   };
   write(addBatchIn(read(), batch));
   // Marca las comisiones como pagadas + auditoría.
-  setPayout(input.comprobantes, "paid", { userName: input.userName, batchId: id });
-  recordCommissionAudit({
+  await setPayout(input.comprobantes, "paid", { userName: input.userName, batchId: id });
+  await recordCommissionAudit({
     action: "batch_created",
     comprobantes: input.comprobantes,
     amount: input.total,
@@ -102,11 +123,21 @@ export function listCommissionBatches(): CommissionBatch[] {
 export function useCommissionBatches(): CommissionBatch[] {
   const [list, setList] = React.useState<CommissionBatch[]>([]);
   React.useEffect(() => {
-    const refresh = () => setList(read());
+    let alive = true;
+    const refresh = () => {
+      if (COMMISSION_BACKEND === "supabase") {
+        apiGetList<CommissionBatch>("batches", "batches")
+          .then((d) => { if (alive) setList(d); })
+          .catch(() => { if (alive) setList(read()); });
+      } else {
+        setList(read());
+      }
+    };
     window.addEventListener(CHANGE_EVENT, refresh);
     window.addEventListener("storage", refresh);
     refresh();
     return () => {
+      alive = false;
       window.removeEventListener(CHANGE_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };

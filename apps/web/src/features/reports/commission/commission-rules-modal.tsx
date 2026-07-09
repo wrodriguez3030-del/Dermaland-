@@ -94,10 +94,10 @@ export function CommissionRulesModal({
     setError(null);
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!form) return;
     const groups = GROUP_ORDER.filter((g) => form.groups[g]);
-    const res = saveCommissionRule(
+    const res = await saveCommissionRule(
       form.id ? "edit" : "create",
       {
         name: form.name,
@@ -119,15 +119,24 @@ export function CommissionRulesModal({
     backToList();
   };
 
-  const remove = (r: CommissionRule) => {
-    deleteCommissionRule(r.id);
+  const remove = async (r: CommissionRule) => {
+    const res = await deleteCommissionRule(r.id);
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo eliminar la regla.");
+      return;
+    }
     toast.success("Regla eliminada.");
   };
-  const toggle = (r: CommissionRule) => {
-    toggleCommissionRule(r.id);
+  const toggle = async (r: CommissionRule) => {
+    const res = await toggleCommissionRule(r.id);
+    if (!res.ok) toast.error(res.error ?? "No se pudo cambiar el estado.");
   };
-  const reset = () => {
-    resetCommissionRules();
+  const reset = async () => {
+    const res = await resetCommissionRules();
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo restablecer las reglas.");
+      return;
+    }
     toast.success("Reglas restablecidas a las de referencia.");
   };
 

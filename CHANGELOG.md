@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.52.0] - 2026-07-09
+
+**Comisión ventas Fase 2: persistencia compartida en Supabase.** Reglas,
+exclusiones, estado de pago, lotes y auditoría dejan de vivir en `localStorage`
+(por dispositivo) y pasan a Supabase con RLS por `business_id` — se comparten
+entre dispositivos y usuarios. No cambia el motor de cálculo ni el resultado
+(Pantalla = Excel = PDF) y **no toca DGII real**.
+
+### Added
+- **Migración `0023_commission.sql`** aplicada: 5 tablas nuevas
+  (`sales_commission_rules`, `commission_exclusions`, `commission_payment_batches`,
+  `commission_payouts`, `commission_audit`) con RLS por `business_id`
+  (`auth_business_id()`). Aditiva e idempotente.
+- **Rutas API `app/api/commission/*`** (`rules`, `exclusions`, `payouts`,
+  `batches`, `audit`): `business_id` derivado del JWT vía `getRepoContext()`
+  (nunca del cliente) + RLS. Repositorio `server/repositories/supabase/commission.ts`.
+  Crear un lote orquesta lote + pagos + auditoría server-side en una sola llamada.
+
+### Changed
+- Los 5 stores (`commission-*-store`) leen/escriben vía las rutas API cuando
+  `NEXT_PUBLIC_DATA_SOURCE=supabase`, con **localStorage como fallback** (modo
+  demo) y último-dato-bueno ante fallos de red. Las funciones puras
+  (validate/upsert/remove/toggle/…) no cambian: el motor y sus tests intactos.
+- Las reglas se **siembran** con el catálogo por defecto la primera vez que un
+  negocio abre el reporte (server-side), para que comisione desde el minuto cero.
+
 ## [0.51.0] - 2026-07-09
 
 **Comisión ventas: aprobación, pago, lotes y auditoría (§12/§13/§15).** Cierra el
