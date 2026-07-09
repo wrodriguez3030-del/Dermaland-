@@ -11,6 +11,49 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.46.0] - 2026-07-08
+
+**Productos → Crear / Editar: precio de venta automático por costo + ITBIS + margen.**
+La sección "Precio y costo" se reordena a **Costo → ITBIS → Margen → Precio** y el
+precio se calcula solo. No toca DGII real. Motor de cálculo puro y probado.
+
+### Added
+- **Motor de precios puro** `features/products/pricing.ts` (sin React, testeable):
+  fórmula de negocio `precio = costo × (1 + itbis) × (1 + margen)`, margen real,
+  utilidad, redondeo comercial (2 decimales / entero / múltiplo de 5 / de 10),
+  validaciones (`isValidCost` / `isValidMargin` / `isValidItbis`) y permiso
+  `canOverrideSalePrice` (solo ADMIN). 28 tests (`pricing.test.ts`).
+- **Sección "Precio y costo" reordenada y automatizada** (`product-form.tsx`):
+  1) Costo por unidad (DOP) * · 2) ITBIS (%) * · 3) Margen (%) * (default 30, con
+  botón "Editar margen" + modal "Definir margen") · 4) Precio de venta (readonly,
+  calculado). Recalcula en vivo al cambiar costo, ITBIS o margen. **Preview del
+  cálculo** (desglose costo → +ITBIS → costo con ITBIS → +margen → precio sugerido)
+  y **margen real**. Una columna en móvil, cuatro en escritorio.
+- **Override manual de precio (ADMIN)**: checkbox "Fijar precio manual", badge
+  "Precio manual", motivo obligatorio y **bitácora** en
+  `features/products/price-override-audit.ts` (quién, sugerido vs manual, margen
+  real, motivo). Mismo patrón que `laboratory-audit`.
+- **Alerta de cambio de costo al editar** (§10): "El costo cambió. Revisa el margen
+  y precio de venta." No modifica el precio en silencio.
+- **Reportes de productos con margen**: Excel (Catálogo con costo, ITBIS, costo con
+  ITBIS, precio, **margen real** y **utilidad estimada**), PDF (costo/ITBIS/precio/
+  margen real) y pantalla (nueva sección "Márgenes por producto" + botón Exportar PDF).
+  Detalle de producto muestra "Costo / Margen real".
+- Tests: `product-form.pricing.test.tsx` (orden visual, default 30, recálculo,
+  readonly, override) y `products-report-excel.test.ts` (columnas y valores de margen).
+
+### Fixed
+- **ITBIS en el Excel de productos mostraba 1800%** (se pasaba `18` a un formato
+  `percent` que espera 0-1). Ahora `itbisRate/100` → 18.00%. Igual en el PDF.
+
+### Changed
+- El **margen no se persiste** como columna aparte: el precio de venta es la fuente
+  de verdad y el margen se **deriva** de `precio / (costo × (1+ITBIS)) − 1` al editar,
+  evitando deriva entre dos campos. `products.cost`, `products.itbis_rate` y
+  `products.price` (columnas existentes) siguen siendo lo que se guarda.
+- El **costo por unidad ahora es obligatorio** en el formulario (lo exige el cálculo
+  del precio). Los caminos programáticos (import) siguen tolerando costo 0.
+
 ## [0.45.1] - 2026-07-08
 
 Corrección de raíz: **los PDF de reportes generaban páginas en blanco** y tablas

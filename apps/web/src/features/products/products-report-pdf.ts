@@ -4,6 +4,7 @@
 
 import type { ReportPdfMeta, ReportPdfSpec, PdfSection } from "@/lib/reports/pdf/types";
 import type { ProductsWorkbookInput } from "./products-report-excel";
+import { realMarginPercent } from "./pricing";
 
 export function buildProductsPdfSpec(
   input: ProductsWorkbookInput,
@@ -18,18 +19,22 @@ export function buildProductsPdfSpec(
         { header: "Producto", key: "name", weight: 2.2 },
         { header: "SKU", key: "sku", weight: 1 },
         { header: "Marca", key: "brand", weight: 1.1 },
-        { header: "Categoría", key: "category", weight: 1.1 },
         { header: "Laboratorio", key: "lab", weight: 1.1 },
+        { header: "Costo", key: "cost", format: "currency" },
+        { header: "ITBIS", key: "itbis", format: "percent" },
         { header: "Precio", key: "price", format: "currency" },
+        { header: "Margen real", key: "realMargin", format: "percent" },
         { header: "Stock", key: "stock", format: "int" },
       ],
       rows: input.products.map((p) => ({
         name: p.name,
         sku: p.sku,
         brand: input.brandName(p.brandId),
-        category: input.categoryName(p.categoryId),
         lab: input.laboratoryName(p.laboratoryId),
+        cost: p.cost,
+        itbis: p.itbisRate / 100,
         price: p.price,
+        realMargin: (realMarginPercent(p.price, p.cost, p.itbisRate) ?? 0) / 100,
         stock: input.stockByProduct.get(p.id) ?? 0,
       })),
       emptyMessage: "Sin productos en el catálogo.",

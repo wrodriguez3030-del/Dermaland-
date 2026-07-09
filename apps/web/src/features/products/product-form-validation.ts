@@ -1,11 +1,23 @@
 // Validación PURA del formulario de producto (Nuevo / Editar). Testeable sin
-// React. Devuelve las CLAVES de los campos requeridos que faltan; la UI las
-// resalta. El SKU no se valida (lo genera el sistema). El ITBIS 0% es válido.
+// React. Devuelve las CLAVES de los campos requeridos/ inválidos; la UI las
+// resalta y muestra el mensaje específico (`PRODUCT_FIELD_MESSAGES`). El SKU no
+// se valida (lo genera el sistema). El ITBIS 0% (Exento) es válido.
+
+import { isValidCost, isValidItbis, isValidMargin } from "./pricing";
+
+/** Modo de precio: sugerido automático vs override manual (ADMIN). */
+export type PriceMode = "auto" | "manual";
 
 export interface ProductFormValues {
   name: string;
-  price: string;
+  /** Costo por unidad (DOP) como string del input. */
+  cost: string;
   itbisRate: string;
+  /** Margen de ganancia (%) como string del input. */
+  margin: string;
+  priceMode: PriceMode;
+  /** Precio de venta EFECTIVO (auto-calculado o manual) como string. */
+  price: string;
   unit: string;
   /** Checkbox "Crear un lote inicial junto con el producto". */
   withLot: boolean;
@@ -15,13 +27,52 @@ export interface ProductFormValues {
   lotExpiry: string;
 }
 
+/**
+ * Mensajes ESPECÍFICOS por campo (§12): nunca "Complete los campos requeridos"
+ * a secas. La UI usa este mapa tanto en el banner como en el error inline.
+ */
+export const PRODUCT_FIELD_MESSAGES: Record<string, string> = {
+  name: "Ingresa el nombre comercial.",
+  cost: "Ingresa el costo por unidad.",
+  itbisRate: "Selecciona el ITBIS.",
+  margin: "Ingresa un margen válido.",
+  price: "Ingresa un precio de venta válido.",
+  manualReason: "Indica el motivo del precio manual.",
+  unit: "Ingresa la unidad.",
+  branchId: "Selecciona la sucursal del lote inicial.",
+  lotNumber: "Ingresa el número de lote.",
+  initialQuantity: "Ingresa la cantidad inicial.",
+  expiresAt: "Ingresa la fecha de vencimiento.",
+};
+
 export function validateProductForm(v: ProductFormValues): string[] {
   const m: string[] = [];
   if (!v.name.trim()) m.push("name");
-  if (v.price.trim() === "" || Number.isNaN(Number(v.price))) m.push("price");
-  // ITBIS requerido, pero 0% (Exento) es válido: solo falla si no es número.
-  if (v.itbisRate.trim() === "" || Number.isNaN(Number(v.itbisRate))) m.push("itbisRate");
+
+  // Costo por unidad: requerido, numérico y >= 0 (no negativo, no NaN/Inf).
+  const cost = Number(v.cost);
+  if (v.cost.trim() === "" || !isValidCost(cost)) m.push("cost");
+
+  // ITBIS: requerido y oficial (0/16/18). 0% (Exento) es válido.
+  const itbis = Number(v.itbisRate);
+  if (v.itbisRate.trim() === "" || !isValidItbis(itbis)) m.push("itbisRate");
+
+  // Margen: requerido y válido (0..1000, decimales permitidos).
+  const margin = Number(v.margin);
+  if (v.margin.trim() === "" || !isValidMargin(margin)) m.push("margin");
+
+  // Precio de venta efectivo: nunca negativo / NaN / infinito.
+  const price = Number(v.price);
+  const priceInvalid = !Number.isFinite(price) || price < 0;
+  if (v.priceMode === "manual") {
+    if (v.price.trim() === "" || priceInvalid) m.push("price");
+  } else if (priceInvalid) {
+    // En modo auto el precio se calcula; solo falla si resultó no-finito/negativo.
+    m.push("price");
+  }
+
   if (!v.unit.trim()) m.push("unit");
+
   // Lote inicial: SOLO se exige si el checkbox está activado.
   if (v.withLot) {
     if (!v.lotBranch) m.push("branchId");

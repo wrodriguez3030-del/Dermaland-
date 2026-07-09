@@ -18,7 +18,26 @@ import { FormSection } from "@/components/ui/filter-bar";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { recordLabChange } from "@/features/products/laboratory-audit";
-import { validateProductForm, skuTakenOnEdit } from "@/features/products/product-form-validation";
+import {
+  validateProductForm,
+  skuTakenOnEdit,
+  PRODUCT_FIELD_MESSAGES,
+  type PriceMode,
+} from "@/features/products/product-form-validation";
+import {
+  DEFAULT_MARGIN_PERCENT,
+  DEFAULT_ROUNDING,
+  ROUNDING_LABELS,
+  computeSalePrice,
+  deriveMarginPercent,
+  pricingBreakdown,
+  realMarginPercent,
+  canOverrideSalePrice,
+  type RoundingMode,
+} from "@/features/products/pricing";
+import { recordPriceOverride } from "@/features/products/price-override-audit";
+import { mockCurrentUser } from "@/lib/mock-data/users";
+import { formatCurrency } from "@/lib/utils/format";
 import {
   saveBrand,
   saveCategory,
@@ -50,17 +69,8 @@ interface ProductFormProps {
   product?: Product;
 }
 
-/** Etiquetas legibles de los campos requeridos para la lista de faltantes. */
-const FIELD_LABELS: Record<string, string> = {
-  name: "Nombre comercial",
-  price: "Precio venta",
-  itbisRate: "ITBIS",
-  unit: "Unidad",
-  branchId: "Sucursal (lote inicial)",
-  lotNumber: "Número de lote",
-  initialQuantity: "Cantidad inicial",
-  expiresAt: "Fecha de vencimiento",
-};
+/** ¿El usuario actual (rol) puede fijar un precio manual (override)? */
+const CAN_OVERRIDE_PRICE = canOverrideSalePrice(mockCurrentUser.role);
 
 /**
  * Formulario único de producto, usado tanto para crear como para editar.
@@ -113,15 +123,33 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     product?.requiresPrescription ?? false,
   );
   const [controlled, setControlled] = React.useState(product?.controlled ?? false);
-  const [price, setPrice] = React.useState(
-    product?.price != null ? String(product.price) : "",
+  // ── Precio y costo (orden: Costo → ITBIS → Margen → Precio) ──
+  const [cost, setCost] = React.useState(
+    product?.cost != null ? String(product.cost) : "",
   );
   const [itbisRate, setItbisRate] = React.useState(
     product?.itbisRate != null ? String(product.itbisRate) : "18",
   );
-  const [cost, setCost] = React.useState(
-    product?.cost != null ? String(product.cost) : "",
+  // Margen: al editar se DERIVA del precio guardado (costo+ITBIS+precio); al
+  // crear arranca en el default de negocio (30 %). No se persiste aparte: el
+  // precio es la fuente de verdad, el margen se recalcula.
+  const [margin, setMargin] = React.useState(
+    product != null
+      ? String(deriveMarginPercent(product.price, product.cost, product.itbisRate))
+      : String(DEFAULT_MARGIN_PERCENT),
   );
+  const [rounding, setRounding] = React.useState<RoundingMode>(DEFAULT_ROUNDING);
+  // Modo del precio: "auto" (sugerido) por defecto; "manual" solo ADMIN.
+  const [priceMode, setPriceMode] = React.useState<PriceMode>("auto");
+  // Precio efectivo. En "auto" lo maneja el cálculo; en "manual" lo teclea ADMIN.
+  const [price, setPrice] = React.useState(
+    product?.price != null ? String(product.price) : "",
+  );
+  const [manualReason, setManualReason] = React.useState("");
+  const [marginModalOpen, setMarginModalOpen] = React.useState(false);
+  const [marginDraft, setMarginDraft] = React.useState(String(DEFAULT_MARGIN_PERCENT));
+  // Costo con el que se abrió el editor: dispara la alerta si cambia (§10).
+  const initialCost = product?.cost ?? null;
   const [unit, setUnit] = React.useState(product?.unit ?? "unidad");
   const [minStock, setMinStock] = React.useState(
     product?.minStock != null ? String(product.minStock) : "",
@@ -155,11 +183,70 @@ export function ProductForm({ mode, product }: ProductFormProps) {
 
   const isMissing = (k: string) => missing.has(k);
 
+  // ── Cálculo automático del precio (§4) ──────────────────────────────────────
+  const costNum = Number(cost);
+  const itbisNum = Number(itbisRate);
+  const marginNum = Number(margin);
+  // Precio sugerido = costo_con_itbis × (1 + margen), con el redondeo elegido.
+  const autoPrice = React.useMemo(
+    () =>
+      computeSalePrice({
+        cost: costNum,
+        itbisRate: itbisNum,
+        marginPercent: marginNum,
+        rounding,
+      }),
+    [costNum, itbisNum, marginNum, rounding],
+  );
+  // Precio efectivo: manual respeta lo tecleado; auto usa el sugerido.
+  const manualPriceNum = Number(price);
+  const effectivePrice = priceMode === "manual" ? manualPriceNum : autoPrice;
+  const priceString = priceMode === "manual" ? price : String(autoPrice);
+
+  // Desglose para el preview (§6) y margen real (§11).
+  const breakdown = React.useMemo(
+    () =>
+      pricingBreakdown({
+        cost: costNum,
+        itbisRate: itbisNum,
+        marginPercent: marginNum,
+        rounding,
+      }),
+    [costNum, itbisNum, marginNum, rounding],
+  );
+  const effectiveRealMargin = realMarginPercent(effectivePrice, costNum, itbisNum);
+  // Alerta de cambio de costo al EDITAR (§10): no toca el precio en silencio.
+  const costChanged =
+    mode === "edit" && initialCost != null && Number.isFinite(costNum) && costNum !== initialCost;
+
+  const setMode = (manual: boolean) => {
+    if (manual) {
+      // Al entrar en manual, parte del precio sugerido actual como base editable.
+      setPrice(String(autoPrice));
+      setPriceMode("manual");
+    } else {
+      setPriceMode("auto");
+      setManualReason("");
+    }
+  };
+
+  const openMarginModal = () => {
+    setMarginDraft(margin);
+    setMarginModalOpen(true);
+  };
+  const applyMargin = () => {
+    setMargin(marginDraft);
+    setMarginModalOpen(false);
+  };
+
   const validate = (): string[] =>
     validateProductForm({
       name,
-      price,
+      cost,
       itbisRate,
+      margin,
+      priceMode,
+      price: priceString,
       unit,
       withLot,
       lotBranch,
@@ -173,6 +260,8 @@ export function ProductForm({ mode, product }: ProductFormProps) {
     setErrorBanner(null);
 
     const m = validate();
+    // Override manual (§5): ADMIN debe indicar el motivo.
+    if (priceMode === "manual" && !manualReason.trim()) m.push("manualReason");
     if (m.length > 0) {
       setMissing(new Set(m));
       setErrorBanner("Completa los campos marcados.");
@@ -213,13 +302,28 @@ export function ProductForm({ mode, product }: ProductFormProps) {
       requiresPrescription,
       controlled,
       cost: Number(cost) || 0,
-      price: Number(price),
+      // Precio EFECTIVO: sugerido (auto) o el manual que fijó ADMIN.
+      price: effectivePrice,
       itbisRate: Number(itbisRate) || 18,
       minStock: Number(minStock) || 0,
       maxStock: Number(maxStock) || 0,
       unit,
       imageUrl,
       imageAlt: imageAlt || name,
+    };
+
+    // Deja constancia del precio manual (§5/§8): quién, sugerido vs manual y motivo.
+    const maybeRecordOverride = (productId: string) => {
+      if (priceMode !== "manual") return;
+      recordPriceOverride({
+        productId,
+        sku: sku || undefined,
+        suggestedPrice: autoPrice,
+        manualPrice: effectivePrice,
+        realMarginPercent: effectiveRealMargin,
+        userName: mockCurrentUser.fullName,
+        reason: manualReason.trim() || "Precio manual (override)",
+      });
     };
 
     if (mode === "create") {
@@ -264,6 +368,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
           return;
         }
       }
+      maybeRecordOverride(result.product.id);
       setSubmitting(false);
       setMissing(new Set());
       toast.success(
@@ -311,6 +416,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         reason: "Cambio desde Editar producto",
       });
     }
+    maybeRecordOverride(res.product.id);
     labConfirmedRef.current = false;
     setMissing(new Set());
     toast.success(`Cambios guardados · ${sku.trim()}`);
@@ -344,7 +450,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             {missing.size > 0 && (
               <ul className="mt-1 list-disc pl-5 text-xs">
                 {[...missing].map((k) => (
-                  <li key={k}>{FIELD_LABELS[k] ?? k}</li>
+                  <li key={k}>{PRODUCT_FIELD_MESSAGES[k] ?? k}</li>
                 ))}
               </ul>
             )}
@@ -594,25 +700,33 @@ export function ProductForm({ mode, product }: ProductFormProps) {
 
           <FormSection
             title="Precio y costo"
-            description="Costo se actualiza automáticamente al recibir lotes (Fase 3)."
+            description="El precio de venta se calcula automáticamente con el costo, el ITBIS y el margen."
           >
-            <div className="grid gap-4 sm:grid-cols-3">
+            {/* Orden: Costo → ITBIS → Margen → Precio (una columna en móvil). */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* 1 · Costo por unidad */}
               <div>
                 <Label>
-                  Precio venta (DOP) <span className="text-rose-600">*</span>
+                  Costo por unidad (DOP) <span className="text-rose-600">*</span>
                 </Label>
                 <Input
                   type="number"
                   step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="1250.00"
-                  className={isMissing("price") ? "border-rose-500 bg-rose-50/60" : undefined}
+                  min="0"
+                  inputMode="decimal"
+                  value={cost}
+                  onChange={(e) => setCost(e.target.value)}
+                  placeholder="1000.00"
+                  className={isMissing("cost") ? "border-rose-500 bg-rose-50/60" : undefined}
                 />
-                {isMissing("price") && (
-                  <p className="mt-1 text-xs text-rose-600">Este campo es obligatorio.</p>
+                {isMissing("cost") ? (
+                  <p className="mt-1 text-xs text-rose-600">{PRODUCT_FIELD_MESSAGES.cost}</p>
+                ) : (
+                  <HelpText>Costo de compra del producto por unidad.</HelpText>
                 )}
               </div>
+
+              {/* 2 · ITBIS */}
               <div>
                 <Label>
                   ITBIS (%) <span className="text-rose-600">*</span>
@@ -622,23 +736,187 @@ export function ProductForm({ mode, product }: ProductFormProps) {
                   onChange={(e) => setItbisRate(e.target.value)}
                   className={isMissing("itbisRate") ? "border-rose-500 bg-rose-50/60" : undefined}
                 >
-                  <option value="0">0% — Exento</option>
-                  <option value="16">16%</option>
                   <option value="18">18%</option>
+                  <option value="0">0% — Exento</option>
                 </Select>
-                <HelpText>0% (Exento) es válido.</HelpText>
+                {isMissing("itbisRate") ? (
+                  <p className="mt-1 text-xs text-rose-600">{PRODUCT_FIELD_MESSAGES.itbisRate}</p>
+                ) : (
+                  <HelpText>0% (Exento) es válido.</HelpText>
+                )}
               </div>
+
+              {/* 3 · Margen */}
               <div>
-                <Label>Costo por unidad</Label>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <Label className="mb-0">
+                    Margen (%) <span className="text-rose-600">*</span>
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={openMarginModal}
+                    className="text-xs font-medium text-[color:var(--brand-primary)] hover:underline"
+                  >
+                    Editar margen
+                  </button>
+                </div>
                 <Input
                   type="number"
                   step="0.01"
-                  value={cost}
-                  onChange={(e) => setCost(e.target.value)}
-                  placeholder="850.00"
+                  min="0"
+                  max="1000"
+                  inputMode="decimal"
+                  value={margin}
+                  onChange={(e) => setMargin(e.target.value)}
+                  placeholder="30"
+                  className={isMissing("margin") ? "border-rose-500 bg-rose-50/60" : undefined}
                 />
-                <HelpText>Costo unitario de compra del producto. Se usa para el lote inicial y los reportes.</HelpText>
+                {isMissing("margin") ? (
+                  <p className="mt-1 text-xs text-rose-600">{PRODUCT_FIELD_MESSAGES.margin}</p>
+                ) : (
+                  <HelpText>Margen de ganancia sobre el costo con ITBIS.</HelpText>
+                )}
               </div>
+
+              {/* 4 · Precio de venta (readonly en auto) */}
+              <div>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <Label className="mb-0">Precio de venta (DOP)</Label>
+                  {priceMode === "manual" && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                      Precio manual
+                    </span>
+                  )}
+                </div>
+                {priceMode === "manual" ? (
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="1534.00"
+                    className={isMissing("price") ? "border-rose-500 bg-rose-50/60" : undefined}
+                  />
+                ) : (
+                  <Input
+                    readOnly
+                    value={autoPrice.toFixed(2)}
+                    className="cursor-not-allowed bg-black/[0.03] font-semibold"
+                  />
+                )}
+                {isMissing("price") ? (
+                  <p className="mt-1 text-xs text-rose-600">{PRODUCT_FIELD_MESSAGES.price}</p>
+                ) : (
+                  <HelpText>
+                    {priceMode === "manual"
+                      ? "Precio fijado manualmente. Se registra en la auditoría."
+                      : "Calculado automáticamente según costo, ITBIS y margen."}
+                  </HelpText>
+                )}
+              </div>
+            </div>
+
+            {/* Redondeo comercial (§7) + override manual (§5) */}
+            <div className="mt-4 flex flex-wrap items-end gap-4">
+              <div className="w-full sm:w-56">
+                <Label className="text-xs">Redondeo del precio</Label>
+                <Select value={rounding} onChange={(e) => setRounding(e.target.value as RoundingMode)}>
+                  {(Object.keys(ROUNDING_LABELS) as RoundingMode[]).map((m) => (
+                    <option key={m} value={m}>
+                      {ROUNDING_LABELS[m]}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              {CAN_OVERRIDE_PRICE && (
+                <label className="flex items-center gap-2 pb-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={priceMode === "manual"}
+                    onChange={(e) => setMode(e.target.checked)}
+                  />
+                  <span>Fijar precio manual (override ADMIN)</span>
+                </label>
+              )}
+            </div>
+
+            {priceMode === "manual" && CAN_OVERRIDE_PRICE && (
+              <div className="mt-3">
+                <Label>
+                  Motivo del precio manual <span className="text-rose-600">*</span>
+                </Label>
+                <Input
+                  value={manualReason}
+                  onChange={(e) => setManualReason(e.target.value)}
+                  placeholder="Ej.: promoción de temporada / precio de lista del proveedor"
+                  className={isMissing("manualReason") ? "border-rose-500 bg-rose-50/60" : undefined}
+                />
+                {isMissing("manualReason") && (
+                  <p className="mt-1 text-xs text-rose-600">{PRODUCT_FIELD_MESSAGES.manualReason}</p>
+                )}
+              </div>
+            )}
+
+            {/* Alerta de cambio de costo al editar (§10) */}
+            {costChanged && (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="text-sm">
+                  El costo cambió{" "}
+                  <span className="opacity-70">
+                    ({formatCurrency(initialCost ?? 0)} → {formatCurrency(costNum || 0)})
+                  </span>
+                  . Revisa el margen y el precio de venta.
+                </span>
+              </div>
+            )}
+
+            {/* Preview del cálculo (§6) + margen real (§11) */}
+            <div className="mt-4 rounded-2xl border border-black/5 bg-[color:var(--brand-primary)]/[0.04] p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-60">
+                Resumen del cálculo
+              </div>
+              <dl className="space-y-1 text-sm tabular-nums">
+                <div className="flex items-center justify-between">
+                  <dt className="opacity-70">Costo unidad</dt>
+                  <dd className="font-medium">{formatCurrency(breakdown.cost)}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="opacity-70">+ ITBIS {breakdown.itbisRate}%</dt>
+                  <dd>{formatCurrency(breakdown.itbisAmount)}</dd>
+                </div>
+                <div className="flex items-center justify-between border-t border-black/5 pt-1">
+                  <dt className="opacity-70">Costo con ITBIS</dt>
+                  <dd className="font-medium">{formatCurrency(breakdown.costWithItbis)}</dd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <dt className="opacity-70">+ Margen {breakdown.marginPercent}%</dt>
+                  <dd>{formatCurrency(breakdown.marginAmount)}</dd>
+                </div>
+                <div className="flex items-center justify-between border-t border-black/10 pt-1.5">
+                  <dt className="font-semibold">Precio venta sugerido</dt>
+                  <dd className="font-semibold text-[color:var(--brand-primary)]">
+                    {formatCurrency(breakdown.salePrice)}
+                  </dd>
+                </div>
+                {priceMode === "manual" && (
+                  <div className="flex items-center justify-between">
+                    <dt className="font-semibold">Precio venta manual</dt>
+                    <dd className="font-semibold text-amber-700">
+                      {formatCurrency(Number.isFinite(manualPriceNum) ? manualPriceNum : 0)}
+                    </dd>
+                  </div>
+                )}
+                <div className="flex items-center justify-between border-t border-black/5 pt-1.5">
+                  <dt className="opacity-70">Margen real</dt>
+                  <dd className="font-medium">
+                    {effectiveRealMargin == null ? "—" : `${effectiveRealMargin.toFixed(2)}%`}
+                  </dd>
+                </div>
+              </dl>
             </div>
           </FormSection>
 
@@ -827,6 +1105,55 @@ export function ProductForm({ mode, product }: ProductFormProps) {
             <span>
               Este producto ya tiene movimientos/ventas. Cambiar el laboratorio afectará los
               reportes por laboratorio. El cambio queda registrado en la auditoría.
+            </span>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={marginModalOpen}
+        title="Definir margen"
+        onClose={() => setMarginModalOpen(false)}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setMarginModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={applyMargin}>
+              Aplicar margen
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm">
+          <div className="opacity-70">
+            Margen actual: <strong>{margin || "0"}%</strong>
+          </div>
+          <div>
+            <Label>Margen (%)</Label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              max="1000"
+              inputMode="decimal"
+              autoFocus
+              value={marginDraft}
+              onChange={(e) => setMarginDraft(e.target.value)}
+              placeholder="30"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-[color:var(--brand-primary)]/[0.06] px-3 py-2">
+            <span className="opacity-70">Precio estimado</span>
+            <span className="font-semibold text-[color:var(--brand-primary)]">
+              {formatCurrency(
+                computeSalePrice({
+                  cost: costNum,
+                  itbisRate: itbisNum,
+                  marginPercent: Number(marginDraft),
+                  rounding,
+                }),
+              )}
             </span>
           </div>
         </div>

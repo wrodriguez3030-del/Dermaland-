@@ -64,6 +64,7 @@ import {
 } from "@/features/inventory/lot-store";
 import { NewLotModal, AdjustStockModal } from "@/features/inventory/lot-modals";
 import { ProductImage } from "@/features/products/components/product-image";
+import { realMarginPercent } from "@/features/products/pricing";
 import { useProductState, updateProduct } from "@/features/products/product-store";
 import { useLaboratoriesList } from "@/features/products/catalog-store";
 import { useCurrentBranch, resolveBranchName } from "@/features/tenancy/branch-store";
@@ -298,6 +299,15 @@ export default function ProductDetailPage() {
                 </span>
                 <span className="ml-1 text-xs opacity-60">
                   ITBIS {product.itbisRate}%
+                </span>
+              </DataPoint>
+              <DataPoint label="Costo / Margen real">
+                <span>{formatCurrency(product.cost)}</span>
+                <span className="ml-1 text-xs opacity-60">
+                  {(() => {
+                    const rm = realMarginPercent(product.price, product.cost, product.itbisRate);
+                    return rm == null ? "· margen —" : `· ${rm.toFixed(2)}%`;
+                  })()}
                 </span>
               </DataPoint>
             </dl>

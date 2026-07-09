@@ -11,6 +11,7 @@ import type {
   WorkbookSpec,
 } from "@/lib/reports/excel/types";
 import type { Product } from "@/types";
+import { costWithItbis, marginAmount, realMarginPercent } from "./pricing";
 
 export interface ProductSalesTop {
   productId: string;
@@ -105,34 +106,40 @@ export function buildProductsWorkbookSpec(
     tables: [
       {
         columns: [
-          { header: "Producto", key: "name", width: 50 },
+          { header: "Producto", key: "name", width: 46 },
           { header: "SKU", key: "sku", width: 16 },
-          { header: "Código de barra", key: "barcode", width: 18 },
-          { header: "Marca", key: "brand", width: 20 },
-          { header: "Categoría", key: "category", width: 20 },
-          { header: "Laboratorio", key: "lab", width: 20 },
-          { header: "Precio", key: "price", format: "currency" },
-          { header: "ITBIS %", key: "itbis", format: "percent" },
+          { header: "Marca", key: "brand", width: 18 },
+          { header: "Categoría", key: "category", width: 18 },
+          { header: "Laboratorio", key: "lab", width: 18 },
           { header: "Costo por unidad", key: "cost", format: "currency" },
-          { header: "Margen", key: "margin", format: "currency" },
+          { header: "ITBIS %", key: "itbis", format: "percent" },
+          { header: "Costo con ITBIS", key: "costWithItbis", format: "currency" },
+          { header: "Precio venta", key: "price", format: "currency" },
+          { header: "Margen real", key: "realMargin", format: "percent" },
+          { header: "Utilidad estimada", key: "utility", format: "currency" },
           { header: "Stock total", key: "stock", format: "int" },
           { header: "Estado", key: "state", width: 12 },
         ],
-        rows: input.products.map((p) => ({
-          name: p.name,
-          sku: p.sku,
-          barcode: p.barcode ?? "—",
-          brand: input.brandName(p.brandId),
-          category: input.categoryName(p.categoryId),
-          lab: input.laboratoryName(p.laboratoryId),
-          price: p.price,
-          // itbisRate viene como 0.18 (proporción) — percent la muestra 18.00%.
-          itbis: p.itbisRate,
-          cost: p.cost,
-          margin: p.price - p.cost,
-          stock: input.stockByProduct.get(p.id) ?? 0,
-          state: (input.stockByProduct.get(p.id) ?? 0) > 0 ? "Con stock" : "Sin stock",
-        })),
+        rows: input.products.map((p) => {
+          const real = realMarginPercent(p.price, p.cost, p.itbisRate);
+          return {
+            name: p.name,
+            sku: p.sku,
+            brand: input.brandName(p.brandId),
+            category: input.categoryName(p.categoryId),
+            lab: input.laboratoryName(p.laboratoryId),
+            cost: p.cost,
+            // percent muestra 0-1: itbisRate es 18 (=18%) → 0.18.
+            itbis: p.itbisRate / 100,
+            costWithItbis: costWithItbis(p.cost, p.itbisRate),
+            price: p.price,
+            // Margen real (%) como proporción para el formato percent (0.30 = 30%).
+            realMargin: (real ?? 0) / 100,
+            utility: marginAmount(p.price, p.cost, p.itbisRate),
+            stock: input.stockByProduct.get(p.id) ?? 0,
+            state: (input.stockByProduct.get(p.id) ?? 0) > 0 ? "Con stock" : "Sin stock",
+          };
+        }),
       },
     ],
   };

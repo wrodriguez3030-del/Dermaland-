@@ -28,9 +28,10 @@ import { ExportExcelButton } from "@/components/reporting/export-excel-button";
 import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { buildProductsWorkbookSpec, type ProductsWorkbookInput } from "@/features/products/products-report-excel";
 import { buildProductsPdfSpec } from "@/features/products/products-report-pdf";
+import { realMarginPercent, marginAmount } from "@/features/products/pricing";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { mockCurrentUser } from "@/lib/mock-data/users";
-import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils/format";
+import { formatCurrency, formatDateTime, daysUntil } from "@/lib/utils/format";
 
 export default function ReporteProductosPage() {
   const allDocs = useProformas();
@@ -82,6 +83,21 @@ export default function ReporteProductosPage() {
 
   const pag = usePagination(top);
 
+  // Márgenes por producto (paridad con Excel/PDF): costo, ITBIS, precio, margen
+  // real y utilidad estimada. Se ordena por margen real ascendente para que los
+  // productos con margen más bajo (a revisar) aparezcan primero.
+  const margins = React.useMemo(
+    () =>
+      products
+        .map((p) => ({
+          p,
+          real: realMarginPercent(p.price, p.cost, p.itbisRate),
+          utility: marginAmount(p.price, p.cost, p.itbisRate),
+        }))
+        .sort((a, b) => (a.real ?? 0) - (b.real ?? 0)),
+    [products],
+  );
+
   const unitsSold = top.reduce((s, t) => s + t.qty, 0);
   const revenue = top.reduce((s, t) => s + t.revenue, 0);
 
@@ -96,33 +112,50 @@ export default function ReporteProductosPage() {
   const brands = useBrandsList();
   const categories = useCategoriesList();
   const laboratories = useLaboratoriesList();
-  const excelSpec = () => {
+  const reportInput = (): ProductsWorkbookInput => {
     const brandName = new Map(brands.map((b) => [b.id, b.name]));
     const categoryName = new Map(categories.map((c) => [c.id, c.name]));
     const labName = new Map(laboratories.map((l) => [l.id, l.name]));
-    return buildProductsWorkbookSpec(
-      {
-        products,
-        top,
-        lowRotation,
-        stockByProduct,
-        brandName: (id) => (id ? brandName.get(id) ?? "Sin marca" : "Sin marca"),
-        categoryName: (id) =>
-          id ? categoryName.get(id) ?? "Sin categoría" : "Sin categoría",
-        laboratoryName: (id) =>
-          id ? labName.get(id) ?? "Sin laboratorio" : "Sin laboratorio",
-      },
-      {
+    return {
+      products,
+      top,
+      lowRotation,
+      stockByProduct,
+      brandName: (id) => (id ? brandName.get(id) ?? "Sin marca" : "Sin marca"),
+      categoryName: (id) =>
+        id ? categoryName.get(id) ?? "Sin categoría" : "Sin categoría",
+      laboratoryName: (id) =>
+        id ? labName.get(id) ?? "Sin laboratorio" : "Sin laboratorio",
+    };
+  };
+
+  const excelSpec = () =>
+    buildProductsWorkbookSpec(reportInput(), {
+      title: "Reporte de productos",
+      subtitle: "Más vendidos, catálogo, margen y baja rotación.",
+      rangeLabel: "Todo",
+      branchLabel: "Todas las sucursales",
+      filtersLabel: "Sin filtros adicionales",
+      generatedBy: mockCurrentUser.fullName,
+      generatedAtLabel: formatDateTime(new Date().toISOString()),
+    });
+
+  const pdfSpec = () =>
+    buildProductsPdfSpec(
+      reportInput(),
+      makePdfMeta({
         title: "Reporte de productos",
-        subtitle: "Más vendidos, catálogo, margen y baja rotación.",
-        rangeLabel: "Todo",
+        subtitle: "Catálogo con costo, ITBIS, precio y margen real.",
+        reportKind: "Reporte de productos",
+        cutLabel: `Fecha de corte: ${formatDateTime(new Date().toISOString())}`,
+        periodLabel: "Todo",
         branchLabel: "Todas las sucursales",
         filtersLabel: "Sin filtros adicionales",
         generatedBy: mockCurrentUser.fullName,
         generatedAtLabel: formatDateTime(new Date().toISOString()),
-      },
+      }),
+      { brands: brands.length, categories: categories.length, laboratories: laboratories.length },
     );
-  };
 
   return (
     <>
@@ -132,6 +165,7 @@ export default function ReporteProductosPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Productos" }]}
         actions={
           <>
+            <ExportPdfButton getSpec={pdfSpec} fileSlug="Reporte_Productos" />
             <ExportExcelButton getSpec={excelSpec} fileSlug="Reporte_Productos" />
             <PrintReportButton />
           </>
@@ -191,6 +225,43 @@ export default function ReporteProductosPage() {
                 onPageSizeChange={pag.setPageSize}
               />
             </>
+          )}
+        </ReportSection>
+
+        <ReportSection title="Márgenes por producto">
+          {margins.length === 0 ? (
+            <ReportEmptyState message="Sin productos en el catálogo." />
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Producto</TH>
+                  <TH>SKU</TH>
+                  <TH className="text-right">Costo</TH>
+                  <TH className="text-right">ITBIS</TH>
+                  <TH className="text-right">Precio</TH>
+                  <TH className="text-right">Margen real</TH>
+                  <TH className="text-right">Utilidad</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {margins.slice(0, 100).map(({ p, real, utility }) => (
+                  <TR key={p.id}>
+                    <TD className="text-sm">{p.name}</TD>
+                    <TD className="font-mono text-xs">{p.sku}</TD>
+                    <TD className="text-right tabular-nums">{formatCurrency(p.cost)}</TD>
+                    <TD className="text-right tabular-nums">{p.itbisRate}%</TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      {formatCurrency(p.price)}
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {real == null ? "—" : `${real.toFixed(2)}%`}
+                    </TD>
+                    <TD className="text-right tabular-nums">{formatCurrency(utility)}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
           )}
         </ReportSection>
 

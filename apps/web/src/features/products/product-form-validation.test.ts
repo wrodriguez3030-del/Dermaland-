@@ -1,10 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { validateProductForm, skuTakenOnEdit, type ProductFormValues } from "./product-form-validation";
+import {
+  validateProductForm,
+  skuTakenOnEdit,
+  PRODUCT_FIELD_MESSAGES,
+  type ProductFormValues,
+} from "./product-form-validation";
 
 const base: ProductFormValues = {
   name: "Crema",
-  price: "1250",
+  cost: "1000",
   itbisRate: "18",
+  margin: "30",
+  priceMode: "auto",
+  price: "1534",
   unit: "unidad",
   withLot: false,
   lotBranch: "",
@@ -18,19 +26,47 @@ describe("validateProductForm", () => {
     expect(validateProductForm(base)).toEqual([]);
   });
 
-  it("1. vacío marca los requeridos del producto (nombre, precio) — SKU NO", () => {
-    const m = validateProductForm({ ...base, name: "", price: "" });
+  it("1. vacío marca los requeridos del producto (nombre, costo) — SKU NO", () => {
+    const m = validateProductForm({ ...base, name: "", cost: "" });
     expect(m).toContain("name");
-    expect(m).toContain("price");
+    expect(m).toContain("cost");
     expect(m).not.toContain("sku");
   });
 
-  it("5. ITBIS 0% (Exento) cuenta como válido", () => {
-    expect(validateProductForm({ ...base, itbisRate: "0" })).toEqual([]);
+  it("13. costo negativo es inválido (mensaje específico)", () => {
+    const m = validateProductForm({ ...base, cost: "-1" });
+    expect(m).toContain("cost");
+    expect(PRODUCT_FIELD_MESSAGES.cost).toBe("Ingresa el costo por unidad.");
   });
 
-  it("marca ITBIS solo si no es número", () => {
+  it("14. margen inválido (>1000 o negativo) se marca", () => {
+    expect(validateProductForm({ ...base, margin: "1001" })).toContain("margin");
+    expect(validateProductForm({ ...base, margin: "-5" })).toContain("margin");
+    expect(validateProductForm({ ...base, margin: "" })).toContain("margin");
+  });
+
+  it("8. margen 0% es válido", () => {
+    expect(validateProductForm({ ...base, margin: "0", price: "1180" })).toEqual([]);
+  });
+
+  it("7. ITBIS 0% (Exento) cuenta como válido", () => {
+    expect(validateProductForm({ ...base, itbisRate: "0", price: "1300" })).toEqual([]);
+  });
+
+  it("ITBIS no oficial (5%) es inválido", () => {
+    expect(validateProductForm({ ...base, itbisRate: "5" })).toContain("itbisRate");
     expect(validateProductForm({ ...base, itbisRate: "" })).toContain("itbisRate");
+  });
+
+  it("precio manual vacío se marca; auto no depende del string de precio", () => {
+    expect(validateProductForm({ ...base, priceMode: "manual", price: "" })).toContain("price");
+    // auto con precio calculado válido → sin error
+    expect(validateProductForm({ ...base, priceMode: "auto", price: "1534" })).not.toContain("price");
+  });
+
+  it("precio negativo o NaN nunca se acepta", () => {
+    expect(validateProductForm({ ...base, price: "-10" })).toContain("price");
+    expect(validateProductForm({ ...base, priceMode: "manual", price: "abc" })).toContain("price");
   });
 
   it("6. lote inicial DESACTIVADO no exige campos de lote", () => {
@@ -42,7 +78,7 @@ describe("validateProductForm", () => {
     expect(m).toEqual(expect.arrayContaining(["branchId", "lotNumber", "initialQuantity", "expiresAt"]));
   });
 
-  it("9. cantidad inicial 0 es inválida; 11-12. '5' y fecha YYYY-MM-DD son válidos", () => {
+  it("9. cantidad inicial 0 es inválida; '5' y fecha YYYY-MM-DD son válidos", () => {
     const bad = validateProductForm({ ...base, withLot: true, lotBranch: "b1", lotNumber: "L1", lotQty: "0", lotExpiry: "2027-01-01" });
     expect(bad).toContain("initialQuantity");
     const ok = validateProductForm({ ...base, withLot: true, lotBranch: "b1", lotNumber: "L1", lotQty: "5", lotExpiry: "2027-01-01" });
@@ -64,8 +100,6 @@ describe("skuTakenOnEdit", () => {
   ];
 
   it("supabase: NO reporta duplicado aunque el catálogo mock tenga el mismo SKU con otro id (bug real de edición)", () => {
-    // El producto real (Supabase) tiene UUID; el gemelo mock tiene id 'prod_isd_005'.
-    // Antes esto devolvía true → falso 'Ya existe otro producto con SKU DERM-000201'.
     expect(
       skuTakenOnEdit({
         backend: "supabase",
