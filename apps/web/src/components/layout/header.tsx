@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Bell, ChevronDown, Search } from "lucide-react";
+import { Bell, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { MobileNav } from "./mobile-nav";
+import { GlobalSearch, GlobalSearchMobile } from "@/features/search/global-search";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import {
@@ -106,19 +107,13 @@ export function Header({
           )}
         </div>
 
-        <div className="ml-auto hidden lg:block max-w-md flex-1">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-40" />
-            <input
-              type="search"
-              placeholder="Buscar producto, cliente, lote, e-NCF…"
-              className="h-9 w-full rounded-lg border border-black/10 bg-black/[0.02] pl-9 pr-3 text-sm placeholder:text-black/40 focus:border-[color:var(--brand-primary)] focus:bg-white focus:outline-none"
-            />
-          </div>
-        </div>
+        {/* Buscador global (escritorio): input inline + dropdown. */}
+        <GlobalSearch className="ml-auto hidden lg:block max-w-md flex-1" />
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Buscador global (móvil/tablet): icono lupa → panel completo. */}
+        <GlobalSearchMobile className="lg:hidden" />
         <button
           type="button"
           aria-label="Notificaciones"

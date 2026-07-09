@@ -63,6 +63,7 @@ import type {
   CreateExpenseInput,
   CreateRecurringInput,
 } from "@/features/purchases/compras-store";
+import type { GlobalSearchResults } from "@/features/search/search-types";
 
 // ─── Suppliers / ExpenseCategories ──────────────────────────────────────────
 
@@ -482,6 +483,19 @@ export interface DgiiRepository {
 
 // ─── Aggregate ──────────────────────────────────────────────────────────────
 
+/**
+ * Buscador global del sistema (barra superior). Una sola llamada devuelve
+ * resultados agrupados por entidad. `businessId` viene del ctx (JWT), nunca del
+ * cliente — RLS + filtro explícito por business_id (riesgo R-SEC-01).
+ */
+export interface SearchRepository {
+  global(
+    ctx: RepoContext,
+    query: string,
+    opts?: { perGroup?: number },
+  ): Promise<GlobalSearchResults>;
+}
+
 export interface Repositories {
   business: BusinessRepository;
   branch: BranchRepository;
@@ -511,4 +525,5 @@ export interface Repositories {
   recurringExpense: RecurringExpenseRepository;
   supplier: SupplierRepository;
   expenseCategory: ExpenseCategoryRepository;
+  search: SearchRepository;
 }

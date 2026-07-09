@@ -11,6 +11,53 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.47.0] - 2026-07-09
+
+**Buscador global del header, funcional de verdad.** La barra superior era un
+`<input>` decorativo (sin estado, sin handler, sin navegación) y solo visible en
+pantallas grandes. Ahora busca en todo el negocio y abre los resultados. No toca
+DGII real ni datos.
+
+### Added
+- **Endpoint `GET /api/search?q=`** — `business_id` derivado del JWT (nunca del
+  query string); RLS + filtro explícito por negocio. Devuelve resultados tipados
+  y agrupados. Acepta `perGroup` (1..50) para "Ver todos".
+- **`SearchRepository`** (contrato + impl Supabase + impl mock). La Supabase corre
+  consultas **acotadas, en paralelo y proyectando solo columnas necesarias**
+  (nombre/SKU/código de barra/marca/categoría/laboratorio para productos; nombre/
+  teléfono/WhatsApp/cédula-RNC/email/código para clientes; NCF/e-NCF/cliente para
+  documentos; número de lote/producto para lotes). Cada sub-consulta degrada a
+  vacío si falla (una entidad nunca rompe el buscador). Stock por producto en una
+  sola consulta agregada (sin N+1).
+- **Núcleo puro** `features/search/`: `search-core` (normalización teléfono/cédula
+  por dígitos, patrón ILIKE tolerante a separadores `%8%2%9%…`, clasificación de
+  consulta, rutas de resultados, agrupación/límite), `search-match` (coincidencia
+  en memoria + constructores de item compartidos con el repo Supabase → el display
+  probado es idéntico al de producción).
+- **UI del buscador** (`global-search.tsx`): dropdown agrupado por tipo, resultados
+  clicables que navegan a la ruta real (`/productos/[id]`, `/clientes/[id]`,
+  `/ventas/[id]`, `/proformas/[id]`, lote → detalle del producto), **teclado**
+  (↑/↓/Enter/Escape), estados vacío/buscando/sin-resultados/error (mensajes
+  amigables, **sin PGRST/SQL/UUID/stack**), y debounce de 300 ms con cancelación
+  del fetch anterior.
+- **Móvil**: icono lupa en el header que abre un **panel de búsqueda a pantalla
+  completa** (input grande, resultados en lista, sin scroll horizontal).
+- **Página `/buscar`** ("Ver todos los resultados") con los resultados completos.
+- Tests: `search-core` (21), `search-match` (§16 productos/clientes/documentos/
+  lotes, normalización, sin-UUID), `global-search` (input, debounce, teclado,
+  click, error, sin-resultados), integración mock (aislamiento por negocio §20).
+
+### Fixed
+- **La barra de búsqueda del header no hacía nada** (input estático) y estaba
+  oculta en móvil/tablet. Ahora es un buscador global real en todas las pantallas.
+
+### Notes
+- Normalización: `829-714-1975` ≡ `8297141975` y `031-0327428-2` ≡ `03103274282`
+  (se comparan por dígitos, tolerando separadores, sin columnas normalizadas ni
+  DDL en Supabase).
+- Global ≠ filtro local: los buscadores internos de Productos/Clientes/Inventario/
+  Reportes siguen siendo filtros del módulo.
+
 ## [0.46.0] - 2026-07-08
 
 **Productos → Crear / Editar: precio de venta automático por costo + ITBIS + margen.**

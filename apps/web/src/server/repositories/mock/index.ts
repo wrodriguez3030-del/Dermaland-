@@ -98,6 +98,16 @@ import {
 } from "@/lib/mock-data/integrations";
 import { daysUntil } from "@/lib/utils/format";
 import { nextSkuFromSkus, nextSkuAfter } from "@/features/products/product-sku";
+import { buildGroups, hasEnoughChars, sanitizeTerm } from "@/features/search/search-core";
+import { SEARCH_PER_GROUP } from "@/features/search/search-types";
+import {
+  matchCustomers,
+  matchDocuments,
+  matchLots,
+  matchProducts,
+  type LotRecord,
+} from "@/features/search/search-match";
+import type { SearchRepository } from "../types";
 import { recalcInvoice, lineFromSaleItem, isSafeEditStatus } from "@/features/sales/invoice-edit";
 import type {
   SupplierInvoiceRepository,
@@ -1250,6 +1260,91 @@ const expenseCategory: ExpenseCategoryRepository = {
   },
 };
 
+const search: SearchRepository = {
+  async global(ctx, query, opts) {
+    const term = sanitizeTerm(query);
+    const perGroup = opts?.perGroup ?? SEARCH_PER_GROUP;
+    if (!hasEnoughChars(term)) return { query: term, groups: [], total: 0 };
+
+    const products = mockProductsView(ctx.businessId);
+    const customers = mockCustomersView(ctx.businessId);
+    const lots = mockLotsView(ctx.businessId);
+    const docs = mockProformasView(ctx.businessId);
+
+    const brandName = new Map(mockBrands.map((b) => [b.id, b.name]));
+    const categoryName = new Map(mockCategories.map((c) => [c.id, c.name]));
+    const labName = new Map(mockLaboratories.map((l) => [l.id, l.name]));
+    const branchName = new Map(mockBranches.map((b) => [b.id, b.name]));
+    const productName = new Map(products.map((p) => [p.id, p.name]));
+    const stockByProduct = new Map<string, number>();
+    for (const l of lots) {
+      if (l.status === "available") {
+        stockByProduct.set(
+          l.productId,
+          (stockByProduct.get(l.productId) ?? 0) + l.currentQuantity,
+        );
+      }
+    }
+
+    const productItems = matchProducts(
+      term,
+      products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        barcode: p.barcode,
+        brandName: p.brandId ? brandName.get(p.brandId) : undefined,
+        categoryName: p.categoryId ? categoryName.get(p.categoryId) : undefined,
+        labName: p.laboratoryId ? labName.get(p.laboratoryId) : undefined,
+        stock: stockByProduct.get(p.id) ?? 0,
+      })),
+    );
+    const customerItems = matchCustomers(
+      term,
+      customers.map((c) => ({
+        id: c.id,
+        customerNumber: c.customerNumber,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        phone: c.phone,
+        whatsapp: c.whatsapp,
+        documentNumber: c.documentNumber,
+        email: c.email,
+      })),
+    );
+    const documentItems = matchDocuments(
+      term,
+      docs.map((d) => ({
+        id: d.id,
+        number: d.number,
+        ecfNumber: d.ecfNumber,
+        customerName: d.customerName,
+        total: d.total,
+        documentKind: d.documentKind,
+      })),
+    );
+    const lotItems = matchLots(
+      term,
+      lots.map<LotRecord>((l) => ({
+        id: l.id,
+        productId: l.productId,
+        lotNumber: l.lotNumber,
+        productName: productName.get(l.productId),
+        branchName: l.branchId ? branchName.get(l.branchId) : undefined,
+        currentQuantity: l.currentQuantity,
+        expiresAt: l.expiresAt,
+        status: l.status,
+      })),
+    );
+
+    return buildGroups(
+      term,
+      [...productItems, ...customerItems, ...documentItems, ...lotItems],
+      perGroup,
+    );
+  },
+};
+
 export const mockRepositories: Repositories = {
   business,
   branch,
@@ -1279,4 +1374,5 @@ export const mockRepositories: Repositories = {
   recurringExpense,
   supplier,
   expenseCategory,
+  search,
 };
