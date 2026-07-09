@@ -11,6 +11,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.50.0] - 2026-07-09
+
+**Comisión ventas: exclusiones manuales.** Completa la parte del análisis del Excel
+de referencia que tenía 13 ventas excluidas a mano. Ahora se puede excluir una
+venta concreta de la comisión (con motivo) y volver a incluirla. No toca DGII real,
+ni la venta ni sus pagos.
+
+### Added
+- **Store de exclusiones** `commission-exclusions-store.ts` (localStorage, helpers
+  puros `validate/add/remove/isExcluded` + hook `useCommissionExclusions`).
+  Persistencia por número de comprobante + motivo + usuario; API lista para migrar
+  a `commission_exclusions` (Fase 2).
+- **Acciones en la tabla de detalle** (solo ADMIN): botón **Excluir** (pide motivo)
+  en ventas comisionables e **Incluir** en las excluidas manualmente. La venta
+  excluida deja de sumar al instante; los KPIs, desgloses, Excel y PDF se recalculan.
+- El **motivo** de la exclusión aparece en la columna "Regla" (pantalla + Excel,
+  hojas Detalle y Excluidas) como `Exclusión manual: <motivo>`.
+- Motor: `commissionForSale`/`buildCommissionReport` aceptan `exclusionReasons`
+  para propagar el motivo sin recalcular de dos formas (Pantalla = Excel = PDF).
+- Tests: store (validación, alta/reemplazo por comprobante, borrado) + integración
+  con el motor (excluir una venta la marca "Excluida" y no suma).
+
 ## [0.49.0] - 2026-07-09
 
 **Comisión ventas: reglas editables y agregables desde la UI.** Antes las reglas

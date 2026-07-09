@@ -133,6 +133,8 @@ export interface CommissionForSaleOptions {
   branchNames?: Map<string, string>;
   /** Estado de pago (Fase 2: desde DB). Default: "pending". */
   payoutByComprobante?: Map<string, PayoutStatus>;
+  /** Motivo de exclusión manual por comprobante (para mostrarlo en la Regla). */
+  exclusionReasons?: Map<string, string>;
 }
 
 /** Calcula la comisión de UNA venta. */
@@ -191,8 +193,10 @@ export function commissionForSale(
 
   if (saleStatusKey(p.status) === "cancelled")
     return finalize("cancelled", "", "—", 0, 0);
-  if (manualExclusions.includes(comprobante))
-    return finalize("excluded", "", "Exclusión manual", 0, 0);
+  if (manualExclusions.includes(comprobante)) {
+    const reason = options.exclusionReasons?.get(comprobante);
+    return finalize("excluded", "", reason ? `Exclusión manual: ${reason}` : "Exclusión manual", 0, 0);
+  }
 
   const rule = resolveCommissionRule(
     group,
@@ -427,6 +431,7 @@ export function buildCommissionReport(
     commissionForSale(p, rules, options.manualExclusions ?? [], {
       branchNames: options.branchNames,
       payoutByComprobante: options.payoutByComprobante,
+      exclusionReasons: options.exclusionReasons,
     }),
   );
   if (filters.commissionStatus)

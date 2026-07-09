@@ -19,6 +19,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
+import { Modal } from "@/components/ui/modal";
 import { SortableTH, useTableSort } from "@/components/ui/sortable-table-header";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import {
@@ -60,6 +61,13 @@ import {
 } from "@/features/reports/commission/commission-engine";
 import { useCommissionRules } from "@/features/reports/commission/commission-rules-store";
 import { CommissionRulesModal } from "@/features/reports/commission/commission-rules-modal";
+import {
+  useCommissionExclusions,
+  saveExclusion,
+  deleteExclusion,
+  excludedComprobantes,
+  exclusionReasonMap,
+} from "@/features/reports/commission/commission-exclusions-store";
 import { buildCommissionPdfSpec } from "@/features/reports/commission/commission-report-pdf";
 import type { ReportMeta } from "@/lib/reports/excel/types";
 
@@ -123,9 +131,14 @@ export default function ReporteComisionVentasPage() {
   const canExport = canExportCommissionReport(mockCurrentUser.role);
   const canManage = canManageCommission(mockCurrentUser.role);
   const rules = useCommissionRules();
+  const exclusions = useCommissionExclusions();
+  const exclusionList = React.useMemo(() => excludedComprobantes(exclusions), [exclusions]);
+  const reasonMap = React.useMemo(() => exclusionReasonMap(exclusions), [exclusions]);
 
   const [filters, setFilters] = React.useState<CommissionFilters>(EMPTY);
   const [rulesOpen, setRulesOpen] = React.useState(false);
+  const [excludeTarget, setExcludeTarget] = React.useState<CommissionLine | null>(null);
+  const [excludeReason, setExcludeReason] = React.useState("");
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
@@ -149,8 +162,13 @@ export default function ReporteComisionVentasPage() {
   }, [all]);
 
   const report = React.useMemo(
-    () => buildCommissionReport(all, filters, rules, { branchNames }),
-    [all, filters, rules, branchNames],
+    () =>
+      buildCommissionReport(all, filters, rules, {
+        branchNames,
+        manualExclusions: exclusionList,
+        exclusionReasons: reasonMap,
+      }),
+    [all, filters, rules, branchNames, exclusionList, reasonMap],
   );
 
   const { sort, sorted, toggle } = useTableSort(report.rows, "date", "desc", COMPARATORS);
@@ -163,6 +181,29 @@ export default function ReporteComisionVentasPage() {
     setFilters((f) => ({ ...f, from, to }));
   };
   const clearFilters = () => setFilters(EMPTY);
+
+  const openExclude = (l: CommissionLine) => {
+    setExcludeReason("");
+    setExcludeTarget(l);
+  };
+  const confirmExclude = () => {
+    if (!excludeTarget) return;
+    const res = saveExclusion({
+      comprobante: excludeTarget.comprobante,
+      reason: excludeReason,
+      userName: mockCurrentUser.fullName,
+    });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success(`Comprobante ${excludeTarget.comprobante} excluido de comisión.`);
+    setExcludeTarget(null);
+  };
+  const includeBack = (l: CommissionLine) => {
+    deleteExclusion(l.comprobante);
+    toast.success(`Comprobante ${l.comprobante} vuelve a comisionar.`);
+  };
 
   // ── Metadatos compartidos por Excel y PDF ──
   const rangeLabel =
@@ -599,12 +640,13 @@ export default function ReporteComisionVentasPage() {
                   <TH className="text-right">%</TH>
                   <SortableTH sortKey="commission" state={sort} onClick={toggle} align="right">Comisión</SortableTH>
                   <SortableTH sortKey="status" state={sort} onClick={toggle}>Estado</SortableTH>
+                  {canManage && <TH className="text-right pr-4">Acciones</TH>}
                 </TR>
               </THead>
               <TBody>
                 {empty && (
                   <TR>
-                    <TD colSpan={15} className="py-10 text-center text-sm opacity-60">
+                    <TD colSpan={canManage ? 16 : 15} className="py-10 text-center text-sm opacity-60">
                       No hay ventas para los filtros seleccionados.
                     </TD>
                   </TR>
@@ -630,6 +672,29 @@ export default function ReporteComisionVentasPage() {
                         {l.status === "commissionable" ? l.payoutLabel : l.statusLabel}
                       </Badge>
                     </TD>
+                    {canManage && (
+                      <TD className="pr-4 text-right">
+                        {l.status === "commissionable" ? (
+                          <button
+                            type="button"
+                            onClick={() => openExclude(l)}
+                            className="rounded-md px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                          >
+                            Excluir
+                          </button>
+                        ) : l.status === "excluded" ? (
+                          <button
+                            type="button"
+                            onClick={() => includeBack(l)}
+                            className="rounded-md px-2 py-1 text-xs font-medium text-[color:var(--brand-accent)] hover:bg-black/5"
+                          >
+                            Incluir
+                          </button>
+                        ) : (
+                          <span className="text-xs opacity-40">—</span>
+                        )}
+                      </TD>
+                    )}
                   </TR>
                 ))}
               </TBody>
@@ -655,6 +720,43 @@ export default function ReporteComisionVentasPage() {
         branches={activeBranches.map((b) => ({ id: b.id, name: b.name }))}
         canManage={canManage}
       />
+
+      <Modal
+        open={!!excludeTarget}
+        title="Excluir venta de comisión"
+        onClose={() => setExcludeTarget(null)}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setExcludeTarget(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={confirmExclude}>
+              Excluir comisión
+            </Button>
+          </>
+        }
+      >
+        {excludeTarget && (
+          <div className="space-y-3 text-sm">
+            <p className="opacity-70">
+              El comprobante <strong className="font-mono">{excludeTarget.comprobante}</strong>{" "}
+              ({excludeTarget.customer}, {formatCurrency(excludeTarget.commission)} de comisión) dejará
+              de sumar. La venta y sus pagos NO se modifican.
+            </p>
+            <div>
+              <Label>
+                Motivo de la exclusión <span className="text-rose-600">*</span>
+              </Label>
+              <Input
+                autoFocus
+                value={excludeReason}
+                onChange={(e) => setExcludeReason(e.target.value)}
+                placeholder="Cortesía / venta interna / descuento sin comisión…"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <toast.Toast />
     </>
