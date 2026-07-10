@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.55.0] - 2026-07-10
+
+**Unificación Incentivos ↔ Comisión ventas — Fase 2 (cutover a fuente única).**
+El reporte *Reportes > Comisión ventas* deja de recalcular dinámicamente y ahora
+**lee de los snapshots `sales_incentives`** — los MISMOS que muestra *Ventas >
+Incentivos*. Mismo importe, vendedor, regla y estado en ambos módulos, sin
+cálculo duplicado. **No toca DGII real.**
+
+- **Migración `0024_commission_unify.sql` APLICADA** a Supabase (`sntcvyozbhrgicwmtcoh`)
+  vía MCP: estados únicos `pending/approved/paid/adjusted/voided`,
+  `adjustment_amount`, `payment_method_group`, reglas superconjunto
+  (`payment_groups/seller_id/branch_id/priority`), tabla
+  `commission_payment_batch_items` (RLS por `business_id`, advisor de seguridad
+  sin alertas).
+- **Backfill (idempotente):** se convirtieron las 2 reglas de comisión a reglas
+  de incentivo (`sales_incentive_rules`) y se generaron los snapshots de las 4
+  ventas con vendedor (Willian 2×50.59, Darío 2×50.59; base 1686.44, regla 3%
+  efectivo; total **RD$202.36**). Las ventas sin vendedor no comisionan (no hay a
+  quién pagar).
+- **Adaptador** `features/commission/report-from-incentives.ts`: construye el
+  `CommissionReport` (KPIs, por vendedor/método/sucursal, detalle) que consumen
+  la pantalla, el Excel y el PDF, pero a partir de los snapshots enriquecidos con
+  su venta. Test de paridad `report-from-incentives.test.ts` (5 casos) + capa
+  central `central.test.ts` (7). El flujo de pagos/exclusiones por comprobante de
+  la página se conserva intacto.
+
 ## [0.54.0] - 2026-07-10
 
 **Unificación Incentivos ↔ Comisión ventas — Fase 1 (capa central + flujo

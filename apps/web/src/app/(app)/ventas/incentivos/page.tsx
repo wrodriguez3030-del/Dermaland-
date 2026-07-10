@@ -46,10 +46,12 @@ import { useBranches } from "@/features/tenancy/branch-store";
 import { FileSpreadsheet } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 
-const STATUS_TONE: Record<IncentiveStatus, "warning" | "info" | "success" | "neutral"> = {
+const STATUS_TONE: Record<IncentiveStatus, "warning" | "info" | "success" | "neutral" | "danger"> = {
   pending: "warning",
   approved: "info",
   paid: "success",
+  adjusted: "info",
+  voided: "neutral",
   void: "neutral",
 };
 

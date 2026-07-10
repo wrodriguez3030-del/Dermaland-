@@ -55,12 +55,13 @@ import {
   type SaleStatusKey,
 } from "@/features/sales/sales-report";
 import {
-  buildCommissionReport,
   COMMISSION_STATUS_LABEL,
   type CommissionFilters,
   type CommissionLine,
   type CommissionStatus,
 } from "@/features/reports/commission/commission-engine";
+import { commissionReportFromIncentives } from "@/features/commission/report-from-incentives";
+import { useIncentives } from "@/features/incentives/incentive-store";
 import { useCommissionRules } from "@/features/reports/commission/commission-rules-store";
 import { CommissionRulesModal } from "@/features/reports/commission/commission-rules-modal";
 import {
@@ -68,7 +69,6 @@ import {
   saveExclusion,
   deleteExclusion,
   excludedComprobantes,
-  exclusionReasonMap,
 } from "@/features/reports/commission/commission-exclusions-store";
 import { usePayouts, setPayout } from "@/features/reports/commission/commission-payout-store";
 import { createBatch } from "@/features/reports/commission/commission-batch-store";
@@ -152,7 +152,6 @@ function ReporteComisionVentasContent() {
   const rules = useCommissionRules();
   const exclusions = useCommissionExclusions();
   const exclusionList = React.useMemo(() => excludedComprobantes(exclusions), [exclusions]);
-  const reasonMap = React.useMemo(() => exclusionReasonMap(exclusions), [exclusions]);
   const payouts = usePayouts();
 
   const [filters, setFilters] = React.useState<CommissionFilters>(initialFilters);
@@ -183,15 +182,34 @@ function ReporteComisionVentasContent() {
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
   }, [all]);
 
+  // FUENTE ÚNICA: el reporte se construye desde los snapshots `sales_incentives`
+  // (los mismos que muestra Ventas > Incentivos), enriquecidos con sus ventas.
+  // Ya no hay recálculo dinámico duplicado (§1/§8).
+  const { incentives } = useIncentives({});
+  const salesById = React.useMemo(
+    () => new Map(all.map((p) => [p.id, p])),
+    [all],
+  );
+  const cashierNameById = React.useMemo(
+    () => new Map(cashierOptions),
+    [cashierOptions],
+  );
+  // Reglas presentes en los incentivos (para el filtro por regla).
+  const ruleOptions = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const i of incentives) if (i.ruleId) m.set(i.ruleId, i.ruleName ?? "Regla");
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
+  }, [incentives]);
+
   const report = React.useMemo(
     () =>
-      buildCommissionReport(all, filters, rules, {
+      commissionReportFromIncentives(incentives, salesById, filters, {
         branchNames,
         manualExclusions: exclusionList,
-        exclusionReasons: reasonMap,
         payoutByComprobante: payouts,
+        cashierNameById,
       }),
-    [all, filters, rules, branchNames, exclusionList, reasonMap, payouts],
+    [incentives, salesById, filters, branchNames, exclusionList, payouts, cashierNameById],
   );
 
   const { sort, sorted, toggle } = useTableSort(report.rows, "date", "desc", COMPARATORS);
@@ -322,7 +340,7 @@ function ReporteComisionVentasContent() {
     if (filters.commissionStatus)
       parts.push(`Estado comisión: ${COMMISSION_STATUS_LABEL[filters.commissionStatus]}`);
     if (filters.ruleId)
-      parts.push(`Regla: ${rules.find((r) => r.id === filters.ruleId)?.name ?? ""}`);
+      parts.push(`Regla: ${ruleOptions.find(([id]) => id === filters.ruleId)?.[1] ?? ""}`);
     if (filters.sellerId)
       parts.push(
         `Vendedor: ${
@@ -336,7 +354,7 @@ function ReporteComisionVentasContent() {
     if (filters.customerQuery) parts.push(`Cliente: ${filters.customerQuery}`);
     if (filters.comprobanteQuery) parts.push(`Comprobante: ${filters.comprobanteQuery}`);
     return parts.length ? parts.join(" · ") : "Sin filtros adicionales";
-  }, [filters, sellerOptions, cashierOptions, rules]);
+  }, [filters, sellerOptions, cashierOptions, ruleOptions]);
 
   const excelMeta = (): ReportMeta => ({
     title: "Reporte de Comisión de Ventas",
@@ -581,9 +599,9 @@ function ReporteComisionVentasContent() {
                 <Label>Regla de comisión</Label>
                 <Select value={filters.ruleId ?? ""} onChange={(e) => set("ruleId", e.target.value)}>
                   <option value="">Todas</option>
-                  {rules.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
+                  {ruleOptions.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
                     </option>
                   ))}
                 </Select>

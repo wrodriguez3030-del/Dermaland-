@@ -33,12 +33,21 @@ export interface IncentiveRuleRecord extends IncentiveRule {
   updatedAt?: string;
 }
 
-export type IncentiveStatus = "pending" | "approved" | "paid" | "void";
+// Estados canónicos únicos (mig 0024). Se conserva 'void' legacy = 'voided'.
+export type IncentiveStatus =
+  | "pending"
+  | "approved"
+  | "paid"
+  | "adjusted"
+  | "voided"
+  | "void";
 
 export const STATUS_LABEL: Record<IncentiveStatus, string> = {
   pending: "Pendiente",
   approved: "Aprobado",
   paid: "Pagado",
+  adjusted: "Ajustado",
+  voided: "Anulado",
   void: "Anulado",
 };
 
