@@ -8,10 +8,12 @@ import {
   blockedLots,
 } from "./lot-selectors";
 
-// Construye una fecha ISO a `days` días de hoy (mediodía para evitar bordes).
+// Construye una fecha ISO a `days` días de hoy. Se usa medianoche local para
+// que `daysUntil` (ceil de la diferencia) devuelva EXACTAMENTE `days` sin
+// depender de la hora del día (evita el borde flako en 90).
 function inDays(days: number): string {
   const d = new Date();
-  d.setHours(12, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + days);
   return d.toISOString();
 }

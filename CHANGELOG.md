@@ -11,6 +11,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.54.0] - 2026-07-10
+
+**Unificación Incentivos ↔ Comisión ventas — Fase 1 (capa central + flujo
+único).** Los módulos *Ventas > Incentivos* y *Reportes > Comisión ventas* pasan
+a trabajar como partes del mismo flujo, con una **capa central de agregación**
+como fuente única de KPIs y ranking. **No toca DGII real.**
+
+- **Capa central** `features/commission/central.ts`: `getCommissionSummary`,
+  `getCommissionBySeller`, `getTopSeller`, `applyCommissionFilters` — deriva los
+  KPIs de comisión de los MISMOS snapshots `sales_incentives` que usa Incentivos
+  (envuelve `summarize`/`rankSellers`). **Test de paridad** (`central.test.ts`,
+  7 casos) prueba que ambos módulos muestran el mismo importe, vendedor, regla y
+  estado desde una sola fuente.
+- **Flujo único / navegación cruzada:** Incentivos gana **“Ver reporte
+  completo”** (preserva el vendedor filtrado) y el ranking por vendedor enlaza a
+  `/reportes/comision-ventas?seller=…`; Comisión ventas gana **“Gestionar reglas
+  en Incentivos”** (§7: las reglas se administran en Incentivos) y ahora lee
+  `?seller=&from=&to=` de la URL para abrir ya filtrado.
+- **Auditoría (dry-run, solo lectura)** `scripts/audit-incentives-commissions.mjs`:
+  reporta reglas/incentivos/duplicados/huérfanos/ventas con-sin vendedor.
+  Resultado en prod: `sales_incentives` vacía, 2 reglas de comisión, 16 ventas
+  (4 con vendedor) — sin duplicados ni datos que migrar.
+- **Preparado para el cutover final** (Fase 2, requiere aplicar DDL por el SQL
+  Editor): migración `0024_commission_unify.sql` (estados únicos
+  pending/approved/paid/adjusted/voided, `adjustment_amount`, método
+  materializado, reglas superconjunto, `commission_payment_batch_items`) y el
+  diseño completo en `docs/reports/UNIFICACION_INCENTIVOS_COMISION.md`.
+
 ## [0.53.0] - 2026-07-09
 
 **Tarjetas del Dashboard navegables (KPI → detalle con filtro).** Las 8 tarjetas

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -20,7 +21,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { Gift, Plus, Coins, Clock, CheckCircle2, Power } from "lucide-react";
+import { Gift, Plus, Coins, Clock, CheckCircle2, Power, BarChart3 } from "lucide-react";
 import {
   useIncentiveRules,
   useIncentives,
@@ -149,6 +150,16 @@ export default function IncentivosPage() {
         breadcrumbs={[{ label: "Ventas" }, { label: "Incentivos" }]}
         actions={
           <div className="flex flex-wrap gap-2">
+            {/* Flujo único: abre el reporte completo de Comisión ventas,
+                preservando el vendedor filtrado (§3). */}
+            <Link
+              href={`/reportes/comision-ventas${sellerFilter ? `?seller=${encodeURIComponent(sellerFilter)}` : ""}`}
+              aria-label="Ver reporte completo de comisión de ventas"
+            >
+              <Button variant="outline" size="sm">
+                <BarChart3 className="h-4 w-4" /> Ver reporte completo
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={exportExcel}>
               <FileSpreadsheet className="h-4 w-4" /> Exportar Excel
             </Button>
@@ -184,8 +195,11 @@ export default function IncentivosPage() {
       {ranking.length > 0 && (
         <Card className="mb-6">
           <CardContent className="p-0">
-            <div className="border-b border-black/5 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-black/5 px-4 py-3">
               <h2 className="text-sm font-semibold">Ranking por vendedor</h2>
+              <span className="text-xs opacity-50">
+                Clic en un vendedor → su comisión en el reporte
+              </span>
             </div>
             <Table>
               <THead>
@@ -200,7 +214,19 @@ export default function IncentivosPage() {
               <TBody>
                 {ranking.map((r) => (
                   <TR key={r.sellerId}>
-                    <TD className="font-medium">{r.sellerName}</TD>
+                    <TD className="font-medium">
+                      {r.sellerId && r.sellerId !== "__none__" ? (
+                        <Link
+                          href={`/reportes/comision-ventas?seller=${encodeURIComponent(r.sellerId)}`}
+                          className="hover:text-[color:var(--brand-accent)] hover:underline"
+                          aria-label={`Ver comisión de ${r.sellerName} en el reporte`}
+                        >
+                          {r.sellerName}
+                        </Link>
+                      ) : (
+                        r.sellerName
+                      )}
+                    </TD>
                     <TD className="text-right tabular-nums">{r.sales}</TD>
                     <TD className="text-right tabular-nums font-medium">
                       {formatCurrency(r.generated)}

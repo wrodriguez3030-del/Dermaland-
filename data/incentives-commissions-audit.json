@@ -1,0 +1,68 @@
+{
+  "generatedAtNote": "read-only; sin fecha embebida por reproducibilidad",
+  "supabaseHost": "sntcvyozbhrgicwmtcoh",
+  "tables": {
+    "sales_incentive_rules": {
+      "exists": true,
+      "count": 0
+    },
+    "sales_incentives": {
+      "exists": true,
+      "count": 0
+    },
+    "sales_commission_rules": {
+      "exists": true,
+      "count": 2
+    },
+    "commission_exclusions": {
+      "exists": true,
+      "count": 0
+    },
+    "commission_payment_batches": {
+      "exists": true,
+      "count": 0
+    },
+    "commission_payouts": {
+      "exists": true,
+      "count": 0
+    },
+    "commission_audit": {
+      "exists": true,
+      "count": 0
+    },
+    "proformas": {
+      "exists": true,
+      "count": 16
+    }
+  },
+  "businessCount": 1,
+  "incentives": {
+    "total": 0,
+    "byStatus": {},
+    "withoutSeller": 0,
+    "orphans": 0,
+    "duplicateKeys": 0,
+    "duplicateSamples": [],
+    "totalAmountNonVoid": 0,
+    "totalPaidAmount": 0
+  },
+  "commission": {
+    "rules": 2,
+    "exclusions": 0,
+    "payouts": 0,
+    "batches": 0,
+    "batchesPaidTotal": 0,
+    "audit": 0
+  },
+  "sales": {
+    "total": 16,
+    "paid": 16,
+    "paidWithSeller": 4,
+    "paidWithoutSeller": 12
+  },
+  "rulesDivergence": {
+    "incentiveRulesActive": 0,
+    "commissionRulesActive": 2,
+    "note": "Reglas viven en DOS tablas distintas: sales_incentive_rules (6 tipos) vs sales_commission_rules (% por método/sucursal/vendedor). La unificación debe elegir UNA fuente canónica (recomendado: sales_incentive_rules)."
+  }
+}

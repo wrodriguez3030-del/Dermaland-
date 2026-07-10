@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -34,7 +36,7 @@ import {
 import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle2, FileSpreadsheet, HandCoins, Layers, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, FileSpreadsheet, HandCoins, Layers, SlidersHorizontal, Gift } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
 import { useBranches, useActiveBranches } from "@/features/tenancy/branch-store";
 import { mockCurrentUser } from "@/lib/mock-data/users";
@@ -125,11 +127,24 @@ const STATUS_TONE: Record<CommissionStatus, "success" | "warning" | "danger" | "
   no_rule: "neutral",
 };
 
-export default function ReporteComisionVentasPage() {
+function ReporteComisionVentasContent() {
   const toast = useToast();
   const all = useProformas();
   const branches = useBranches();
   const activeBranches = useActiveBranches();
+
+  // Deep-link desde Ventas > Incentivos (flujo único): `?seller=&from=&to=`
+  // abren el reporte ya filtrado por ese vendedor y período. Fuente canónica de
+  // filtros compartida entre ambos módulos (§3/§13).
+  const params = useSearchParams();
+  const initialFilters = React.useMemo<CommissionFilters>(() => {
+    const seller = params.get("seller") ?? "";
+    const from = params.get("from") ?? "";
+    const to = params.get("to") ?? "";
+    if (!seller && !from && !to) return EMPTY;
+    return { ...EMPTY, sellerId: seller, from, to };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canView = canViewCommissionReport(mockCurrentUser.role);
   const canExport = canExportCommissionReport(mockCurrentUser.role);
@@ -140,7 +155,7 @@ export default function ReporteComisionVentasPage() {
   const reasonMap = React.useMemo(() => exclusionReasonMap(exclusions), [exclusions]);
   const payouts = usePayouts();
 
-  const [filters, setFilters] = React.useState<CommissionFilters>(EMPTY);
+  const [filters, setFilters] = React.useState<CommissionFilters>(initialFilters);
   const [rulesOpen, setRulesOpen] = React.useState(false);
   const [paymentsOpen, setPaymentsOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
@@ -422,9 +437,16 @@ export default function ReporteComisionVentasPage() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Comisión ventas" }]}
         actions={
           <div className="flex flex-wrap gap-2">
+            {/* §7: las reglas se administran en Ventas > Incentivos (fuente única). */}
+            <Link href="/ventas/incentivos" aria-label="Gestionar reglas en Incentivos">
+              <Button variant="outline" size="sm">
+                <Gift className="h-4 w-4" />
+                Gestionar reglas en Incentivos
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={() => setRulesOpen(true)}>
               <SlidersHorizontal className="h-4 w-4" />
-              {canManage ? "Gestionar reglas" : "Ver reglas"}
+              {canManage ? "Reglas (avanzado)" : "Ver reglas"}
             </Button>
             {canManage && (
               <Button variant="outline" size="sm" onClick={() => setPaymentsOpen(true)}>
@@ -902,5 +924,15 @@ export default function ReporteComisionVentasPage() {
 
       <toast.Toast />
     </>
+  );
+}
+
+export default function ReporteComisionVentasPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando comisiones…</div>}
+    >
+      <ReporteComisionVentasContent />
+    </React.Suspense>
   );
 }
