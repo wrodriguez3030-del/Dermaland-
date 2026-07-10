@@ -30,31 +30,27 @@ import {
   formatDateTime,
   daysUntil,
   formatDate,
+  isToday,
+  isSameCalendarMonth,
 } from "@/lib/utils/format";
 import { useProformas } from "@/features/sales/proforma-store";
-import { useProducts } from "@/features/products/product-store";
+import { isInvoiceDocument } from "@/features/sales/document-label";
 import {
-  useAllLots,
-  totalSellableStock,
-  expiryStatus,
-} from "@/features/inventory/lot-store";
+  useCurrentCashSession,
+} from "@/features/sales/cash-session-store";
+import { computeShiftDetail } from "@/features/sales/cash-session-detail";
+import { useProducts } from "@/features/products/product-store";
+import { useAllLots, totalSellableStock } from "@/features/inventory/lot-store";
+import { lotsExpiringWithin, blockedLots } from "@/features/inventory/lot-selectors";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { useCustomers } from "@/features/customers/customer-store";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { mockAuditLogs } from "@/lib/mock-data/users";
-import { mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
+import {
+  mockInventoryCounts,
+  isPendingInventoryCount,
+} from "@/lib/mock-data/inventory-counts";
 import type { Proforma } from "@/types";
-
-/** ¿La fecha ISO cae en el día de hoy (hora local)? */
-function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
-}
 
 const SALE_DONE = new Set(["paid", "partially_paid", "issued", "converted_to_ecf"]);
 
@@ -66,12 +62,25 @@ export default function DashboardPage() {
   const lots = useAllLots();
   const customers = useCustomers();
   const activeBranches = useActiveBranches();
+  const { session: cashSession } = useCurrentCashSession();
   const activeBranchIds = React.useMemo(
     () => new Set(activeBranches.map((b) => b.id)),
     [activeBranches],
   );
 
-  // Ventas del día (antes sumaba TODAS las proformas bajo la etiqueta "hoy").
+  // "Ventas hoy" = facturas (NCF/e-CF) emitidas HOY. MISMA definición que la
+  // pantalla /ventas (isInvoiceDocument) → el KPI y `/ventas?period=today`
+  // cuentan exactamente lo mismo (coherencia KPI↔detalle).
+  const salesTodayDocs = React.useMemo(
+    () =>
+      proformas.filter((p) => isInvoiceDocument(p) && isToday(p.createdAt)),
+    [proformas],
+  );
+  const salesToday = salesTodayDocs.reduce((s, p) => s + p.total, 0);
+  const transactionsToday = salesTodayDocs.length;
+
+  // Actividad de ventas del día (para el listado "Ventas recientes"): proformas
+  // y facturas completadas hoy, más recientes primero.
   const todayProformas = React.useMemo(
     () =>
       proformas
@@ -79,20 +88,12 @@ export default function DashboardPage() {
         .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
     [proformas],
   );
-  const salesToday = todayProformas.reduce((s, p) => s + p.total, 0);
-  const transactionsToday = todayProformas.length;
 
+  // Lotes próximos a vencer (≤90 días, sucursales activas) — MISMO selector que
+  // `/inventario/vencimientos?days=90`. Sin cap: el KPI cuenta TODOS, no 5.
   const expiringSoon = React.useMemo(
-    () =>
-      lots
-        .filter((l) => l.status === "available")
-        .filter((l) => {
-          const d = daysUntil(l.expiresAt);
-          return d >= 0 && d <= 90;
-        })
-        .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt))
-        .slice(0, 5),
-    [lots],
+    () => lotsExpiringWithin(lots, activeBranchIds, 90),
+    [lots, activeBranchIds],
   );
 
   const lowStockProducts = React.useMemo(
@@ -104,29 +105,34 @@ export default function DashboardPage() {
     [products, lots, activeBranchIds],
   );
 
-  const quarantined = lots.filter(
-    (l) =>
-      l.status === "quarantine" ||
-      l.status === "recalled" ||
-      expiryStatus(l.expiresAt) === "expired",
-  );
+  // Lotes bloqueados (cuarentena + recall) — MISMO selector que
+  // `/inventario/bloqueados`. Cuadra con la etiqueta "Cuarentena + recall".
+  const blocked = React.useMemo(() => blockedLots(lots), [lots]);
 
   const recentLogs = mockAuditLogs.slice(0, 6);
 
-  // Clientes nuevos del mes ACTUAL (antes: Mayo 2026 hardcodeado).
-  const newCustomersThisMonth = React.useMemo(() => {
-    const now = new Date();
-    return customers.filter((c) => {
-      const d = new Date(c.createdAt);
-      return (
-        d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-      );
-    }).length;
-  }, [customers]);
+  // Clientes nuevos del mes ACTUAL — MISMA definición que
+  // `/clientes?created=this_month`.
+  const newCustomersThisMonth = React.useMemo(
+    () => customers.filter((c) => isSameCalendarMonth(c.createdAt)).length,
+    [customers],
+  );
 
-  const pendingCounts = mockInventoryCounts.filter(
-    (c) => c.status === "in_progress" || c.status === "draft",
-  ).length;
+  // Inventarios pendientes (borrador + en progreso) — MISMO predicado que
+  // `/conteo-fisico?status=pending`.
+  const pendingCounts = mockInventoryCounts.filter(isPendingInventoryCount).length;
+
+  // Caja actual — sesión REAL desde el mismo repositorio que /caja (nunca un
+  // valor fijo). El efectivo esperado se recalcula con la MISMA función pura
+  // que /caja (computeShiftDetail); los movimientos manuales de efectivo, poco
+  // frecuentes, se ven solo en la pantalla de caja.
+  const cashDetail = React.useMemo(() => {
+    if (!cashSession) return null;
+    const sessionProformas = proformas.filter(
+      (p) => p.cashRegisterSessionId === cashSession.id,
+    );
+    return computeShiftDetail(cashSession, sessionProformas, []);
+  }, [cashSession, proformas]);
 
   return (
     <>
@@ -153,16 +159,19 @@ export default function DashboardPage() {
         <StatCard
           label="Ventas hoy"
           value={formatCurrency(salesToday)}
-          hint={`${transactionsToday} transacciones`}
-          delta={{ value: 12.4 }}
+          hint={`${transactionsToday} ${transactionsToday === 1 ? "factura" : "facturas"}`}
           icon={Coins}
           tone="primary"
+          href="/ventas?period=today"
+          ariaLabel={`Ventas de hoy: ${formatCurrency(salesToday)} en ${transactionsToday} facturas. Ver ventas de hoy.`}
         />
         <StatCard
           label="Productos en catálogo"
           value={products.length.toLocaleString("es-DO")}
           hint="activos e inactivos"
           icon={Package}
+          href="/productos"
+          ariaLabel={`${products.length} productos en el catálogo. Ver catálogo.`}
         />
         <StatCard
           label="Lotes próximos a vencer"
@@ -170,13 +179,17 @@ export default function DashboardPage() {
           hint="≤ 90 días"
           icon={CalendarClock}
           tone="warning"
+          href="/inventario/vencimientos?days=90"
+          ariaLabel={`${expiringSoon.length} lotes próximos a vencer en 90 días o menos. Ver vencimientos.`}
         />
         <StatCard
           label="Lotes bloqueados"
-          value={quarantined.length}
+          value={blocked.length}
           hint="Cuarentena + recall"
           icon={ShieldAlert}
           tone="danger"
+          href="/inventario/bloqueados"
+          ariaLabel={`${blocked.length} lotes bloqueados entre cuarentena y recall. Ver lotes bloqueados.`}
         />
       </div>
 
@@ -186,18 +199,32 @@ export default function DashboardPage() {
           value={newCustomersThisMonth}
           hint="este mes"
           icon={Users}
+          href="/clientes?created=this_month"
+          ariaLabel={`${newCustomersThisMonth} clientes nuevos este mes. Ver clientes nuevos.`}
         />
         <StatCard
           label="Inventarios pendientes"
           value={pendingCounts}
-          hint="In progress + draft"
+          hint="Borrador + en progreso"
           icon={ScanBarcode}
+          href="/conteo-fisico?status=pending"
+          ariaLabel={`${pendingCounts} inventarios físicos pendientes. Ver inventarios pendientes.`}
         />
         <StatCard
           label="Caja actual"
-          value={formatCurrency(6020)}
-          hint="Esperado · sesión Rosa P."
+          value={cashSession ? formatCurrency(cashDetail?.expectedCash ?? cashSession.expectedCash) : "Sin sesión"}
+          hint={
+            cashSession
+              ? `Sesión ${cashSession.sessionNumber} · ${cashSession.cashierName}`
+              : "Toca para abrir caja"
+          }
           icon={Receipt}
+          href="/caja"
+          ariaLabel={
+            cashSession
+              ? `Caja actual: efectivo esperado ${formatCurrency(cashDetail?.expectedCash ?? cashSession.expectedCash)}, sesión ${cashSession.sessionNumber}. Ver caja.`
+              : "No hay caja abierta. Abrir caja."
+          }
         />
         <StatCard
           label="DGII"
@@ -205,6 +232,8 @@ export default function DashboardPage() {
           hint="Pendiente de certificado"
           icon={AlertTriangle}
           tone="warning"
+          href="/dgii"
+          ariaLabel="Módulo DGII inactivo, pendiente de certificado. Ver estado del módulo DGII."
         />
       </div>
 
@@ -226,7 +255,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <Link
-              href="/dgii/facturas"
+              href="/dgii"
               className="text-sm font-medium text-[color:var(--brand-accent)] hover:underline"
             >
               Ver configuración →
@@ -246,7 +275,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Link
-              href="/inventario/vencimientos"
+              href="/inventario/vencimientos?days=90"
               className="text-xs font-medium text-[color:var(--brand-accent)] hover:underline"
             >
               Ver todos →
@@ -259,7 +288,7 @@ export default function DashboardPage() {
                   Sin lotes próximos a vencer en los próximos 90 días.
                 </li>
               )}
-              {expiringSoon.map((lot) => {
+              {expiringSoon.slice(0, 5).map((lot) => {
                 const product = getProductById(lot.productId);
                 const days = daysUntil(lot.expiresAt);
                 const tone =

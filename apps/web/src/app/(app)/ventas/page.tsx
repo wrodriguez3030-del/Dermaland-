@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
@@ -21,7 +22,7 @@ import {
 import { FilterBar } from "@/components/ui/filter-bar";
 import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast";
-import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Mail, Trash2, Pencil, Plus } from "lucide-react";
+import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Mail, Trash2, Pencil, Plus, X } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
 import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import {
@@ -33,23 +34,37 @@ import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import type { Proforma } from "@/types";
-import { formatCurrency, formatDateTime } from "@/lib/utils/format";
+import { formatCurrency, formatDateTime, isToday } from "@/lib/utils/format";
 
 const NO_SELLER = "__none__";
 
-export default function VentasPage() {
+function VentasContent() {
   // Ventas / Facturas: documentos fiscales emitidos (NCF B02/B01 y e-CF E32/E31).
   // Las proformas pendientes viven en la pantalla Proformas.
   const toast = useToast();
   const allDocuments = useProformas();
   const allSales = allDocuments.filter(isInvoiceDocument);
+
+  // Deep-link desde el dashboard: `?period=today` abre la lista ya filtrada al
+  // día de hoy. MISMA definición (isInvoiceDocument + isToday) que el KPI
+  // "Ventas hoy" → el total del KPI y el de esta pantalla coinciden.
+  const params = useSearchParams();
+  const period = params.get("period") === "today" ? "today" : "all";
+  const scopedSales = React.useMemo(
+    () =>
+      period === "today"
+        ? allSales.filter((s) => isToday(s.createdAt))
+        : allSales,
+    [allSales, period],
+  );
+
   const [sellerFilter, setSellerFilter] = React.useState<string>("all");
 
   // Vendedores presentes en las ventas (para el filtro), por id → nombre.
   const sellerOptions = React.useMemo(() => {
     const map = new Map<string, string>();
     let hasUnassigned = false;
-    for (const s of allSales) {
+    for (const s of scopedSales) {
       if (s.sellerId) map.set(s.sellerId, s.sellerName || "Vendedor");
       else hasUnassigned = true;
     }
@@ -57,15 +72,15 @@ export default function VentasPage() {
       list: [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es")),
       hasUnassigned,
     };
-  }, [allSales]);
+  }, [scopedSales]);
 
   const sales = React.useMemo(() => {
-    if (sellerFilter === "all") return allSales;
-    if (sellerFilter === NO_SELLER) return allSales.filter((s) => !s.sellerId);
-    return allSales.filter((s) => s.sellerId === sellerFilter);
-  }, [allSales, sellerFilter]);
+    if (sellerFilter === "all") return scopedSales;
+    if (sellerFilter === NO_SELLER) return scopedSales.filter((s) => !s.sellerId);
+    return scopedSales.filter((s) => s.sellerId === sellerFilter);
+  }, [scopedSales, sellerFilter]);
 
-  const pag = usePagination(sales, { resetKey: sellerFilter });
+  const pag = usePagination(sales, { resetKey: `${period}|${sellerFilter}` });
   const canEdit = canEditSales(mockCurrentUser.role);
 
   const [sendDoc, setSendDoc] = React.useState<{
@@ -94,8 +109,26 @@ export default function VentasPage() {
           </Link>
         }
       />
+      {period === "today" && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
+          <span>
+            Mostrando: <strong>ventas de hoy</strong>
+          </span>
+          <Link href="/ventas">
+            <Button variant="ghost" size="sm">
+              <X className="h-4 w-4" /> Ver todas las ventas
+            </Button>
+          </Link>
+        </div>
+      )}
+
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Ventas hoy" value={formatCurrency(total)} icon={Coins} tone="primary" />
+        <StatCard
+          label={period === "today" ? "Ventas hoy" : "Ventas totales"}
+          value={formatCurrency(total)}
+          icon={Coins}
+          tone="primary"
+        />
         <StatCard label="ITBIS recaudado" value={formatCurrency(itbis)} icon={TrendingUp} />
         <StatCard label="Transacciones" value={sales.length} icon={Receipt} />
         <StatCard label="Items vendidos" value={items} icon={ShoppingCart} />
@@ -268,5 +301,15 @@ export default function VentasPage() {
 
       <toast.Toast />
     </>
+  );
+}
+
+export default function VentasPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando ventas…</div>}
+    >
+      <VentasContent />
+    </React.Suspense>
   );
 }

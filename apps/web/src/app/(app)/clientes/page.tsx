@@ -1,7 +1,8 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -15,7 +16,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
@@ -33,6 +34,7 @@ import {
   formatCurrency,
   formatDate,
   relativeTime,
+  isSameCalendarMonth,
 } from "@/lib/utils/format";
 
 // Compras / Total gastado / Última visita salen de la capa CENTRAL de
@@ -53,17 +55,30 @@ const comparators = {
     +new Date(a.stats.lastVisitAt ?? 0) - +new Date(b.stats.lastVisitAt ?? 0),
 };
 
-export default function ClientesPage() {
+function ClientesContent() {
   const router = useRouter();
+  // Deep-link desde el dashboard: `?created=this_month` abre la lista ya
+  // filtrada a clientes registrados este mes. MISMA definición
+  // (isSameCalendarMonth) que el KPI "Clientes nuevos".
+  const params = useSearchParams();
+  const createdFilter =
+    params.get("created") === "this_month" ? "this_month" : "all";
   const { rows } = useCustomersReport();
   const toast = useToast();
+  const scopedRows = React.useMemo(
+    () =>
+      createdFilter === "this_month"
+        ? rows.filter((r) => isSameCalendarMonth(r.customer.createdAt))
+        : rows,
+    [rows, createdFilter],
+  );
   const { sort, sorted, toggle } = useTableSort(
-    rows,
+    scopedRows,
     "createdAt",
     "desc",
     comparators,
   );
-  const pag = usePagination(sorted);
+  const pag = usePagination(sorted, { resetKey: createdFilter });
 
   return (
     <>
@@ -80,6 +95,19 @@ export default function ClientesPage() {
           </Link>
         }
       />
+
+      {createdFilter === "this_month" && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
+          <span>
+            Mostrando: <strong>clientes nuevos de este mes</strong> ({sorted.length})
+          </span>
+          <Link href="/clientes">
+            <Button variant="ghost" size="sm">
+              <X className="h-4 w-4" /> Ver todos los clientes
+            </Button>
+          </Link>
+        </div>
+      )}
 
       <FilterBar className="mb-4">
         <SearchInput
@@ -281,5 +309,15 @@ export default function ClientesPage() {
       </Card>
       <toast.Toast />
     </>
+  );
+}
+
+export default function ClientesPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando clientes…</div>}
+    >
+      <ClientesContent />
+    </React.Suspense>
   );
 }

@@ -108,6 +108,7 @@ export const groups: NavGroup[] = [
       { label: "Transferencias", href: "/inventario/transferencias" },
       { label: "Vencimientos", href: "/inventario/vencimientos" },
       { label: "Bajo stock", href: "/inventario/bajo-stock" },
+      { label: "Bloqueados", href: "/inventario/bloqueados" },
       { label: "Cuarentena", href: "/inventario/cuarentena" },
       { label: "Recall", href: "/inventario/recall" },
     ],

@@ -67,3 +67,32 @@ export function daysUntil(value: Date | string): number {
   const diffMs = d.getTime() - Date.now();
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * ¿La fecha cae en el día de HOY (hora local)? Fuente única para que el KPI
+ * "Ventas hoy" del dashboard y el filtro `?period=today` de /ventas cuenten
+ * exactamente lo mismo.
+ */
+export function isToday(value: Date | string, ref: Date = new Date()): boolean {
+  const d = typeof value === "string" ? new Date(value) : value;
+  return (
+    d.getFullYear() === ref.getFullYear() &&
+    d.getMonth() === ref.getMonth() &&
+    d.getDate() === ref.getDate()
+  );
+}
+
+/**
+ * ¿La fecha cae en el MISMO mes calendario que `ref` (por defecto, este mes)?
+ * Fuente única para "Clientes nuevos" (dashboard) y el filtro
+ * `?created=this_month` de /clientes.
+ */
+export function isSameCalendarMonth(
+  value: Date | string,
+  ref: Date = new Date(),
+): boolean {
+  const d = typeof value === "string" ? new Date(value) : value;
+  return (
+    d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth()
+  );
+}

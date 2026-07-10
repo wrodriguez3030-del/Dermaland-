@@ -11,6 +11,46 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.53.0] - 2026-07-09
+
+**Tarjetas del Dashboard navegables (KPI → detalle con filtro).** Las 8 tarjetas
+KPI del dashboard ahora son enlaces reales: toda la tarjeta es clicable, con
+cursor pointer, hover suave, foco visible por teclado (Enter navega) y
+`aria-label`. Cada una abre su pantalla de detalle ya filtrada:
+
+| Tarjeta | Destino | Filtro |
+|---|---|---|
+| Ventas hoy | `/ventas?period=today` | día de hoy |
+| Productos en catálogo | `/productos` | todos (activos + inactivos) |
+| Lotes próximos a vencer | `/inventario/vencimientos?days=90` | ≤ 90 días |
+| Lotes bloqueados | `/inventario/bloqueados` *(nueva)* | cuarentena + recall |
+| Clientes nuevos | `/clientes?created=this_month` | este mes |
+| Inventarios pendientes | `/conteo-fisico?status=pending` | borrador + en progreso |
+| Caja actual | `/caja` | sesión activa (o abrir caja) |
+| DGII | `/dgii` | estado real del módulo |
+
+**Coherencia KPI ↔ detalle (una sola fuente de datos).** El número de cada KPI
+coincide exactamente con lo que muestra su pantalla destino:
+
+- Nuevo módulo puro `features/inventory/lot-selectors.ts` (`lotsExpiringWithin`,
+  `blockedLots`, `matchesExpiryDayFilter`) que consumen tanto el dashboard como
+  Vencimientos y la nueva vista Bloqueados.
+- "Lotes próximos a vencer" ya no está capado a 5 (contaba mal) ni ignora la
+  sucursal; usa el mismo predicado que `?days=90`.
+- "Lotes bloqueados" = cuarentena + recall (cuadra con su etiqueta); nueva vista
+  unificada `/inventario/bloqueados` con pestañas Todos/Cuarentena/Recall cuyo
+  total "Todos" == el KPI.
+- "Ventas hoy" usa la misma definición (`isInvoiceDocument` + hoy) que `/ventas`.
+- "Clientes nuevos" e "Inventarios pendientes" comparten predicado
+  (`isSameCalendarMonth`, `isPendingInventoryCount`) con su pantalla.
+- "Caja actual" deja de ser un valor fijo (RD$6,020 / "Rosa P."): lee la sesión
+  REAL con `useCurrentCashSession` y recalcula el efectivo esperado con la misma
+  función pura que `/caja` (`computeShiftDetail`).
+
+`StatCard` gana props opcionales `href` y `ariaLabel` (retrocompatible: sin
+`href` sigue siendo una tarjeta estática). Las pantallas destino leen sus
+filtros por query param (`useSearchParams` + `Suspense`). **No toca DGII real.**
+
 ## [0.52.0] - 2026-07-09
 
 **Comisión ventas Fase 2: persistencia compartida en Supabase.** Reglas,

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Card,
@@ -34,6 +35,10 @@ import {
   expiryStatus,
   type ExpiryStatus,
 } from "@/features/inventory/lot-store";
+import {
+  matchesExpiryDayFilter,
+  type ExpiryDayFilter,
+} from "@/features/inventory/lot-selectors";
 
 const rowBg: Record<ExpiryStatus, string> = {
   expired: "bg-rose-50",
@@ -48,12 +53,20 @@ const tone: Record<ExpiryStatus, "danger" | "warning" | "success"> = {
   ok: "success",
 };
 
-type DayFilter = "all" | "expired" | "30" | "60" | "90";
+type DayFilter = ExpiryDayFilter;
+const DAY_FILTERS: readonly DayFilter[] = ["all", "expired", "30", "60", "90"];
 
-export default function VencimientosPage() {
+function VencimientosContent() {
   const activeBranches = useActiveBranches();
-  const [branch, setBranch] = React.useState("");
-  const [dayFilter, setDayFilter] = React.useState<DayFilter>("all");
+  // Deep-link desde el dashboard: `?days=90` abre la lista ya filtrada a 90 días
+  // y `?branch=<id>` la acota a una sucursal. NUNCA se muestra el UUID.
+  const params = useSearchParams();
+  const initialDays = (() => {
+    const d = params.get("days");
+    return d && DAY_FILTERS.includes(d as DayFilter) ? (d as DayFilter) : "all";
+  })();
+  const [branch, setBranch] = React.useState(() => params.get("branch") ?? "");
+  const [dayFilter, setDayFilter] = React.useState<DayFilter>(initialDays);
   const rawLots = useAllLots();
 
   // Vencimientos operativos: solo lotes de sucursales ACTIVAS.
@@ -84,14 +97,9 @@ export default function VencimientosPage() {
 
   const filtered = allLots.filter((l) => {
     if (branch && l.branchId !== branch) return false;
-    if (dayFilter !== "all") {
-      const d = daysUntil(l.expiresAt);
-      if (dayFilter === "expired") return d < 0;
-      if (dayFilter === "30") return d >= 0 && d <= 30;
-      if (dayFilter === "60") return d >= 0 && d <= 60;
-      if (dayFilter === "90") return d >= 0 && d <= 90;
-    }
-    return true;
+    // Mismo predicado que el selector del dashboard (lot-selectors) → el KPI
+    // "Lotes próximos a vencer" y `?days=90` cuentan exactamente lo mismo.
+    return matchesExpiryDayFilter(l.expiresAt, dayFilter);
   });
 
   return (
@@ -215,5 +223,15 @@ export default function VencimientosPage() {
         </CardContent>
       </Card>
     </>
+  );
+}
+
+export default function VencimientosPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando vencimientos…</div>}
+    >
+      <VencimientosContent />
+    </React.Suspense>
   );
 }

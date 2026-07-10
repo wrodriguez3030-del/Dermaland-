@@ -1,7 +1,16 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+
+// La pantalla lee `?period=` con useSearchParams: sin router montado hay que
+// mockear next/navigation en el entorno de test.
+const searchParams = new URLSearchParams("");
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => searchParams,
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
+}));
+
 import VentasPage from "./page";
 
 afterEach(cleanup);

@@ -209,6 +209,15 @@ export function getInventoryCountById(id: string) {
   return mockInventoryCounts.find((c) => c.id === id);
 }
 
+/**
+ * ¿El conteo está PENDIENTE de terminar? = borrador o en progreso. Predicado
+ * único que comparten el KPI "Inventarios pendientes" del dashboard y el filtro
+ * `?status=pending` de /conteo-fisico, para que ambos cuenten lo mismo.
+ */
+export function isPendingInventoryCount(c: Pick<InventoryCount, "status">): boolean {
+  return c.status === "draft" || c.status === "in_progress";
+}
+
 export function getItemsForCount(countId: string) {
   return mockCountItems.filter((i) => i.inventoryCountId === countId);
 }

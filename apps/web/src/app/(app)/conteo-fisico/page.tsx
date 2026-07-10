@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -15,13 +16,16 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Ban, FileSpreadsheet, Plus, ScanBarcode } from "lucide-react";
+import { Ban, FileSpreadsheet, Plus, ScanBarcode, X } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
 import { formatDateTime, relativeTime } from "@/lib/utils/format";
-import { mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
+import {
+  mockInventoryCounts,
+  isPendingInventoryCount,
+} from "@/lib/mock-data/inventory-counts";
 import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
 import { buildCountsList, buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
@@ -69,16 +73,26 @@ const comparators = {
   items: (a: InventoryCount, b: InventoryCount) => a.itemCount - b.itemCount,
 };
 
-export default function InventarioFisicoPage() {
+function InventarioFisicoContent() {
   const toast = useToast();
   const sessions = useScanSessions();
   const products = useProducts();
   const lots = useAllLots();
   const productById = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
+  // Deep-link desde el dashboard: `?status=pending` abre el historial ya
+  // filtrado a los conteos pendientes (borrador + en progreso). MISMO predicado
+  // (isPendingInventoryCount) que el KPI "Inventarios pendientes".
+  const params = useSearchParams();
+  const pendingOnly = params.get("status") === "pending";
+
   const { visible, hide } = useLocalSoftDelete(mockInventoryCounts);
-  const { sort, sorted, toggle } = useTableSort(visible, "date", "desc", comparators);
-  const pag = usePagination(sorted);
+  const scopedCounts = React.useMemo(
+    () => (pendingOnly ? visible.filter(isPendingInventoryCount) : visible),
+    [visible, pendingOnly],
+  );
+  const { sort, sorted, toggle } = useTableSort(scopedCounts, "date", "desc", comparators);
+  const pag = usePagination(sorted, { resetKey: pendingOnly ? "pending" : "all" });
 
   const exportListExcel = async () => {
     try {
@@ -265,7 +279,18 @@ export default function InventarioFisicoPage() {
       </Card>
 
       {/* Historial de ejemplo (datos de demostración) */}
-      <h2 className="mb-2 text-sm font-semibold">Historial</h2>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">
+          Historial{pendingOnly ? ` — pendientes (${sorted.length})` : ""}
+        </h2>
+        {pendingOnly && (
+          <Link href="/conteo-fisico">
+            <Button variant="ghost" size="sm">
+              <X className="h-4 w-4" /> Ver todo el historial
+            </Button>
+          </Link>
+        )}
+      </div>
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -357,5 +382,15 @@ export default function InventarioFisicoPage() {
       </Card>
       <toast.Toast />
     </>
+  );
+}
+
+export default function InventarioFisicoPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando inventarios…</div>}
+    >
+      <InventarioFisicoContent />
+    </React.Suspense>
   );
 }
