@@ -36,7 +36,7 @@ import {
 import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle2, FileSpreadsheet, HandCoins, Layers, SlidersHorizontal, Gift } from "lucide-react";
+import { FileSpreadsheet, HandCoins, Gift } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
 import { useBranches, useActiveBranches } from "@/features/tenancy/branch-store";
 import { mockCurrentUser } from "@/lib/mock-data/users";
@@ -61,19 +61,13 @@ import {
   type CommissionStatus,
 } from "@/features/reports/commission/commission-engine";
 import { commissionReportFromIncentives } from "@/features/commission/report-from-incentives";
-import { useIncentives } from "@/features/incentives/incentive-store";
-import { useCommissionRules } from "@/features/reports/commission/commission-rules-store";
-import { CommissionRulesModal } from "@/features/reports/commission/commission-rules-modal";
+import { useIncentives, payIncentives } from "@/features/incentives/incentive-store";
 import {
   useCommissionExclusions,
   saveExclusion,
   deleteExclusion,
   excludedComprobantes,
 } from "@/features/reports/commission/commission-exclusions-store";
-import { usePayouts, setPayout } from "@/features/reports/commission/commission-payout-store";
-import { createBatch } from "@/features/reports/commission/commission-batch-store";
-import { recordCommissionAudit } from "@/features/reports/commission/commission-audit-store";
-import { CommissionPaymentsModal } from "@/features/reports/commission/commission-payments-modal";
 import { buildCommissionPdfSpec } from "@/features/reports/commission/commission-report-pdf";
 import type { ReportMeta } from "@/lib/reports/excel/types";
 
@@ -149,14 +143,10 @@ function ReporteComisionVentasContent() {
   const canView = canViewCommissionReport(mockCurrentUser.role);
   const canExport = canExportCommissionReport(mockCurrentUser.role);
   const canManage = canManageCommission(mockCurrentUser.role);
-  const rules = useCommissionRules();
   const exclusions = useCommissionExclusions();
   const exclusionList = React.useMemo(() => excludedComprobantes(exclusions), [exclusions]);
-  const payouts = usePayouts();
 
   const [filters, setFilters] = React.useState<CommissionFilters>(initialFilters);
-  const [rulesOpen, setRulesOpen] = React.useState(false);
-  const [paymentsOpen, setPaymentsOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [excludeTarget, setExcludeTarget] = React.useState<CommissionLine | null>(null);
   const [excludeReason, setExcludeReason] = React.useState("");
@@ -206,10 +196,9 @@ function ReporteComisionVentasContent() {
       commissionReportFromIncentives(incentives, salesById, filters, {
         branchNames,
         manualExclusions: exclusionList,
-        payoutByComprobante: payouts,
         cashierNameById,
       }),
-    [incentives, salesById, filters, branchNames, exclusionList, payouts, cashierNameById],
+    [incentives, salesById, filters, branchNames, exclusionList, cashierNameById],
   );
 
   const { sort, sorted, toggle } = useTableSort(report.rows, "date", "desc", COMPARATORS);
@@ -250,16 +239,21 @@ function ReporteComisionVentasContent() {
     toast.success(`Comprobante ${l.comprobante} vuelve a comisionar.`);
   };
 
-  // ── Selección y pago de comisiones (§12/§13) ──
-  const toggleSelect = (comprobante: string) =>
+  // ── Selección y pago de comisiones ──
+  // El pago opera sobre `sales_incentives` por incentive_id (mismo endpoint que
+  // Ventas > Incentivos: /api/incentives/pay). Así pagar aquí o allá deja el
+  // MISMO estado en ambos módulos (sincronización bidireccional §5/§11). La
+  // selección se llavea por id de incentivo (l.id).
+  const [paying, setPaying] = React.useState(false);
+  const toggleSelect = (id: string) =>
     setSelected((s) => {
       const next = new Set(s);
-      if (next.has(comprobante)) next.delete(comprobante);
-      else next.add(comprobante);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   const selectableOnPage = () =>
-    pag.pageItems.filter((l) => l.status === "commissionable").map((l) => l.comprobante);
+    pag.pageItems.filter((l) => l.payout !== "paid").map((l) => l.id);
   const allPageSelected = () => {
     const s = selectableOnPage();
     return s.length > 0 && s.every((c) => selected.has(c));
@@ -274,56 +268,22 @@ function ReporteComisionVentasContent() {
     });
 
   const selectedLines = report.rows.filter(
-    (l) => l.status === "commissionable" && selected.has(l.comprobante),
+    (l) => l.payout !== "paid" && selected.has(l.id),
   );
   const selectedTotal = selectedLines.reduce((s, l) => s + l.commission, 0);
-  const who = mockCurrentUser.fullName;
 
-  const approveSelected = async () => {
-    if (!selectedLines.length) return;
-    const comps = selectedLines.map((l) => l.comprobante);
-    const res = await setPayout(comps, "approved", { userName: who });
-    if (!res.ok) {
-      toast.error(res.error ?? "No se pudo aprobar la comisión.");
-      return;
-    }
-    await recordCommissionAudit({ action: "approved", comprobantes: comps, amount: selectedTotal, userName: who });
-    toast.success(`${comps.length} comisión(es) aprobada(s).`);
-    setSelected(new Set());
-  };
   const paySelected = async () => {
     if (!selectedLines.length) return;
-    const comps = selectedLines.map((l) => l.comprobante);
-    const res = await setPayout(comps, "paid", { userName: who });
+    setPaying(true);
+    const res = await payIncentives(selectedLines.map((l) => l.id));
+    setPaying(false);
     if (!res.ok) {
-      toast.error(res.error ?? "No se pudo marcar como pagada.");
+      toast.error(res.error ?? "No se pudo registrar el pago.");
       return;
     }
-    await recordCommissionAudit({ action: "paid", comprobantes: comps, amount: selectedTotal, userName: who });
-    toast.success(`${comps.length} comisión(es) marcada(s) como pagada(s).`);
-    setSelected(new Set());
-  };
-  const createBatchFromSelected = async () => {
-    if (!selectedLines.length) return;
-    const comps = selectedLines.map((l) => l.comprobante);
-    const sellerName =
-      filters.sellerId && filters.sellerId !== "__none__"
-        ? sellerOptions.find((c) => c[0] === filters.sellerId)?.[1]
-        : undefined;
-    const res = await createBatch({
-      comprobantes: comps,
-      total: selectedTotal,
-      periodFrom: filters.from,
-      periodTo: filters.to,
-      sellerId: filters.sellerId || undefined,
-      sellerName,
-      userName: who,
-    });
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
-    }
-    toast.success(`Lote de pago creado: ${comps.length} comisión(es), ${formatCurrency(selectedTotal)}.`);
+    toast.success(
+      `${selectedLines.length} comisión(es) pagada(s) en un lote (${formatCurrency(selectedTotal)}).`,
+    );
     setSelected(new Set());
   };
 
@@ -455,23 +415,13 @@ function ReporteComisionVentasContent() {
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Comisión ventas" }]}
         actions={
           <div className="flex flex-wrap gap-2">
-            {/* §7: las reglas se administran en Ventas > Incentivos (fuente única). */}
-            <Link href="/ventas/incentivos" aria-label="Gestionar reglas en Incentivos">
+            {/* §7: reglas e incentivos se administran/pagan en Ventas > Incentivos (fuente única). */}
+            <Link href="/ventas/incentivos" aria-label="Gestionar reglas y pagos en Incentivos">
               <Button variant="outline" size="sm">
                 <Gift className="h-4 w-4" />
-                Gestionar reglas en Incentivos
+                Gestionar en Incentivos
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={() => setRulesOpen(true)}>
-              <SlidersHorizontal className="h-4 w-4" />
-              {canManage ? "Reglas (avanzado)" : "Ver reglas"}
-            </Button>
-            {canManage && (
-              <Button variant="outline" size="sm" onClick={() => setPaymentsOpen(true)}>
-                <HandCoins className="h-4 w-4" />
-                Pagos y auditoría
-              </Button>
-            )}
             {canExport && (
               <>
                 <ExportPdfButton getSpec={pdfSpec} fileSlug="Reporte_Comision_Ventas" />
@@ -762,14 +712,10 @@ function ReporteComisionVentasContent() {
                 {selectedLines.length} seleccionada(s) · {formatCurrency(selectedTotal)}
               </span>
               <div className="ml-auto flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={approveSelected}>
-                  <CheckCircle2 className="h-4 w-4" /> Aprobar
-                </Button>
-                <Button size="sm" variant="outline" onClick={paySelected}>
-                  <HandCoins className="h-4 w-4" /> Marcar pagadas
-                </Button>
-                <Button size="sm" onClick={createBatchFromSelected}>
-                  <Layers className="h-4 w-4" /> Crear lote de pago
+                {/* Pago = lote sobre sales_incentives (mismo flujo que Incentivos). */}
+                <Button size="sm" onClick={paySelected} disabled={paying}>
+                  <HandCoins className="h-4 w-4" />
+                  {paying ? "Pagando…" : "Pagar (crear lote)"}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
                   Limpiar
@@ -822,13 +768,13 @@ function ReporteComisionVentasContent() {
                   <TR key={l.id}>
                     {canManage && (
                       <TD className="pl-4">
-                        {l.status === "commissionable" ? (
+                        {l.payout !== "paid" ? (
                           <input
                             type="checkbox"
                             className="h-4 w-4"
                             aria-label={`Seleccionar ${l.comprobante}`}
-                            checked={selected.has(l.comprobante)}
-                            onChange={() => toggleSelect(l.comprobante)}
+                            checked={selected.has(l.id)}
+                            onChange={() => toggleSelect(l.id)}
                           />
                         ) : null}
                       </TD>
@@ -893,15 +839,6 @@ function ReporteComisionVentasContent() {
 
         <ReportFooter businessName="DermaLand" reportName="Comisión de ventas" generatedAt={generatedAt} />
       </ReportLayout>
-
-      <CommissionRulesModal
-        open={rulesOpen}
-        onClose={() => setRulesOpen(false)}
-        branches={activeBranches.map((b) => ({ id: b.id, name: b.name }))}
-        canManage={canManage}
-      />
-
-      <CommissionPaymentsModal open={paymentsOpen} onClose={() => setPaymentsOpen(false)} />
 
       <Modal
         open={!!excludeTarget}

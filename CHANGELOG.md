@@ -11,6 +11,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.56.0] - 2026-07-10
+
+**Unificación Incentivos ↔ Comisión ventas — cierre (pago bidireccional).** El
+pago de comisiones desde *Reportes > Comisión ventas* ahora opera sobre
+`sales_incentives` por `incentive_id` (mismo endpoint `/api/incentives/pay` que
+*Ventas > Incentivos*) → pagar en cualquiera de los dos módulos deja el MISMO
+estado en ambos (antes Comisión escribía `commission_payouts` por comprobante y
+no se reflejaba en Incentivos). **No toca DGII real.**
+
+- El reporte de Comisión lee el estado de pago del snapshot (se quitó el overlay
+  `payoutByComprobante`). Selección por id de incentivo; una sola acción "Pagar
+  (crear lote)".
+- Se retiró de la pantalla de Comisión la maquinaria legacy por comprobante
+  (`commission-payout/-batch/-audit` stores, modales de reglas y de pagos): las
+  reglas y los pagos se gestionan en Incentivos (§7/§17). Se conservan las
+  exclusiones manuales. El motor dinámico `commission-engine.ts` queda solo como
+  proveedor de tipos/legacy (sus tests siguen verdes).
+
 ## [0.55.0] - 2026-07-10
 
 **Unificación Incentivos ↔ Comisión ventas — Fase 2 (cutover a fuente única).**
