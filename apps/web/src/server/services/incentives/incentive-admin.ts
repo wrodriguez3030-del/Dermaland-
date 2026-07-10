@@ -64,7 +64,14 @@ export function incentiveRowToClient(row: Row) {
     productId: (row.product_id as string | null) ?? null,
     baseAmount: Number(row.base_amount ?? 0),
     incentiveAmount: Number(row.incentive_amount ?? 0),
-    status: row.status as "pending" | "approved" | "paid" | "void",
+    adjustmentAmount: Number(row.adjustment_amount ?? 0),
+    status: row.status as
+      | "pending"
+      | "approved"
+      | "paid"
+      | "adjusted"
+      | "voided"
+      | "void",
     earnedAt: row.earned_at as string,
     paidAt: (row.paid_at as string | null) ?? null,
     paymentBatchId: (row.payment_batch_id as string | null) ?? null,
@@ -105,33 +112,54 @@ export async function auditIncentive(
 export async function voidIncentivesForCancelledSale(
   saleId: string,
   reason: string,
-): Promise<{ voided: number; paidPending: number }> {
+): Promise<{ voided: number; adjusted: number; paidPending: number }> {
   const sb = await createServer();
-  if (!sb) return { voided: 0, paidPending: 0 };
+  if (!sb) return { voided: 0, adjusted: 0, paidPending: 0 };
 
   const { data: existing } = await sb
     .from("sales_incentives")
-    .select("id, status")
+    .select("id, status, incentive_amount")
     .eq("sale_id", saleId);
-  if (!existing || existing.length === 0) return { voided: 0, paidPending: 0 };
+  if (!existing || existing.length === 0)
+    return { voided: 0, adjusted: 0, paidPending: 0 };
 
+  const now = new Date().toISOString();
+
+  // Pendientes/aprobados → ANULADOS (aún no se pagó nada, no hay que recuperar).
   const toVoid = existing
     .filter((i: Row) => i.status === "pending" || i.status === "approved")
     .map((i: Row) => i.id);
-  const paidPending = existing.filter((i: Row) => i.status === "paid").length;
-
   if (toVoid.length > 0) {
-    const now = new Date().toISOString();
     await sb
       .from("sales_incentives")
       .update({
-        status: "void",
+        status: "voided",
         note: `Venta anulada: ${reason}`.slice(0, 500),
         updated_at: now,
       })
       .in("id", toVoid);
   }
-  return { voided: toVoid.length, paidPending };
+
+  // Pagados → AJUSTE NEGATIVO (§12): no se borra el original; se marca `adjusted`
+  // con `adjustment_amount = -incentive_amount` → saldo de recuperación. El
+  // reporte y Incentivos reflejan el mismo ajuste (netCommission = total + ajustes).
+  const paid = existing.filter((i: Row) => i.status === "paid") as Array<{
+    id: string;
+    incentive_amount: number | string;
+  }>;
+  for (const i of paid) {
+    await sb
+      .from("sales_incentives")
+      .update({
+        status: "adjusted",
+        adjustment_amount: -Math.abs(Number(i.incentive_amount) || 0),
+        note: `Devolución/anulación (recuperación): ${reason}`.slice(0, 500),
+        updated_at: now,
+      })
+      .eq("id", i.id);
+  }
+
+  return { voided: toVoid.length, adjusted: paid.length, paidPending: paid.length };
 }
 
 /**

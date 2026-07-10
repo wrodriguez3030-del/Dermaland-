@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.57.0] - 2026-07-10
+
+**Devoluciones/ajustes de comisión (§12) — cierre de la unificación.** Al anular
+una venta, sus incentivos se resuelven en `sales_incentives` y ambos módulos
+reflejan el mismo ajuste. **No toca DGII real.**
+
+- `voidIncentivesForCancelledSale` (invocado por `PATCH /api/proformas/[id]`
+  `{action:"cancel"}`): pendientes/aprobados → **anulados** (`voided`); pagados →
+  **ajuste negativo** (`status: adjusted`, `adjustment_amount = −incentivo`) sin
+  borrar el original → saldo de recuperación.
+- La capa central y el adaptador propagan `adjustment_amount`: KPIs nuevos
+  **"Ajustes (devoluciones)"** y **"Comisión neta"** (= total + ajustes) en
+  `Reportes > Comisión ventas` y en `Ventas > Incentivos`, solo cuando hay
+  ajustes. Las líneas `adjusted`/`voided` ya no cuentan como pendiente/pagada.
+- Tipos: `IncentiveRecord.adjustmentAmount`, `CommissionKpis.adjustments/
+  netCommission` y `CommissionLine.adjustment` (opcionales); `sales_incentives`
+  en `database.types.ts` actualizado (`adjustment_amount`, `approved_at`,
+  `payment_method_group`). Test de ajuste en `central.test.ts`.
+
 ## [0.56.0] - 2026-07-10
 
 **Unificación Incentivos ↔ Comisión ventas — cierre (pago bidireccional).** El

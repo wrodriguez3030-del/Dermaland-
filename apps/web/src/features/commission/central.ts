@@ -77,9 +77,7 @@ export function getCommissionSummary(records: IncentiveRecord[]): CommissionSumm
     total += i.incentiveAmount;
     if (isPaidIncentive(i)) paid += i.incentiveAmount;
     if (isPendingIncentive(i)) pending += i.incentiveAmount;
-    // `adjustment_amount` llega en fases posteriores; se lee de forma segura.
-    const adj = (i as { adjustmentAmount?: number }).adjustmentAmount ?? 0;
-    adjustments += adj;
+    adjustments += i.adjustmentAmount ?? 0;
 
     const key = i.ruleId ?? "__none__";
     const acc = ruleAcc.get(key) ?? {

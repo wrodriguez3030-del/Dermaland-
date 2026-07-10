@@ -92,6 +92,7 @@ function toLine(
     ruleName: i.ruleName ?? "—",
     ratePercent,
     commission,
+    adjustment: round2(i.adjustmentAmount ?? 0),
     // Los snapshots existen porque una regla aplicó → siempre comisionables.
     status: "commissionable",
     statusLabel: COMMISSION_STATUS_LABEL.commissionable,
@@ -139,26 +140,34 @@ function computeKpis(lines: CommissionLine[]): CommissionKpis {
     paidCommission: 0,
   };
   const sales = new Set<string>();
+  let adjustments = 0;
   for (const l of lines) {
     sales.add(l.comprobante || l.id);
     k.commissionableBase += l.base;
     k.commissionTotal += l.commission;
+    adjustments += l.adjustment ?? 0;
     if (l.ratePercent === 3) k.commission3 += l.commission;
     else if (l.ratePercent === 1) k.commission1 += l.commission;
     else k.otherCommission += l.commission;
+    // 'adjusted'/'voided' no son ni pendiente ni pagado (ya se saldaron/revirtieron).
     if (l.payout === "paid") k.paidCommission += l.commission;
-    else k.pendingCommission += l.commission;
+    else if (l.payout === "pending" || l.payout === "approved")
+      k.pendingCommission += l.commission;
   }
+  const commissionTotal = round2(k.commissionTotal);
+  const adj = round2(adjustments);
   return {
     commissionableSales: sales.size,
     commissionableBase: round2(k.commissionableBase),
     commission3: round2(k.commission3),
     commission1: round2(k.commission1),
     otherCommission: round2(k.otherCommission),
-    commissionTotal: round2(k.commissionTotal),
+    commissionTotal,
     excludedSales: 0,
     pendingCommission: round2(k.pendingCommission),
     paidCommission: round2(k.paidCommission),
+    adjustments: adj,
+    netCommission: round2(commissionTotal + adj),
   };
 }
 

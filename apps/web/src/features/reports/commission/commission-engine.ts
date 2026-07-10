@@ -123,6 +123,8 @@ export interface CommissionLine {
   ruleName: string;
   ratePercent: number;
   commission: number;
+  /** Ajuste por devolución (negativo) sobre una comisión ya pagada. Opcional. */
+  adjustment?: number;
   status: CommissionStatus;
   statusLabel: string;
   payout: PayoutStatus;
@@ -232,6 +234,10 @@ export interface CommissionKpis {
   excludedSales: number;
   pendingCommission: number;
   paidCommission: number;
+  /** Ajustes por devolución (negativos). Opcional (fuente snapshot). */
+  adjustments?: number;
+  /** Neto = total + ajustes. Opcional. */
+  netCommission?: number;
 }
 
 export interface SellerCommissionRow {

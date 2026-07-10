@@ -21,6 +21,7 @@ function inc(over: Partial<IncentiveRecord>): IncentiveRecord {
     productId: over.productId ?? null,
     baseAmount: over.baseAmount ?? 9000,
     incentiveAmount: over.incentiveAmount ?? 270,
+    adjustmentAmount: over.adjustmentAmount ?? 0,
     status: over.status ?? "pending",
     earnedAt: over.earnedAt ?? "2026-07-01T10:00:00Z",
     paidAt: over.paidAt ?? null,
@@ -86,6 +87,20 @@ describe("capa central — paridad Incentivos ↔ Comisión ventas", () => {
     expect(pend.map((i) => i.id)).toEqual(["a"]);
     const paid = applyCommissionFilters(SAMPLE, { status: "paid" });
     expect(paid.map((i) => i.id)).toEqual(["b"]);
+  });
+
+  it("ajuste por devolución (§12): baja el neto, no cuenta como pendiente", () => {
+    // Comisión pagada RD$100 y luego devuelta → adjusted con adjustment -100.
+    const withAdj: IncentiveRecord[] = [
+      inc({ id: "p", incentiveAmount: 100, status: "paid" }),
+      inc({ id: "adj", incentiveAmount: 100, status: "adjusted", adjustmentAmount: -100 }),
+    ];
+    const s = getCommissionSummary(withAdj);
+    expect(s.commissionTotal).toBe(200); // bruto generado (no se borra el original)
+    expect(s.adjustments).toBe(-100);
+    expect(s.netCommission).toBe(100); // 200 − 100 recuperado
+    expect(s.paidCommission).toBe(100); // solo la línea 'paid'
+    expect(s.pendingCommission).toBe(0); // 'adjusted' NO es pendiente
   });
 
   it("filtrar por VENDEDOR es coherente entre módulos (mismos ids)", () => {

@@ -368,6 +368,13 @@ function ReporteComisionVentasContent() {
     { label: "Ventas excluidas", value: k.excludedSales, tone: k.excludedSales ? "warning" : "default" },
     { label: "Pendiente de pago", value: formatCurrency(k.pendingCommission), tone: "warning" },
     { label: "Pagada", value: formatCurrency(k.paidCommission) },
+    // Ajustes por devolución (§12): solo cuando hay recuperaciones.
+    ...(k.adjustments && k.adjustments !== 0
+      ? ([
+          { label: "Ajustes (devoluciones)", value: formatCurrency(k.adjustments), tone: "danger" },
+          { label: "Comisión neta", value: formatCurrency(k.netCommission ?? k.commissionTotal), tone: "success" },
+        ] as ReportKpi[])
+      : []),
   ];
 
   const filterChips: ReportFilterChip[] = [];

@@ -41,6 +41,7 @@ import {
 } from "@/features/billing/permissions";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { rankSellers, summarize } from "@/features/incentives/incentive-report";
+import { getCommissionSummary } from "@/features/commission/central";
 import { downloadBlob } from "@/lib/utils/download";
 import { useBranches } from "@/features/tenancy/branch-store";
 import { FileSpreadsheet } from "lucide-react";
@@ -79,8 +80,10 @@ export default function IncentivosPage() {
     [branches],
   );
 
-  // KPIs + ranking (agregación pura).
+  // KPIs + ranking (agregación pura). El resumen central aporta ajustes/neto por
+  // devolución — MISMA fuente que el reporte de Comisión ventas.
   const kpis = React.useMemo(() => summarize(incentives), [incentives]);
+  const central = React.useMemo(() => getCommissionSummary(incentives), [incentives]);
   const ranking = React.useMemo(() => rankSellers(incentives), [incentives]);
 
   const exportExcel = async () => {
@@ -191,6 +194,22 @@ export default function IncentivosPage() {
           hint={`${kpis.incentivizedSales} ventas incentivadas`}
           icon={Gift}
         />
+        {central.adjustments !== 0 && (
+          <>
+            <StatCard
+              label="Ajustes (devoluciones)"
+              value={formatCurrency(central.adjustments)}
+              icon={Clock}
+              tone="danger"
+            />
+            <StatCard
+              label="Comisión neta"
+              value={formatCurrency(central.netCommission)}
+              icon={Coins}
+              tone="success"
+            />
+          </>
+        )}
       </div>
 
       {/* ── Ranking por vendedor ── */}

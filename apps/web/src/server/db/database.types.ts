@@ -1237,6 +1237,8 @@ export type Database = {
       }
       sales_incentives: {
         Row: {
+          adjustment_amount: number
+          approved_at: string | null
           base_amount: number
           business_id: string
           created_at: string
@@ -1246,6 +1248,7 @@ export type Database = {
           note: string | null
           paid_at: string | null
           payment_batch_id: string | null
+          payment_method_group: string | null
           product_id: string | null
           rule_id: string | null
           rule_name: string | null
@@ -1257,6 +1260,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          adjustment_amount?: number
+          approved_at?: string | null
           base_amount?: number
           business_id: string
           created_at?: string
@@ -1266,6 +1271,7 @@ export type Database = {
           note?: string | null
           paid_at?: string | null
           payment_batch_id?: string | null
+          payment_method_group?: string | null
           product_id?: string | null
           rule_id?: string | null
           rule_name?: string | null
@@ -1277,6 +1283,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          adjustment_amount?: number
+          approved_at?: string | null
           base_amount?: number
           business_id?: string
           created_at?: string
@@ -1286,6 +1294,7 @@ export type Database = {
           note?: string | null
           paid_at?: string | null
           payment_batch_id?: string | null
+          payment_method_group?: string | null
           product_id?: string | null
           rule_id?: string | null
           rule_name?: string | null

@@ -66,6 +66,8 @@ export interface IncentiveRecord {
   productId: string | null;
   baseAmount: number;
   incentiveAmount: number;
+  /** Ajuste (negativo) por devolución/anulación de una comisión ya pagada. */
+  adjustmentAmount?: number;
   status: IncentiveStatus;
   earnedAt: string;
   paidAt: string | null;
