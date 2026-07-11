@@ -48,6 +48,11 @@ const schema = z.object({
 
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_DEFAULT_MODEL: z.string().default("gpt-4o-mini"),
+
+  // Master key (AES-256-GCM, base64 de 32 bytes) para cifrar las API keys de
+  // proveedores de IA guardadas por empresa. SOLO servidor; nunca se imprime.
+  // Sin ella NO se pueden guardar credenciales de IA por UI (se bloquea).
+  AI_CREDENTIALS_ENCRYPTION_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -155,4 +160,25 @@ export function isWhatsappConfigured(): boolean {
 
 export function isOpenAIConfigured(): boolean {
   return Boolean(env.OPENAI_API_KEY);
+}
+
+/**
+ * ¿Está configurada la master key para cifrar credenciales de IA por empresa?
+ * Debe ser base64 de 32 bytes (≥ 43 chars). Sin ella se bloquea el guardado de
+ * claves (nunca se guardan en texto plano).
+ */
+export function isAiCredentialsEncryptionConfigured(): boolean {
+  const k = env.AI_CREDENTIALS_ENCRYPTION_KEY;
+  return Boolean(k && k.length >= 43);
+}
+
+/** Devuelve la master key o lanza (mensaje sin la clave). SOLO servidor. */
+export function getAiEncryptionKeyOrThrow(): string {
+  const k = env.AI_CREDENTIALS_ENCRYPTION_KEY;
+  if (!k || k.length < 43) {
+    throw new Error(
+      "AI_CREDENTIALS_ENCRYPTION_KEY no está configurada; no se pueden guardar credenciales de IA de forma segura.",
+    );
+  }
+  return k;
 }
