@@ -4,6 +4,7 @@ import { decryptApiKey, encryptApiKey } from "@/server/crypto/ai-cipher";
 import { saveSecret } from "./store";
 import { createAdapter } from "./providers/factory";
 import type {
+  AIChatMessage,
   AIModel,
   AIRequest,
   AIResponse,
@@ -68,6 +69,28 @@ export async function saveProviderKey(
   await saveSecret(businessId, providerId, sealed);
 }
 
+/**
+ * Resuelve proveedor+modelo de un agente. Si el binding no trae modelo, usa el
+ * modelo predeterminado del proveedor (para que "solo elegir proveedor" baste).
+ */
+export async function resolveAgentTarget(
+  businessId: string,
+  binding: { providerId: string | null; model: string | null },
+): Promise<{ providerId: string; model: string }> {
+  if (!binding.providerId) {
+    throw new AiServiceError("provider_not_configured", "Configura un proveedor de IA para activar este agente.");
+  }
+  if (binding.model) return { providerId: binding.providerId, model: binding.model };
+  const provider = await getProvider(businessId, binding.providerId);
+  if (!provider?.defaultModel) {
+    throw new AiServiceError(
+      "no_model",
+      "Elige un modelo para este agente (o define un modelo predeterminado en el proveedor).",
+    );
+  }
+  return { providerId: binding.providerId, model: provider.defaultModel };
+}
+
 /** Probar conexión de un proveedor (usa su clave cifrada). Marca last_test_*. */
 export async function testProvider(
   businessId: string, providerId: string,
@@ -111,7 +134,11 @@ export interface RunRequestParams {
   providerId: string;
   model: string;
   instructions?: string;
-  input: string;
+  /** Texto simple o historial de chat multi-turno. */
+  input: string | AIChatMessage[];
+  /** Id de conversación (para agrupar en logs) y canal ("chat", "test"…). */
+  conversationId?: string;
+  channel?: string;
   tools?: AIToolSpec[];
   maxOutputTokens?: number;
   temperature?: number;
@@ -168,10 +195,11 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
       await logUsage(params.businessId, {
         agentId: params.agentId, providerId: params.providerId, providerType: provider.providerType,
         model: params.model, userId: params.userId, branchId: params.branchId,
+        conversationId: params.conversationId, channel: params.channel,
         inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens,
         estimatedCostUsd: cost ?? 0, latencyMs,
         toolsUsed: res.toolCalls.map((t) => t.name),
-        status: res.status === "incomplete" ? "success" : "success",
+        status: "success",
       });
     }
     return { ...res, providerId: params.providerId, usedFallback: false, estimatedCostUsd: cost, latencyMs };
@@ -190,6 +218,7 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
           await logUsage(params.businessId, {
             agentId: params.agentId, providerId: fb.id, providerType: fb.providerType,
             model: params.fallback.model, userId: params.userId, branchId: params.branchId,
+            conversationId: params.conversationId, channel: params.channel,
             inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens,
             estimatedCostUsd: cost ?? 0, latencyMs,
             toolsUsed: res.toolCalls.map((t) => t.name),
@@ -204,6 +233,7 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
       await logUsage(params.businessId, {
         agentId: params.agentId, providerId: params.providerId, providerType: provider.providerType,
         model: params.model, userId: params.userId, branchId: params.branchId,
+        conversationId: params.conversationId, channel: params.channel,
         inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, latencyMs: Date.now() - started,
         status: reason === "timeout" ? "timeout" : reason === "rate_limited" ? "rate_limited" : "error",
         errorSummary: reason,

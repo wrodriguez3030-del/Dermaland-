@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAiAdmin } from "@/server/services/ai/guard";
 import { aiErrorResponse, requireSupabase } from "@/server/services/ai/api-helpers";
 import { getBinding } from "@/server/services/ai/store";
-import { runRequest, AiServiceError } from "@/server/services/ai/provider-service";
+import { runRequest, resolveAgentTarget } from "@/server/services/ai/provider-service";
 import { mockAIAgents } from "@/lib/mock-data/integrations";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,14 @@ export async function POST(
     const agent = mockAIAgents.find((a) => a.id === id);
     if (!agent) return NextResponse.json({ error: "Agente no encontrado." }, { status: 404 });
     const binding = await getBinding(session.businessId, id);
-    if (!binding?.providerId || !binding.model) {
-      throw new AiServiceError("provider_not_configured", "Configura un proveedor de IA para activar este agente.");
-    }
-    if (binding.status === "paused") {
+    if (binding?.status === "paused") {
       return NextResponse.json({ error: "El agente está pausado." }, { status: 409 });
     }
+    // Si el agente no tiene modelo propio, usa el predeterminado del proveedor.
+    const target = await resolveAgentTarget(session.businessId, {
+      providerId: binding?.providerId ?? null,
+      model: binding?.model ?? null,
+    });
     const body = await req.json();
     const message = String(body?.message ?? "").trim() || "Hola, ¿puedes presentarte?";
     const result = await runRequest({
@@ -35,13 +37,14 @@ export async function POST(
       userId: session.user.id,
       branchId: session.branchId,
       agentId: id,
-      providerId: binding.providerId,
-      model: binding.model,
+      providerId: target.providerId,
+      model: target.model,
+      channel: "test",
       instructions: agent.systemPrompt,
       input: message,
-      temperature: binding.temperature ?? undefined,
-      maxOutputTokens: binding.maxOutputTokens ?? undefined,
-      fallback: binding.fallbackProviderId && binding.fallbackModel
+      temperature: binding?.temperature ?? undefined,
+      maxOutputTokens: binding?.maxOutputTokens ?? undefined,
+      fallback: binding?.fallbackProviderId && binding.fallbackModel
         ? { providerId: binding.fallbackProviderId, model: binding.fallbackModel }
         : null,
     });

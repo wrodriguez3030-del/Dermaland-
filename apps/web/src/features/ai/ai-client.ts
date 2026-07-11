@@ -105,7 +105,21 @@ export const aiApi = {
   },
   status: () =>
     req<{ status: AiSetupStatus }>("/api/ai/status"),
+  chat: (agentId: string, messages: ChatMessage[], conversationId: string) =>
+    req<{
+      text: string; model: string; usedFallback: boolean;
+      usage: { inputTokens: number; outputTokens: number };
+      estimatedCostUsd: number | null; latencyMs: number;
+    }>("/api/ai/chat", {
+      method: "POST",
+      body: JSON.stringify({ agentId, messages, conversationId }),
+    }),
 };
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export interface UsageSummary {
   requests: number;

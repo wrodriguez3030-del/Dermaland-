@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Card, CardContent, Badge, Button, Input, Select, Label, Modal } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
-import { Bot, FlaskConical } from "lucide-react";
+import { Bot, FlaskConical, MessageCircle } from "lucide-react";
 import { useAgents, useProviders, aiApi, type AgentView } from "./ai-client";
 
 /**
@@ -57,6 +58,13 @@ export function AgentConfigPanel() {
                   )}
                 </div>
                 <div className="flex gap-2">
+                  {!noProvider && (
+                    <Link href={`/ia/chat?agent=${a.id}`}>
+                      <Button size="sm">
+                        <MessageCircle className="h-3.5 w-3.5" /> Chatear
+                      </Button>
+                    </Link>
+                  )}
                   <Button size="sm" variant="outline" disabled={noProvider} onClick={() => setTestAgent(a)}>
                     <FlaskConical className="h-3.5 w-3.5" /> Probar agente
                   </Button>

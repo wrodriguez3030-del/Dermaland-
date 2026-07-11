@@ -11,6 +11,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.65.0] - 2026-07-11
+
+**Chat IA estilo WhatsApp (`/ia/chat`).** La forma más fácil de hablar con los
+agentes: burbujas, entrada abajo, Enter para enviar. **No toca DGII/fiscal.**
+
+- **Pantalla de chat** (`/ia/chat`, en el menú IA como "Chat IA" y botón
+  "Chatear" en cada agente): selector de agente en el encabezado, burbujas (tú a
+  la derecha con color de marca, el agente a la izquierda), hora en cada
+  mensaje, indicador "escribiendo…", sugerencias rápidas de preguntas por
+  agente, y meta discreta por respuesta (latencia · costo estimado · fallback).
+  La conversación se conserva por agente en el navegador (sessionStorage) con
+  botón para vaciarla.
+- **Backend conversacional** `POST /api/ai/chat`: multi-turno real — el
+  historial (validado y recortado a los últimos 20 turnos, roles
+  user/assistant, 4000 chars por mensaje) viaja al modelo vía la Responses API
+  (`input` como arreglo de mensajes; `AIRequest.input` ahora acepta string o
+  historial). El system prompt del agente NUNCA viene del cliente. Cada
+  respuesta se registra en `ai_usage_logs` con `conversation_id` y canal
+  ("chat" / "test").
+- **Fricción corregida:** si el agente tiene proveedor pero el campo Modelo está
+  vacío, ahora usa automáticamente el **modelo predeterminado del proveedor**
+  (`resolveAgentTarget`), en el chat y en "Probar agente" — elegir proveedor ya
+  es suficiente para empezar.
+- typecheck + suite (1698) + build verdes.
+
 ## [0.64.0] - 2026-07-11
 
 **Módulo IA más funcional y fácil (revisión de usabilidad).** Cierra las 4

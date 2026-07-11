@@ -36,10 +36,16 @@ export interface AIToolSpec {
   parameters: Record<string, unknown>; // JSON Schema
 }
 
+export interface AIChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface AIRequest {
   model: string;
   instructions?: string;
-  input: string;
+  /** Texto simple, o conversación multi-turno (chat). */
+  input: string | AIChatMessage[];
   tools?: AIToolSpec[];
   maxOutputTokens?: number;
   temperature?: number;
