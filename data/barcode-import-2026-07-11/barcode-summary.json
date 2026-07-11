@@ -1,0 +1,14 @@
+{
+  "excelFilas": 1436,
+  "productosActivos": 1355,
+  "productosConBarcodeAntes": 14,
+  "planAsignaciones": 1225,
+  "planExact": 1225,
+  "planToken": 0,
+  "planEan13": 1105,
+  "planUpc12": 120,
+  "paraRevisar": 182,
+  "sinMatch": 28,
+  "conflictos": 0,
+  "productosQuedanSinBarcode": 116
+}

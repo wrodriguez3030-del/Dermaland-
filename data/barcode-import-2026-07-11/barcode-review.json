@@ -1,0 +1,1315 @@
+{
+  "review": [
+    {
+      "row": 97,
+      "name": "IDCP JABON DE CASTILLA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 154,
+      "name": "TOALLA DE MICROFIBRA PARA CABELLO",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 159,
+      "name": "KALM 10 MG ** DETALLE **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 160,
+      "name": "DOXIL 100 MG ** DETALLE **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 162,
+      "name": "KALM 25 MG ** DETALLE **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 207,
+      "name": "SESDERMA HIDRALOE GEL DE ALOE 250 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 215,
+      "name": "TOALLA DESMAQUILLANTE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 251,
+      "name": "DELIVERY",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 252,
+      "name": "DELIVERY 2",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 253,
+      "name": "DELIVERY 3",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 257,
+      "name": "COMBO 1 PIEL GRASA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 258,
+      "name": "COMBO 11 PIEL GRASA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 263,
+      "name": "BANDA ELASTICA PARA EL PELO, LAZO PARA DUCHA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 266,
+      "name": "DELIVERY 4",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 308,
+      "name": "MEDIHEALTH UMBRELLA BASE COMPACTA TONO 4 DURAZNO SPF 50+11 G",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 331,
+      "name": "LA ROCHE-POSAY LIPIKAR WASH AP+ 400 ML",
+      "barcode": "3337875751",
+      "reason": "ean_longitud_invalida(len=10)"
+    },
+    {
+      "row": 341,
+      "name": "DELIVERY 6",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 342,
+      "name": "DELIVERY 7",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 349,
+      "name": "DELIVERY 8",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 350,
+      "name": "DELIVERY 9",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 356,
+      "name": "FLUCONAZOL LAM 150 MG",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 400,
+      "name": "DELIVERY 10",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 401,
+      "name": "DELIVERY 11",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 436,
+      "name": "DELIVERY",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 449,
+      "name": "COLORESCIENCE SUNFORGETTABLE SPORT STICK SPF 50",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 451,
+      "name": "DELIVERY 13",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 452,
+      "name": "DELIVERY 12",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 455,
+      "name": "SESDERMA C-VIT CONTORNO DE OJOS 15 ML",
+      "barcode": "8429979444608",
+      "reason": "producto_asignado_por_2_filas_excel",
+      "dbName": "Sesderma C-vit Contorno DE Ojos 15 ML",
+      "otra": "SESDERMA C-VIT CONTORNO DE OJOS 15 ML"
+    },
+    {
+      "row": 471,
+      "name": "VASELINE BLUESEAL ALOE FRESH",
+      "barcode": "60018885",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 472,
+      "name": "VASELINE BLUESEAL COCOA BUTTER",
+      "barcode": "60018939",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 473,
+      "name": "VASELINE BLUESEAL BABY",
+      "barcode": "60019035",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 474,
+      "name": "VASELINE BLUESEAL ORIGINAL",
+      "barcode": "60014399",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 493,
+      "name": "ZO LEUKOPLAST",
+      "barcode": "77011541",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 534,
+      "name": "RUTINA HIDRA MOM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 554,
+      "name": "TERBIX 250 MG ** DETALLE **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 579,
+      "name": "DUCRAY MELASCREEN DEPIGMENTANTE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 582,
+      "name": "TRILUMA CREMA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 590,
+      "name": "DELIVERY 12",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 594,
+      "name": "GUANTES DE TELA MEDIEUM ** DOS UNIDADES **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 595,
+      "name": "GUANTES DE TELA ** DOS UNIDADES **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 606,
+      "name": "VASELINE BLUESEAL VITAMINA E",
+      "barcode": "60014429",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 624,
+      "name": "ZO LEUKOPLAST",
+      "barcode": "77011558",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 668,
+      "name": "- NEUTROGENA GLYCOLIC ACID OVERNIGHT PEEL 3.2 OZ",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 704,
+      "name": "LA ROCHE-POSAY ANTHELIOS 50 ANTI-AGING PRIMER",
+      "barcode": "88314002095",
+      "reason": "ean_longitud_invalida(len=11)"
+    },
+    {
+      "row": 770,
+      "name": "LA ROCHE-POSAY TOLERIANE DOUBLE REPAIR MATTE MOISTURIZER 75 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 778,
+      "name": "LA ROCHE POSAY KIT EFFACLAR DERMATOLOGICAL ACNE",
+      "barcode": "88314003528",
+      "reason": "ean_longitud_invalida(len=11)"
+    },
+    {
+      "row": 780,
+      "name": "SOMBRERO",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 810,
+      "name": "VALTREX 500MG CAJA X 10 TABLETAS",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 819,
+      "name": "NOVACREM CREMA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 820,
+      "name": "ISOLVE 20 MG X 30 CAPS",
+      "barcode": "18906047541027",
+      "reason": "ean_longitud_invalida(len=14)"
+    },
+    {
+      "row": 822,
+      "name": "KIT BRILLO CONTROL MAMA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 823,
+      "name": "KIT HIDRATACION MAMA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 824,
+      "name": "KIT GLOW EXPRESS MAMA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 825,
+      "name": "KIT PIEL PERFECTA MAMA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 828,
+      "name": "TOALLA DE MICROFIBRA SECADO DE CARA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 829,
+      "name": "TOALLA DE MICROFIBRA SECADO DE CARA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 841,
+      "name": "CETOPIC PROTEOGLICANOS-C AMP./30",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 866,
+      "name": "ELIDEL CREMA 1%",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 867,
+      "name": "MOMET CREMA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 888,
+      "name": "REXONA CLINICAL CLASSIC STIK 46 G",
+      "barcode": "75073107",
+      "reason": "ean_longitud_invalida(len=8)"
+    },
+    {
+      "row": 906,
+      "name": "BIODERMA SEBIUM H2O 500 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 926,
+      "name": "HELIOCARE 360 MINERAL FLUIDO SPF 50",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 928,
+      "name": "SERENUS 10 MG ** DETALLE **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 929,
+      "name": "VICHY MINERAL 89 CREMA HIDRATANTE 72H TEXTURA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 931,
+      "name": "RENUEVE-C ADVANCE SUERO 30 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 933,
+      "name": "FREZYDERM VITAMINA C SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 934,
+      "name": "GV ERITROMICINA GEL AL 4%",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 938,
+      "name": "VICHY DERMABLEND 3D CORRECTIVE FOUNDATION 16H #55",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 939,
+      "name": "PEP UP COLLAGEN BOOST FACE & NECK TREATMENT",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 940,
+      "name": "EVEN UP CLINICAL PIGMENT PERFECTOR SPF 50",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 941,
+      "name": "EVEN UP MULTI-CORRECTION SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 942,
+      "name": "ALL CALM CLINICAL REDNESS CORRECTOR SPF 50",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 943,
+      "name": "ALL CALM MULTI-CORRECTION SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 944,
+      "name": "BARRIER PRO 1-STEP CLEANSER",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 945,
+      "name": "BARRIER PRO ESSENTIAL MOISTURIZER",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 946,
+      "name": "HYDRATING SETTING MIST",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 947,
+      "name": "SUNFORGETTABLE TOTAL PROTECTION FACE SHIELD FLEX SUNSCREEN SPF 50 - MEDIUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 948,
+      "name": "TINT DU SOLEIL SPF 30 - LIGHT",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 949,
+      "name": "TINT DU SOLEIL SPF 30 - MEDIUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 950,
+      "name": "TINT DU SOLEIL SPF 30 - TAN",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 951,
+      "name": "LIP SHINE SPF 35 - CHAMPAGNE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 952,
+      "name": "LIP SHINE SPF 35 - CORAL",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 953,
+      "name": "LIP SHINE SPF 35 - PINK",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 954,
+      "name": "LIP SHINE SPF 35 - ROSE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 955,
+      "name": "PEP UP COLLAGEN BOOST FACE & NECK TREATMENT",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 956,
+      "name": "EVEN UP CLINICAL PIGMENT PERFECTOR SPF 50",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 957,
+      "name": "EVEN UP MULTI-CORRECTION SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 958,
+      "name": "ALL CALM CLINICAL REDNESS CORRECTOR SPF 50",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 959,
+      "name": "ALL CALM MULTI-CORRECTION SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 960,
+      "name": "BARRIER PRO 1-STEP CLEANSER",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 961,
+      "name": "BARRIER PRO ESSENTIAL MOISTURIZER",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 962,
+      "name": "HYDRATING SETTING MIST",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 963,
+      "name": "TINT DU SOLEIL SPF 30 - LIGHT",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 964,
+      "name": "TINT DU SOLEIL SPF 30 - MEDIUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 965,
+      "name": "TINT DU SOLEIL SPF 30 - TAN",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 966,
+      "name": "LIP SHINE SPF 35 - CHAMPAGNE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 967,
+      "name": "LIP SHINE SPF 35 - CORAL",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 968,
+      "name": "LIP SHINE SPF 35 - PINK",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 969,
+      "name": "LIP SHINE SPF 35 - ROSE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 970,
+      "name": "DARROW ACTINE TONO CLARO SPF 50",
+      "barcode": "3120272000000400",
+      "reason": "ean_longitud_invalida(len=16)"
+    },
+    {
+      "row": 997,
+      "name": "TARJETA DE CERTIFICADO",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 998,
+      "name": "TARJETA DE CERTIFICADO",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 999,
+      "name": "EUCERIN HYALURON-FILLER EPIGENETIC SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1000,
+      "name": "DELIVERY",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1003,
+      "name": "ISDIN HYALURONIC MOISTURE PIEL NORMAL 50G",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1010,
+      "name": "DELIVERY",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1013,
+      "name": "Glinderm al 4%",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1014,
+      "name": "ACM DUOLYS RICHE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1021,
+      "name": "ACM DEPIWHITE GEL CONTORNO DE OJOS",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1022,
+      "name": "AVENE SOLAR MAT PERFECT CON COLOR 50+ 50 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1023,
+      "name": "AVENE SOLAR ANTIEDAD SPF 50+ 50ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1024,
+      "name": "BABE JABON DE ACEITE PEDIATRICO 200ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1025,
+      "name": "BIRETIX MASK 25ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1026,
+      "name": "ENDOCARE AQUAFOAM LIMP. FACIAL 125ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1027,
+      "name": "ENDOCARE CONTORNO DE OJOS Y LABIOS 15ML.",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1028,
+      "name": "GENOVE FLUIDBASE K CR ANTIOJERAS 20ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1029,
+      "name": "HIPOSUDOL DESODORANTE ROLL-ON 50 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1030,
+      "name": "IRALTONE DS SHAMPOO 200 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1031,
+      "name": "IRALTONE SHAMPOO FORTIFICANTE 200ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1032,
+      "name": "TANIT CREMA DE MANO DESPIGMENTANTE 50ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1033,
+      "name": "URIAGE AGE LIFT INSTAN FILLER 30 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1039,
+      "name": "DELIVERY",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1044,
+      "name": "ELTA MD UV CLEAR TINTED SPF 46",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1052,
+      "name": "NEORETIN DISCROM ULTRA EMULSION 30ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1057,
+      "name": "TIZO AM REPLENISH CON COLOR SPF 40",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1060,
+      "name": "TiZO SUN Defense con color SPF 45",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1061,
+      "name": "TIZO LIP PROTECTOR SPF 45",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1077,
+      "name": "ALERCET 10 MG",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1079,
+      "name": "RILASTIL XEROLACT PB BALSAMO ANTI-IRRITACION 400 ML",
+      "barcode": "80504444858233",
+      "reason": "ean_longitud_invalida(len=14)"
+    },
+    {
+      "row": 1081,
+      "name": "SKINCEUTICALS P-TIOX WRINKLE-MODULATING PEPTIDE SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1092,
+      "name": "CETAPHIL AD RESTORADERM 295ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1093,
+      "name": "RILASTIL XEROLACT STICK LABIAL",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1094,
+      "name": "RILASTIL XEROLACT JABON DE ACEITE 750 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1097,
+      "name": "LA ROCHE POSAY CICAPLAST LEVRES",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1098,
+      "name": "AVODART 0.5 MG 30 TABLETAS",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1126,
+      "name": "SESDERMA DR. SERRANO REVERTAGE OVALO FACIAL",
+      "barcode": "8429979472069",
+      "reason": "producto_asignado_por_2_filas_excel",
+      "dbName": "Sesderma DR. Serrano Revertage Ovalo Facial",
+      "otra": "SESDERMA DR. SERRANO REVERTAGE OVALO FACIAL"
+    },
+    {
+      "row": 1162,
+      "name": "SCAR SHEETS",
+      "barcode": "004",
+      "reason": "ean_longitud_invalida(len=3)"
+    },
+    {
+      "row": 1164,
+      "name": "IDCP CARFENOL",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1167,
+      "name": "SKINSEETICALS DISCOLORATION DEFENSE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1184,
+      "name": "IBERTOBAR 100 MG 15 ** DETALLE **",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1185,
+      "name": "RETIDERM CREMA 20 G",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1205,
+      "name": "CIPROBIOTIC 500 MG",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1215,
+      "name": "DUCRAY KERTYOL PSO SHAMPOO",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1217,
+      "name": "MD. NEWGEL+ CLEAR SILICONE DOTS 1 DIA 6 PCS",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1224,
+      "name": "BIOCORTONE SOLUCIÓN 30 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1228,
+      "name": "LA ROCHE EFFACLAR MED GEL CLEANSER 2% SALICYLIC ACID 100ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1229,
+      "name": "BIO OIL BODY LOTION 175ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1272,
+      "name": "TELEANGIL FACIAL TUBO",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1275,
+      "name": "FILORGA NCEF ESSENCE 150 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1276,
+      "name": "ELTA UV AOX ELEMENTS EYE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1277,
+      "name": "PILOPEPTAN WOMAN 5 ALPHA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1317,
+      "name": "SESDERMA AZELAC LOCION 100 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1325,
+      "name": "ACIDO HIPOCLOROSO SPRAY 200 ML",
+      "barcode": "0049",
+      "reason": "ean_longitud_invalida(len=4)"
+    },
+    {
+      "row": 1335,
+      "name": "ACIDO HIPOCLOROSO FACIAL CLEANSER SPRAY 236 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1341,
+      "name": "IDCP FORMULA 8",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1344,
+      "name": "SENSILIS PURE AGE PERFECTION RETINAL",
+      "barcode": "84287499456040",
+      "reason": "ean_longitud_invalida(len=14)"
+    },
+    {
+      "row": 1362,
+      "name": "AVENE HYALURON ACTIV B3 OJOS",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1364,
+      "name": "SENSILIS PURE PERFECTION CREMA DE NOCHE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1375,
+      "name": "MARTIDERM PROTEOS LIPOSOME 10 AMP",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1377,
+      "name": "ELTA MD UV CLEAR BLEMISH-PRONE SPF 50 1.7 OZ",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1381,
+      "name": "AVENE TOLERANCE SOOTHING SKIN RECOVERY CREMA 40 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1382,
+      "name": "HD COSMETIC EFFICIENCY MASK K 50 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1385,
+      "name": "LA ROCHE POSAY EFFACLAR BPO MULTI ACNE",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1393,
+      "name": "Venta simple",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1394,
+      "name": "LYSINE 500 MG",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1395,
+      "name": "VALTREX 500 MG",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1397,
+      "name": "RETINOL B3 SERUM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1398,
+      "name": "HYALU SERUM B5 30ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1399,
+      "name": "PURETE THERMALE GEL 200 ML",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1400,
+      "name": "ANTHELIOS 60 SHAKA ULTRA LIGHT FLUIDO",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1404,
+      "name": "MENADERM",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1407,
+      "name": "MARTIDERM DSP SPECIFIC BODY AREAS",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1408,
+      "name": "FILORGA GLOBAL REPAIR ADVANCED EYES & LIPS",
+      "barcode": "35405500169552",
+      "reason": "ean_longitud_invalida(len=14)"
+    },
+    {
+      "row": 1410,
+      "name": "TOTAL EYE DEEP",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1411,
+      "name": "TOTAL BRUSH TAN",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1412,
+      "name": "SUNFORGETTABLE TAN",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1413,
+      "name": "TOTAL BALM GOLDEN HOUR",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1414,
+      "name": "LIP SHINE SAVANNA",
+      "barcode": "",
+      "reason": "sin_barcode_en_excel"
+    },
+    {
+      "row": 1427,
+      "name": "AVENE CLEANANCE GEL 400 ML- OFERTA",
+      "barcode": "7460840592289",
+      "reason": "fuzzy",
+      "score": 0.8,
+      "dbName": "Avene Cleanance GEL 400 ML",
+      "dbSku": "DERM-I00130",
+      "dbId": "ce3092ab-5639-49c4-ad20-c4097ae11525"
+    },
+    {
+      "row": 1435,
+      "name": "AVENE DERMABSOLU CREMA REMODELADORA DE NOCHE 40 ML",
+      "barcode": "3282770395990",
+      "reason": "fuzzy",
+      "score": 0.86,
+      "dbName": "Avene Dermabsolu Crema DE Noche 40 ML",
+      "dbSku": "DERM-I00136",
+      "dbId": "36501b6b-b685-44dd-af4b-a83eb3b736c0"
+    },
+    {
+      "row": 1436,
+      "name": "AVENE DERMABSOLU CONTORNO DE OJOS RELLENADOR 15 ML",
+      "barcode": "3282770396072",
+      "reason": "fuzzy",
+      "score": 0.86,
+      "dbName": "Avene Dermabsolu Contorno DE Ojos 15 ML",
+      "dbSku": "DERM-I00135",
+      "dbId": "b5e543e4-53c2-4465-ab9a-fd7ee0e6ee75"
+    },
+    {
+      "row": 1437,
+      "name": "AVENE DERMABSOLU SERUM REMODELADOR 30 ML",
+      "barcode": "3282770395952",
+      "reason": "fuzzy",
+      "score": 0.8,
+      "dbName": "Avene Dermabsolu Serum 30 ML",
+      "dbSku": "DERM-I00137",
+      "dbId": "48aa81bb-5a5c-497d-aaf2-821ac8e0559b"
+    }
+  ],
+  "noMatch": [
+    {
+      "row": 102,
+      "name": "REGENER CREMA",
+      "barcode": "7467851053266",
+      "bestScore": 0.33,
+      "bestGuess": "Clozol Crema"
+    },
+    {
+      "row": 1110,
+      "name": "APG DESODORANTE SPRAY LENITIVO 150 ML",
+      "barcode": "8022297052465",
+      "bestScore": 0.5,
+      "bestGuess": "APG Desodorante Spray Laser"
+    },
+    {
+      "row": 1111,
+      "name": "APG FLUIDO LENITIVO ROSTRO 50 ML",
+      "barcode": "8022297025476",
+      "bestScore": 0.43,
+      "bestGuess": "APG Fluido Lenitivo Cara Laser"
+    },
+    {
+      "row": 1225,
+      "name": "TANIT DESPIGMENTANTE FLUIDO SPF 40 50 ML",
+      "barcode": "8470001635877",
+      "bestScore": 0.5,
+      "bestGuess": "Tanit Despigmentante Exfoliante 50 ML"
+    },
+    {
+      "row": 1250,
+      "name": "PRIMADERM XPERTSUN URBAN NATURAL COLOR HIGH SPF 50 50 ML",
+      "barcode": "8436564666949",
+      "bestScore": 0.78,
+      "bestGuess": "Primaderm Xpertsun Urban Antural Color High SPF 50 50 ML"
+    },
+    {
+      "row": 1251,
+      "name": "PRIMADERM XPERTSUN URBAN NATURAL COLOR LIGHT SPF 50 50 ML",
+      "barcode": "8436564666932",
+      "bestScore": 0.78,
+      "bestGuess": "Primaderm Xpertsun Urban Antural Color Light SPF 50 50 ML"
+    },
+    {
+      "row": 1405,
+      "name": "FILLERINA GRADO 5 INTENSIVE FILLER",
+      "barcode": "8051417824767",
+      "bestScore": 0.17,
+      "bestGuess": "Nous 5"
+    },
+    {
+      "row": 1406,
+      "name": "EUCERIN UREA 10% LOCION CORPORAL INTENSIVA 400 ML",
+      "barcode": "4005800164361",
+      "bestScore": 0.63,
+      "bestGuess": "Eucerin Urea 10% Locion Corporal 250 ML"
+    },
+    {
+      "row": 1409,
+      "name": "B-33 JABON PASTA 80G",
+      "barcode": "7467851050142",
+      "bestScore": 0.43,
+      "bestGuess": "B-33 Jabon Liquido 100 ML"
+    },
+    {
+      "row": 1415,
+      "name": "SESDERMA DAESES SERUM 30 ML",
+      "barcode": "8429979439529",
+      "bestScore": 0.6,
+      "bestGuess": "Sesderma Sesbalance Serum 30 ML"
+    },
+    {
+      "row": 1416,
+      "name": "SESDERMA OCEANSKIN GEL LIMPIADOR 200 ML",
+      "barcode": "8429979459732",
+      "bestScore": 0.43,
+      "bestGuess": "Avène Cleanance Gel Limpiador 200 ml"
+    },
+    {
+      "row": 1417,
+      "name": "MARTIDERM DROPPER ABSOLUTE LIFT 30 ML",
+      "barcode": "8436589052574",
+      "bestScore": 0.29,
+      "bestGuess": "Martiderm Collagen Lift 20 ML"
+    },
+    {
+      "row": 1418,
+      "name": "GENOVE PREVIRIT CREMA DE AFEITAR SENSITIVE 50 ML",
+      "barcode": "8423372000652",
+      "bestScore": 0.75,
+      "bestGuess": "Genove Previrit Crema DE Afeitar Sensitive 300 ML"
+    },
+    {
+      "row": 1419,
+      "name": "TRICOCAPS 60 CAPSULAS",
+      "barcode": "8030082002304",
+      "bestScore": 0.4,
+      "bestGuess": "Sunlat PRO 60 Capsulas"
+    },
+    {
+      "row": 1420,
+      "name": "NEOSTRATA SUERO VITAMINA C 15 ML",
+      "barcode": "732013302511",
+      "bestScore": 0.29,
+      "bestGuess": "Frezyderm Vitamina C Serum"
+    },
+    {
+      "row": 1421,
+      "name": "DUCRAY KELUAL DS INTENSIVE 100 ML",
+      "barcode": "3282770400786",
+      "bestScore": 0.67,
+      "bestGuess": "Ducray Kelual DS Shampoo 100 ML"
+    },
+    {
+      "row": 1422,
+      "name": "TRICOVIT WNT SHAMPOO 250 ML",
+      "barcode": "8030082001765",
+      "bestScore": 0.33,
+      "bestGuess": "Tricovit WNT Spray 125 ML"
+    },
+    {
+      "row": 1423,
+      "name": "ZK-INA LIDOCAINA 10% SPRAY CEREZA 115 ML",
+      "barcode": "7501567700714",
+      "bestScore": 0.11,
+      "bestGuess": "Terbix Spray 90 ML"
+    },
+    {
+      "row": 1424,
+      "name": "ZK-INA LIDOCAINA 10%SPRAY SIN SABOR 115 ML",
+      "barcode": "7501567700707",
+      "bestScore": 0.09,
+      "bestGuess": "Tizo 2 SIN Color SPF 40"
+    },
+    {
+      "row": 1425,
+      "name": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO CLARO",
+      "barcode": "7703281002468",
+      "bestScore": 0.27,
+      "bestGuess": "Medihealth Umbrella Base Compacta Tono 3 Miel SPF 50+11 G"
+    },
+    {
+      "row": 1426,
+      "name": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO OSCURO",
+      "barcode": "7703281002475",
+      "bestScore": 0.27,
+      "bestGuess": "Medihealth Umbrella Base Compacta Tono 3 Miel SPF 50+11 G"
+    },
+    {
+      "row": 1428,
+      "name": "URIAGE PRURICED SOS",
+      "barcode": "3661434009693",
+      "bestScore": 0.33,
+      "bestGuess": "Uriage Hyseac Pate SOS 15G"
+    },
+    {
+      "row": 1429,
+      "name": "MARTIDERM MINERAL D FLUID SPF 50",
+      "barcode": "8436589051720",
+      "bestScore": 0.33,
+      "bestGuess": "Martiderm Proteos Screen Fluid Cream SPF 50 40 ML"
+    },
+    {
+      "row": 1430,
+      "name": "AVENE PROTECTOR SOLAR ALTA PROTECCION 200 ML",
+      "barcode": "3282770100617",
+      "bestScore": 0.3,
+      "bestGuess": "ACM Medisun Protector Solar Spray SPF50+ 200 ML"
+    },
+    {
+      "row": 1431,
+      "name": "TENSODERM GLICOLICO 50 ML",
+      "barcode": "8470002628816",
+      "bestScore": 0.17,
+      "bestGuess": "Biretix Isoreapir Crema 50ML"
+    },
+    {
+      "row": 1432,
+      "name": "SIMPLEVIR 400MG * DETALLE",
+      "barcode": "7460828547898",
+      "bestScore": 0.29,
+      "bestGuess": "Celecoxib IF 400 MG X 30CAPS ** Detalle **"
+    },
+    {
+      "row": 1433,
+      "name": "AVENE SOLAR ANTI-PIGMENTACION SPF 50",
+      "barcode": "3282770397451",
+      "bestScore": 0.3,
+      "bestGuess": "ACM Duolys Anti-edad Crema Solar SPF 50 50ML"
+    },
+    {
+      "row": 1434,
+      "name": "AVENE SOLAR ANTI-IMPERFECCION SPF 50",
+      "barcode": "3282770397437",
+      "bestScore": 0.3,
+      "bestGuess": "ACM Duolys Anti-edad Crema Solar SPF 50 50ML"
+    }
+  ],
+  "conflicts": []
+}

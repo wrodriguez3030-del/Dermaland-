@@ -11,6 +11,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.58.2] - 2026-07-11
+
+**Datos: importados 1214 códigos de barra (EAN-13) al catálogo desde el export
+de Alegra.** Solo datos en Supabase (`products.barcode`), sin cambios de código
+de la app ni deploy. **No toca DGII real, inventario ni ventas.**
+
+- **Fuente:** `Alegra - Productos-servicios - DermaLand -.xlsx` (1436 filas,
+  columnas `Nombre` + `Código de barra (EAN-13)`). Emparejamiento por **nombre
+  normalizado** (mayúsculas, sin acentos, unidad pegada `30 ML`→`30ML`,
+  `SPF 50`→`SPF50`), ya que el Excel no trae SKU.
+- **Aplicados 1214 UPDATE de alta confianza**: match de nombre EXACTO tras
+  normalizar + dígito de control EAN-13 válido. `products.barcode` pasó de 14 a
+  **1228 productos** con código (todos de 13 dígitos). 127 quedan sin barcode.
+- **UPC-12 → EAN-13:** 113 códigos de 12 dígitos (NEOSTRATA, THE ORDINARY,
+  EOS…) se guardaron con un `0` adelante, siguiendo la convención de la casa
+  (los 14 previos eran de 13 dígitos).
+- **Seguridad:** solo `UPDATE ... WHERE barcode IS NULL AND deleted_at IS NULL`;
+  nunca crea productos (no duplica) ni sobrescribe barcodes existentes. Los
+  1214 barcodes son únicos entre sí y no colisionan con los previos (respeta el
+  índice único parcial `products(business_id, barcode)`). **Reversible** con el
+  registro `data/barcode-import-2026-07-11/barcode-affected.json`.
+- **No aplicados (dejados para revisión manual, sin tocar la BD):** 158 filas
+  sin barcode en el Excel, 28 productos genuinamente distintos (sin match), 18
+  con EAN malformado, 11 con dígito de control inválido (probables typos, p. ej.
+  A-derma `328770110166` → debería ser `3282770110166`), 4 fuzzy (variantes
+  Avene Dermabsolu) y 2 duplicados del Excel. Detalle en
+  `data/barcode-import-2026-07-11/barcode-review.json` y
+  `barcode-invalid-checksum.json`.
+- **Reproducible:** `scripts/import-barcodes-from-alegra.mjs` (dry-run por
+  defecto; `--apply` para escribir). Idempotente: reejecutar no re-toca nada.
+
 ## [0.58.1] - 2026-07-11
 
 **Datos: resueltos los 3 dobles conteos proforma↔factura pendientes.** Solo

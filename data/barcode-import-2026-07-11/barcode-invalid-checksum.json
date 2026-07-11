@@ -1,0 +1,79 @@
+[
+  {
+    "id": "48c560f8-937b-43b4-98d4-251ed7d72daa",
+    "sku": "DERM-I00625",
+    "name": "Idcp Eritrosol 4%",
+    "barcode": "7460564401388",
+    "len": 13
+  },
+  {
+    "id": "a9ad85f4-0e9a-4f9a-836f-070bc8bfe542",
+    "sku": "DERM-I00162",
+    "name": "Avene Xeracalm Crema A.d. 200 ML",
+    "barcode": "328779405553",
+    "len": 12
+  },
+  {
+    "id": "cb0cc464-2dd3-4988-8496-4079a6520088",
+    "sku": "DERM-I00068",
+    "name": "A-derma Exomega Control Emoliente 200 ML",
+    "barcode": "328770110166",
+    "len": 12
+  },
+  {
+    "id": "c8c869b5-1d91-482f-9d98-1b58c2ec2762",
+    "sku": "DERM-I00967",
+    "name": "Neutrogena Hydro Boost SPF 50 1.7 OZ",
+    "barcode": "086800102319",
+    "len": 12
+  },
+  {
+    "id": "a2332f02-73d3-4494-86aa-98806436e392",
+    "sku": "DERM-I00111",
+    "name": "Aveeno Tone + Texture Renewing Night Cream 8 OZ",
+    "barcode": "3813722021856",
+    "len": 13
+  },
+  {
+    "id": "ad419889-c48f-4269-8c63-8b22d247437d",
+    "sku": "DERM-I00609",
+    "name": "Hidrotex Crema 30 GR",
+    "barcode": "770416300411",
+    "len": 12
+  },
+  {
+    "id": "18f2168d-6804-4afb-95e9-75ef78249006",
+    "sku": "DERM-I00920",
+    "name": "Medihealth Procicar NF 60 G",
+    "barcode": "770328100679",
+    "len": 12
+  },
+  {
+    "id": "07ed7792-82e3-4cca-a0e3-591629b5bdfb",
+    "sku": "DERM-I00234",
+    "name": "Bioderma Photoderm Cover Touch Mineral Light SPF 50",
+    "barcode": "370112980342",
+    "len": 12
+  },
+  {
+    "id": "e4968337-6f77-4d53-a66d-0eeb794c015d",
+    "sku": "DERM-I00781",
+    "name": "LA Roche Posay Anthelios UV PRO Sport SPF 50 200 ML",
+    "barcode": "360600643642",
+    "len": 12
+  },
+  {
+    "id": "980ff994-19e1-41c3-a5c7-e98dd1e25c58",
+    "sku": "DERM-I00528",
+    "name": "Filtro Solar Helio C",
+    "barcode": "8051406362284",
+    "len": 13
+  },
+  {
+    "id": "a8eae2c8-a40f-491a-ba75-a939c37633e2",
+    "sku": "DERM-I00678",
+    "name": "Isdin Fotoprotector GEL Crema WET Skin SPF 50 250 ML",
+    "barcode": "8729420245808",
+    "len": 13
+  }
+]
