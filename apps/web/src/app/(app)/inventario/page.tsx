@@ -34,6 +34,7 @@ import {
   useLaboratoriesList,
 } from "@/features/products/catalog-store";
 import { useAllLots } from "@/features/inventory/lot-store";
+import { matchesInventorySearch } from "@/features/inventory/inventory-search";
 import {
   getInventoryRows,
   getInventoryStockSummary,
@@ -123,7 +124,6 @@ function InventarioContent() {
   const [status, setStatus] = React.useState<StatusFilter>("all");
 
   const filtered = React.useMemo(() => {
-    const q = search.trim().toLowerCase();
     return allRows.filter((r) => {
       if (brandFilter && r.product.brandId !== brandFilter) return false;
       if (categoryFilter && r.product.categoryId !== categoryFilter) return false;
@@ -138,11 +138,8 @@ function InventarioContent() {
         if (status === "cuarentena" && !quarantine) return false;
         if (status === "recall" && !recalled) return false;
       }
-      if (q) {
-        const hay =
-          `${r.product.name} ${r.product.sku} ${r.brandName} ${r.categoryName} ${r.labName} ${r.lotNumbers}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
+      // Búsqueda de texto (incluye código de barra) — fuente única testeable.
+      if (!matchesInventorySearch(r, search)) return false;
       return true;
     });
   }, [allRows, search, brandFilter, categoryFilter, labFilter, status]);
@@ -216,7 +213,7 @@ function InventarioContent() {
       {/* Filtros */}
       <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <SearchInput
-          placeholder="Buscar producto, SKU, lote, marca…"
+          placeholder="Buscar producto, código de barra, SKU, lote…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           containerClassName="lg:col-span-2"

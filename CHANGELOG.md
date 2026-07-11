@@ -11,6 +11,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.58.3] - 2026-07-11
+
+**Fix: buscar por código de barra en Stock (`/inventario`) no funcionaba.** Al
+teclear/escanear un EAN-13 en el buscador de "Stock actual" no devolvía nada,
+aunque el producto sí tuviera el código. **No toca DGII, inventario ni ventas.**
+
+- **Causa raíz:** el texto de búsqueda de la pantalla de Stock se armaba con
+  nombre + SKU + marca + categoría + laboratorio + lote, pero **omitía
+  `barcode`**. La pantalla de Productos (`/productos`) sí lo incluía; ambas
+  quedan ahora consistentes. (Se hace evidente tras cargar los barcodes en
+  v0.58.2.)
+- **Fix de raíz:** extraído el filtro de texto a una función pura testeable
+  `features/inventory/inventory-search.ts` (`matchesInventorySearch`) que
+  incluye el código de barra, con test de regresión (`inventory-search.test.ts`,
+  7 casos). Placeholder actualizado a "Buscar producto, código de barra, SKU,
+  lote…".
+- typecheck + suite completa (1665 tests) verdes.
+
 ## [0.58.2] - 2026-07-11
 
 **Datos: importados 1214 códigos de barra (EAN-13) al catálogo desde el export
