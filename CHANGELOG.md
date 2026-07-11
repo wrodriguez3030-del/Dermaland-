@@ -11,6 +11,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.58.1] - 2026-07-11
+
+**Datos: resueltos los 3 dobles conteos proforma↔factura pendientes.** Solo
+datos en Supabase (`source_proforma_id`), sin cambios de código ni deploy.
+**No toca DGII real.**
+
+- Decisión del dueño (2026-07-11): PROF-2026-89148 → B0200001301 y
+  PROF-2026-89236 → B0200001302 (conversión en pareja del 2026-07-04, facturas
+  emitidas con 0.9 s de diferencia); PROF-2026-28372 → PROF-2026-71224 (primera
+  factura emitida tras la proforma el 2026-06-27).
+- UPDATE con guarda `source_proforma_id IS NULL`, reversible (basta ponerlo en
+  NULL). Las métricas centrales descuentan solas: cliente CLI-420678 pasó de
+  16 compras / RD$34,908.00 a **13 compras / RD$29,628.00** (−RD$5,280
+  duplicados).
+- Auditoría regenerada (`scripts/audit-customer-sales-relations.mjs`):
+  `posiblesDoblesConteos: 0`. Snapshot en `data/customer-relations-audit.json`.
+
 ## [0.58.0] - 2026-07-10
 
 **Fix: falso "duplicado" al editar productos.** Editar un producto y asignarle un

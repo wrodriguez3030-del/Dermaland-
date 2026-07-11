@@ -1,6 +1,6 @@
 {
-  "generadoEn": "2026-07-06T19:17:55.074Z",
-  "migracion0022Aplicada": false,
+  "generadoEn": "2026-07-11T13:54:52.157Z",
+  "migracion0022Aplicada": true,
   "resumen": {
     "totalClientes": 1,
     "clientesEliminados": 0,
@@ -15,66 +15,13 @@
     "sinDatosWalkIn": 0,
     "sinMatch": 0,
     "clientesDuplicadosEntreSi": 0,
-    "posiblesDoblesConteos": 3,
+    "posiblesDoblesConteos": 0,
     "enlacesPropuestos": 0
   },
   "detalle": {
     "ventasHuerfanas": [],
     "clientesDuplicados": [],
-    "posiblesDoblesConteos": [
-      {
-        "proforma": "PROF-2026-28372",
-        "proformaId": "7fc07c16-2b31-40e6-b4b8-3ca466a1b762",
-        "total": 1300,
-        "facturas": [
-          {
-            "number": "PROF-2026-71224",
-            "id": "2441ad3a-f30e-4f2a-a5da-0624f385a15a"
-          },
-          {
-            "number": "PROF-2026-73388",
-            "id": "0271ea0d-daad-4b65-853e-6e873f0b89c2"
-          },
-          {
-            "number": "B0200001243",
-            "id": "2aef28df-eacb-4f74-8522-6011649f629b"
-          }
-        ],
-        "unico": false
-      },
-      {
-        "proforma": "PROF-2026-89148",
-        "proformaId": "546776a6-bb89-4ee8-8c49-647740cd98f1",
-        "total": 1990,
-        "facturas": [
-          {
-            "number": "B0200001301",
-            "id": "7ac9eda8-8312-4a4c-a1fb-73449e2f07ba"
-          },
-          {
-            "number": "B0200001302",
-            "id": "e1764635-45cb-4700-b25a-f4b42349318c"
-          }
-        ],
-        "unico": false
-      },
-      {
-        "proforma": "PROF-2026-89236",
-        "proformaId": "1cbc4b15-129d-42c8-88e6-7c42836ea339",
-        "total": 1990,
-        "facturas": [
-          {
-            "number": "B0200001301",
-            "id": "7ac9eda8-8312-4a4c-a1fb-73449e2f07ba"
-          },
-          {
-            "number": "B0200001302",
-            "id": "e1764635-45cb-4700-b25a-f4b42349318c"
-          }
-        ],
-        "unico": false
-      }
-    ],
+    "posiblesDoblesConteos": [],
     "enlacesPropuestos": []
   }
 }
