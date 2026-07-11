@@ -119,12 +119,16 @@ export function ReportHeader({
 
 export type ReportTone = "default" | "primary" | "success" | "warning" | "danger";
 
+/**
+ * Estilo ejecutivo (mismo lenguaje que StatCard): tarjeta blanca y el TONO
+ * colorea el VALOR, no el fondo.
+ */
 const KPI_TONE: Record<ReportTone, string> = {
-  default: "bg-white",
-  primary: "bg-[color:var(--brand-primary)]/[0.06]",
-  success: "bg-emerald-50",
-  warning: "bg-amber-50",
-  danger: "bg-rose-50",
+  default: "text-[color:var(--brand-fg)]",
+  primary: "text-[color:var(--brand-accent)]",
+  success: "text-emerald-700",
+  warning: "text-amber-700",
+  danger: "text-rose-700",
 };
 
 export interface ReportKpi {
@@ -153,18 +157,20 @@ export function ReportSummaryCards({
       {items.map((k, i) => (
         <div
           key={`${k.label}-${i}`}
-          className={cn(
-            "rounded-xl border border-black/10 p-4",
-            KPI_TONE[k.tone ?? "default"],
-          )}
+          className="rounded-xl border border-black/[0.07] bg-white p-4 shadow-sm"
         >
-          <p className="text-2xl font-semibold tabular-nums leading-tight">
-            {k.value}
-          </p>
-          <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide opacity-55">
+          <p className="text-[10px] font-bold uppercase tracking-[0.08em] opacity-55">
             {k.label}
           </p>
-          {k.hint && <p className="mt-0.5 text-xs opacity-50">{k.hint}</p>}
+          <p
+            className={cn(
+              "mt-1.5 text-2xl font-extrabold tabular-nums leading-tight tracking-tight",
+              KPI_TONE[k.tone ?? "default"],
+            )}
+          >
+            {k.value}
+          </p>
+          {k.hint && <p className="mt-1 text-xs opacity-50">— {k.hint}</p>}
         </div>
       ))}
     </div>

@@ -11,6 +11,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.66.0] - 2026-07-11
+
+**Dashboard ejecutivo estilo profesional (en todo el sistema donde aplica).**
+Mismo lenguaje visual que el dashboard de referencia: tarjetas KPI con chip de
+ícono, gráficos con enlaces "Ver detalle →", top ranking e insights. **No toca
+DGII/fiscal ni cálculos.**
+
+- **`StatCard` rediseñada** (misma API → se actualiza SOLO en todas las pantallas
+  que la usan: dashboard, IA, Logs IA, etc.): tarjeta blanca + chip de ícono
+  redondeado + etiqueta en mayúsculas + valor grande en el color del tono +
+  sub-línea "— hint". Sigue siendo clicable al detalle (hover/foco intactos).
+- **Gráficos SVG propios** (`features/dashboard/charts.tsx`, sin dependencias):
+  barras (Ventas por sucursal, un solo matiz teal, valores encima, puntas
+  redondeadas), dona (Cobros por método de pago, total al centro + leyenda con
+  % y montos, separación de 2px) y tendencia (línea 2px + área degradada,
+  últimos 6 meses). Paleta categórica **validada** con el validador de dataviz
+  (CVD ΔE 57.8, contraste ≥3:1); tooltips por marca; texto siempre en tinta.
+- **Dashboard principal**: nueva fila de 3 gráficos + fila "Top productos del
+  mes" (ranking desde los items de venta) e **"Insights del período"** (sucursal
+  líder, producto más vendido, vencimientos críticos <15 días, bajo stock) con
+  íconos de estado. Métricas en módulo PURO testeable
+  (`dashboard-metrics.ts`, 5 tests) usando las MISMAS ventas completadas que
+  "Ventas recientes"; cada gráfico enlaza a su reporte (`/reportes/ventas`,
+  `/reportes/caja`, `/reportes/productos`).
+- **`ReportSummaryCards`** (KPIs de TODOS los reportes) alineada al mismo
+  lenguaje: tarjeta blanca, etiqueta arriba, valor grande coloreado por tono.
+- typecheck + suite (1703) + build verdes.
+
 ## [0.65.0] - 2026-07-11
 
 **Chat IA estilo WhatsApp (`/ia/chat`).** La forma más fácil de hablar con los

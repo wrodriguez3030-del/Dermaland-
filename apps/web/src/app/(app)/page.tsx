@@ -50,6 +50,15 @@ import {
   mockInventoryCounts,
   isPendingInventoryCount,
 } from "@/lib/mock-data/inventory-counts";
+import { ChartCard, BarChart, DonutChart, TrendChart } from "@/features/dashboard/charts";
+import {
+  salesByBranch,
+  paymentsByMethod,
+  monthlyTrend,
+  topProducts,
+  buildInsights,
+} from "@/features/dashboard/dashboard-metrics";
+import { CheckCircle2, Info, AlertCircle } from "lucide-react";
 import type { Proforma } from "@/types";
 
 const SALE_DONE = new Set(["paid", "partially_paid", "issued", "converted_to_ecf"]);
@@ -133,6 +142,34 @@ export default function DashboardPage() {
     );
     return computeShiftDetail(cashSession, sessionProformas, []);
   }, [cashSession, proformas]);
+
+  // ── Gráficos ejecutivos (mismas ventas completadas que "Ventas recientes") ──
+  const saleDocs = React.useMemo(
+    () => proformas.filter((p) => SALE_DONE.has(p.status)),
+    [proformas],
+  );
+  const branchNameById = React.useMemo(
+    () => new Map(activeBranches.map((b) => [b.id, b.name])),
+    [activeBranches],
+  );
+  const branchSales = React.useMemo(
+    () => salesByBranch(saleDocs, (id) => branchNameById.get(id) ?? ""),
+    [saleDocs, branchNameById],
+  );
+  const methodSales = React.useMemo(() => paymentsByMethod(saleDocs), [saleDocs]);
+  const trend = React.useMemo(() => monthlyTrend(saleDocs, 6), [saleDocs]);
+  const topProds = React.useMemo(() => topProducts(saleDocs, 5), [saleDocs]);
+  const insights = React.useMemo(
+    () =>
+      buildInsights({
+        branchLeader: branchSales[0],
+        topProduct: topProds[0],
+        criticalExpiring: expiringSoon.filter((l) => daysUntil(l.expiresAt) < 15).length,
+        lowStock: lowStockProducts.length,
+        formatCurrency,
+      }),
+    [branchSales, topProds, expiringSoon, lowStockProducts],
+  );
 
   return (
     <>
@@ -260,6 +297,76 @@ export default function DashboardPage() {
             >
               Ver configuración →
             </Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Gráficos ejecutivos (ventas del mes / tendencia) ── */}
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <ChartCard title="Ventas por sucursal" href="/reportes/ventas">
+          <BarChart data={branchSales} />
+        </ChartCard>
+        <ChartCard title="Cobros por método de pago" href="/reportes/caja">
+          <DonutChart data={methodSales} formatValue={formatCurrency} />
+        </ChartCard>
+        <ChartCard title="Tendencia mensual (ventas)" href="/ventas" linkLabel="Ver ventas →">
+          <TrendChart data={trend} />
+        </ChartCard>
+      </div>
+
+      {/* ── Top productos + Insights del período ── */}
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <ChartCard
+          title="Top productos del mes"
+          href="/reportes/productos"
+          linkLabel="Ver ranking completo →"
+          className="lg:col-span-2"
+        >
+          {topProds.length === 0 ? (
+            <p className="py-8 text-center text-sm opacity-50">Sin ventas este mes.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] font-bold uppercase tracking-wider opacity-50">
+                  <th className="pb-2 pr-2 text-left">#</th>
+                  <th className="pb-2 pr-2 text-left">Producto</th>
+                  <th className="pb-2 pr-2 text-right">Unidades</th>
+                  <th className="pb-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5">
+                {topProds.map((p, i) => (
+                  <tr key={p.sku}>
+                    <td className="py-2 pr-2 tabular-nums opacity-50">{i + 1}</td>
+                    <td className="max-w-0 truncate py-2 pr-2 font-medium">{p.name}</td>
+                    <td className="py-2 pr-2 text-right tabular-nums">{p.units}</td>
+                    <td className="py-2 text-right font-bold tabular-nums">{formatCurrency(p.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </ChartCard>
+        <Card>
+          <CardContent className="p-5">
+            <h3 className="mb-3 text-sm font-bold">Insights del período</h3>
+            <ul className="space-y-3">
+              {insights.map((ins, i) => (
+                <li key={i} className="flex items-start gap-2.5">
+                  {ins.tone === "good" ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                  ) : ins.tone === "warn" ? (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  ) : (
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold leading-snug">{ins.title}</div>
+                    <div className="text-xs opacity-60">{ins.detail}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       </div>
