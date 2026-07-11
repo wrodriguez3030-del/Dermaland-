@@ -51,6 +51,10 @@ import {
   sessionToCountData,
   type CountSession,
 } from "@/features/inventory-counts/scan-session-store";
+import {
+  buildCountCreatePayload,
+  persistCountToSupabase,
+} from "@/features/inventory-counts/persist";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
@@ -255,6 +259,21 @@ export default function EscanearPage() {
     } else {
       setSessionStatus(session.id, "approved", { approvedAt: new Date().toISOString(), closedAt: new Date().toISOString() });
       toast.success("Inventario aprobado sin ajustar el stock.");
+    }
+    // Persiste la cabecera + ítems a Supabase (best-effort; no bloquea el flujo
+    // local si el backend está en modo mock —409— o hay red intermitente).
+    const persisted = await persistCountToSupabase(
+      buildCountCreatePayload(
+        session,
+        systemQtyFor,
+        withAdjustments ? "adjusted" : "approved",
+      ),
+    );
+    if (!persisted.ok && persisted.reason !== "mock") {
+      toast.show(
+        "El conteo quedó aprobado en este dispositivo; se sincronizará a la nube cuando haya conexión.",
+        "info",
+      );
     }
     setApproveOpen(false);
   };

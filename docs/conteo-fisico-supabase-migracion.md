@@ -69,7 +69,14 @@ fallback, gated por `DATA_SOURCE`). Producción mock intacta hasta el cutover.
 - Escrituras siguen pendientes (Fase 3): rechazan con mensaje claro.
 - RLS verificado en las 5 tablas. Test de mappers (6 casos). typecheck+build ok.
 
-### Fase 2 — Stores de cliente + páginas de lectura
+### Fase 2a — Persistir al aprobar ✅ HECHA (v0.62.0)
+Modelo "crear al enviar": la sesión vive offline; al aprobar se persiste
+cabecera+ítems vía `POST /api/inventory-counts` (`features/inventory-counts/persist.ts`,
+best-effort). El ajuste de stock FEFO al aprobar ya existía client-side. Los
+escaneos individuales aún no se persisten por conteo (los KPIs de escaneo del
+reporte quedarán vacíos hasta cablearlo).
+
+### Fase 2b — Stores de cliente + páginas de lectura (PENDIENTE)
 - `features/inventory-counts/counts-store.ts`: hooks `useCounts()`,
   `useCount(id)` que hacen fetch a las API con **fallback a mock** (patrón de
   `product-store`/`branch-store`).

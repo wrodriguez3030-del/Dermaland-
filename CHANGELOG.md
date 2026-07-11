@@ -11,6 +11,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.62.0] - 2026-07-11
+
+**Migración del Inventario físico — Fase 2a: los conteos se PERSISTEN a Supabase
+al aprobarlos.** Decisión de diseño: "crear al enviar" — la sesión vive offline
+en el dispositivo durante el conteo; al aprobar/cerrar se guarda la cabecera +
+ítems en Supabase. Aditivo y seguro (no cambia la vista actual). Diseño en
+`docs/conteo-fisico-supabase-migracion.md`.
+
+- Nuevo módulo `features/inventory-counts/persist.ts`: `buildCountCreatePayload`
+  (PURO, testeable: calcula esperado/diferencia/estado por ítem desde la sesión)
+  + `persistCountToSupabase` (**best-effort**: 409 en modo mock y errores de red
+  NO rompen el flujo local; el conteo queda aprobado en el dispositivo).
+- Cableado en `conteo-fisico/[id]/escanear` al aprobar (con y sin ajustes de
+  stock): status `adjusted`/`approved`. Toast informativo si la nube no
+  respondió. Test de 2 casos.
+- El ajuste de stock al aprobar (FEFO → `inventory_movements` + cantidad de lote)
+  YA existía client-side (`adjustStockAnywhere`); esta versión suma la
+  persistencia del **registro del conteo** para historial/reportes.
+- **Pendiente Fase 2b:** cambiar las páginas de VISUALIZACIÓN (lista, detalle,
+  Reportes › Conteos) para leer de Supabase — recomendado verificar en preview.
+- typecheck + suite (1682) + build verdes.
+
 ## [0.61.0] - 2026-07-11
 
 **Migración del Inventario físico a Supabase — Fase 3 (ESCRITURAS backend).**
