@@ -11,6 +11,36 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.59.0] - 2026-07-11
+
+**Reporte de Inventario físico (Reportes › Conteos): el Excel y el PDF ahora
+traen Sucursal, Laboratorio, Marca, Categoría, Código de barra y Vencimiento.**
+Antes las tablas de ítems solo tenían Producto, SKU, Lote, cantidades y estado.
+**No toca DGII, inventario ni ventas.**
+
+- **Excel** (`counts-report-excel.ts`): las hojas Diferencias / No encontrados /
+  Detalle usan el MISMO orden de columnas descriptivas que el Excel de detalle
+  por conteo (`physical-count-export.ts`): SKU · Código de barra · Producto ·
+  Laboratorio · Marca · Categoría · Sucursal · Lote · Vencimiento · Stock
+  sistema · Cantidad contada · Diferencia · Estado · Último escaneo.
+- **PDF** (`counts-report-pdf.ts`, landscape): agrega Marca, Laboratorio,
+  Sucursal, Lote y Vencimiento (Categoría y Código de barra van solo en Excel
+  por ancho de página).
+- **Cómo se resuelven:** los armadores son puros y reciben `lookups`
+  (`CountsReportLookups`) para marca/laboratorio/categoría/sucursal y el barcode
+  del producto. La **sucursal por ítem** se deriva del conteo al que pertenece
+  (`inventoryCountId` → `count.branchId`); el **vencimiento** ya venía en el ítem
+  (`expiresAt`). En `reportes/conteos` los resolvers usan el catálogo (los mismos
+  que la pantalla de detalle).
+- El Excel de detalle por conteo (`conteo-fisico/[id]`) ya incluía todas estas
+  columnas; no cambia.
+- Test nuevo `counts-report-excel.test.ts` (5 casos: columnas presentes, valores
+  resueltos, sucursal por ítem, hoja Diferencias). typecheck + suite (1670)
+  verdes.
+- **Nota:** el módulo de inventario físico corre sobre datos de ejemplo (mock),
+  no Supabase; el reporte muestra los conteos de ejemplo hasta que se migre el
+  módulo (diseño en `docs/conteo-fisico-supabase-migracion.md`).
+
 ## [0.58.3] - 2026-07-11
 
 **Fix: buscar por código de barra en Stock (`/inventario`) no funcionaba.** Al

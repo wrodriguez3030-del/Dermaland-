@@ -18,10 +18,19 @@ import {
 import { mockCountItems, mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
 import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
-import { buildCountsWorkbookSpec } from "@/features/inventory/counts-report-excel";
+import {
+  buildCountsWorkbookSpec,
+  type CountsReportLookups,
+} from "@/features/inventory/counts-report-excel";
 import { buildCountsPdfSpec } from "@/features/inventory/counts-report-pdf";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
-import { useBranches } from "@/features/tenancy/branch-store";
+import { getBranchById } from "@/lib/mock-data/tenancy";
+import {
+  getProductById,
+  getBrandById,
+  getCategoryById,
+  getLaboratoryById,
+} from "@/lib/mock-data/catalog";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 
@@ -38,16 +47,23 @@ const STATUS_TONE: Record<string, ReportBadgeTone> = {
   unregistered: "medium",
 };
 
+// Resolutores de nombres legibles para el Excel/PDF. El módulo de conteo físico
+// corre sobre datos de ejemplo (mock): los ítems referencian productos/sucursales
+// mock, así que se resuelven contra el catálogo mock (mismos que la pantalla de
+// detalle). Al migrar el módulo a Supabase, se sustituyen estos resolvers.
+const countLookups: CountsReportLookups = {
+  branchName: (id) => (id ? getBranchById(id)?.name ?? "" : ""),
+  product: (id) => getProductById(id),
+  brandName: (id) => (id ? getBrandById(id)?.name ?? "" : ""),
+  labName: (id) => (id ? getLaboratoryById(id)?.name ?? "" : ""),
+  categoryName: (id) => (id ? getCategoryById(id)?.name ?? "" : ""),
+};
+
 export default function ReporteConteosPage() {
-  const allBranches = useBranches();
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
   }, []);
-  const branchNames = React.useMemo(
-    () => new Map(allBranches.map((b) => [b.id, b.name])),
-    [allBranches],
-  );
 
   const approvedCounts = mockInventoryCounts.filter((c) => c.status === "approved").length;
   const totalShortages = mockCountItems.filter((i) => i.status === "shortage").length;
@@ -78,6 +94,7 @@ export default function ReporteConteosPage() {
             <ExportPdfButton
               getSpec={() =>
                 buildCountsPdfSpec(
+                  mockInventoryCounts,
                   mockCountItems,
                   makePdfMeta({
                     title: "Inventario físico",
@@ -91,6 +108,7 @@ export default function ReporteConteosPage() {
                     generatedBy: mockCurrentUser.fullName,
                     generatedAtLabel: formatDateTime(new Date().toISOString()),
                   }),
+                  countLookups,
                 )
               }
               fileSlug="Inventario_Fisico"
@@ -110,7 +128,7 @@ export default function ReporteConteosPage() {
                     generatedBy: mockCurrentUser.fullName,
                     generatedAtLabel: formatDateTime(new Date().toISOString()),
                   },
-                  (id) => branchNames.get(id) ?? "Sucursal",
+                  countLookups,
                 )
               }
               fileSlug="Inventario_Fisico"
