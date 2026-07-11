@@ -91,6 +91,23 @@ export function friendlyForPgCode(
   }
 }
 
+/**
+ * Nombre de la constraint / índice único violado en un error 23505, si se puede
+ * extraer del error de Postgres/PostgREST. Permite mensajes por-campo
+ * ("barcode duplicado" vs "sku duplicado") sin exponer detalles técnicos.
+ */
+export function pgUniqueConstraint(error: unknown): string | undefined {
+  const o = error as
+    | { constraint?: string; message?: string; details?: string }
+    | null;
+  if (o?.constraint) return o.constraint;
+  const text = `${o?.message ?? ""} ${o?.details ?? ""}`;
+  return (
+    text.match(/constraint "([^"]+)"/i)?.[1] ??
+    text.match(/index "([^"]+)"/i)?.[1]
+  );
+}
+
 export function failRepo(method: string, error: unknown): never {
   const msg = friendlyForPgCode(pgErrorCode(error));
   if (msg) throw new UserFacingRepositoryError(msg);

@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.58.0] - 2026-07-10
+
+**Fix: falso "duplicado" al editar productos.** Editar un producto y asignarle un
+SKU o código de barra que solo tenía un producto **eliminado (soft-delete)**
+fallaba con el mensaje genérico "Ya existe un registro con esos datos.". **No
+toca DGII real, inventario ni ventas.**
+
+- **Causa raíz:** los índices únicos de `products` (`business_id+sku` y
+  `business_id+barcode`) **no excluían los soft-deleted** → un producto borrado
+  seguía "reservando" su SKU/barcode. Caso real: barcode `8436574360677` retenido
+  por un "RADIOCARE" borrado bloqueaba a "Radiocare Ultra Crema Reparadora".
+- **Migración `0025_products_soft_delete_unique.sql`** (aplicada por MCP a
+  `sntcvyozbhrgicwmtcoh`, auditada: 0 duplicados entre productos vivos): índices
+  únicos **parciales** `WHERE deleted_at IS NULL` (SKU pasa de constraint a índice
+  parcial; barcode recreado). Unicidad real = `business_id + sku/barcode` **entre
+  productos vivos**. Desbloqueó 2 barcodes retenidos por borrados.
+- **Mensajes por-campo (§5)** en `product.create`/`update`: SKU duplicado → "Ya
+  existe otro producto con este SKU."; barcode duplicado → "El código de barra
+  {código} ya está asignado a otro producto." Nunca se muestra el genérico ni
+  detalles técnicos (23505/constraint/SQL/UUID/PGRST). `create` ya no reintenta
+  regenerando SKU cuando el choque es de barcode. Helper puro `productUniqueMessage`
+  + `pgUniqueConstraint` con tests.
+- El UPDATE sigue siendo un UPDATE por `business_id+id` (no INSERT/upsert), solo
+  campos provistos; no toca lotes, movimientos, ventas ni SKU. Probado en la BD
+  (transacción revertida): el edit que fallaba ahora guarda sin 23505.
+
 ## [0.57.0] - 2026-07-10
 
 **Devoluciones/ajustes de comisión (§12) — cierre de la unificación.** Al anular

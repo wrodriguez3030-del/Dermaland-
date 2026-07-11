@@ -4,13 +4,38 @@ import type {
   ProductRepository,
   RepoContext,
 } from "../types";
-import { SupabaseRepositoryError, failRepo, getClient } from "./client";
+import {
+  SupabaseRepositoryError,
+  UserFacingRepositoryError,
+  failRepo,
+  getClient,
+  pgUniqueConstraint,
+} from "./client";
 import { productLotRowToTs, productRowToTs } from "./mappers";
 import { ensureDefaultWarehouseForBranch } from "./warehouse";
 import { SKU_PREFIX, nextSkuAfter } from "@/features/products/product-sku";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Mensaje POR-CAMPO para una violación de unicidad (23505) de `products`, según
+ * la constraint/índice violado (§5). Nunca expone SQL/UUID/constraint/código.
+ * Devuelve `null` si el error no es un duplicado de producto reconocible.
+ */
+export function productUniqueMessage(
+  error: unknown,
+  barcode?: string | null,
+): string | null {
+  if ((error as { code?: string })?.code !== "23505") return null;
+  const c = pgUniqueConstraint(error) ?? "";
+  if (/barcode/i.test(c))
+    return barcode
+      ? `El código de barra ${barcode} ya está asignado a otro producto.`
+      : "Ese código de barra ya está asignado a otro producto.";
+  if (/sku/i.test(c)) return "Ya existe otro producto con este SKU.";
+  return null;
+}
 
 /**
  * Resuelve el `warehouse_id` REAL de una sucursal en Supabase.
@@ -165,8 +190,15 @@ export const productRepository: ProductRepository = {
       };
       const { data, error } = await sb.from("products").insert(row).select("*").single();
       if (!error) return productRowToTs(data);
-      // Colisión de SKU (unique business_id+sku) → regenerar y reintentar.
       if ((error as { code?: string }).code === "23505") {
+        // Choque de BARCODE: regenerar el SKU no ayuda → mensaje claro por campo.
+        if (/barcode/i.test(pgUniqueConstraint(error) ?? "")) {
+          throw new UserFacingRepositoryError(
+            productUniqueMessage(error, input.barcode) ??
+              "Ese código de barra ya está asignado a otro producto.",
+          );
+        }
+        // Colisión de SKU (unique business_id+sku) → regenerar y reintentar.
         if (provided && attempt === 0) sku = await this.nextSku(ctx);
         else sku = nextSkuAfter(sku);
         continue;
@@ -210,7 +242,12 @@ export const productRepository: ProductRepository = {
       .eq("id", id)
       .select("*")
       .single();
-    if (error) throw failRepo("product.update", error);
+    if (error) {
+      // Mensaje por-campo (§5): nunca el genérico "Ya existe un registro…".
+      const specific = productUniqueMessage(error, patch.barcode);
+      if (specific) throw new UserFacingRepositoryError(specific);
+      throw failRepo("product.update", error);
+    }
     return productRowToTs(data);
   },
 
