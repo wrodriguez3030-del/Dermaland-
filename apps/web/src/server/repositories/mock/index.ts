@@ -33,7 +33,7 @@ import type {
   WhatsappRepository,
 } from "../types";
 
-import type { Brand, Category, Customer, Laboratory, Product, ProductLot, Proforma } from "@/types";
+import type { Brand, Category, Customer, InventoryCount, InventoryCountItem, Laboratory, Product, ProductLot, Proforma } from "@/types";
 
 import {
   mockBranches,
@@ -550,15 +550,31 @@ const inventoryMovement: InventoryMovementRepository = {
   },
 };
 
+// Overlay de escritura de conteos (mock/dev): conteos creados en memoria.
+let extraCounts: InventoryCount[] = [];
+const extraItemsByCount: Record<string, InventoryCountItem[]> = {};
+const countPatches: Record<string, Partial<InventoryCount>> = {};
+
+export function __resetInventoryCountMockWrites(): void {
+  extraCounts = [];
+  for (const k of Object.keys(extraItemsByCount)) delete extraItemsByCount[k];
+  for (const k of Object.keys(countPatches)) delete countPatches[k];
+}
+
+const applyCountPatch = (c: InventoryCount): InventoryCount =>
+  countPatches[c.id] ? { ...c, ...countPatches[c.id] } : c;
+
 const inventoryCount: InventoryCountRepository = {
   async list(ctx) {
     guard(ctx);
-    return mockInventoryCounts.filter((c) => c.businessId === ctx.businessId);
+    return [...mockInventoryCounts, ...extraCounts]
+      .filter((c) => c.businessId === ctx.businessId)
+      .map(applyCountPatch);
   },
   async byId(ctx, id) {
     guard(ctx);
-    const c = getInventoryCountById(id);
-    return c && c.businessId === ctx.businessId ? c : null;
+    const c = extraCounts.find((x) => x.id === id) ?? getInventoryCountById(id);
+    return c && c.businessId === ctx.businessId ? applyCountPatch(c) : null;
   },
   async scans(ctx, countId) {
     guard(ctx);
@@ -566,16 +582,77 @@ const inventoryCount: InventoryCountRepository = {
   },
   async items(ctx, countId) {
     guard(ctx);
-    return getItemsForCount(countId);
+    return extraItemsByCount[countId] ?? getItemsForCount(countId);
+  },
+  async create(ctx, input) {
+    guard(ctx);
+    const now = new Date().toISOString();
+    const id = mockGenId("cnt");
+    const count: InventoryCount = {
+      id,
+      businessId: ctx.businessId,
+      branchId: input.branchId,
+      warehouseId: input.warehouseId ?? "",
+      countNumber: input.countNumber,
+      countType: input.countType,
+      status: input.status ?? "in_progress",
+      assignedTo: input.assignedTo ?? [],
+      startedAt: input.startedAt ?? now,
+      notes: input.notes,
+      scanCount: 0,
+      itemCount: input.items.length,
+      createdAt: now,
+      updatedAt: now,
+    };
+    extraCounts.push(count);
+    extraItemsByCount[id] = input.items.map((it, i) => ({
+      id: `${id}_it_${i}`,
+      inventoryCountId: id,
+      productId: it.productId,
+      productSku: it.productSku,
+      productName: it.productName,
+      productLotId: it.productLotId,
+      lotNumber: it.lotNumber,
+      expiresAt: it.expiresAt,
+      warehouseId: it.warehouseId ?? input.warehouseId ?? "",
+      expectedQuantity: it.expectedQuantity,
+      countedQuantity: it.countedQuantity,
+      differenceQuantity:
+        it.differenceQuantity ?? it.countedQuantity - it.expectedQuantity,
+      status: it.status,
+      lastScanAt: it.lastScanAt,
+    }));
+    return count;
   },
   async recordScan() {
-    // En mock siempre acepta — duplicados se manejarán cuando llegue Supabase
-    // con índice único (offline_scan_id, device_id).
+    // En mock siempre acepta — duplicados se manejan en Supabase con el índice
+    // único (offline_scan_id, device_id).
     return { inserted: true };
   },
-  async submit() {},
-  async approve() {},
-  async reject() {},
+  async submit(ctx, countId) {
+    guard(ctx);
+    countPatches[countId] = {
+      ...(countPatches[countId] ?? {}),
+      status: "submitted",
+      submittedAt: new Date().toISOString(),
+    };
+  },
+  async approve(ctx, countId) {
+    guard(ctx);
+    countPatches[countId] = {
+      ...(countPatches[countId] ?? {}),
+      status: "approved",
+      approvedAt: new Date().toISOString(),
+    };
+  },
+  async reject(ctx, countId, reason) {
+    guard(ctx);
+    countPatches[countId] = {
+      ...(countPatches[countId] ?? {}),
+      status: "rejected",
+      notes: reason,
+    };
+  },
 };
 
 const customer: CustomerRepository = {

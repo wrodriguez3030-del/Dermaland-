@@ -11,6 +11,36 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.61.0] - 2026-07-11
+
+**Migración del Inventario físico a Supabase — Fase 3 (ESCRITURAS backend).**
+Backend, sin cambios de UI todavía (las páginas siguen usando el store cliente/
+mock hasta la Fase 2). **No muta stock ni genera `inventory_movements`** (el
+ajuste de existencias es un paso posterior). Diseño en
+`docs/conteo-fisico-supabase-migracion.md`.
+
+- **Repo Supabase** `inventory-counts.ts`: `create` (persiste cabecera + ítems;
+  resuelve el almacén de la sucursal si no viene; genera ids de servidor;
+  `business_id` del ctx, nunca del body), `recordScan` (idempotente vía índice
+  único `(device_id, offline_scan_id)` con `upsert ignoreDuplicates`),
+  `submit`/`approve`/`reject` (status + timestamps, verifican filas afectadas:
+  UPDATE de 0 filas = error, no éxito falso).
+- **Contrato** `InventoryCountRepository.create` + tipos `NewInventoryCount` /
+  `NewInventoryCountItem` en `repositories/types.ts`. **Paridad mock** con
+  overlay en memoria (`__resetInventoryCountMockWrites`) — test de 4 casos
+  (create→list/byId/items, aislamiento por tenant, submit/approve/reject,
+  recordScan).
+- **API routes**: `POST /api/inventory-counts` (crear) y
+  `POST /api/inventory-counts/[id]` (`{action: submit|approve|reject, reason?}`).
+  Gated 409 en modo mock.
+- Verificado contra el esquema real: CHECK de `status`
+  (draft/in_progress/paused/submitted/reviewed/approved/rejected/adjusted/
+  cancelled) y FKs (items/scans → counts) e índice idempotente. typecheck +
+  suite (1680) + build verdes.
+- **Pendiente:** Fase 2 (cablear UI a estas API con reconciliación de ids
+  cliente↔servidor y manejo offline) y Fase 3b (ajustes → `inventory_movements`
+  + stock).
+
 ## [0.60.0] - 2026-07-11
 
 **Migración del Inventario físico a Supabase — Fase 1 (LECTURA).** Backend, sin

@@ -32,6 +32,7 @@ import type {
   InventoryCount,
   InventoryCountItem,
   InventoryCountScan,
+  InventoryCountStatus,
   InventoryMovement,
   Laboratory,
   Plan,
@@ -221,11 +222,50 @@ export interface InventoryMovementRepository {
 
 // ─── Inventory counts (Phase 2.1) ───────────────────────────────────────────
 
+/** Ítem al crear un conteo (sin ids de servidor; el repo los genera). */
+export interface NewInventoryCountItem {
+  productId: ID;
+  productSku: string;
+  productName: string;
+  productLotId?: ID;
+  lotNumber?: string;
+  expiresAt?: string;
+  warehouseId?: ID;
+  expectedQuantity: number;
+  countedQuantity: number;
+  differenceQuantity?: number;
+  status: InventoryCountItem["status"];
+  lastScanAt?: string;
+}
+
+/**
+ * Payload para persistir un conteo (cabecera + ítems). El repo genera los ids
+ * de servidor (UUID), fija `business_id` del ctx (nunca del body) y resuelve el
+ * almacén de la sucursal si no viene. NO muta stock — eso es un paso aparte.
+ */
+export interface NewInventoryCount {
+  countNumber: string;
+  branchId: ID;
+  warehouseId?: ID;
+  countType: InventoryCount["countType"];
+  status?: InventoryCountStatus;
+  assignedTo?: ID[];
+  notes?: string;
+  startedAt?: string;
+  items: NewInventoryCountItem[];
+}
+
 export interface InventoryCountRepository {
   list(ctx: RepoContext): Promise<InventoryCount[]>;
   byId(ctx: RepoContext, id: ID): Promise<InventoryCount | null>;
   scans(ctx: RepoContext, countId: ID): Promise<InventoryCountScan[]>;
   items(ctx: RepoContext, countId: ID): Promise<InventoryCountItem[]>;
+  /**
+   * Persiste un conteo nuevo (cabecera + ítems) y devuelve la cabecera creada
+   * con su id de servidor. `business_id` sale del ctx; el almacén se resuelve
+   * de la sucursal si el input no lo trae.
+   */
+  create(ctx: RepoContext, input: NewInventoryCount): Promise<InventoryCount>;
   /**
    * Registra un scan idempotentemente. Duplicados detectados por
    * (offline_scan_id, device_id) y rechazados sin error — evita doble conteo

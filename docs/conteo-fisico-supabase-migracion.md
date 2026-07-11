@@ -82,13 +82,19 @@ fallback, gated por `DATA_SOURCE`). Producción mock intacta hasta el cutover.
   ítems pasarán a ser reales, los `productId` resolverán contra `useProducts`.
 
 ### Fase 3 — Escritura (crear/escaneo/aprobación/ajuste)
-- `createCount`, `addItem`, `submit`, `approve`/`reject`, `applyAdjustments`
-  (genera `inventory_movements` `count_adjustment` y actualiza
-  `inventory_stock_by_lot`). El escaneo ya inserta scans; conectar el alta del
-  conteo y el cierre.
-- Guardas: sesión de caja/negocio activo, `business_id` efectivo (patrón
-  `effectiveBusinessId` de otros módulos), verificación de filas afectadas en
-  writes (lección de csl-app: UPDATE de 0 filas ≠ éxito).
+**Backend HECHO (v0.61.0):** `create` (cabecera+ítems, resuelve almacén, ids de
+servidor, business_id del ctx), `recordScan` (idempotente por índice único
+`device_id`+`offline_scan_id`), `submit`/`approve`/`reject` (status+timestamps,
+verifican filas afectadas). Contrato `InventoryCountRepository.create` +
+`NewInventoryCount`/`NewInventoryCountItem`; paridad mock; API `POST
+/api/inventory-counts` y `POST /[id]` ({action}). Verificado contra CHECK de
+status y FKs. **NO muta stock todavía.**
+
+**Fase 3b — PENDIENTE:** `applyAdjustments` (genera `inventory_movements`
+`count_adjustment` y actualiza `inventory_stock_by_lot`) al aprobar un conteo con
+diferencias. Es el paso sensible (toca existencias reales) → probar en preview.
+- Guardas ya aplicadas: `business_id` del ctx (nunca del body), verificación de
+  filas afectadas en writes (lección de csl-app: UPDATE de 0 filas ≠ éxito).
 
 ### Fase 4 — Verificación y cutover
 - e2e: crear conteo → escanear → aprobar → ajuste → export Excel/PDF con datos

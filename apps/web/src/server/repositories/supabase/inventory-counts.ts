@@ -1,5 +1,10 @@
 import "server-only";
-import type { InventoryCountRepository, RepoContext } from "../types";
+import type {
+  InventoryCountRepository,
+  NewInventoryCount,
+  RepoContext,
+} from "../types";
+import type { InventoryCountScan } from "@/types";
 import { SupabaseRepositoryError, getClient } from "./client";
 import {
   inventoryCountRowToTs,
@@ -8,20 +13,40 @@ import {
 } from "./mappers";
 
 /**
- * Repositorio Supabase del Inventario físico (conteo físico) — FASE 1: LECTURA.
+ * Repositorio Supabase del Inventario físico (conteo físico).
  *
- * Implementa `list`/`byId`/`items`/`scans` sobre las tablas `inventory_counts`,
- * `inventory_count_items`, `inventory_count_scans`. Defensa en profundidad:
- * SIEMPRE filtra por `business_id = ctx.businessId` aunque RLS ya lo aplique
- * (R-SEC-01). Las escrituras (recordScan/submit/approve/reject) llegan en la
- * Fase 3; por ahora rechazan con un mensaje claro.
+ * LECTURA (Fase 1): list/byId/items/scans.
+ * ESCRITURA (Fase 3): create (cabecera + ítems), recordScan (idempotente),
+ * submit/approve/reject (transiciones de estado). NO muta stock ni genera
+ * `inventory_movements` — el ajuste de existencias es un paso aparte (Fase 3b).
+ *
+ * Defensa en profundidad: SIEMPRE `business_id = ctx.businessId` (además de RLS).
+ * Las escrituras verifican filas afectadas: un UPDATE de 0 filas NO es éxito.
  */
-const pendingWrite = (method: string) =>
-  Promise.reject(
-    new Error(
-      `inventoryCount.${method}(): escritura pendiente (Fase 3 de la migración del conteo físico).`,
-    ),
-  );
+
+/** Resuelve el almacén de la sucursal cuando el input no lo trae. */
+async function resolveWarehouseId(
+  sb: Awaited<ReturnType<typeof getClient>>,
+  businessId: string,
+  branchId: string,
+  preferred?: string,
+): Promise<string> {
+  if (preferred) return preferred;
+  const { data, error } = await sb
+    .from("warehouses")
+    .select("id")
+    .eq("business_id", businessId)
+    .eq("branch_id", branchId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new SupabaseRepositoryError("inventoryCount.resolveWarehouse", error);
+  if (!data?.id) {
+    throw new Error(
+      "La sucursal no tiene un almacén configurado; no se puede crear el conteo.",
+    );
+  }
+  return data.id;
+}
 
 export const inventoryCountRepository: InventoryCountRepository = {
   async list(ctx: RepoContext) {
@@ -71,9 +96,139 @@ export const inventoryCountRepository: InventoryCountRepository = {
     return (data ?? []).map(inventoryCountScanRowToTs);
   },
 
-  // ── Escrituras (Fase 3) ──
-  recordScan: () => pendingWrite("recordScan"),
-  submit: () => pendingWrite("submit"),
-  approve: () => pendingWrite("approve"),
-  reject: () => pendingWrite("reject"),
+  async create(ctx: RepoContext, input: NewInventoryCount) {
+    const sb = await getClient("inventoryCount.create");
+    const warehouseId = await resolveWarehouseId(
+      sb,
+      ctx.businessId,
+      input.branchId,
+      input.warehouseId,
+    );
+
+    const { data: countRow, error: countErr } = await sb
+      .from("inventory_counts")
+      .insert({
+        business_id: ctx.businessId,
+        branch_id: input.branchId,
+        warehouse_id: warehouseId,
+        count_number: input.countNumber,
+        count_type: input.countType,
+        status: input.status ?? "in_progress",
+        assigned_to: input.assignedTo ?? [],
+        started_at: input.startedAt ?? new Date().toISOString(),
+        notes: input.notes ?? null,
+        scan_count: 0,
+        item_count: input.items.length,
+      })
+      .select("*")
+      .single();
+    if (countErr) throw new SupabaseRepositoryError("inventoryCount.create", countErr);
+
+    if (input.items.length > 0) {
+      const itemRows = input.items.map((it) => {
+        const expected = it.expectedQuantity;
+        const counted = it.countedQuantity;
+        return {
+          business_id: ctx.businessId,
+          inventory_count_id: countRow.id,
+          product_id: it.productId,
+          product_sku: it.productSku,
+          product_name: it.productName,
+          product_lot_id: it.productLotId ?? null,
+          lot_number: it.lotNumber ?? null,
+          expires_at: it.expiresAt ?? null,
+          warehouse_id: it.warehouseId || warehouseId,
+          expected_quantity: expected,
+          counted_quantity: counted,
+          difference_quantity: it.differenceQuantity ?? counted - expected,
+          status: it.status,
+          last_scan_at: it.lastScanAt ?? null,
+        };
+      });
+      const { error: itemsErr } = await sb
+        .from("inventory_count_items")
+        .insert(itemRows);
+      if (itemsErr)
+        throw new SupabaseRepositoryError("inventoryCount.create.items", itemsErr);
+    }
+
+    return inventoryCountRowToTs(countRow);
+  },
+
+  async recordScan(ctx: RepoContext, scan: Omit<InventoryCountScan, "id">) {
+    const sb = await getClient("inventoryCount.recordScan");
+    // Idempotente por el índice único (device_id, offline_scan_id): si el scan
+    // ya existe, `ignoreDuplicates` lo omite y el select no devuelve fila.
+    const { data, error } = await sb
+      .from("inventory_count_scans")
+      .upsert(
+        {
+          business_id: ctx.businessId,
+          inventory_count_id: scan.inventoryCountId,
+          product_id: scan.productId,
+          product_lot_id: scan.productLotId ?? null,
+          branch_id: scan.branchId,
+          warehouse_id: scan.warehouseId,
+          warehouse_location_id: scan.warehouseLocationId ?? null,
+          barcode: scan.barcode ?? null,
+          scanned_quantity: scan.scannedQuantity,
+          scan_source: scan.scanSource,
+          scanned_by: scan.scannedBy || null,
+          scanned_by_name: scan.scannedByName || null,
+          scanned_at: scan.scannedAt,
+          device_id: scan.deviceId,
+          offline_scan_id: scan.offlineScanId,
+          sync_status: scan.syncStatus,
+          notes: scan.notes ?? null,
+        },
+        { onConflict: "device_id,offline_scan_id", ignoreDuplicates: true },
+      )
+      .select("id");
+    if (error) throw new SupabaseRepositoryError("inventoryCount.recordScan", error);
+    return { inserted: (data?.length ?? 0) > 0 };
+  },
+
+  async submit(ctx: RepoContext, countId: string) {
+    await transition(ctx, countId, {
+      status: "submitted",
+      submitted_at: new Date().toISOString(),
+    }, "submit");
+  },
+
+  async approve(ctx: RepoContext, countId: string) {
+    await transition(ctx, countId, {
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      approved_by: ctx.userId ?? null,
+    }, "approve");
+  },
+
+  async reject(ctx: RepoContext, countId: string, reason: string) {
+    await transition(ctx, countId, {
+      status: "rejected",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: ctx.userId ?? null,
+      notes: reason,
+    }, "reject");
+  },
 };
+
+/** UPDATE de estado con guarda por business_id y verificación de filas. */
+async function transition(
+  ctx: RepoContext,
+  countId: string,
+  patch: Record<string, unknown>,
+  label: string,
+): Promise<void> {
+  const sb = await getClient(`inventoryCount.${label}`);
+  const { data, error } = await sb
+    .from("inventory_counts")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("business_id", ctx.businessId)
+    .eq("id", countId)
+    .select("id");
+  if (error) throw new SupabaseRepositoryError(`inventoryCount.${label}`, error);
+  if (!data || data.length === 0) {
+    throw new Error(`Conteo no encontrado o sin permiso (${label}).`);
+  }
+}

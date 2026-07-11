@@ -39,3 +39,36 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+/**
+ * Crea un conteo (cabecera + ítems). `business_id` sale del JWT (nunca del
+ * body). Fase 3 — no muta stock.
+ */
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  if (env.DATA_SOURCE !== "supabase") return notSupabase();
+  try {
+    const body = await req.json();
+    if (
+      !body?.countNumber ||
+      !body?.branchId ||
+      !body?.countType ||
+      !Array.isArray(body?.items)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Payload inválido: se requieren countNumber, branchId, countType e items[].",
+        },
+        { status: 400 },
+      );
+    }
+    const ctx = await getRepoContext();
+    const count = await getRepositories().inventoryCount.create(ctx, body);
+    return NextResponse.json({ count }, { status: 201 });
+  } catch (e) {
+    return NextResponse.json(
+      { error: toUserFacingMessage(e, "No se pudo crear el conteo.") },
+      { status: 400 },
+    );
+  }
+}

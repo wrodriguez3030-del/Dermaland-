@@ -49,3 +49,34 @@ export async function GET(
     );
   }
 }
+
+/**
+ * Transición de estado del conteo: { action: "submit"|"approve"|"reject",
+ * reason? }. Fase 3 — no muta stock (los ajustes son un paso aparte).
+ */
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  if (env.DATA_SOURCE !== "supabase") return notSupabase();
+  try {
+    const { id } = await params;
+    const { action, reason } = await req.json();
+    const ctx = await getRepoContext();
+    const repo = getRepositories().inventoryCount;
+    if (action === "submit") await repo.submit(ctx, id);
+    else if (action === "approve") await repo.approve(ctx, id);
+    else if (action === "reject") await repo.reject(ctx, id, reason ?? "");
+    else
+      return NextResponse.json(
+        { error: "Acción inválida. Usa submit | approve | reject." },
+        { status: 400 },
+      );
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json(
+      { error: toUserFacingMessage(e, "No se pudo actualizar el conteo.") },
+      { status: 400 },
+    );
+  }
+}
