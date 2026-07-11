@@ -149,6 +149,7 @@ export const groups: NavGroup[] = [
     icon: Bot,
     items: [
       { label: "Agentes IA", href: "/ia" },
+      { label: "Proveedores de IA", href: "/ia/proveedores" },
       { label: "Conversaciones", href: "/ia/conversaciones" },
       { label: "Logs y costos", href: "/ia/logs" },
     ],

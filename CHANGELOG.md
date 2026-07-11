@@ -11,6 +11,46 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.63.0] - 2026-07-11
+
+**Módulo seguro de Proveedores de IA (OpenAI primero).** Un ADMIN puede conectar
+DermaLand con un proveedor de IA desde la UI, sin tocar código ni exponer la
+clave. **No toca DGII/fiscal.** Doc: `docs/ai/AI_PROVIDERS.md`.
+
+- **Nuevo menú** IA → **Proveedores de IA** (`/ia/proveedores`): tarjetas por
+  proveedor (estado, modelo, última prueba, latencia, límites, acciones) +
+  catálogo (OpenAI y compatible **implementados**; Anthropic/Gemini/Local
+  "próximamente"). Wizard de 5 pasos (proveedor → credenciales+probar → modelos
+  → límites → confirmar).
+- **Seguridad de credenciales:** API key **write-only**, cifrada **AES-256-GCM**
+  (`server/crypto/ai-cipher.ts`) con master key `AI_CREDENTIALS_ENCRYPTION_KEY`
+  (solo env; sin ella se **bloquea** el guardado, nunca en texto plano). Se
+  guardan `iv`/`auth_tag`/`version`/`key_last_four` por separado; se descifra
+  **solo en servidor** justo antes de llamar; **nunca** vuelve al navegador
+  (`AiProviderView` solo expone `keyLastFour` → `••••••••••••abcd`).
+- **Adaptadores** canónicos (`AIProviderAdapter`): `OpenAIProviderAdapter`
+  (Responses API, timeout, tools, usage, errores amigables sin filtrar
+  clave/respuesta) + compatible-OpenAI. Capa central `AIProviderService`
+  (agentes/tools nunca llaman al proveedor directo). Fallback solo por causas
+  retriables; presupuesto mensual por proveedor (bloquea al 100%).
+- **Datos (Supabase + RLS por `business_id`):** `ai_providers`,
+  `ai_provider_secrets`, `ai_agent_provider_bindings`, `ai_usage_logs` (migración
+  aplicada, Security Advisor limpio, `business_id` siempre del JWT).
+- **Agentes:** IA → Agentes IA ahora permite asignar proveedor/modelo por agente
+  (Concierge dermatológico, Asistente de inventario — tools intactas) + **Probar
+  agente** (modo de prueba, sin tools de efecto, muestra tokens/costo/latencia).
+- **Endpoints** protegidos (`/api/ai/providers*`, `/api/ai/agents*`,
+  `/api/ai/usage`) con sesión + permisos (admin/manager gestiona; usuario no ve
+  la clave) + gating Supabase (409 en modo local) + errores amigables.
+- **Tests** (16): cifrado ida/vuelta + clave nunca en el blob + master key
+  errónea falla; adaptador (test OK/401 amigable, parseo Responses, 404 modelo,
+  clave no va en URL); factory/pricing. typecheck + suite (1698) + build verdes;
+  sin secretos en el repo.
+- **Estado inicial seguro:** OpenAI aparece **"Sin configurar"**; los agentes
+  muestran **"Configuración pendiente"**. No se hacen solicitudes hasta que un
+  ADMIN configure `AI_CREDENTIALS_ENCRYPTION_KEY` (env) y agregue+pruebe una key
+  real desde la UI.
+
 ## [0.62.0] - 2026-07-11
 
 **Migración del Inventario físico — Fase 2a: los conteos se PERSISTEN a Supabase

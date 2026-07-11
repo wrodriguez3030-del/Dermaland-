@@ -11,6 +11,7 @@ import {
 import { StatCard } from "@/components/ui/stat-card";
 import { Bot, AlertTriangle, Coins, MessageSquare } from "lucide-react";
 import { mockAIAgents, mockAILogs } from "@/lib/mock-data/integrations";
+import { AgentConfigPanel } from "@/features/ai/agent-config";
 
 export default function IAOverview() {
   const totalCalls = mockAIAgents.reduce((s, a) => s + a.monthlyCallsUsed, 0);
@@ -37,6 +38,20 @@ export default function IAOverview() {
         <StatCard label="Handoffs a humano" value={handoffs} icon={AlertTriangle} tone="warning" />
         <StatCard label="Agentes activos" value={mockAIAgents.filter((a) => a.active).length} icon={Bot} />
       </div>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Proveedor y modelo por agente</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-sm opacity-70">
+            Asigna a cada agente un proveedor de IA (configúralos en{" "}
+            <Link href="/ia/proveedores" className="underline">Proveedores de IA</Link>),
+            elige el modelo, prueba y actívalo o pásalo a pausa.
+          </p>
+          <AgentConfigPanel />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
