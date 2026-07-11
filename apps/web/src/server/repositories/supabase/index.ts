@@ -33,6 +33,7 @@ import {
 import { customerRepository } from "./customer";
 import { dgiiRepository } from "./dgii";
 import { inventoryMovementRepository } from "./inventory";
+import { inventoryCountRepository } from "./inventory-counts";
 import { productLotRepository, productRepository } from "./product";
 import {
   cashRegisterRepository,
@@ -67,21 +68,11 @@ export const supabaseRepositories: Repositories = {
   product: productRepository,
   productLot: productLotRepository,
   inventoryMovement: inventoryMovementRepository,
-  // El conteo físico de inventario (Phase 2.1) tiene flujo offline-first
-  // complejo (scans con dedupe por device_id + offline_scan_id, items
-  // calculados, transiciones de estado). Pendiente de implementación en
-  // Supabase — sigue como stub hasta que el módulo de conteo entre en
-  // producción real.
-  inventoryCount: {
-    list: stub("inventoryCount.list"),
-    byId: stub("inventoryCount.byId"),
-    scans: stub("inventoryCount.scans"),
-    items: stub("inventoryCount.items"),
-    recordScan: stub("inventoryCount.recordScan"),
-    submit: stub("inventoryCount.submit"),
-    approve: stub("inventoryCount.approve"),
-    reject: stub("inventoryCount.reject"),
-  },
+  // Conteo físico — Fase 1 (lectura) implementada en `./inventory-counts.ts`:
+  // list/byId/items/scans reales sobre Supabase. Las escrituras (recordScan,
+  // submit, approve, reject) llegan en la Fase 3 y por ahora rechazan con un
+  // mensaje claro desde el repo.
+  inventoryCount: inventoryCountRepository,
   customer: customerRepository,
   proforma: proformaRepository,
   cashRegister: cashRegisterRepository,

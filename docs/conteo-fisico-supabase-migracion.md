@@ -56,17 +56,18 @@ fallback, gated por `DATA_SOURCE`). Producción mock intacta hasta el cutover.
 
 ## 3. Alcance por fases
 
-### Fase 1 — Repositorio de lectura + API (sin tocar UI)
-- Extender `repositories/types.ts` con el contrato `InventoryCountsRepo`:
-  `listCounts(branchId?)`, `getCount(id)`, `getItems(countId)`,
-  `getScans(countId)`, `getEvidence(countId)`, `getMovementsForCount(countId)`.
-- Implementar `repositories/supabase/inventory-counts.ts` (SELECT con RLS por
-  `business_id`) + mappers snake→camel en `mappers.ts`. Mantener
-  `repositories/mock/*` como fallback.
-- Registrar en la factory (`repositories/index.ts`) gated por `DATA_SOURCE`.
-- API routes REST: `app/api/inventory-counts/route.ts` (GET lista),
-  `app/api/inventory-counts/[id]/route.ts` (GET detalle+items+scans). 409 si no
-  supabase (como el resto).
+### Fase 1 — Repositorio de lectura + API (sin tocar UI) ✅ HECHA (v0.60.0)
+- El contrato `InventoryCountRepository` (list/byId/items/scans + recordScan/
+  submit/approve/reject) YA existía en `repositories/types.ts`; la impl Supabase
+  estaba en `stub()`.
+- Implementado `repositories/supabase/inventory-counts.ts` con la LECTURA
+  (list/byId/items/scans, filtro `business_id`) + mappers snake→camel en
+  `mappers.ts`. Registrado en `supabase/index.ts` (reemplaza los stubs de
+  lectura). El mock (`repositories/mock/*`) sigue como fallback.
+- API routes: `app/api/inventory-counts/route.ts` (GET lista) y
+  `[id]/route.ts` (GET cabecera+items+scans). 409 en modo mock, RLS por JWT.
+- Escrituras siguen pendientes (Fase 3): rechazan con mensaje claro.
+- RLS verificado en las 5 tablas. Test de mappers (6 casos). typecheck+build ok.
 
 ### Fase 2 — Stores de cliente + páginas de lectura
 - `features/inventory-counts/counts-store.ts`: hooks `useCounts()`,

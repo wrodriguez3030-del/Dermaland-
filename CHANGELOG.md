@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.60.0] - 2026-07-11
+
+**Migración del Inventario físico a Supabase — Fase 1 (LECTURA).** Backend, sin
+cambios de UI todavía (las páginas siguen leyendo mock hasta la Fase 2). **No
+toca DGII, inventario real ni ventas.** Diseño en
+`docs/conteo-fisico-supabase-migracion.md`.
+
+- **Repo Supabase de lectura** `server/repositories/supabase/inventory-counts.ts`:
+  `list` / `byId` / `items` / `scans` reales sobre `inventory_counts`,
+  `inventory_count_items`, `inventory_count_scans`, con filtro defensivo
+  `business_id = ctx.businessId` (además de RLS). Reemplaza los stubs en la
+  factory (`supabase/index.ts`). Escrituras (recordScan/submit/approve/reject)
+  siguen pendientes (Fase 3) y rechazan con mensaje claro.
+- **Mappers** snake→camel en `mappers.ts`: `inventoryCountRowToTs`,
+  `inventoryCountItemRowToTs`, `inventoryCountScanRowToTs` (deriva
+  `differenceQuantity` = contado−esperado si la columna viene null; `assigned_to`
+  null → `[]`). Test nuevo (6 casos).
+- **API routes** de lectura (gated 409 en modo mock, `no-store`, RLS por JWT):
+  `GET /api/inventory-counts` (lista) y `GET /api/inventory-counts/[id]`
+  (cabecera + ítems + escaneos; 404 si no existe).
+- Verificado: las 5 tablas `inventory_count*` existen con **RLS activo** (1
+  policy c/u) y están vacías (sin backfill). typecheck + suite (1676) + build
+  verdes.
+
 ## [0.59.0] - 2026-07-11
 
 **Reporte de Inventario físico (Reportes › Conteos): el Excel y el PDF ahora

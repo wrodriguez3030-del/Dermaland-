@@ -24,6 +24,10 @@ import type {
   Customer,
   CustomerSkinType,
   DefaultBillingType,
+  InventoryCount,
+  InventoryCountItem,
+  InventoryCountScan,
+  InventoryCountStatus,
   InventoryMovement,
   Laboratory,
   MovementType,
@@ -257,6 +261,87 @@ export function inventoryMovementRowToTs(
     userId: row.user_id ?? "",
     userName: row.user_name ?? "",
     createdAt: row.created_at,
+  };
+}
+
+// ─── Inventario físico (conteos) ────────────────────────────────────────────
+
+export function inventoryCountRowToTs(
+  row: Tables["inventory_counts"]["Row"],
+): InventoryCount {
+  return {
+    id: row.id,
+    businessId: row.business_id,
+    branchId: row.branch_id,
+    warehouseId: row.warehouse_id,
+    countNumber: row.count_number,
+    countType: row.count_type as InventoryCount["countType"],
+    status: row.status as InventoryCountStatus,
+    assignedTo: row.assigned_to ?? [],
+    startedAt: row.started_at ?? undefined,
+    submittedAt: row.submitted_at ?? undefined,
+    reviewedAt: row.reviewed_at ?? undefined,
+    approvedAt: row.approved_at ?? undefined,
+    cancelledAt: row.cancelled_at ?? undefined,
+    reviewedBy: row.reviewed_by ?? undefined,
+    approvedBy: row.approved_by ?? undefined,
+    notes: row.notes ?? undefined,
+    scanCount: Number(row.scan_count),
+    itemCount: Number(row.item_count),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function inventoryCountItemRowToTs(
+  row: Tables["inventory_count_items"]["Row"],
+): InventoryCountItem {
+  const expected = Number(row.expected_quantity);
+  const counted = Number(row.counted_quantity);
+  return {
+    id: row.id,
+    inventoryCountId: row.inventory_count_id,
+    productId: row.product_id,
+    productSku: row.product_sku,
+    productName: row.product_name,
+    productLotId: row.product_lot_id ?? undefined,
+    lotNumber: row.lot_number ?? undefined,
+    expiresAt: row.expires_at ?? undefined,
+    warehouseId: row.warehouse_id,
+    expectedQuantity: expected,
+    countedQuantity: counted,
+    // `difference_quantity` es columna generada/nullable: si viene null la
+    // derivamos (contado − esperado) para no romper el informe.
+    differenceQuantity:
+      row.difference_quantity == null
+        ? counted - expected
+        : Number(row.difference_quantity),
+    status: row.status as InventoryCountItem["status"],
+    lastScanAt: row.last_scan_at ?? undefined,
+  };
+}
+
+export function inventoryCountScanRowToTs(
+  row: Tables["inventory_count_scans"]["Row"],
+): InventoryCountScan {
+  return {
+    id: row.id,
+    inventoryCountId: row.inventory_count_id,
+    productId: row.product_id,
+    productLotId: row.product_lot_id ?? undefined,
+    branchId: row.branch_id,
+    warehouseId: row.warehouse_id,
+    warehouseLocationId: row.warehouse_location_id ?? undefined,
+    barcode: row.barcode ?? undefined,
+    scannedQuantity: Number(row.scanned_quantity),
+    scanSource: row.scan_source as InventoryCountScan["scanSource"],
+    scannedBy: row.scanned_by ?? "",
+    scannedByName: row.scanned_by_name ?? "",
+    scannedAt: row.scanned_at,
+    deviceId: row.device_id,
+    offlineScanId: row.offline_scan_id,
+    syncStatus: row.sync_status as InventoryCountScan["syncStatus"],
+    notes: row.notes ?? undefined,
   };
 }
 
