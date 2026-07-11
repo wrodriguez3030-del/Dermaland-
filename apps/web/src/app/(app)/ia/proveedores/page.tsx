@@ -13,6 +13,7 @@ import {
   type ProviderView,
 } from "@/features/ai/ai-client";
 import { ProviderWizard } from "@/features/ai/provider-wizard";
+import { AiSetupGuide } from "@/features/ai/setup-guide";
 
 const STATUS_TONE: Record<ProviderView["status"], "success" | "danger" | "warning" | "neutral"> = {
   unconfigured: "neutral",
@@ -61,6 +62,8 @@ export default function ProveedoresPage() {
           </CardContent>
         </Card>
       )}
+
+      <AiSetupGuide />
 
       {/* Configurados */}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

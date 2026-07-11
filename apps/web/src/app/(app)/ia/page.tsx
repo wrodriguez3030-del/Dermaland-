@@ -8,10 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui";
-import { StatCard } from "@/components/ui/stat-card";
-import { Bot, AlertTriangle, Coins, MessageSquare } from "lucide-react";
+import { Bot } from "lucide-react";
 import { mockAIAgents, mockAILogs } from "@/lib/mock-data/integrations";
 import { AgentConfigPanel } from "@/features/ai/agent-config";
+import { AiKpis } from "@/features/ai/ai-kpis";
 
 export default function IAOverview() {
   const totalCalls = mockAIAgents.reduce((s, a) => s + a.monthlyCallsUsed, 0);
@@ -32,12 +32,12 @@ export default function IAOverview() {
           </Link>
         }
       />
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Llamadas (mes)" value={totalCalls} icon={MessageSquare} tone="primary" />
-        <StatCard label="Costo (USD)" value={`$${totalCost.toFixed(4)}`} icon={Coins} />
-        <StatCard label="Handoffs a humano" value={handoffs} icon={AlertTriangle} tone="warning" />
-        <StatCard label="Agentes activos" value={mockAIAgents.filter((a) => a.active).length} icon={Bot} />
-      </div>
+      <AiKpis
+        fallbackCalls={totalCalls}
+        fallbackCost={totalCost}
+        fallbackHandoffs={handoffs}
+        fallbackActive={mockAIAgents.filter((a) => a.active).length}
+      />
 
       <Card className="mb-6">
         <CardHeader>

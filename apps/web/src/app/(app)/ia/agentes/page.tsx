@@ -7,15 +7,27 @@ import {
   CardTitle,
 } from "@/components/ui";
 import { mockAIAgents } from "@/lib/mock-data/integrations";
+import { AgentConfigPanel } from "@/features/ai/agent-config";
 
 export default function AgentesPage() {
   return (
     <>
       <PageHeader
         title="Agentes IA"
-        description="Cada agente lleva system prompt + lista de tools permitidas."
+        description="Asigna proveedor y modelo, prueba cada agente y actívalo. Cada agente lleva system prompt + tools permitidas."
         breadcrumbs={[{ label: "IA", href: "/ia" }, { label: "Agentes" }]}
       />
+
+      {/* Configuración REAL: proveedor/modelo por agente + probar agente. */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Proveedor y modelo por agente</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AgentConfigPanel />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         {mockAIAgents.map((a) => {
           const pct = (a.monthlyCallsUsed / a.monthlyCallsLimit) * 100;
@@ -25,13 +37,10 @@ export default function AgentesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <CardTitle>{a.name}</CardTitle>
-                    <p className="mt-1 text-xs opacity-60 font-mono">
-                      modelo: {a.model}
+                    <p className="mt-1 text-xs opacity-60">
+                      El proveedor y modelo se asignan en el panel de arriba.
                     </p>
                   </div>
-                  <Badge tone={a.active ? "success" : "neutral"}>
-                    {a.active ? "Activo" : "Pausado"}
-                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

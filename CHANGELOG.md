@@ -11,6 +11,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.64.0] - 2026-07-11
+
+**Módulo IA más funcional y fácil (revisión de usabilidad).** Cierra las 4
+fricciones detectadas al revisar v0.63.0. **No toca DGII/fiscal.**
+
+- **Guía de primeros pasos** en `/ia/proveedores` (`AiSetupGuide`): checklist
+  1-2-3 con estado REAL (proveedor conectado → agentes con modelo → probados),
+  que se oculta sola al completarse; aviso amigable si falta la master key de
+  cifrado en el servidor. Nuevo `GET /api/ai/status` (solo booleans/conteos).
+- **Logs y costos REALES**: `/ia/logs` ahora muestra KPIs del mes (solicitudes,
+  tokens in/out, costo estimado, errores, latencia promedio) y la tabla de
+  solicitudes reales de `ai_usage_logs` (proveedor/modelo, tokens, costo,
+  latencia, tools, estado, fallback). Si aún no hay actividad, lo dice claro y
+  etiqueta la demo como "(ejemplo)". `GET /api/ai/usage` devuelve además `logs`.
+- **`/ia/agentes` ahora configura de verdad**: el botón "Configurar agentes"
+  lleva a una pantalla que ANTES era solo informativa (modelo mock hardcodeado);
+  ahora incluye el panel real de proveedor/modelo por agente + "Probar agente".
+  Se quitó el "modelo:" falso de las tarjetas.
+- **KPIs de `/ia` reales** (`AiKpis`): usa el consumo real del mes cuando está
+  disponible; si no, muestra la demo etiquetada "(ejemplo)". Tarjeta nueva
+  "Agentes configurados: N/M".
+- typecheck + suite (1698) + build verdes.
+
 ## [0.63.0] - 2026-07-11
 
 **Módulo seguro de Proveedores de IA (OpenAI primero).** Un ADMIN puede conectar

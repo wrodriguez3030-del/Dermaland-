@@ -100,10 +100,78 @@ export const aiApi = {
     if (params?.providerId) q.set("providerId", params.providerId);
     if (params?.agentId) q.set("agentId", params.agentId);
     const qs = q.toString();
-    return req<{ summary: { requests: number; inputTokens: number; outputTokens: number; estimatedCostUsd: number; errors: number; avgLatencyMs: number } }>(
+    return req<{ summary: UsageSummary; logs: UsageLogRow[] }>(
       `/api/ai/usage${qs ? `?${qs}` : ""}`);
   },
+  status: () =>
+    req<{ status: AiSetupStatus }>("/api/ai/status"),
 };
+
+export interface UsageSummary {
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  errors: number;
+  avgLatencyMs: number;
+}
+
+export interface UsageLogRow {
+  id: string;
+  createdAt: string;
+  agentId: string | null;
+  providerType: string | null;
+  model: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  latencyMs: number | null;
+  toolsUsed: string[];
+  status: string;
+  errorSummary: string | null;
+  wasFallback: boolean;
+}
+
+export interface AiSetupStatus {
+  encryptionConfigured: boolean;
+  providersTotal: number;
+  providersConnected: number;
+  agentsTotal: number;
+  agentsConfigured: number;
+}
+
+/** Estado de configuración del módulo (para la guía de primeros pasos). */
+export function useAiStatus() {
+  const [status, setStatus] = React.useState<AiSetupStatus | null>(null);
+  const [unavailable, setUnavailable] = React.useState(false);
+  const refresh = React.useCallback(async () => {
+    try {
+      const { status } = await aiApi.status();
+      setStatus(status);
+      setUnavailable(false);
+    } catch (e) {
+      if ((e as { status?: number }).status === 409) setUnavailable(true);
+    }
+  }, []);
+  React.useEffect(() => { void refresh(); }, [refresh]);
+  return { status, unavailable, refresh };
+}
+
+/** Consumo del mes + últimas solicitudes (null mientras carga o si no hay backend). */
+export function useAiUsage() {
+  const [summary, setSummary] = React.useState<UsageSummary | null>(null);
+  const [logs, setLogs] = React.useState<UsageLogRow[] | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    let alive = true;
+    aiApi.usage()
+      .then((r) => { if (alive) { setSummary(r.summary); setLogs(r.logs); } })
+      .catch(() => { /* modo local o sin permisos: la página usa su fallback */ })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
+  return { summary, logs, loading };
+}
 
 /** Hook de lectura con estado de carga/error y refresco. */
 export function useProviders() {

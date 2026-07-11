@@ -351,6 +351,50 @@ export async function logUsage(businessId: string, input: UsageLogInput): Promis
   });
 }
 
+export interface UsageLogView {
+  id: string;
+  createdAt: string;
+  agentId: string | null;
+  providerType: string | null;
+  model: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+  latencyMs: number | null;
+  toolsUsed: string[];
+  status: string;
+  errorSummary: string | null;
+  wasFallback: boolean;
+}
+
+/** Últimas solicitudes de IA del negocio (para Logs y costos). */
+export async function listUsageLogs(
+  businessId: string, limit = 50,
+): Promise<UsageLogView[]> {
+  const sb = await getClient("ai.listUsageLogs");
+  const { data } = await ai(sb)
+    .from("ai_usage_logs")
+    .select("id, created_at, agent_id, provider_type, model, input_tokens, output_tokens, estimated_cost_usd, latency_ms, tools_used, status, error_summary, was_fallback")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.id,
+    createdAt: r.created_at,
+    agentId: r.agent_id ?? null,
+    providerType: r.provider_type ?? null,
+    model: r.model ?? null,
+    inputTokens: Number(r.input_tokens ?? 0),
+    outputTokens: Number(r.output_tokens ?? 0),
+    estimatedCostUsd: Number(r.estimated_cost_usd ?? 0),
+    latencyMs: r.latency_ms == null ? null : Number(r.latency_ms),
+    toolsUsed: r.tools_used ?? [],
+    status: r.status,
+    errorSummary: r.error_summary ?? null,
+    wasFallback: !!r.was_fallback,
+  }));
+}
+
 export interface UsageSummary {
   requests: number;
   inputTokens: number;

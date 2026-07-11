@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAiUser } from "@/server/services/ai/guard";
 import { aiErrorResponse, requireSupabase } from "@/server/services/ai/api-helpers";
-import { getMonthlyUsage } from "@/server/services/ai/store";
+import { getMonthlyUsage, listUsageLogs } from "@/server/services/ai/store";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +18,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const session = await requireAiUser();
     const providerId = req.nextUrl.searchParams.get("providerId") ?? undefined;
     const agentId = req.nextUrl.searchParams.get("agentId") ?? undefined;
-    const summary = await getMonthlyUsage(session.businessId, {
-      providerId, agentId, sinceIso: monthStartIso(),
-    });
-    return NextResponse.json({ summary }, { headers: { "Cache-Control": "no-store" } });
+    const [summary, logs] = await Promise.all([
+      getMonthlyUsage(session.businessId, { providerId, agentId, sinceIso: monthStartIso() }),
+      listUsageLogs(session.businessId, 50),
+    ]);
+    return NextResponse.json({ summary, logs }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return aiErrorResponse(e);
   }
