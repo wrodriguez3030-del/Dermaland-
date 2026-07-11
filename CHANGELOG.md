@@ -11,6 +11,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.66.1] - 2026-07-11
+
+**Fix: el Chat IA ocultaba la causa real cuando el proveedor rechazaba la
+solicitud.** Reportado con "No se pudo completar la solicitud de IA." aunque el
+proveedor devolvía un error específico. **No toca DGII/fiscal.**
+
+- **Causa raíz:** `runRequest` tapaba el mensaje amigable del adaptador (401/403/
+  404/429…) con el genérico. Diagnóstico del caso real: la prueba de conexión
+  (GET /models) pasa pero el chat (POST /responses) recibe un 4xx — patrón
+  típico de **API key restringida sin permiso de Responses**.
+- Nuevo `ProviderHttpError` (status + mensaje amigable): el chat ahora muestra
+  la causa exacta ("No pudimos validar la API key.", "La API key no tiene
+  permiso… actívale Responses/Model capabilities", "modelo no disponible",
+  "rate limit o crédito agotado"…), la clasificación usa el status real y
+  `ai_usage_logs.error_summary` registra `HTTP <status>: <mensaje>` para
+  diagnóstico. Nunca se expone la clave ni la respuesta cruda.
+
 ## [0.66.0] - 2026-07-11
 
 **Dashboard ejecutivo estilo profesional (en todo el sistema donde aplica).**

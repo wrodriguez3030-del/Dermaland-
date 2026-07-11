@@ -3,6 +3,7 @@ import { getAiEncryptionKeyOrThrow, isAiCredentialsEncryptionConfigured } from "
 import { decryptApiKey, encryptApiKey } from "@/server/crypto/ai-cipher";
 import { saveSecret } from "./store";
 import { createAdapter } from "./providers/factory";
+import { ProviderHttpError } from "./providers/openai-adapter";
 import type {
   AIChatMessage,
   AIModel,
@@ -236,14 +237,35 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
         conversationId: params.conversationId, channel: params.channel,
         inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, latencyMs: Date.now() - started,
         status: reason === "timeout" ? "timeout" : reason === "rate_limited" ? "rate_limited" : "error",
-        errorSummary: reason,
+        // Diagnóstico: status HTTP + mensaje amigable (nunca la clave ni la
+        // respuesta cruda — friendlyError garantiza eso).
+        errorSummary:
+          err instanceof ProviderHttpError
+            ? `HTTP ${err.status}: ${err.message}`.slice(0, 300)
+            : reason,
       });
     }
-    throw err instanceof AiServiceError ? err : new AiServiceError(reason, "No se pudo completar la solicitud de IA.");
+    if (err instanceof AiServiceError) throw err;
+    // Conservar el mensaje AMIGABLE del adaptador (p. ej. "No pudimos validar
+    // la API key.") en vez de taparlo con un genérico — el usuario necesita
+    // saber la causa para poder corregirla.
+    const friendly =
+      err instanceof ProviderHttpError || err instanceof Error
+        ? err.message
+        : "";
+    throw new AiServiceError(
+      reason,
+      friendly && friendly.length <= 250 ? friendly : "No se pudo completar la solicitud de IA.",
+    );
   }
 }
 
 function classifyError(err: unknown): "timeout" | "rate_limited" | "unavailable" | "error" {
+  if (err instanceof ProviderHttpError) {
+    if (err.status === 429) return "rate_limited";
+    if (err.status >= 500) return "unavailable";
+    return "error";
+  }
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
   if (msg.includes("tiempo de espera") || msg.includes("timeout") || msg.includes("abort")) return "timeout";
   if (msg.includes("rate limit") || msg.includes("limitando")) return "rate_limited";

@@ -14,13 +14,29 @@ import { estimateCost } from "./pricing";
 
 const DEFAULT_TIMEOUT = 30_000;
 
+/** Error HTTP del proveedor con status legible para clasificar/registrar. */
+export class ProviderHttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = "ProviderHttpError";
+  }
+}
+
 /** Mensaje AMIGABLE por status. NUNCA incluye la respuesta cruda ni la clave. */
-function friendlyError(status: number): string {
-  if (status === 401 || status === 403) return "No pudimos validar la API key.";
-  if (status === 404) return "El modelo seleccionado no está disponible para esta conexión.";
-  if (status === 429) return "El proveedor está limitando las solicitudes (rate limit). Intenta más tarde.";
-  if (status >= 500) return "El proveedor de IA no está disponible en este momento.";
-  return "No se pudo completar la solicitud al proveedor de IA.";
+function friendlyError(status: number): ProviderHttpError {
+  const message =
+    status === 401
+      ? "No pudimos validar la API key."
+      : status === 403
+        ? "La API key no tiene permiso para usar este servicio. Si es una clave restringida, actívale el permiso de Responses/Model capabilities en platform.openai.com."
+        : status === 404
+          ? "El modelo seleccionado no está disponible para esta conexión."
+          : status === 429
+            ? "El proveedor está limitando las solicitudes (rate limit o crédito agotado). Intenta más tarde."
+            : status >= 500
+              ? "El proveedor de IA no está disponible en este momento."
+              : `El proveedor rechazó la solicitud (HTTP ${status}).`;
+  return new ProviderHttpError(status, message);
 }
 
 async function fetchWithTimeout(
@@ -72,7 +88,7 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
       );
       const latencyMs = Date.now() - started;
       if (!res.ok) {
-        return { ok: false, latencyMs, message: friendlyError(res.status) };
+        return { ok: false, latencyMs, message: friendlyError(res.status).message };
       }
       const data = (await res.json()) as { data?: unknown[] };
       return {
@@ -100,7 +116,7 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
       { headers: this.headers },
       this.timeoutMs,
     );
-    if (!res.ok) throw new Error(friendlyError(res.status));
+    if (!res.ok) throw friendlyError(res.status);
     const data = (await res.json()) as { data?: Array<{ id: string }> };
     return (data.data ?? [])
       .map((m) => ({ id: m.id, label: m.id }))
@@ -131,7 +147,7 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
       { method: "POST", headers: this.headers, body: JSON.stringify(body) },
       input.timeoutMs ?? this.timeoutMs,
     );
-    if (!res.ok) throw new Error(friendlyError(res.status));
+    if (!res.ok) throw friendlyError(res.status);
     const json = (await res.json()) as OpenAIResponseBody;
     return parseResponse(json, input.model);
   }
