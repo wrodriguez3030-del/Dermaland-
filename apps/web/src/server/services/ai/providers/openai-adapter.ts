@@ -22,21 +22,41 @@ export class ProviderHttpError extends Error {
   }
 }
 
-/** Mensaje AMIGABLE por status. NUNCA incluye la respuesta cruda ni la clave. */
-function friendlyError(status: number): ProviderHttpError {
-  const message =
-    status === 401
-      ? "No pudimos validar la API key."
-      : status === 403
-        ? "La API key no tiene permiso para usar este servicio. Si es una clave restringida, actívale el permiso de Responses/Model capabilities en platform.openai.com."
-        : status === 404
-          ? "El modelo seleccionado no está disponible para esta conexión."
-          : status === 429
-            ? "El proveedor está limitando las solicitudes (rate limit o crédito agotado). Intenta más tarde."
-            : status >= 500
-              ? "El proveedor de IA no está disponible en este momento."
-              : `El proveedor rechazó la solicitud (HTTP ${status}).`;
+/**
+ * Mensaje AMIGABLE por status. NUNCA incluye la respuesta cruda ni la clave.
+ * `code` es el enum técnico de OpenAI (p. ej. `insufficient_quota`,
+ * `unsupported_country_region_territory`) — seguro de mostrar y clave para
+ * diagnosticar; se anexa entre paréntesis cuando existe.
+ */
+function friendlyError(status: number, code?: string): ProviderHttpError {
+  let message =
+    code === "insufficient_quota"
+      ? "La cuenta de OpenAI no tiene crédito disponible. Agrega un método de pago o créditos en platform.openai.com → Billing."
+      : status === 401
+        ? "No pudimos validar la API key."
+        : status === 403
+          ? "La API key no tiene permiso para usar este servicio. Si es una clave restringida, actívale el permiso de Responses/Model capabilities en platform.openai.com."
+          : status === 404
+            ? "El modelo seleccionado no está disponible para esta conexión."
+            : status === 429
+              ? "El proveedor está limitando las solicitudes (rate limit o crédito agotado). Intenta más tarde."
+              : status >= 500
+                ? "El proveedor de IA no está disponible en este momento."
+                : `El proveedor rechazó la solicitud (HTTP ${status}).`;
+  if (code && code !== "insufficient_quota") message += ` (código: ${code})`;
   return new ProviderHttpError(status, message);
+}
+
+/** Extrae el código de error del body de OpenAI sin exponer el contenido. */
+async function errorCode(res: Response): Promise<string | undefined> {
+  try {
+    const j = (await res.json()) as { error?: { code?: string; type?: string } };
+    const raw = j?.error?.code ?? j?.error?.type;
+    // Solo enums técnicos (letras/números/_/-), nunca texto libre.
+    return typeof raw === "string" && /^[a-z0-9_.-]{1,64}$/i.test(raw) ? raw : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function fetchWithTimeout(
@@ -95,7 +115,7 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
       );
       const latencyMs = Date.now() - started;
       if (!res.ok) {
-        return { ok: false, latencyMs, message: friendlyError(res.status).message };
+        return { ok: false, latencyMs, message: friendlyError(res.status, await errorCode(res)).message };
       }
       const data = (await res.json()) as { data?: unknown[] };
       return {
@@ -123,7 +143,7 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
       { headers: this.headers },
       this.timeoutMs,
     );
-    if (!res.ok) throw friendlyError(res.status);
+    if (!res.ok) throw friendlyError(res.status, await errorCode(res));
     const data = (await res.json()) as { data?: Array<{ id: string }> };
     return (data.data ?? [])
       .map((m) => ({ id: m.id, label: m.id }))
@@ -154,7 +174,7 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
       { method: "POST", headers: this.headers, body: JSON.stringify(body) },
       input.timeoutMs ?? this.timeoutMs,
     );
-    if (!res.ok) throw friendlyError(res.status);
+    if (!res.ok) throw friendlyError(res.status, await errorCode(res));
     const json = (await res.json()) as OpenAIResponseBody;
     return parseResponse(json, input.model);
   }
