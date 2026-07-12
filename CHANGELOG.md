@@ -11,6 +11,17 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.70.1] - 2026-07-12
+
+**Prueba cross-tenant (RLS) e2e — VERIFICADA EN VIVO.** Script reusable
+`scripts/security/cross-tenant-rls-test.mjs` que crea dos empresas de prueba con
+JWT reales y confirma 7/7: aislamiento de lectura, IDOR bloqueado (leer/editar/
+borrar datos de otra empresa falla), y que el vector SEC-001 está cerrado (un
+usuario que manipula su `user_metadata` para reclamar otra empresa /
+is_platform_admin SIGUE viendo solo la suya). El script BORRA sus datos de prueba
+(no toca datos reales); reejecutable como regresión. Cierra el último ítem del
+checklist de producción.
+
 ## [0.70.0] - 2026-07-12
 
 **Auditoría de seguridad — cierre de los pendientes de baja prioridad.** 16 de 17

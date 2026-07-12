@@ -53,7 +53,14 @@ tenant, y las escrituras están denegadas o restringidas a platform admin.
 
 - **Estructural (verificado):** patrón `business_id = auth_business_id()` en todas
   las tablas de tenant; el tenant no es sustituible por el cliente (tras SEC-001).
-- **Dinámico (pendiente):** prueba e2e con dos JWT de empresas distintas. Hoy solo
-  hay 1 empresa (`…d001`) y 2 usuarios, ambos de esa empresa; no es posible una
-  prueba cross-tenant real hasta onboardear una 2ª empresa. Recomendado antes de
-  go-live multi-tenant (ver checklist).
+- **Dinámico (✅ VERIFICADO EN VIVO):** `scripts/security/cross-tenant-rls-test.mjs`
+  crea dos empresas de prueba con JWT reales y confirma **7/7**:
+  1. A ve solo sus datos, B solo los suyos (aislamiento de lectura).
+  2. B no puede leer un producto de A por su id (IDOR bloqueado).
+  3. B no puede modificar un producto de A (UPDATE → 0 filas).
+  4. B no puede borrar un producto de A (DELETE → 0 filas).
+  5. **SEC-001:** tras que B manipule su `user_metadata` para reclamar la empresa
+     A + `is_platform_admin`, B SIGUE viendo solo su empresa (la escalada falla).
+  6. Tras el ataque, B sigue sin poder leer datos de A.
+  El script crea y BORRA sus datos de prueba (no toca datos reales). Reejecutable
+  como regresión antes de cada go-live multi-tenant.
