@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.66.3] - 2026-07-12
+
+**Chat IA: los fallos del proveedor ahora muestran el código exacto de OpenAI.**
+`friendlyError` lee `error.code`/`error.type` del body (sanitizado: solo enums
+técnicos, nunca texto libre ni la clave) y lo anexa al mensaje — p. ej.
+"(código: …)". Caso especial `insufficient_quota` con mensaje directo: "La
+cuenta de OpenAI no tiene crédito disponible. Agrega un método de pago…".
+Contexto: con proveedor y clave correctos persiste un HTTP 403 en `/responses`
+(mientras `/models` pasa) — el código exacto permite diagnosticar sin adivinar.
+
 ## [0.66.2] - 2026-07-12
 
 **Fix causa raíz del HTTP 400 en el Chat IA: Organization/Project ID con texto
