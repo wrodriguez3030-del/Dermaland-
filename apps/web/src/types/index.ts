@@ -533,6 +533,12 @@ export interface Proforma extends Audited, BranchScoped {
    * referenciada queda visible en el historial pero no suma dos veces.
    */
   sourceProformaId?: ID;
+  /**
+   * SEC-011: clave de idempotencia generada por el cliente al iniciar un cobro.
+   * El servidor la usa para no crear dos ventas ante doble-submit/reintento
+   * (índice único `(business_id, idempotency_key)`).
+   */
+  idempotencyKey?: string;
 }
 
 export interface CashRegisterSession extends Audited, BranchScoped {

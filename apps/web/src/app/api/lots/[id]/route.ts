@@ -29,8 +29,46 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { newQuantity, reason } = body as { newQuantity: number; reason?: string };
+    const { newQuantity, decrementBy, reason } = body as {
+      newQuantity?: number;
+      decrementBy?: number;
+      reason?: string;
+    };
 
+    const ctx = await getRepoContext();
+    const repos = getRepositories();
+
+    // ── SEC-010: modo VENTA — decremento ATÓMICO (evita sobreventa por carrera).
+    // El POS usa este modo: en vez de fijar un valor absoluto calculado desde un
+    // snapshot posiblemente rancio, resta `decrementBy` con guarda `>= qty`.
+    if (typeof decrementBy === "number") {
+      if (!Number.isFinite(decrementBy) || decrementBy <= 0) {
+        return NextResponse.json({ error: "decrementBy debe ser un número > 0" }, { status: 422 });
+      }
+      const lot = await repos.productLot.decrementQuantity(ctx, id, Math.round(decrementBy));
+      if (!lot) {
+        return NextResponse.json(
+          { error: "Stock insuficiente para esta venta (otro cobro pudo consumir el lote). Refresca e intenta de nuevo." },
+          { status: 409 },
+        );
+      }
+      await repos.inventoryMovement.create(ctx, {
+        businessId: ctx.businessId,
+        branchId: lot.branchId,
+        productId: lot.productId,
+        lotId: lot.id,
+        warehouseId: lot.warehouseId,
+        type: "exit_sale",
+        quantity: -Math.round(decrementBy),
+        reason: reason ?? "Salida por venta",
+        reference: lot.lotNumber,
+        userId: session.user.id,
+        userName: session.user.fullName,
+      });
+      return NextResponse.json({ lot, delta: -Math.round(decrementBy) });
+    }
+
+    // ── Modo AJUSTE MANUAL — cantidad absoluta (compat; poco concurrente).
     if (typeof newQuantity !== "number" || newQuantity < 0) {
       return NextResponse.json(
         { error: "newQuantity debe ser un número >= 0" },
@@ -38,21 +76,14 @@ export async function PATCH(
       );
     }
 
-    const ctx = await getRepoContext();
-    const repos = getRepositories();
-
-    // Leer lote actual para calcular delta.
     const currentLot = await repos.productLot.byId(ctx, id);
     if (!currentLot) {
       return NextResponse.json({ error: "Lote no encontrado" }, { status: 404 });
     }
 
     const delta = newQuantity - currentLot.currentQuantity;
-
-    // Ajustar cantidad absoluta.
     const lot = await repos.productLot.adjustQuantity(ctx, id, newQuantity);
 
-    // Registrar movimiento de ajuste.
     await repos.inventoryMovement.create(ctx, {
       businessId: ctx.businessId,
       branchId: lot.branchId,

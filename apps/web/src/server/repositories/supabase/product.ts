@@ -441,4 +441,19 @@ export const productLotRepository: ProductLotRepository = {
     if (error) failRepo("productLot.adjustQuantity", error);
     return productLotRowToTs(data);
   },
+
+  async decrementQuantity(ctx: RepoContext, lotId: string, qty: number) {
+    // SEC-010: decremento atómico vía RPC `decrement_lot_stock` (UPDATE ... WHERE
+    // current_quantity >= qty). Devuelve la fila si tuvo éxito; [] si no había
+    // stock suficiente (o el lote no es del tenant).
+    const sb = await getClient("productLot.decrementQuantity");
+    const { data, error } = await sb.rpc("decrement_lot_stock", {
+      p_lot_id: lotId,
+      p_qty: qty,
+      p_business_id: ctx.businessId,
+    });
+    if (error) failRepo("productLot.decrementQuantity", error);
+    const rows = (data ?? []) as unknown[];
+    return rows.length > 0 ? productLotRowToTs(rows[0] as never) : null;
+  },
 };

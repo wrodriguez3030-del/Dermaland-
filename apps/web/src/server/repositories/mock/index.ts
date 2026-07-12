@@ -534,6 +534,14 @@ const productLot: ProductLotRepository = {
     lotQtyOverrides[lotId] = newQuantity;
     return { ...lot, currentQuantity: newQuantity, updatedAt: new Date().toISOString() };
   },
+  async decrementQuantity(ctx, lotId, qty) {
+    guard(ctx);
+    const lot = mockLotsView(ctx.businessId).find((l) => l.id === lotId);
+    if (!lot || qty <= 0 || lot.currentQuantity < qty) return null; // stock insuficiente
+    const next = lot.currentQuantity - qty;
+    lotQtyOverrides[lotId] = next;
+    return { ...lot, currentQuantity: next, updatedAt: new Date().toISOString() };
+  },
 };
 
 const inventoryMovement: InventoryMovementRepository = {

@@ -151,3 +151,20 @@ export function canManageCommission(
 ): boolean {
   return ADMIN_ROLES.includes(role);
 }
+
+/**
+ * SEC-012: tope de descuento GLOBAL (%) que un rol puede aplicar en una venta,
+ * validado en el SERVIDOR al emitir. Admin/gerencia sin tope; el resto acotado.
+ * Ajusta `CASHIER_MAX_DISCOUNT_PERCENT` según la política del negocio.
+ */
+const CASHIER_MAX_DISCOUNT_PERCENT = 30;
+
+export function maxDiscountPercentForRole(
+  role: UserRole = mockCurrentUser.role,
+): number {
+  // Roles de administración: sin tope (100%).
+  if (ADMIN_ROLES.includes(role) || role === "manager" || role === "supervisor") {
+    return 100;
+  }
+  return CASHIER_MAX_DISCOUNT_PERCENT;
+}

@@ -213,6 +213,12 @@ export interface ProductLotRepository {
    * el movimiento de inventario correspondiente.
    */
   adjustQuantity(ctx: RepoContext, lotId: ID, newQuantity: number): Promise<ProductLot>;
+  /**
+   * SEC-010: decrementa el stock de forma ATÓMICA (`current_quantity -= qty`
+   * con guarda `>= qty` en una sola sentencia) — evita sobreventa por carrera.
+   * Devuelve el lote actualizado, o `null` si no había stock suficiente.
+   */
+  decrementQuantity(ctx: RepoContext, lotId: ID, qty: number): Promise<ProductLot | null>;
 }
 
 export interface InventoryMovementRepository {

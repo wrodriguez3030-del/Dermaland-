@@ -836,6 +836,45 @@ export async function adjustStockAnywhere(input: AdjustStockInput): Promise<Adju
   }
 }
 
+/**
+ * SEC-010: salida de stock por VENTA — decremento ATÓMICO (evita sobreventa por
+ * carrera). Resta `qty` con guarda `>= qty` en el servidor. Úsalo en el POS en
+ * vez de fijar un valor absoluto calculado desde un snapshot.
+ */
+export async function decrementLotStock(
+  lotId: string,
+  qty: number,
+  reason: string,
+): Promise<AdjustResult> {
+  if (LOT_BACKEND === "local") {
+    // En local, aproximamos con el ajuste absoluto existente.
+    const lot = listAllLots().find((l) => l.id === lotId);
+    if (!lot) return { ok: false, error: "Lote no encontrado." };
+    if (lot.currentQuantity < qty) return { ok: false, error: "Stock insuficiente." };
+    return adjustStock({
+      lotId,
+      productId: lot.productId,
+      warehouseId: lot.warehouseId,
+      branchId: lot.branchId,
+      newQuantity: lot.currentQuantity - qty,
+      reason,
+    });
+  }
+  try {
+    const res = await fetch(`/api/lots/${lotId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ decrementBy: qty, reason }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { lot?: ProductLot; delta?: number; error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyInventoryChanged();
+    return { ok: true, delta: typeof body.delta === "number" ? body.delta : 0 };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 /** Wrapper gated: libera un lote vía API (supabase) o local. */
 export async function releaseLotAnywhere(
   lotId: string,

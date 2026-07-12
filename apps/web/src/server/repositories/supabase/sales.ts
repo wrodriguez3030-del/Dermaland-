@@ -290,6 +290,24 @@ export const proformaRepository: ProformaRepository = {
     proforma: Omit<Proforma, "id" | "createdAt" | "updatedAt">,
   ) {
     const sb = await getClient("proforma.create");
+
+    // SEC-011: idempotencia. Si el cobro trae una clave y ya existe una venta con
+    // ella (reintento/doble-submit), devolvemos la existente en vez de crear otra
+    // (evita doble factura + doble NCF). `hydrate` re-arma el agregado completo.
+    const idemKey = proforma.idempotencyKey ? String(proforma.idempotencyKey).slice(0, 100) : null;
+    const hydrate = async (row: Parameters<typeof proformaRowToTs>[0]) => {
+      const rid = (row as { id: string }).id;
+      const its = await fetchItemsForProformas(sb, ctx.businessId, [rid]);
+      const pays = await fetchPaymentsForProformas(sb, ctx.businessId, [rid]);
+      return proformaRowToTs(row, its.get(rid) ?? [], pays.get(rid) ?? []);
+    };
+    if (idemKey) {
+      const { data: dup } = await sb
+        .from("proformas").select("*")
+        .eq("business_id", ctx.businessId).eq("idempotency_key", idemKey).maybeSingle();
+      if (dup) return hydrate(dup);
+    }
+
     const number =
       proforma.number && proforma.number.trim().length > 0
         ? proforma.number
@@ -368,6 +386,10 @@ export const proformaRepository: ProformaRepository = {
       ...(proforma.sourceProformaId
         ? { source_proforma_id: nullableUuid(proforma.sourceProformaId) }
         : {}),
+      // SEC-011: clave de idempotencia (índice único por empresa).
+      ...(proforma.idempotencyKey
+        ? { idempotency_key: String(proforma.idempotencyKey).slice(0, 100) }
+        : {}),
     };
 
     const { data: inserted, error } = await sb
@@ -375,7 +397,17 @@ export const proformaRepository: ProformaRepository = {
       .insert(proformaRow)
       .select("*")
       .single();
-    if (error) throw new SupabaseRepositoryError("proforma.create", error);
+    if (error) {
+      // SEC-011: colisión con la clave de idempotencia por carrera (dos POST
+      // simultáneos) → devolver la venta ya creada, no un error.
+      if (idemKey && (error.code === "23505" || /idempotency/i.test(error.message))) {
+        const { data: dup } = await sb
+          .from("proformas").select("*")
+          .eq("business_id", ctx.businessId).eq("idempotency_key", idemKey).maybeSingle();
+        if (dup) return hydrate(dup);
+      }
+      throw new SupabaseRepositoryError("proforma.create", error);
+    }
 
     const proformaId = inserted.id as string;
 

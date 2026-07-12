@@ -72,7 +72,7 @@ import {
   lotBlockReason,
   stockByBranchForProduct,
   fefoLotsForBranch,
-  adjustStockAnywhere,
+  decrementLotStock,
   type LotBlockReason,
 } from "@/features/inventory/lot-store";
 import {
@@ -676,6 +676,10 @@ export function PosTerminal() {
 
     const newProforma: Proforma = {
       id,
+      // SEC-011: clave de idempotencia del cobro (el id de esta emisión). Si el
+      // mismo cobro se reenvía (reintento de red / doble-submit), el servidor
+      // devuelve la venta ya creada en vez de duplicar factura + NCF.
+      idempotencyKey: id,
       businessId: "biz_dermaland",
       branchId,
       number,
@@ -771,14 +775,9 @@ export function PosTerminal() {
       for (const lot of fefoLots) {
         if (remaining <= 0) break;
         const take = Math.min(remaining, lot.currentQuantity);
-        const adjResult = await adjustStockAnywhere({
-          lotId: lot.id,
-          productId: line.productId,
-          warehouseId: lot.warehouseId,
-          branchId: lot.branchId,
-          newQuantity: lot.currentQuantity - take,
-          reason: `Venta ${number}`,
-        });
+        // SEC-010: decremento ATÓMICO (el servidor resta con guarda >= take);
+        // evita sobreventa si dos cobros consumen el mismo lote a la vez.
+        const adjResult = await decrementLotStock(lot.id, take, `Venta ${number}`);
         if (!adjResult.ok) {
           stockErrors.push(
             `No se pudo descontar stock de ${line.productName} (lote ${lot.lotNumber}): ${adjResult.error}`,

@@ -11,6 +11,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.69.0] - 2026-07-12
+
+**Auditoría de seguridad — cierre de los 3 altos/medios pendientes del POS.**
+14 de 17 hallazgos corregidos; veredicto **APTO**. **No toca DGII real.**
+
+- **SEC-010 (ALTO) — corregido:** descuento de stock **atómico** al vender. RPC
+  `decrement_lot_stock` (`UPDATE … WHERE current_quantity >= qty` en una
+  sentencia; respeta RLS por `business_id`); repo `productLot.decrementQuantity`;
+  el `/api/lots/[id]` acepta modo `decrementBy` (venta, movimiento `exit_sale`)
+  además del absoluto (ajuste manual); el POS usa `decrementLotStock`. Evita
+  sobreventa por dos cobros concurrentes (antes: `UPDATE` absoluto tras leer →
+  lost update). Migración `0027`.
+- **SEC-011 (ALTO) — corregido:** **idempotencia** de emisión. Columna
+  `proformas.idempotency_key` + índice único parcial `(business_id, key)`; el POS
+  envía la clave del cobro y `sales.ts create` deduplica (pre-check + captura de
+  conflicto 23505 → devuelve la venta existente). Un reintento/doble-submit ya no
+  crea doble factura + doble NCF. Migración `0027`.
+- **SEC-012 (MEDIO) — corregido:** **tope de descuento por rol** server-side
+  (`maxDiscountPercentForRole`: cajero 30%, admin/gerencia 100%, configurable);
+  un POST directo con descuento excesivo se rechaza (403). Test.
+- Migración `0027` aplicada a prod (aditiva: RPC + columna nullable + índice
+  parcial; no destructiva). typecheck + suite (1716) + build verdes.
+- **Pendientes** (baja prioridad, documentados): SEC-014 (allowlist SSRF IA),
+  SEC-015 (rate-limit IA), SEC-016 (atribución de escaneo). Ver `docs/security/`.
+
 ## [0.68.0] - 2026-07-12
 
 **Remediación completa de la auditoría de seguridad + despliegue.** Cierra los
