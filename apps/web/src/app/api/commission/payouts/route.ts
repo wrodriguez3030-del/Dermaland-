@@ -8,6 +8,7 @@ import {
 } from "@/server/repositories/supabase/commission";
 import type { ManagedPayout } from "@/features/reports/commission/commission-payout-store";
 import { notSupabase, fail } from "../_helpers";
+import { denyIfNotCommissionAdmin } from "../_helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,8 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
+    const denied = await denyIfNotCommissionAdmin();
+    if (denied) return denied;
   try {
     const body = (await req.json()) as {
       comprobantes: string[];
@@ -41,6 +44,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
+    const denied = await denyIfNotCommissionAdmin();
+    if (denied) return denied;
   try {
     const body = (await req.json().catch(() => ({}))) as { comprobantes?: string[] };
     const ctx = await getRepoContext();

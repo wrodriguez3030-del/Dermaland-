@@ -8,6 +8,7 @@ import {
   auditNumbering,
   friendlyDbError,
 } from "@/server/services/dgii/numbering-admin";
+import { canManageNumberings } from "@/features/billing/permissions";
 
 /** POST /api/dgii/sequences/[id]/activate — activa la numeración */
 export async function POST(
@@ -23,6 +24,9 @@ export async function POST(
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  if (!canManageNumberings(session.user.role)) {
+    return NextResponse.json({ error: "No tienes permiso para administrar numeraciones." }, { status: 403 });
   }
   const { id } = await ctx.params;
   const current = await getNumberingRow(id).catch(() => null);

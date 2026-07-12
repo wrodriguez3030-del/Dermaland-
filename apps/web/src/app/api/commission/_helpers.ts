@@ -1,5 +1,20 @@
 import { NextResponse } from "next/server";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
+import { getSession } from "@/server/auth/context";
+import { canManageCommission } from "@/features/billing/permissions";
+
+/**
+ * SEC-007: gate de rol para MUTACIONES de comisión (reglas, exclusiones, lotes,
+ * pagos = dinero). Devuelve NextResponse (403/401) si NO puede, o null si OK.
+ * La lectura (GET) no requiere este gate.
+ */
+export async function denyIfNotCommissionAdmin(): Promise<NextResponse | null> {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!canManageCommission(session.user.role))
+    return NextResponse.json({ error: "No tienes permiso para administrar comisiones." }, { status: 403 });
+  return null;
+}
 
 /**
  * Helpers compartidos por las rutas `app/api/commission/*`.

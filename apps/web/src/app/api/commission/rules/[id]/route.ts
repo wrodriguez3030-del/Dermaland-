@@ -8,6 +8,7 @@ import {
   type RuleInput,
 } from "@/server/repositories/supabase/commission";
 import { notSupabase, fail } from "../../_helpers";
+import { denyIfNotCommissionAdmin } from "../../_helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
+    const denied = await denyIfNotCommissionAdmin();
+    if (denied) return denied;
   try {
     const { id } = await params;
     const body = (await req.json()) as (RuleInput & { toggle?: boolean }) | { toggle: true };
@@ -40,6 +43,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
+    const denied = await denyIfNotCommissionAdmin();
+    if (denied) return denied;
   try {
     const { id } = await params;
     const ctx = await getRepoContext();

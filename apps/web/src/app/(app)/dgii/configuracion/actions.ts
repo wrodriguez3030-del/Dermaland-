@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { getRepositories } from "@/server/repositories";
+import { getSession } from "@/server/auth/context";
+import { canConfigureDgiiEnvironment } from "@/features/billing/permissions";
 import type { DgiiSettingsPatch } from "@/server/repositories/types";
 
 /**
@@ -16,19 +18,21 @@ import type { DgiiSettingsPatch } from "@/server/repositories/types";
  * permiso antes de escribir (`requirePermission(ctx, "dgii:configure")`)
  * — pendiente cuando `AuthContext` esté completamente cableado.
  *
- * `businessId` viene del JWT en producción. En mock se hardcodea al
- * business piloto para iteración local.
+ * SEC-009: `businessId` SIEMPRE del JWT (sesión), nunca hardcodeado; y requiere
+ * rol de administración (configurar DGII es operación de admin).
  */
-
-const DEMO_BUSINESS_ID = "biz_dermaland";
 
 export async function saveDgiiSettings(
   patch: DgiiSettingsPatch,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
+    const session = await getSession();
+    if (!session) return { ok: false, error: "Sesión no autenticada." };
+    if (!canConfigureDgiiEnvironment(session.user.role))
+      return { ok: false, error: "No tienes permiso para configurar DGII." };
     const repos = getRepositories();
     await repos.dgii.saveSettings(
-      { businessId: DEMO_BUSINESS_ID },
+      { businessId: session.businessId },
       patch,
     );
     revalidatePath("/dgii/configuracion");

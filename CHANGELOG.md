@@ -11,6 +11,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.68.0] - 2026-07-12
+
+**Remediación completa de la auditoría de seguridad + despliegue.** Cierra los
+hallazgos accionables sobre v0.67.0. **No toca DGII real ni datos de negocio.**
+
+- **SEC-001 (CRÍTICO) — cerrado de raíz en prod:** migración RLS `0026` aplicada
+  (helpers `auth_business_id`/`auth_is_platform_admin` sin fallback a
+  `user_metadata`) + limpieza de `raw_user_meta_data` de los usuarios (quitados
+  `business_id`/`role`/`is_platform_admin`; `app_metadata` intacta). Verificado:
+  0 usuarios con `is_platform_admin` en user_metadata.
+- **SEC-004 (ALTO) — corregido:** el webhook de WhatsApp valida la firma
+  HMAC-SHA256 (`X-Hub-Signature-256`) sobre el body crudo con `WHATSAPP_APP_SECRET`
+  (rechaza eventos falsificados; comparación en tiempo constante).
+- **SEC-006/007/013 (RBAC) — corregidos:** gates de rol en todas las rutas de
+  dinero/fiscal que solo exigían sesión: `incentives/rules` (POST/PATCH/DELETE),
+  `commission/*` (rules/exclusions/payouts/batches, mutaciones), `dgii/sequences`
+  (POST + `[id]` + activate), subida de certificado `.p12`, aprobar/rechazar
+  conteo físico, y anular venta (`proforma cancel`).
+- **SEC-009 (MEDIO) — corregido:** `saveDgiiSettings` deriva el tenant del JWT
+  (antes `DEMO_BUSINESS_ID` hardcodeado) y exige rol admin.
+- **SEC-003 (ALTO) — desplegable:** `DOCUMENT_SHARE_SECRET` configurado en Vercel.
+- **Pendientes documentados** (mayor esfuerzo, requieren cambio dedicado y
+  probado): SEC-010 (descuento de stock atómico), SEC-011 (idempotencia de
+  emisión), SEC-012 (tope de descuento por rol). Ver `docs/security/`.
+- typecheck + suite (1713) + build verdes.
+
 ## [0.67.0] - 2026-07-12
 
 **Auditoría integral de seguridad + remediación de los hallazgos críticos.**

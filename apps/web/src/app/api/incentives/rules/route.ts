@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { canManageIncentiveRules } from "@/features/billing/permissions";
 import {
   ruleRowToClient,
   auditIncentive,
@@ -51,6 +52,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (b) return b;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  // SEC-007: crear reglas de incentivos afecta pagos → solo admin/manager.
+  if (!canManageIncentiveRules(session.user.role))
+    return NextResponse.json({ error: "No tienes permiso para administrar reglas de incentivos." }, { status: 403 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "Body inválido" }, { status: 400 });
 

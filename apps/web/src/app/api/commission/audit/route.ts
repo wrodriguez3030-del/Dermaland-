@@ -7,6 +7,7 @@ import {
   type AuditInput,
 } from "@/server/repositories/supabase/commission";
 import { notSupabase, fail } from "../_helpers";
+import { denyIfNotCommissionAdmin } from "../_helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ export async function GET(): Promise<NextResponse> {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
+    const denied = await denyIfNotCommissionAdmin();
+    if (denied) return denied;
   try {
     const body = (await req.json()) as AuditInput;
     const ctx = await getRepoContext();

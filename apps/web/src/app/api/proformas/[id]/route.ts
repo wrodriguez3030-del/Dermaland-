@@ -84,6 +84,11 @@ export async function PATCH(
     const ctx = await getRepoContext();
 
     if (body.action === "cancel") {
+      // SEC-013: anular una venta (revierte incentivos) requiere rol de ventas.
+      const session = await getSession();
+      if (!session || !canEditSales(session.user.role)) {
+        return NextResponse.json({ error: "No tienes permiso para anular ventas." }, { status: 403 });
+      }
       const reason = body.reason ?? "";
       await getRepositories().proforma.cancel(ctx, id, reason);
       // Devolución: anular los incentivos pendientes/aprobados de esta venta

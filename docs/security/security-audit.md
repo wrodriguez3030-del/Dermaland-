@@ -17,15 +17,18 @@ de auditoría paralelos. **Sin despliegue a producción** (Fase 30 del encargo).
   planes) — correcto. No hay funciones `SECURITY DEFINER` en `public`.
 - **Riesgo principal encontrado (CRÍTICO):** los claims de autorización se
   derivaban de `user_metadata` (escribible por el propio usuario) → escalada a
-  Súper Admin y salto de tenant (**SEC-001**). **Corregido** en la capa de app;
-  migración RLS lista (pendiente de aplicar a prod, ver §E).
-- **Segundo crítico:** la emisión de venta persistía los totales del cliente sin
-  recomputar (**SEC-002**). **Corregido** (recompute server-side).
-- **Nivel de preparación para producción:** **APTO CON OBSERVACIONES.** Los dos
-  críticos están corregidos en código; quedan altos/medios de robustez
-  (autorización por rol en algunas rutas de dinero, atomicidad de stock,
-  idempotencia de emisión, firma de webhook) — ninguno bloquea el aislamiento
-  multiempresa pero deben cerrarse antes de operación multi-tenant real.
+  Súper Admin y salto de tenant (**SEC-001**). **Corregido y desplegado** (app +
+  migración RLS `0026` aplicada a prod + `user_metadata` limpiado).
+- **Segundo crítico:** emisión de venta sin recomputar totales (**SEC-002**).
+  **Corregido** (recompute server-side).
+- **Remediación aplicada:** 12 de 17 hallazgos corregidos (los 2 críticos, los 3
+  altos accionables, y todos los gates de rol de dinero/fiscal). Quedan 3
+  pendientes de mayor esfuerzo (atomicidad de stock, idempotencia de emisión,
+  tope de descuento por rol) + 2 informativos.
+- **Nivel de preparación para producción:** **APTO CON OBSERVACIONES.** El
+  aislamiento multiempresa es sólido y los críticos están cerrados; SEC-010/011
+  (atomicidad de stock e idempotencia) requieren un cambio dedicado y probado
+  antes de alto volumen concurrente.
 
 ## B. Inventario técnico (superficie de ataque)
 
@@ -48,19 +51,19 @@ de auditoría paralelos. **Sin despliegue a producción** (Fase 30 del encargo).
 
 | ID | Sev | Área | Problema | Estado | Archivo |
 |----|-----|------|----------|--------|---------|
-| SEC-001 | **CRÍTICO** | Auth/RBAC/Tenant | Claims (`business_id`,`role`,`is_platform_admin`) leídos de `user_metadata` (user-writable) → escalada a Súper Admin / salto de tenant | **Corregido (app) · migración RLS pendiente de aplicar** | `server/auth/context.ts`, `middleware.ts`, `supabase/migrations/0006…`, script bootstrap |
+| SEC-001 | **CRÍTICO** | Auth/RBAC/Tenant | Claims (`business_id`,`role`,`is_platform_admin`) leídos de `user_metadata` (user-writable) → escalada a Súper Admin / salto de tenant | **✅ Corregido y desplegado** (app + migración RLS `0026` aplicada + `user_metadata` limpiado en prod) | `server/auth/context.ts`, `middleware.ts`, `migrations/0026`, script bootstrap |
 | SEC-002 | **CRÍTICO** | POS/Finanzas | Emisión de venta persiste subtotal/ITBIS/total/precio del cliente sin recomputar (la edición sí recomputaba) | **Corregido** | `server/repositories/supabase/sales.ts` |
 | SEC-003 | **ALTO** | Secretos/IDOR | Token de PDF compartido con secreto fallback embebido + lectura service-role (bypassa RLS) → forjar tokens = leer PDFs de otra empresa | **Corregido (fail-closed)** | `server/services/sales/share-token.ts` |
-| SEC-004 | **ALTO** | Webhooks | Webhook WhatsApp no verifica firma `X-Hub-Signature-256` (hoy stub sin persistencia) | **Pendiente** (cerrar antes de persistir) | `app/api/whatsapp/webhook/route.ts` |
+| SEC-004 | **ALTO** | Webhooks | Webhook WhatsApp no verifica firma `X-Hub-Signature-256` | **✅ Corregido** (HMAC sobre body crudo, gated por `WHATSAPP_APP_SECRET`) | `app/api/whatsapp/webhook/route.ts` |
 | SEC-005 | **MEDIO** | Endurecimiento | Faltaban cabeceras de seguridad HTTP (clickjacking, MIME sniffing, HSTS) | **Corregido** (sin CSP estricta aún) | `next.config.ts` |
-| SEC-006 | **MEDIO** | RBAC | `approve/reject` de conteo físico sin gate de rol (segregación de funciones) | **Pendiente** (parche trivial) | `app/api/inventory-counts/[id]/route.ts` |
-| SEC-007 | **MEDIO** | RBAC/Finanzas | Rutas de dinero/fiscal solo exigen sesión, no rol: `incentives/pay` (**corregido**), `incentives/rules`, `commission/*`, `dgii/sequences*`, subida de certificado `.p12` | **Parcial** (pay corregido; resto pendiente, patrón idéntico) | ver §D |
+| SEC-006 | **MEDIO** | RBAC | `approve/reject` de conteo físico sin gate de rol | **✅ Corregido** (roles aprobadores) | `app/api/inventory-counts/[id]/route.ts` |
+| SEC-007 | **MEDIO** | RBAC/Finanzas | Rutas de dinero/fiscal solo exigían sesión, no rol | **✅ Corregido** (gates en incentives/pay+rules, commission/*, dgii/sequences+activate, certificado `.p12`) | ver §D |
 | SEC-008 | **MEDIO** | IDOR (defensa) | Updates/deletes filtrados solo por `id` (dependen 100% de RLS), sin `.eq(business_id)` explícito | **Parcial** (pay corregido) | `users/[id]`, `dgii/sequences/[id]`, `incentives/rules/[id]` |
-| SEC-009 | **MEDIO** | POS | `saveDgiiSettings` (Server Action) sin auth y con `businessId` hardcodeado (`DEMO_BUSINESS_ID`) | **Pendiente** | `app/(app)/dgii/configuracion/actions.ts` |
+| SEC-009 | **MEDIO** | POS | `saveDgiiSettings` sin auth y con `businessId` hardcodeado | **✅ Corregido** (sesión + tenant del JWT + rol) | `app/(app)/dgii/configuracion/actions.ts` |
 | SEC-010 | **ALTO** | POS/Inventario | Descuento de stock NO atómico (UPDATE absoluto desde snapshot del cliente, sin `WHERE current_quantity >= n`) → sobreventa por carrera; y desacoplado de la emisión | **Pendiente** (requiere RPC transaccional + confirmación) | `app/api/lots/[id]/route.ts`, `product.ts` |
 | SEC-011 | **ALTO** | POS | Sin idempotencia/anti doble-submit en la emisión → doble factura y doble NCF por reintento | **Pendiente** | `app/api/proformas/route.ts` |
 | SEC-012 | **MEDIO** | POS | Sin tope de descuento por rol (solo clamp de UI 0–100; un POST directo lo evade) | **Parcial** (recompute clampa a 100% y deriva montos; falta tope por rol) | `sales.ts`, `features/billing/permissions.ts` |
-| SEC-013 | **MEDIO** | POS/RBAC | `action:"cancel"` de proforma no valida rol (sí valida tenant) | **Pendiente** | `app/api/proformas/[id]/route.ts` |
+| SEC-013 | **MEDIO** | POS/RBAC | `action:"cancel"` de proforma no valida rol | **✅ Corregido** (`canEditSales`) | `app/api/proformas/[id]/route.ts` |
 | SEC-014 | **BAJO** | SSRF | `baseUrl` de proveedor IA arbitrario (solo admin de la empresa; compromete su propia key) | **Pendiente** (allowlist opcional) | `app/api/ai/providers/route.ts` |
 | SEC-015 | **MEDIO** | IA | Presupuesto con TOCTOU + sin rate-limit por minuto (DoS económico acotado al tope mensual) | **Pendiente** | `server/services/ai/provider-service.ts` |
 | SEC-016 | **BAJO** | Auditoría | `scanned_by`/`scanned_by_name` del sync offline los fija el cliente (no cruza tenant) | **Pendiente** | `app/api/inventory-counts/sync/route.ts` |

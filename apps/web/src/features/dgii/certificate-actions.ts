@@ -1,6 +1,7 @@
 "use server";
 
 import { getSession } from "@/server/auth/context";
+import { canConfigureDgiiEnvironment } from "@/features/billing/permissions";
 import { isCertificateUploadEnabled } from "@/lib/env";
 import {
   buildAlias,
@@ -97,6 +98,16 @@ export async function uploadCertificateAction(
       enabled: true,
       status: "rejected",
       error: "Sesión no autenticada.",
+    };
+  }
+  // SEC-007: subir/reemplazar el certificado de firma fiscal (.p12) es
+  // operación de administrador.
+  if (!canConfigureDgiiEnvironment(session.user.role)) {
+    return {
+      ok: false,
+      enabled: true,
+      status: "rejected",
+      error: "No tienes permiso para configurar el certificado fiscal.",
     };
   }
 

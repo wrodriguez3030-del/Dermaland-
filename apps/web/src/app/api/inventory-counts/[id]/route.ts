@@ -2,7 +2,11 @@ import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
-import { getRepoContext } from "@/server/auth/context";
+import { getRepoContext, getSession } from "@/server/auth/context";
+
+// SEC-006: aprobar/rechazar un conteo es el gate contable del ajuste de
+// inventario → segregación de funciones (no un cajero cualquiera).
+const COUNT_APPROVER_ROLES = new Set(["super_admin", "admin", "manager", "supervisor", "inventory"]);
 
 /**
  * Inventario físico — detalle de un conteo (Fase 1, LECTURA): cabecera + ítems
@@ -65,8 +69,13 @@ export async function POST(
     const ctx = await getRepoContext();
     const repo = getRepositories().inventoryCount;
     if (action === "submit") await repo.submit(ctx, id);
-    else if (action === "approve") await repo.approve(ctx, id);
-    else if (action === "reject") await repo.reject(ctx, id, reason ?? "");
+    else if (action === "approve" || action === "reject") {
+      const session = await getSession();
+      if (!session || !COUNT_APPROVER_ROLES.has(session.user.role))
+        return NextResponse.json({ error: "No tienes permiso para aprobar o rechazar conteos." }, { status: 403 });
+      if (action === "approve") await repo.approve(ctx, id);
+      else await repo.reject(ctx, id, reason ?? "");
+    }
     else
       return NextResponse.json(
         { error: "Acción inválida. Usa submit | approve | reject." },

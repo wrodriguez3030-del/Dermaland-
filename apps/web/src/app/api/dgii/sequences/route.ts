@@ -10,6 +10,7 @@ import {
   friendlyDbError,
 } from "@/server/services/dgii/numbering-admin";
 import { validateNumberingWrite } from "@/features/dgii/numbering-rules";
+import { canManageNumberings } from "@/features/billing/permissions";
 
 /**
  * GET  /api/dgii/sequences  → lista las numeraciones del negocio (RLS).
@@ -55,6 +56,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+  // SEC-007: crear numeraciones fiscales → solo admin.
+  if (!canManageNumberings(session.user.role)) {
+    return NextResponse.json({ error: "No tienes permiso para administrar numeraciones." }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as Record<

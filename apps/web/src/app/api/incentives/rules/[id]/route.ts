@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { canManageIncentiveRules } from "@/features/billing/permissions";
 import {
   ruleRowToClient,
   auditIncentive,
@@ -41,6 +42,8 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
   if (b) return b;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!canManageIncentiveRules(session.user.role))
+    return NextResponse.json({ error: "No tienes permiso para administrar reglas de incentivos." }, { status: 403 });
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "Body inválido" }, { status: 400 });
@@ -79,6 +82,8 @@ export async function DELETE(_req: NextRequest, ctx: Params): Promise<NextRespon
   if (b) return b;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!canManageIncentiveRules(session.user.role))
+    return NextResponse.json({ error: "No tienes permiso para administrar reglas de incentivos." }, { status: 403 });
   const { id } = await ctx.params;
   const sb = await createServer();
   if (!sb) return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });

@@ -45,6 +45,9 @@ const schema = z.object({
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  // App Secret de Meta — verifica la firma X-Hub-Signature-256 del webhook
+  // (SEC-004). Si está configurado, se RECHAZAN eventos sin firma válida.
+  WHATSAPP_APP_SECRET: z.string().optional(),
 
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_DEFAULT_MODEL: z.string().default("gpt-4o-mini"),
