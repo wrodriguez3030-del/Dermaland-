@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.66.2] - 2026-07-12
+
+**Fix causa raíz del HTTP 400 en el Chat IA: Organization/Project ID con texto
+libre.** El asistente de configuración permitía escribir cualquier cosa (p. ej.
+el nombre de la empresa) en los campos opcionales Organization ID / Project ID;
+esos valores viajan como headers a OpenAI y con formato inválido OpenAI rechaza
+TODAS las solicitudes con 400. **No toca DGII/fiscal.**
+
+- **Adaptador**: los headers `OpenAI-Organization`/`OpenAI-Project` SOLO se
+  envían con formato real (`org-…` / `proj_…`); texto libre se descarta.
+- **API** (crear/editar proveedor): sanitiza esos campos al guardar.
+- **Wizard**: placeholders `org-…`/`proj_…` + ayuda explícita ("déjalos vacíos —
+  NO es el nombre de tu empresa").
+- **Datos (prod)**: limpiados los valores inválidos, consolidado un solo
+  proveedor "OpenAI" con `default_model=gpt-4o-mini` (se eliminó el duplicado y
+  su secreto), y los 2 agentes reconectados a él.
+- 2 tests de regresión (texto libre no se envía / formato real sí). typecheck +
+  build verdes.
+
 ## [0.66.1] - 2026-07-11
 
 **Fix: el Chat IA ocultaba la causa real cuando el proveedor rechazaba la

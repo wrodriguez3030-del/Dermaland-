@@ -32,6 +32,13 @@ export async function PATCH(
     const body = await req.json();
     // Nunca se acepta apiKey aquí: la rotación de clave va por /rotate-key.
     delete body.apiKey;
+    // Org/Project solo con formato real de OpenAI (org-… / proj_…).
+    if ("organizationId" in body && !(typeof body.organizationId === "string" && body.organizationId.startsWith("org-"))) {
+      body.organizationId = null;
+    }
+    if ("projectId" in body && !(typeof body.projectId === "string" && body.projectId.startsWith("proj_"))) {
+      body.projectId = null;
+    }
     const provider = await updateProvider(session.businessId, id, body);
     return NextResponse.json({ provider });
   } catch (e) {

@@ -65,4 +65,32 @@ describe("OpenAIProviderAdapter", () => {
     expect(url).not.toContain("sk-secret");
     expect(url).toContain("/models");
   });
+
+  it("descarta org/project SIN formato OpenAI (regresión: 'Dermaland' causaba HTTP 400)", async () => {
+    const f = mockFetch(200, { data: [] });
+    vi.stubGlobal("fetch", f);
+    const bad = new OpenAIProviderAdapter("k", {
+      type: "openai",
+      organizationId: "Dermaland", // texto libre → NO se envía
+      projectId: "Dermaland",
+    });
+    await bad.testConnection();
+    const headers = (f.mock.calls[0]?.[1] as RequestInit).headers as Record<string, string>;
+    expect(headers["OpenAI-Organization"]).toBeUndefined();
+    expect(headers["OpenAI-Project"]).toBeUndefined();
+  });
+
+  it("SÍ envía org/project con formato real (org-… / proj_…)", async () => {
+    const f = mockFetch(200, { data: [] });
+    vi.stubGlobal("fetch", f);
+    const good = new OpenAIProviderAdapter("k", {
+      type: "openai",
+      organizationId: "org-abc123",
+      projectId: "proj_xyz789",
+    });
+    await good.testConnection();
+    const headers = (f.mock.calls[0]?.[1] as RequestInit).headers as Record<string, string>;
+    expect(headers["OpenAI-Organization"]).toBe("org-abc123");
+    expect(headers["OpenAI-Project"]).toBe("proj_xyz789");
+  });
 });

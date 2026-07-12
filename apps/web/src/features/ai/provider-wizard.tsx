@@ -226,12 +226,16 @@ export function ProviderWizard({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Project ID (opcional)</Label>
-                <Input value={d.projectId} onChange={(e) => set("projectId", e.target.value)} />
+                <Input value={d.projectId} onChange={(e) => set("projectId", e.target.value)} placeholder="proj_…" />
               </div>
               <div>
                 <Label>Organization ID (opcional)</Label>
-                <Input value={d.organizationId} onChange={(e) => set("organizationId", e.target.value)} />
+                <Input value={d.organizationId} onChange={(e) => set("organizationId", e.target.value)} placeholder="org-…" />
               </div>
+              <HelpText className="col-span-2">
+                Déjalos vacíos si no los conoces — NO es el nombre de tu empresa.
+                Son IDs técnicos de OpenAI (empiezan con «proj_» y «org-»).
+              </HelpText>
             </div>
             <div className="flex items-center gap-3">
               <Button size="sm" variant="outline" onClick={testConnection} disabled={testing}>

@@ -34,12 +34,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400 },
       );
     }
+    // Org/Project SOLO con formato real de OpenAI; texto libre (p. ej. el
+    // nombre de la empresa) se descarta — rompería todas las solicitudes.
+    const orgId = typeof body.organizationId === "string" && body.organizationId.startsWith("org-")
+      ? body.organizationId : null;
+    const projId = typeof body.projectId === "string" && body.projectId.startsWith("proj_")
+      ? body.projectId : null;
     const provider = await createProvider(session.businessId, session.user.id, {
       providerType: body.providerType,
       displayName: String(body.displayName),
       baseUrl: body.baseUrl ?? null,
-      organizationId: body.organizationId ?? null,
-      projectId: body.projectId ?? null,
+      organizationId: orgId,
+      projectId: projId,
       defaultModel: body.defaultModel ?? null,
       economicalModel: body.economicalModel ?? null,
       reasoningModel: body.reasoningModel ?? null,

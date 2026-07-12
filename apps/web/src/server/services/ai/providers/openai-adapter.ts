@@ -70,11 +70,18 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
     this.apiKey = apiKey;
     this.baseUrl = (config.baseUrl?.replace(/\/$/, "") || "https://api.openai.com/v1");
     this.timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT;
+    // Los headers de organización/proyecto SOLO se envían con formato real de
+    // OpenAI (org-… / proj_…). Un valor libre (p. ej. el nombre de la empresa)
+    // haría que OpenAI rechace TODAS las solicitudes con 400/401.
     this.headers = {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      ...(config.organizationId ? { "OpenAI-Organization": config.organizationId } : {}),
-      ...(config.projectId ? { "OpenAI-Project": config.projectId } : {}),
+      ...(config.organizationId?.startsWith("org-")
+        ? { "OpenAI-Organization": config.organizationId }
+        : {}),
+      ...(config.projectId?.startsWith("proj_")
+        ? { "OpenAI-Project": config.projectId }
+        : {}),
     };
   }
 
