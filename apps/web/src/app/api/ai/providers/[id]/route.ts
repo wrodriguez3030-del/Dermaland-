@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAiAdmin, requireAiUser } from "@/server/services/ai/guard";
 import { aiErrorResponse, requireSupabase } from "@/server/services/ai/api-helpers";
 import { getProvider, updateProvider, softDeleteProvider } from "@/server/services/ai/store";
+import { validateProviderBaseUrl } from "@/server/services/ai/providers/url-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,11 @@ export async function PATCH(
     const body = await req.json();
     // Nunca se acepta apiKey aquí: la rotación de clave va por /rotate-key.
     delete body.apiKey;
+    // SEC-014: valida base_url (SSRF) si se está cambiando.
+    if (body.baseUrl) {
+      const urlErr = validateProviderBaseUrl(String(body.baseUrl));
+      if (urlErr) return NextResponse.json({ error: urlErr }, { status: 400 });
+    }
     // Org/Project solo con formato real de OpenAI (org-… / proj_…).
     if ("organizationId" in body && !(typeof body.organizationId === "string" && body.organizationId.startsWith("org-"))) {
       body.organizationId = null;

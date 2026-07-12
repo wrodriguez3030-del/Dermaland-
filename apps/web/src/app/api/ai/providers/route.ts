@@ -4,6 +4,7 @@ import { aiErrorResponse, requireSupabase } from "@/server/services/ai/api-helpe
 import { createProvider, listProviders } from "@/server/services/ai/store";
 import { saveProviderKey } from "@/server/services/ai/provider-service";
 import { isProviderImplemented } from "@/server/services/ai/providers/factory";
+import { validateProviderBaseUrl } from "@/server/services/ai/providers/url-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { error: "Ese proveedor todavía no está disponible." },
         { status: 400 },
       );
+    }
+    // SEC-014: valida base_url (SSRF) para proveedores compatibles.
+    if (body.baseUrl) {
+      const urlErr = validateProviderBaseUrl(String(body.baseUrl));
+      if (urlErr) return NextResponse.json({ error: urlErr }, { status: 400 });
     }
     // Org/Project SOLO con formato real de OpenAI; texto libre (p. ej. el
     // nombre de la empresa) se descarta — rompería todas las solicitudes.

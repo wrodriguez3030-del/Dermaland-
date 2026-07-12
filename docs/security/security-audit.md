@@ -21,16 +21,16 @@ de auditoría paralelos. **Sin despliegue a producción** (Fase 30 del encargo).
   migración RLS `0026` aplicada a prod + `user_metadata` limpiado).
 - **Segundo crítico:** emisión de venta sin recomputar totales (**SEC-002**).
   **Corregido** (recompute server-side).
-- **Remediación aplicada:** **14 de 17 hallazgos corregidos y desplegados**
-  (los 2 críticos, TODOS los altos: SEC-003/004/010/011, todos los gates de rol
-  de dinero/fiscal, atomicidad de stock, idempotencia de emisión, tope de
-  descuento). Quedan 3 de baja prioridad (SEC-014 SSRF admin-only, SEC-015
-  rate-limit IA, SEC-016 atribución de escaneo) + SEC-008 mitigado por RLS +
-  SEC-017 informativo (DGII demo pre-Fase C).
+- **Remediación aplicada:** **16 de 17 hallazgos corregidos y desplegados** — los
+  2 críticos, todos los altos (SEC-003/004/010/011), todos los gates de rol de
+  dinero/fiscal (SEC-006/007/009/013), defensa-en-profundidad de tenant
+  (SEC-008), atomicidad de stock (SEC-010), idempotencia (SEC-011), tope de
+  descuento (SEC-012), SSRF (SEC-014), rate-limit IA (SEC-015) y atribución de
+  escaneo (SEC-016). El único no corregido es **SEC-017** (informativo: rutas
+  DGII demo pre-Fase C, sin datos reales).
 - **Nivel de preparación para producción:** **APTO.** El aislamiento
-  multiempresa es sólido, los críticos y altos están cerrados en producción
-  (incluidas atomicidad de stock e idempotencia de emisión). Pendientes solo de
-  endurecimiento de baja prioridad.
+  multiempresa es sólido y todos los hallazgos explotables (crítico/alto/medio)
+  están cerrados en producción.
 
 ## B. Inventario técnico (superficie de ataque)
 
@@ -60,15 +60,15 @@ de auditoría paralelos. **Sin despliegue a producción** (Fase 30 del encargo).
 | SEC-005 | **MEDIO** | Endurecimiento | Faltaban cabeceras de seguridad HTTP (clickjacking, MIME sniffing, HSTS) | **Corregido** (sin CSP estricta aún) | `next.config.ts` |
 | SEC-006 | **MEDIO** | RBAC | `approve/reject` de conteo físico sin gate de rol | **✅ Corregido** (roles aprobadores) | `app/api/inventory-counts/[id]/route.ts` |
 | SEC-007 | **MEDIO** | RBAC/Finanzas | Rutas de dinero/fiscal solo exigían sesión, no rol | **✅ Corregido** (gates en incentives/pay+rules, commission/*, dgii/sequences+activate, certificado `.p12`) | ver §D |
-| SEC-008 | **MEDIO** | IDOR (defensa) | Updates/deletes filtrados solo por `id` (dependen 100% de RLS), sin `.eq(business_id)` explícito | **Parcial** (pay corregido) | `users/[id]`, `dgii/sequences/[id]`, `incentives/rules/[id]` |
+| SEC-008 | **MEDIO** | IDOR (defensa) | Updates/deletes filtrados solo por `id` (dependían 100% de RLS) | **✅ Corregido** (filtro `business_id` explícito en users/dgii-sequences/incentives) | `users/[id]`, `dgii/sequences/[id]`+activate, `incentives/rules/[id]` |
 | SEC-009 | **MEDIO** | POS | `saveDgiiSettings` sin auth y con `businessId` hardcodeado | **✅ Corregido** (sesión + tenant del JWT + rol) | `app/(app)/dgii/configuracion/actions.ts` |
 | SEC-010 | **ALTO** | POS/Inventario | Descuento de stock NO atómico → sobreventa por carrera | **✅ Corregido** (RPC `decrement_lot_stock` con guarda `>=qty`; POS usa modo decremento) | `migrations/0027`, `api/lots/[id]`, `product.ts`, `pos-terminal` |
 | SEC-011 | **ALTO** | POS | Sin idempotencia en la emisión → doble factura/NCF por reintento | **✅ Corregido** (clave de idempotencia + índice único; create() dedupe) | `migrations/0027`, `sales.ts`, `pos-terminal` |
 | SEC-012 | **MEDIO** | POS | Sin tope de descuento por rol (un POST directo evadía el clamp de UI) | **✅ Corregido** (cap por rol server-side; cajero 30%, admin/gerencia 100%, configurable) | `api/proformas/route.ts`, `features/billing/permissions.ts` |
 | SEC-013 | **MEDIO** | POS/RBAC | `action:"cancel"` de proforma no valida rol | **✅ Corregido** (`canEditSales`) | `app/api/proformas/[id]/route.ts` |
-| SEC-014 | **BAJO** | SSRF | `baseUrl` de proveedor IA arbitrario (solo admin de la empresa; compromete su propia key) | **Pendiente** (allowlist opcional) | `app/api/ai/providers/route.ts` |
-| SEC-015 | **MEDIO** | IA | Presupuesto con TOCTOU + sin rate-limit por minuto (DoS económico acotado al tope mensual) | **Pendiente** | `server/services/ai/provider-service.ts` |
-| SEC-016 | **BAJO** | Auditoría | `scanned_by`/`scanned_by_name` del sync offline los fija el cliente (no cruza tenant) | **Pendiente** | `app/api/inventory-counts/sync/route.ts` |
+| SEC-014 | **BAJO** | SSRF | `baseUrl` de proveedor IA arbitrario | **✅ Corregido** (validador bloquea http, localhost, IPs privadas/metadata/loopback) | `providers/url-guard.ts`, `api/ai/providers` |
+| SEC-015 | **MEDIO** | IA | Sin rate-limit por minuto (DoS económico) | **✅ Corregido** (tope 30 req/min por negocio) | `server/services/ai/provider-service.ts` |
+| SEC-016 | **BAJO** | Auditoría | `scanned_by`/`scanned_by_name` los fijaba el cliente | **✅ Corregido** (derivados del JWT) | `app/api/inventory-counts/sync/route.ts` |
 | SEC-017 | **BAJO/INFO** | DGII demo | Rutas DGII demo sin sesión operan sobre mocks; gatear antes de conectar a datos reales | **Aceptado (pre-Fase C)** | `app/api/dgii/**` (facturas/preview/certificacion) |
 
 ### Áreas verificadas como BIEN protegidas (defensas reales)

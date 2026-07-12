@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
     .from("users")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(patch as any)
-    .eq("id", id)
+    .eq("business_id", session.businessId).eq("id", id)
     .select("*")
     .single();
   if (error)

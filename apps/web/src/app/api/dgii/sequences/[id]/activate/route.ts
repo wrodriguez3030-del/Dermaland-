@@ -40,6 +40,7 @@ export async function POST(
   const { data, error: updErr } = await sb
     .from("invoice_numberings")
     .update({ status: "active", updated_at: new Date().toISOString() })
+    .eq("business_id", session.businessId) // SEC-008: filtro de tenant explícito
     .eq("id", id)
     .select("*")
     .single();

@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
     .from("sales_incentive_rules")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(patch as any)
-    .eq("id", id)
+    .eq("business_id", session.businessId).eq("id", id)
     .select("*")
     .single();
   if (error)
@@ -90,7 +90,7 @@ export async function DELETE(_req: NextRequest, ctx: Params): Promise<NextRespon
   const { error } = await sb
     .from("sales_incentive_rules")
     .update({ deleted_at: new Date().toISOString(), active: false })
-    .eq("id", id);
+    .eq("business_id", session.businessId).eq("id", id);
   if (error)
     return NextResponse.json({ error: "No se pudo eliminar la regla." }, { status: 422 });
   await auditIncentive(session, "incentives.rule_deleted", id, {});

@@ -88,7 +88,7 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
     .from("invoice_numberings")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(patch as any)
-    .eq("id", id)
+    .eq("business_id", session.businessId).eq("id", id)
     .select("*")
     .single();
   if (updErr) {
@@ -142,7 +142,7 @@ export async function DELETE(_req: NextRequest, ctx: Params): Promise<NextRespon
   const { error: delErr } = await sb
     .from("invoice_numberings")
     .update({ deleted_at: new Date().toISOString(), status: "inactive" })
-    .eq("id", id);
+    .eq("business_id", session.businessId).eq("id", id);
   if (delErr) {
     return NextResponse.json(
       { error: friendlyDbError(delErr.message) },

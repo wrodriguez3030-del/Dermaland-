@@ -395,6 +395,19 @@ export async function listUsageLogs(
   }));
 }
 
+/** SEC-015: nº de solicitudes de IA del negocio desde `sinceIso` (rate-limit). */
+export async function countRequestsSince(
+  businessId: string, sinceIso: string,
+): Promise<number> {
+  const sb = await getClient("ai.countRequestsSince");
+  const { count } = await ai(sb)
+    .from("ai_usage_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .gte("created_at", sinceIso);
+  return count ?? 0;
+}
+
 export interface UsageSummary {
   requests: number;
   inputTokens: number;

@@ -24,7 +24,10 @@ export function aiErrorResponse(e: unknown): NextResponse {
     return NextResponse.json({ error: e.message }, { status: e.status });
   }
   if (e instanceof AiServiceError) {
-    const status = e.code === "not_found" ? 404 : e.code === "limit_reached" ? 429 : 400;
+    const status =
+      e.code === "not_found" ? 404
+      : e.code === "limit_reached" || e.code === "rate_limited" ? 429
+      : 400;
     return NextResponse.json({ error: e.message }, { status });
   }
   // Mensaje genérico: no filtramos el detalle interno.

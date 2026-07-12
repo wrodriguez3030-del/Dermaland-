@@ -11,6 +11,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.70.0] - 2026-07-12
+
+**Auditoría de seguridad — cierre de los pendientes de baja prioridad.** 16 de 17
+hallazgos corregidos; veredicto **APTO**. **No toca DGII real.**
+
+- **SEC-014 (SSRF) — corregido:** validador `url-guard.ts` para el `base_url` de
+  proveedores IA compatibles — rechaza http, localhost, `.local`/`.internal`, e
+  IPs privadas/loopback/metadata (169.254.169.254, 10/172.16-31/192.168, 127, ::1).
+  Aplicado en crear/editar proveedor. Test (5).
+- **SEC-015 (rate-limit IA) — corregido:** tope de 30 solicitudes/minuto por
+  negocio (`countRequestsSince` sobre `ai_usage_logs`) antes del presupuesto
+  mensual; error 429 amigable.
+- **SEC-016 (atribución de escaneo) — corregido:** `scanned_by`/`scanned_by_name`
+  del sync offline se derivan del JWT (antes del payload del cliente).
+- **SEC-008 (defensa en profundidad) — corregido:** filtro `business_id`
+  explícito en updates/deletes que solo filtraban por `id` (users/[id],
+  dgii/sequences/[id]+activate, incentives/rules/[id]).
+- typecheck + suite (1721) + build verdes. Único no corregido: SEC-017
+  (informativo, rutas DGII demo pre-Fase C).
+
 ## [0.69.0] - 2026-07-12
 
 **Auditoría de seguridad — cierre de los 3 altos/medios pendientes del POS.**

@@ -18,9 +18,13 @@ import {
   getSecretSealed,
   markTested,
   getMonthlyUsage,
+  countRequestsSince,
   logUsage,
   type AiProviderView,
 } from "./store";
+
+/** SEC-015: tope de solicitudes de IA por minuto y por negocio (anti-ráfaga). */
+const AI_REQUESTS_PER_MINUTE = 30;
 
 /**
  * Capa CENTRAL de IA. Los agentes/tools llaman aquí; NUNCA a un SDK/HTTP de
@@ -164,6 +168,13 @@ export interface RunRequestResult extends AIResponse {
 export async function runRequest(params: RunRequestParams): Promise<RunRequestResult> {
   const provider = await getProvider(params.businessId, params.providerId);
   if (!provider) throw new AiServiceError("not_found", "Proveedor no encontrado.");
+
+  // SEC-015: rate-limit por minuto (anti-ráfaga / DoS económico).
+  const lastMinuteIso = new Date(Date.now() - 60_000).toISOString();
+  const recent = await countRequestsSince(params.businessId, lastMinuteIso);
+  if (recent >= AI_REQUESTS_PER_MINUTE) {
+    throw new AiServiceError("rate_limited", "Demasiadas solicitudes de IA en poco tiempo. Espera un momento.");
+  }
 
   // Presupuesto: solicitudes y USD del mes.
   const usage = await getMonthlyUsage(params.businessId, {

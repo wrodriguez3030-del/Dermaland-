@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getRepoContext } from "@/server/auth/context";
+import { getRepoContext, getSession } from "@/server/auth/context";
 import { getRepositories } from "@/server/repositories";
 
 /**
@@ -58,6 +58,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
+  // SEC-016: el operador que escanea se deriva del JWT, NO del payload del
+  // cliente (evita atribuir conteos a otra persona).
+  const session = await getSession();
   const { inventoryCount } = getRepositories();
   const result = await inventoryCount.recordScan(ctx, {
     inventoryCountId: parsed.data.inventory_count_id,
@@ -68,8 +71,8 @@ export async function POST(request: Request) {
     barcode: parsed.data.barcode ?? undefined,
     scannedQuantity: parsed.data.scanned_quantity,
     scanSource: parsed.data.scan_source,
-    scannedBy: parsed.data.scanned_by ?? "",
-    scannedByName: parsed.data.scanned_by_name ?? "",
+    scannedBy: ctx.userId ?? "",
+    scannedByName: session?.user.fullName ?? "",
     scannedAt: parsed.data.scanned_at,
     deviceId: parsed.data.device_id,
     offlineScanId: parsed.data.offline_scan_id,
