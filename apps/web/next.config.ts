@@ -28,6 +28,31 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/dgii/certificate/**": ["../../docs/dgii/xsd/*.xsd"],
   },
+  // SEGURIDAD (SEC-005): cabeceras de endurecimiento en todas las respuestas.
+  // No incluye Content-Security-Policy estricta a propósito: una CSP debe
+  // probarse en modo report-only primero para no romper Supabase/Vercel/imágenes
+  // (ver docs/security/deployment-security-checklist.md). Permissions-Policy
+  // permite `camera=(self)` porque el conteo físico (PWA) escanea códigos.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
+          },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

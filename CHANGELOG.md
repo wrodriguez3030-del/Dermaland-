@@ -11,6 +11,40 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.67.0] - 2026-07-12
+
+**Auditoría integral de seguridad + remediación de los hallazgos críticos.**
+Sin desplegar a producción (pendiente de aprobación — ver
+`docs/security/security-audit.md`). **No toca DGII real ni datos.**
+
+- **SEC-001 (CRÍTICO) — corregido:** los claims de autorización (`business_id`,
+  `role`, `is_platform_admin`) se leían de `user_metadata`, que el propio usuario
+  puede modificar (`auth.updateUser`) → escalada a Súper Admin / salto de tenant.
+  Ahora se leen solo de `app_metadata` (helper puro `readAuthClaims`), en
+  `context.ts` y `middleware.ts`; el script de creación deja de copiar claims
+  sensibles a `user_metadata`. Migración RLS `0026` (quita el fallback en
+  `auth_business_id`/`auth_is_platform_admin`) creada, **pendiente de aplicar a
+  prod**. Test de regresión (3).
+- **SEC-002 (CRÍTICO) — corregido:** la emisión de venta persistía los totales
+  del cliente sin recomputar (la edición sí). `sales.ts create` ahora recalcula
+  montos e ítems server-side con `recalcInvoice` (mismo motor); un POST con
+  `total: 0.01` o cantidades/precios negativos ya no se persiste. Test (4).
+- **SEC-003 (ALTO) — corregido:** el token de PDF compartido usaba un secreto
+  fallback embebido y el PDF se sirve con service-role (bypassa RLS) → forjar
+  tokens = leer PDFs de otra empresa. Ahora exige `DOCUMENT_SHARE_SECRET` fuerte
+  (fail-closed). Test (5).
+- **SEC-005 (MEDIO) — corregido:** cabeceras de seguridad en `next.config.ts`
+  (nosniff, X-Frame-Options DENY, HSTS, Referrer/Permissions-Policy; `camera=self`
+  para el escaneo PWA). Sin CSP estricta aún (report-only primero).
+- **SEC-007/008 (MEDIO) — parcial:** `incentives/pay` ahora exige rol admin +
+  filtro de tenant explícito. Resto de rutas de dinero documentadas para el
+  mismo parche.
+- **Verificado BIEN:** RLS en las 56 tablas, sin `SECURITY DEFINER`, sin secretos
+  en el repo, `service_role` server-only, IA cifrada, NCF atómico, edición
+  recomputada, sesión en cookies. Docs: `docs/security/{security-audit,rls-matrix,
+  deployment-security-checklist}.md`.
+- typecheck + suite (1712) + build verdes.
+
 ## [0.66.3] - 2026-07-12
 
 **Chat IA: los fallos del proveedor ahora muestran el código exacto de OpenAI.**

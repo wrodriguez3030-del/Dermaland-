@@ -4,6 +4,7 @@ import { env, isSupabaseConfigured } from "@/lib/env";
 import { createServer } from "@/lib/supabase/server";
 import { mockBusiness, mockBranches } from "@/lib/mock-data/tenancy";
 import { mockCurrentUser } from "@/lib/mock-data/users";
+import { readAuthClaims } from "@/server/auth/auth-claims";
 import type { RepoContext } from "@/server/repositories";
 import type { User } from "@/types";
 
@@ -43,22 +44,20 @@ export async function getSession(): Promise<AuthSession | null> {
   } = await sb.auth.getUser();
   if (!sbUser) return null;
 
-  // Custom claims esperados — configurados en `auth.users.user_metadata` o
-  // mejor en `public.users` con un JOIN al hidratar la sesión.
-  const claims = (sbUser.user_metadata ?? {}) as Record<string, unknown>;
-  const businessId = (claims.business_id as string) ?? null;
-  if (!businessId) return null;
+  // SEGURIDAD (SEC-001): los claims de autorización se leen de `app_metadata`
+  // (solo escribible por service_role), NUNCA de `user_metadata` (el usuario lo
+  // puede modificar con `auth.updateUser` → escalada a Súper Admin / cambio de
+  // tenant). `readAuthClaims` centraliza y testea esa invariante.
+  const claims = readAuthClaims(sbUser);
+  if (!claims.businessId) return null;
 
-  // En la implementación real, leer la fila de `public.users` con la PK
-  // del JWT y reconstruir el `User` shape esperado por el resto de la app.
-  // Aquí dejamos un placeholder con tipo correcto.
   const user: User = {
     id: sbUser.id,
-    businessId,
+    businessId: claims.businessId,
     email: sbUser.email ?? "",
-    fullName: (claims.full_name as string) ?? sbUser.email ?? "Usuario",
-    role: (claims.role as User["role"]) ?? "cashier",
-    branchIds: (claims.branch_ids as string[]) ?? [],
+    fullName: claims.fullName ?? sbUser.email ?? "Usuario",
+    role: claims.role,
+    branchIds: claims.branchIds,
     twoFactorEnabled: false,
     status: "active",
     avatarColor: "#1A7F8E",
@@ -68,9 +67,9 @@ export async function getSession(): Promise<AuthSession | null> {
 
   return {
     user,
-    businessId,
-    branchId: (claims.branch_id as string) ?? undefined,
-    isPlatformAdmin: claims.is_platform_admin === true,
+    businessId: claims.businessId,
+    branchId: claims.branchId,
+    isPlatformAdmin: claims.isPlatformAdmin,
   };
 }
 

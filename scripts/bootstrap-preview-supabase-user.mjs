@@ -208,14 +208,20 @@ async function findAuthUser(email) {
 }
 
 async function ensureAuthUser() {
-  const metadata = {
-    full_name: FULL_NAME,
+  // SEGURIDAD (SEC-001): los claims de autorización van SOLO a `app_metadata`
+  // (escribible únicamente por service_role). `user_metadata` es escribible por
+  // el propio usuario, así que NUNCA debe contener business_id/role/
+  // is_platform_admin — la app y RLS los leen de app_metadata.
+  const authClaims = {
     business_id: BUSINESS_ID,
     branch_id: BRANCH_ID,
     branch_ids: [BRANCH_ID],
     role: "admin",
     is_platform_admin: false,
   };
+  // user_metadata solo lleva datos de presentación no sensibles.
+  const displayMeta = { full_name: FULL_NAME };
+  const appMetadata = { ...authClaims, full_name: FULL_NAME };
 
   const existing = await findAuthUser(EMAIL);
 
@@ -224,8 +230,8 @@ async function ensureAuthUser() {
       email: EMAIL,
       password: PASSWORD,
       email_confirm: true,
-      app_metadata: metadata,
-      user_metadata: metadata,
+      app_metadata: appMetadata,
+      user_metadata: displayMeta,
     });
     if (error) die(`auth.admin.createUser fallo: ${error.message}`);
     ok(`created auth user: ${EMAIL}`);
@@ -236,8 +242,8 @@ async function ensureAuthUser() {
   const { data, error } = await admin.auth.admin.updateUserById(existing.id, {
     password: PASSWORD,
     email_confirm: true,
-    app_metadata: metadata,
-    user_metadata: metadata,
+    app_metadata: appMetadata,
+    user_metadata: displayMeta,
   });
   if (error) die(`auth.admin.updateUserById fallo: ${error.message}`);
   ok(`updated auth user: ${EMAIL}`);

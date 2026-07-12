@@ -61,9 +61,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Bloqueo super-admin: requiere claim `is_platform_admin`.
+  // Bloqueo super-admin: requiere claim `is_platform_admin` de `app_metadata`
+  // (solo escribible por service_role). NUNCA `user_metadata` — el usuario lo
+  // puede modificar con `auth.updateUser` y auto-elevarse (SEC-001).
   if (pathname.startsWith("/super-admin")) {
-    const isPlatformAdmin = user.user_metadata?.is_platform_admin === true;
+    const isPlatformAdmin = user.app_metadata?.is_platform_admin === true;
     if (!isPlatformAdmin) {
       const url = request.nextUrl.clone();
       url.pathname = "/";

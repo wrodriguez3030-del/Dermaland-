@@ -309,6 +309,27 @@ export const proformaRepository: ProformaRepository = {
       ? String(proforma.branchId)
       : requireUuid(ctx.branchId, "La sucursal");
 
+    // SEGURIDAD (SEC-002): el servidor es la ÚNICA fuente de verdad de los
+    // montos también al EMITIR (antes solo la edición recalculaba). Recalculamos
+    // subtotal/descuento/ITBIS/total/pagado/balance y los ítems con el MISMO
+    // motor que la vista previa del cliente. Así un POST con `total: 0.01` (o
+    // cantidades/precios negativos) no puede persistirse: los montos se derivan
+    // de las líneas, y `recalcInvoice` clampa negativos a 0.
+    const recomputed = recalcInvoice({
+      customerName: proforma.customerName ?? "",
+      customerPhone: proforma.customerPhone ?? null,
+      customerDocument: proforma.customerDocument ?? null,
+      notes: proforma.notes ?? null,
+      items: (proforma.items ?? []).map(lineFromSaleItem),
+      globalDiscountPercent: proforma.discountPercent ?? 0,
+      payments: (proforma.payments ?? []).map((p) => ({
+        method: p.method,
+        amount: p.amount,
+        reference: p.reference,
+        last4: p.last4,
+      })),
+    });
+
     const proformaRow = {
       business_id: ctx.businessId,
       branch_id: branchId,
@@ -317,17 +338,17 @@ export const proformaRepository: ProformaRepository = {
       customer_name: proforma.customerName,
       cashier_id: cashierId,
       cashier_name: proforma.cashierName,
-      subtotal: toDbMoney(proforma.subtotal, "subtotal"),
-      discount: toDbMoney(proforma.discount, "descuento"),
-      itbis: toDbMoney(proforma.itbis, "ITBIS"),
-      total: toDbMoney(proforma.total, "total"),
+      subtotal: toDbMoney(recomputed.subtotal, "subtotal"),
+      discount: toDbMoney(recomputed.discount, "descuento"),
+      itbis: toDbMoney(recomputed.itbis, "ITBIS"),
+      total: toDbMoney(recomputed.total, "total"),
       status: proforma.status,
-      paid: toDbMoney(proforma.paid, "monto pagado"),
-      balance: toDbMoney(proforma.balance, "balance"),
+      paid: toDbMoney(recomputed.paid, "monto pagado"),
+      balance: toDbMoney(recomputed.balance, "balance"),
       notes: proforma.notes ?? null,
       ecf_number: proforma.ecfNumber ?? null,
       cash_register_session_id: nullableUuid(proforma.cashRegisterSessionId),
-      discount_percent: toDbMoneyNullable(proforma.discountPercent, "% de descuento"),
+      discount_percent: toDbMoneyNullable(recomputed.discountPercent, "% de descuento"),
       discount_amount: toDbMoneyNullable(proforma.discountAmount, "descuento"),
       billing_type: proforma.billingType ?? null,
       customer_phone: proforma.customerPhone ?? null,
@@ -370,9 +391,10 @@ export const proformaRepository: ProformaRepository = {
         .eq("business_id", ctx.businessId);
     };
 
-    // Items
-    if (proforma.items?.length) {
-      const itemRows = proforma.items.map((it, idx) => ({
+    // Items — usamos los ítems RECALCULADos (montos por línea autoritativos del
+    // servidor, SEC-002), no los del cliente. Conservan sku/lote/producto.
+    if (recomputed.items.length) {
+      const itemRows = recomputed.items.map((it, idx) => ({
         business_id: ctx.businessId,
         proforma_id: proformaId,
         line_no: idx + 1,

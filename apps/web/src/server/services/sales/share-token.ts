@@ -8,12 +8,23 @@ import crypto from "node:crypto";
  * autoriza una lectura acotada por `businessId` (vía service-role en el server).
  *
  * Formato: base64url(`${businessId}:${id}`) + "." + base64url(HMAC-SHA256).
- * El secreto NO se imprime nunca. Si no hay `DOCUMENT_SHARE_SECRET` configurado
- * se usa un fallback de demo (suficiente para el modo no fiscal actual).
+ * El secreto NO se imprime nunca.
+ *
+ * SEGURIDAD (SEC-003): el PDF se sirve con service-role (bypassa RLS), acotado
+ * solo por el `businessId` DENTRO del token. Por eso el secreto de firma DEBE
+ * ser fuerte y único; NUNCA un fallback embebido en el código (permitiría forjar
+ * tokens y leer PDFs de cualquier empresa). Si `DOCUMENT_SHARE_SECRET` no está
+ * configurado, la función de compartir PDF queda DESHABILITADA (fail-closed).
  */
 
 function getSecret(): string {
-  return process.env.DOCUMENT_SHARE_SECRET || "dermaland-doc-share-demo-secret";
+  const secret = process.env.DOCUMENT_SHARE_SECRET;
+  if (!secret || secret.length < 24) {
+    throw new Error(
+      "Los enlaces de PDF compartido están deshabilitados: falta configurar DOCUMENT_SHARE_SECRET (mínimo 24 caracteres) en el servidor.",
+    );
+  }
+  return secret;
 }
 
 function b64url(buf: Buffer | string): string {

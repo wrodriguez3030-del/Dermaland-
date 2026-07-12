@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { isBillingAdmin } from "@/features/billing/permissions";
 import { auditIncentive } from "@/server/services/incentives/incentive-admin";
 
 /**
@@ -16,6 +17,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Disponible solo con Supabase" }, { status: 501 });
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  // SEC-007: pagar incentivos mueve dinero → solo admin/super_admin.
+  if (!isBillingAdmin(session.user.role))
+    return NextResponse.json({ error: "No tienes permiso para registrar pagos de incentivos." }, { status: 403 });
   const body = (await req.json().catch(() => ({}))) as { ids?: string[] };
   const ids = Array.isArray(body.ids) ? body.ids.filter(Boolean) : [];
   if (ids.length === 0)
@@ -29,6 +33,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { data, error } = await sb
     .from("sales_incentives")
     .update({ status: "paid", paid_at: now, payment_batch_id: batchId, updated_at: now })
+    .eq("business_id", session.businessId) // SEC-008: filtro de tenant explícito (defensa en profundidad, no solo RLS)
     .in("id", ids)
     .in("status", ["pending", "approved"])
     .select("id");
