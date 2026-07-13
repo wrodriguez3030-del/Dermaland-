@@ -78,7 +78,8 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 | Integridad (índices/constraints) | SQL sobre `pg_constraint`/`pg_indexes` | ✅ | NCF único, idempotencia venta+scan, lote único, RPC atómico |
 | Prueba de carga (k6) | — | ⏸️ **No ejecutada** | fuera de alcance del piloto inicial |
 | Backup de datos (REST JSON) | `node scripts/backup/rest-json-backup.mjs` | ✅ **57/57 tablas, 3081 filas** | backup real ejecutado y verificado |
-| Restauración de backup | — | ⏸️ **Drill pendiente** (necesita proyecto destino) | ver B-01 |
+| Restaurabilidad del backup | `node scripts/backup/verify-backup-integrity.mjs` | ✅ **11/11 FKs OK** (backup restaurable, 0 refs rotas) | validado sin destino |
+| Drill de restauración end-to-end | — | ⏸️ **Pendiente** (necesita 2º proyecto Free como destino) | ver B-01 |
 
 ---
 

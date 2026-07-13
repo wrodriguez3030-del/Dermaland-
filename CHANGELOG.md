@@ -11,6 +11,18 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.72.2] - 2026-07-13
+
+**B-01 (backup) — restaurabilidad validada + herramientas de restauración.**
+- `scripts/backup/verify-backup-integrity.mjs`: valida la integridad referencial del
+  backup (todas las FKs resuelven dentro del export). **Probado: 11/11, 0 refs rotas**
+  → el backup es restaurable sin violar constraints.
+- `scripts/backup/restore-from-json.mjs`: importa el backup a un proyecto DESTINO
+  (idempotente por `id`, auto-ordenante por reintentos de FK, con guarda anti-prod).
+- `docs/backup-and-restore.md`: procedimiento del **drill de restauración GRATIS** en
+  un segundo proyecto Free. Único paso no automatizable por MCP: crear el proyecto
+  destino en el dashboard (no hay `create_project`).
+
 ## [0.72.1] - 2026-07-13
 
 **B-01 (backup) — avance: backup de datos probado en vivo.** Nuevo

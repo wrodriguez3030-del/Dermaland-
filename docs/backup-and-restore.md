@@ -44,15 +44,32 @@ lotes, 16 ventas, clientes, etc.). Solo imprime conteos; los datos (con PII) van
 preserva todos los datos de negocio. **Correr AHORA como respaldo inmediato** y copiar
 la carpeta cifrada a almacenamiento externo (NAS/S3/Backblaze).
 
-### Restauración desde el JSON (a un proyecto nuevo/aislado)
-1. Crear proyecto Supabase nuevo (o branch) — nunca sobre la prod viva.
-2. Aplicar TODAS las migraciones en orden: `for f in supabase/migrations/00*.sql; do psql "$TARGET" -f "$f"; done` (o vía SQL Editor).
-3. Importar los JSON respetando el orden de FKs (catálogos → negocio → transacciones):
-   `businesses, plans, roles, permissions, role_permissions, branches, warehouses,
-   laboratories, brands, product_categories, users, products, product_lots, clients`,
-   luego ventas/inventario/DGII/IA. (Un `restore-from-json` puede automatizarlo con
-   `service_role` REST en el mismo orden.)
-4. Verificar conteos contra `manifest.json`.
+### Verificar que el backup es RESTAURABLE (sin destino, gratis) ✅ PROBADO
+`scripts/backup/verify-backup-integrity.mjs` comprueba la **integridad referencial**
+del backup (todas las FKs resuelven dentro del export) → garantiza que el import en
+orden de FKs no violará constraints. **Verificado (2026-07-13): 11/11, 0 referencias
+rotas.**
+```bash
+node scripts/backup/verify-backup-integrity.mjs
+```
+
+### Drill de restauración GRATIS (segundo proyecto Free)
+El drill end-to-end necesita un **proyecto Supabase DESTINO**. La vía sin costo es un
+**segundo proyecto Free** (la org permite 2). Pasos:
+1. **(Usuario, ~2 min)** Dashboard Supabase → New project (Free) → anotar su URL y su
+   `service_role key`. *No se puede crear por API/MCP; requiere el dashboard.*
+2. Aplicar el esquema: correr TODAS las migraciones en el destino
+   (`supabase/migrations/00*.sql`) vía SQL Editor o `psql`.
+3. Importar los datos (idempotente, auto-ordenante por reintentos de FK):
+   ```bash
+   export TARGET_SUPABASE_URL="https://<nuevo-ref>.supabase.co"
+   export TARGET_SERVICE_ROLE_KEY="<service_role del DESTINO>"
+   node scripts/backup/restore-from-json.mjs
+   ```
+   (El script se **niega a escribir sobre el proyecto de producción**.)
+4. Verificar conteos del destino contra `manifest.json`. Opcional: apuntar la app al
+   destino y probar login + una consulta con RLS.
+5. Pausar/borrar el proyecto destino. **Registrar el tiempo total = RTO real.**
 
 ## Opción B — backup COMPLETO (pg_dump) — automático en CI
 
