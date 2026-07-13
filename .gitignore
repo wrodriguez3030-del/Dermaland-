@@ -40,3 +40,8 @@ certificates/
 # Solo el dir de salida de reportes en la raíz — anclado con "/" para NO ignorar
 # el código fuente en src/**/reports (lib/reports/excel, api/reports, etc.).
 /reports/
+
+# Backups locales (contienen datos reales/PII — NUNCA commitear)
+backups/
+*.sql.gz
+*.sql.gz.gpg

@@ -25,7 +25,36 @@ y mayor garantía.
 3. (Opcional recomendado) Add-on **Point in Time Recovery**.
 4. Activar además *Leaked Password Protection* (queda desbloqueado en Pro).
 
-## Opción B — piloto sin upgrade: backup lógico diario propio
+## Opción B0 — backup de DATOS por REST (funciona YA, sin pg_dump) ✅ PROBADO
+
+`scripts/backup/rest-json-backup.mjs` exporta **todas las tablas de `public` a JSON**
+usando el `service_role` (REST) — no requiere `pg_dump`, CLI ni el password de la BD.
+Combinado con las migraciones del repo (esquema + funciones + RLS) da una ruta de
+recuperación completa.
+
+```bash
+node scripts/backup/rest-json-backup.mjs
+# → backups/rest-YYYYMMDD-HHMM/<tabla>.json + manifest.json  (backups/ está gitignored)
+```
+
+**Verificado en vivo (2026-07-13): 57/57 tablas, 3081 filas** (1358 productos, 1369
+lotes, 16 ventas, clientes, etc.). Solo imprime conteos; los datos (con PII) van a
+`backups/` (ignorado por git). **Limitaciones vs pg_dump:** no captura `auth.users`
+(cuentas de login), Storage, ni el estado exacto de secuencias — para el piloto
+preserva todos los datos de negocio. **Correr AHORA como respaldo inmediato** y copiar
+la carpeta cifrada a almacenamiento externo (NAS/S3/Backblaze).
+
+### Restauración desde el JSON (a un proyecto nuevo/aislado)
+1. Crear proyecto Supabase nuevo (o branch) — nunca sobre la prod viva.
+2. Aplicar TODAS las migraciones en orden: `for f in supabase/migrations/00*.sql; do psql "$TARGET" -f "$f"; done` (o vía SQL Editor).
+3. Importar los JSON respetando el orden de FKs (catálogos → negocio → transacciones):
+   `businesses, plans, roles, permissions, role_permissions, branches, warehouses,
+   laboratories, brands, product_categories, users, products, product_lots, clients`,
+   luego ventas/inventario/DGII/IA. (Un `restore-from-json` puede automatizarlo con
+   `service_role` REST en el mismo orden.)
+4. Verificar conteos contra `manifest.json`.
+
+## Opción B — backup COMPLETO (pg_dump) — automático en CI
 
 Mientras se sigue en Free (o como respaldo redundante en Pro), correr un
 `pg_dump` diario a almacenamiento externo. Script provisto:

@@ -50,7 +50,7 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 
 | ID | Sev | Bloqueador | Área | Estado | Acción requerida |
 |----|-----|-----------|------|--------|------------------|
-| B-01 | **Alta** | Plan Free sin backups automáticos/PITR; **restauración nunca probada** | DR/Backups | Abierto | Subir a Supabase Pro **o** `pg_dump` diario externo + **probar restauración** antes del go-live (`docs/backup-and-restore.md`) |
+| B-01 | **Alta** | Plan Free sin backups automáticos/PITR; **restauración nunca probada** | DR/Backups | 🟡 **PARCIAL** | Backup de DATOS por REST **probado en vivo** (57/57 tablas, 3081 filas, `rest-json-backup.mjs`) + pg_dump en CI listo. **Falta (usuario):** setear secreto `SUPABASE_DB_URL` en CI (o Supabase Pro) y **ejecutar un drill de restauración** a un proyecto destino |
 | B-02 | **Alta** | Emisión de venta y descuento de inventario **no atómicos**; venta puede quedar sin descontar stock, sin rollback | POS/Inventario | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC transaccional `emit_sale_atomic` (mig `0029`); verificado en vivo 14/14 |
 | B-03 | Media | **Anular venta no reingresa stock**; Nota de Crédito es demo | Devoluciones | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC `void_sale_atomic` reingresa stock (atómico e idempotente); NC sigue demo (pre-Fase G) |
 | B-04 | Media | **MFA no habilitado** para admin | Auth | Abierto | Activar TOTP para admin antes del go-live |
@@ -77,7 +77,8 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 | RLS habilitado | SQL sobre `pg_policies` / advisor | ✅ **56 / 56 tablas** | `docs/security/rls-matrix.md` |
 | Integridad (índices/constraints) | SQL sobre `pg_constraint`/`pg_indexes` | ✅ | NCF único, idempotencia venta+scan, lote único, RPC atómico |
 | Prueba de carga (k6) | — | ⏸️ **No ejecutada** | fuera de alcance del piloto inicial |
-| Restauración de backup | — | ⏸️ **No probada** | ver B-01 |
+| Backup de datos (REST JSON) | `node scripts/backup/rest-json-backup.mjs` | ✅ **57/57 tablas, 3081 filas** | backup real ejecutado y verificado |
+| Restauración de backup | — | ⏸️ **Drill pendiente** (necesita proyecto destino) | ver B-01 |
 
 ---
 

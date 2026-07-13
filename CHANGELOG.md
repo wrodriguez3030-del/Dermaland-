@@ -11,6 +11,18 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.72.1] - 2026-07-13
+
+**B-01 (backup) — avance: backup de datos probado en vivo.** Nuevo
+`scripts/backup/rest-json-backup.mjs`: exporta todas las tablas de `public` a JSON vía
+`service_role` (REST), sin necesitar `pg_dump`/CLI/password de BD. **Ejecutado y
+verificado: 57/57 tablas, 3081 filas.** Con las migraciones del repo = ruta de
+recuperación completa. `backups/` y `*.sql.gz*` agregados a `.gitignore` (los backups
+contienen PII, nunca se commitean). Doc `backup-and-restore.md` ampliado con la
+restauración desde JSON. **Pendiente del usuario:** secreto `SUPABASE_DB_URL` en CI
+(para el pg_dump completo del workflow ya existente) o Supabase Pro, y un drill de
+restauración a un proyecto destino.
+
 ## [0.72.0] - 2026-07-13
 
 **B-05 corregido: conteo físico real (vistas Supabase + ajuste de stock al aprobar).**
