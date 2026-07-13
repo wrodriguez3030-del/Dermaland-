@@ -1,0 +1,77 @@
+name: Backup diario de la BD (DermaLand)
+
+# Mitigación B-01 (validación de producción): backup lógico diario mientras el
+# proyecto Supabase no tenga backups automáticos/PITR (plan Free).
+#
+# REQUISITOS (Settings → Secrets and variables → Actions → New repository secret):
+#   - SUPABASE_DB_URL         (obligatorio) connection string URI de la BD.
+#                             Dashboard Supabase → Settings → Database → Connection
+#                             string → URI (modo Session pooler).
+#   - BACKUP_GPG_PASSPHRASE   (opcional, RECOMENDADO) si se define, el dump se cifra
+#                             con GPG simétrico antes de subirse (el artifact
+#                             contiene datos personales de clientes).
+#
+# El backup queda como "artifact" del run (retención 14 días). Para retención larga
+# o almacenamiento externo (S3/Backblaze/NAS), añadir un paso de subida aquí.
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC = 03:00 República Dominicana
+  workflow_dispatch: {} # permite correrlo a mano desde la pestaña Actions
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar cliente de PostgreSQL (pg_dump 16)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verificar secreto de conexión
+        run: |
+          if [ -z "${SUPABASE_DB_URL}" ]; then
+            echo "::error::Falta el secreto SUPABASE_DB_URL. Configúralo en Settings → Secrets → Actions."
+            exit 1
+          fi
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+      - name: Ejecutar backup (pg_dump, solo lectura)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/backup/pg-dump-backup.mjs --label ci-$(date -u +%Y%m%d-%H%M)
+
+      - name: Cifrar backup (si hay passphrase)
+        if: ${{ env.BACKUP_GPG_PASSPHRASE != '' }}
+        env:
+          BACKUP_GPG_PASSPHRASE: ${{ secrets.BACKUP_GPG_PASSPHRASE }}
+        run: |
+          for f in backups/*.sql.gz; do
+            gpg --batch --yes --passphrase "$BACKUP_GPG_PASSPHRASE" \
+              --symmetric --cipher-algo AES256 "$f"
+            rm -f "$f"   # deja solo el .gpg cifrado
+          done
+
+      - name: Subir backup como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dermaland-db-backup
+          path: |
+            backups/*.sql.gz
+            backups/*.sql.gz.gpg
+          retention-days: 14
+          if-no-files-found: error

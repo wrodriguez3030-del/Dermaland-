@@ -28,7 +28,10 @@ atomicidad venta+inventario, devolución sin reingreso de stock, MFA, vistas de 
   `docs/rollback-plan.md`, `docs/security/incident-response.md`,
   `scripts/backup/pg-dump-backup.mjs`.
 - **Actualizado:** `docs/production-checklist.md` (estado verificado).
-- **No despliega a producción** (parche en rama de auditoría, pendiente de autorización).
+- **B-06 cerrado:** CHECK `product_lots.current_quantity >= 0` aplicado a prod
+  (migración `0028`, 0 filas violaban) como defensa-en-profundidad.
+- **B-01 mitigado:** workflow `.github/workflows/backup.yml` (pg_dump diario,
+  cifrado GPG opcional, retención 14 días). Falta el secreto `SUPABASE_DB_URL`.
 
 ## [0.70.1] - 2026-07-12
 

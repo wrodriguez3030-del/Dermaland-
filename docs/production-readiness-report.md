@@ -55,7 +55,7 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 | B-03 | Media | **Anular venta no reingresa stock**; Nota de Crédito es demo | Devoluciones | Abierto | Implementar devolución real (reingreso a lote + `inventory_movement`). Mitigación: ajuste manual con motivo |
 | B-04 | Media | **MFA no habilitado** para admin | Auth | Abierto | Activar TOTP para admin antes del go-live |
 | B-05 | Media | **Vistas de conteo físico = mock**; `approve` no ajusta stock | Conteo | Abierto | Conectar vistas a la API real (backend ya existe) + Fase 3b ajuste de stock. Mitigación: no usar para ajustar stock aún |
-| B-06 | Baja | `product_lots` sin CHECK `current_quantity >= 0` (solo el RPC lo protege) | Inventario | Parche listo, **no aplicado** | Aplicar CHECK (0 filas violan hoy) con autorización |
+| B-06 | Baja | `product_lots` sin CHECK `current_quantity >= 0` (solo el RPC lo protege) | Inventario | ✅ **CERRADO** | CHECK aplicado a prod (mig `0028`, 0 filas violaban) |
 | B-07 | Baja | Historial de migraciones incompleto (13/27 rastreadas; 0007–0022 fuera de banda) | Migraciones | Abierto | `supabase migration repair` con autorización (no destructivo) |
 
 > **Resueltos en esta auditoría:** el `cashier_name` hardcodeado ("Rosa Peralta")

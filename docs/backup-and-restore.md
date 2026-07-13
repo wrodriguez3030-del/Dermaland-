@@ -52,9 +52,11 @@ node scripts/backup/pg-dump-backup.mjs
 
 Elegir uno:
 
-- **GitHub Actions** (recomendado, gratis): workflow `schedule: cron '0 7 * * *'`
-  (3 AM RD), corre el script y sube el `.sql.gz` como *artifact* cifrado o a un
-  bucket S3/Backblaze. `SUPABASE_DB_URL` va en *Secrets* del repo.
+- **GitHub Actions** (recomendado, gratis) — **YA CREADO**: `.github/workflows/backup.yml`
+  corre el script diario (3 AM RD) y sube el `.sql.gz` como *artifact* (retención
+  14 días), cifrado con GPG si defines `BACKUP_GPG_PASSPHRASE`. **Solo falta que
+  agregues el secreto `SUPABASE_DB_URL`** en Settings → Secrets → Actions; luego
+  se puede disparar a mano desde la pestaña *Actions* → *Run workflow*.
 - **Tarea programada** en un servidor propio (la infra Cibao Cloud / NAS ya tiene
   cron de backups de csl-app; añadir DermaLand ahí).
 - **Vercel Cron** llamando a un endpoint interno protegido (patrón ya usado en
