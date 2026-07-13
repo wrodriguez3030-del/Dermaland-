@@ -355,7 +355,10 @@ export const proformaRepository: ProformaRepository = {
       customer_id: nullableUuid(proforma.customerId),
       customer_name: proforma.customerName,
       cashier_id: cashierId,
-      cashier_name: proforma.cashierName,
+      // Identidad de auditoría del cajero: SIEMPRE de la sesión (JWT), no del
+      // body. El POS enviaba un nombre placeholder hardcodeado ("Rosa Peralta")
+      // que se persistía en cada factura sin importar quién estuviera logueado.
+      cashier_name: ctx.userName ?? proforma.cashierName,
       subtotal: toDbMoney(recomputed.subtotal, "subtotal"),
       discount: toDbMoney(recomputed.discount, "descuento"),
       itbis: toDbMoney(recomputed.itbis, "ITBIS"),

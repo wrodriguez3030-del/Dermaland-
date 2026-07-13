@@ -1,0 +1,123 @@
+# DermaLand · Backup y Restauración (DR)
+
+> **Estado (2026-07-12):** el proyecto Supabase `sntcvyozbhrgicwmtcoh` está en
+> **plan Free** (evidencia: el advisor de seguridad reporta *Leaked Password
+> Protection* como *no activable*, exclusivo de Pro+). **En Free NO hay backups
+> automáticos diarios ni PITR.** Un fallo de la base = pérdida total.
+> **Esto es el bloqueador #1 antes de operar con una empresa real.**
+
+## RPO / RTO objetivo del piloto
+
+| Métrica | Objetivo piloto | Cómo se logra |
+|---|---|---|
+| **RPO** (dato máx. que se puede perder) | ≤ 24 h | Backup lógico diario (`pg_dump`) a almacenamiento externo |
+| **RTO** (tiempo de recuperación) | ≤ 4 h | Restaurar el último dump a un proyecto Supabase nuevo + repuntar Vercel |
+| **RPO con Supabase Pro** | ≤ 24 h (daily) o ≤ 2 min (PITR add-on) | Upgrade a Pro |
+
+## Opción A — recomendada: subir a Supabase Pro (US$25/mes)
+
+Habilita **backups diarios automáticos con 7 días de retención** y permite el
+add-on **PITR** (Point-In-Time Recovery, RPO ~2 min). Es la vía de menor esfuerzo
+y mayor garantía.
+
+1. Dashboard → Project → Settings → Subscription → **Upgrade to Pro**.
+2. Settings → Database → **Backups**: confirmar "Daily backups" activo.
+3. (Opcional recomendado) Add-on **Point in Time Recovery**.
+4. Activar además *Leaked Password Protection* (queda desbloqueado en Pro).
+
+## Opción B — piloto sin upgrade: backup lógico diario propio
+
+Mientras se sigue en Free (o como respaldo redundante en Pro), correr un
+`pg_dump` diario a almacenamiento externo. Script provisto:
+`scripts/backup/pg-dump-backup.mjs`.
+
+### Requisitos
+
+- La **connection string** de la BD (Dashboard → Settings → Database →
+  *Connection string* → **URI**, modo *Session pooler* o directo). Guardarla como
+  variable de entorno **local/servidor de backup**, NUNCA en el repo:
+  ```
+  export SUPABASE_DB_URL="postgresql://postgres.[ref]:[password]@aws-...pooler.supabase.com:5432/postgres"
+  ```
+- `pg_dump` v15+ instalado (viene con PostgreSQL client tools).
+
+### Backup manual (correr AHORA, antes del go-live)
+
+```bash
+node scripts/backup/pg-dump-backup.mjs
+# genera backups/dermaland-YYYYMMDD-HHMM.sql.gz  (comprimido, cifrado opcional)
+```
+
+### Backup diario automático
+
+Elegir uno:
+
+- **GitHub Actions** (recomendado, gratis): workflow `schedule: cron '0 7 * * *'`
+  (3 AM RD), corre el script y sube el `.sql.gz` como *artifact* cifrado o a un
+  bucket S3/Backblaze. `SUPABASE_DB_URL` va en *Secrets* del repo.
+- **Tarea programada** en un servidor propio (la infra Cibao Cloud / NAS ya tiene
+  cron de backups de csl-app; añadir DermaLand ahí).
+- **Vercel Cron** llamando a un endpoint interno protegido (patrón ya usado en
+  AlojaControl: `GET /api/cron/backup`).
+
+### Retención
+
+- Diarios: 14 días.
+- Semanales: 8 semanas.
+- Antes de CADA migración o deploy crítico: un dump etiquetado
+  `dermaland-premig-<version>.sql.gz` (ver Opción C).
+
+## Opción C — snapshot antes de cada cambio de esquema
+
+**Obligatorio** antes de aplicar cualquier migración a producción:
+
+```bash
+node scripts/backup/pg-dump-backup.mjs --label premig-0028
+```
+
+Guardar el archivo fuera del entorno de la BD. Si la migración corrompe datos, se
+restaura este snapshot.
+
+## Procedimiento de RESTAURACIÓN (probar en aislado, NO en prod)
+
+1. Crear un **proyecto Supabase nuevo** (o una branch) — nunca restaurar encima de
+   la prod viva sin autorización.
+2. Restaurar el dump:
+   ```bash
+   gunzip -c backups/dermaland-YYYYMMDD-HHMM.sql.gz | psql "$TARGET_DB_URL"
+   ```
+3. Verificar conteos clave contra lo esperado:
+   ```sql
+   select count(*) from products;      -- ~1355
+   select count(*) from product_lots;  -- ~1368
+   select count(*) from proformas;
+   ```
+4. Correr el smoke test de la app apuntando al proyecto restaurado
+   (`DATA_SOURCE=supabase`, `NEXT_PUBLIC_SUPABASE_URL` del proyecto nuevo).
+5. Verificar login + una consulta con RLS (que el usuario solo vea su empresa).
+6. Documentar tiempo total (mide el RTO real).
+
+> **Regla:** el sistema NO se considera "con backup" hasta que una restauración
+> se haya probado de punta a punta al menos una vez. **Aún pendiente de probar.**
+
+## Reproducibilidad del esquema desde cero
+
+El esquema completo está en `supabase/migrations/0001…0027`. **Advertencia:** la
+tabla de rastreo `supabase_migrations.schema_migrations` solo registra 13 de los
+27 archivos — los `0007…0022` se aplicaron vía SQL Editor (fuera de banda). Para
+reconstruir en una BD limpia de forma confiable:
+
+```bash
+# aplicar TODOS los archivos en orden lexicográfico
+for f in supabase/migrations/00*.sql; do psql "$TARGET_DB_URL" -f "$f"; done
+```
+
+Remediación recomendada (con autorización, no destructiva): `supabase migration
+repair` para reconciliar el historial de rastreo con los archivos del repo.
+
+## Responsable
+
+- **Responsable del backup diario:** (asignar — dueño técnico del piloto).
+- **Verificación semanal** de que el último backup existe y pesa lo esperado.
+- **Prueba de restauración:** trimestral como mínimo, y obligatoria antes de
+  escalar a una 2ª empresa.

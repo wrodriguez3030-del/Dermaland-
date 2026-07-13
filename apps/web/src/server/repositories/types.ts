@@ -95,6 +95,12 @@ export interface RepoContext {
   businessId: ID;
   branchId?: ID;
   userId?: ID;
+  /**
+   * Nombre del usuario autenticado (de la sesión/JWT). Se usa para persistir
+   * identidad de auditoría (p.ej. `cashier_name`) SIN confiar en el body del
+   * cliente. Mismo principio que `userId` (SEC-016).
+   */
+  userName?: string;
 }
 
 // ─── Tenancy ────────────────────────────────────────────────────────────────

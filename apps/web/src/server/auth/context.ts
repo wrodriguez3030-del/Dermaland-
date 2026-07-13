@@ -83,6 +83,7 @@ export async function getRepoContext(): Promise<RepoContext> {
     businessId: session.businessId,
     branchId: session.branchId,
     userId: session.user.id,
+    userName: session.user.fullName,
   };
 }
 

@@ -2,6 +2,17 @@
 
 Revisión obligatoria antes de cada release a producción.
 
+> **Estado verificado (2026-07-12, v0.70.1):** ver el informe con evidencias en
+> `docs/production-readiness-report.md`. Veredicto: **APTO SOLO PARA PILOTO
+> CONTROLADO**. Verde: RLS 56/56, cross-tenant 7/7 en vivo, 1721 tests, typecheck 0,
+> build 0, decremento de stock atómico. **Bloqueadores para producción plena:**
+> backup automático/probado (B-01, plan Free), atomicidad venta+inventario (B-02),
+> devolución con reingreso de stock (B-03), MFA (B-04), vistas de conteo (B-05). El
+> plan de arranque está en `docs/production-pilot-plan.md`.
+>
+> _La lista de abajo es la meta completa (SaaS multiempresa); muchos ítems aplican
+> al escalado, no al piloto de 1 empresa._
+
 ## Backend (P1)
 
 - [ ] Proyecto Supabase creado (no reusar el de `csl-app`).

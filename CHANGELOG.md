@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.70.2] - 2026-07-12
+
+**Validación para producción real + parche de auditoría.** Auditoría integral de
+"listo para producción" con evidencia real (BD de prod vía MCP, código, migraciones,
+pruebas). Veredicto: **APTO SOLO PARA PILOTO CONTROLADO** (seguridad/RLS/multiempresa
+sólidos y verificados en vivo; bloqueadores acotados: backup no probado en plan Free,
+atomicidad venta+inventario, devolución sin reingreso de stock, MFA, vistas de conteo).
+
+- **Fix (identidad de auditoría):** el `cashier_name` de cada factura ya **no** se
+  toma del body del cliente (el POS enviaba `"Rosa Peralta"` hardcodeado, que se
+  persistía en toda venta). Ahora deriva de la sesión (JWT) vía `RepoContext.userName`
+  (mismo principio que `userId`, SEC-016). Cambios aditivos y compatibles.
+- **Documentos nuevos:** `docs/production-readiness-report.md`,
+  `docs/production-pilot-plan.md`, `docs/backup-and-restore.md`,
+  `docs/rollback-plan.md`, `docs/security/incident-response.md`,
+  `scripts/backup/pg-dump-backup.mjs`.
+- **Actualizado:** `docs/production-checklist.md` (estado verificado).
+- **No despliega a producción** (parche en rama de auditoría, pendiente de autorización).
+
 ## [0.70.1] - 2026-07-12
 
 **Prueba cross-tenant (RLS) e2e — VERIFICADA EN VIVO.** Script reusable
