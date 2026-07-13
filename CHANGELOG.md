@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.72.0] - 2026-07-13
+
+**B-05 corregido: conteo físico real (vistas Supabase + ajuste de stock al aprobar).**
+Cierra el bloqueador del módulo de inventario físico de la validación de producción.
+
+- **B-05b (Fase 3b — aprobar ajusta stock):** nuevo RPC `apply_count_adjustments`
+  (migración `0030`). Al aprobar un conteo, aplica el **delta** (`difference_quantity`)
+  al stock de cada lote (respeta ventas intermedias, nunca deja negativo → clamp 0),
+  registra movimiento `count_adjustment` con el delta REAL aplicado, y es atómico e
+  idempotente (re-aprobar no reajusta). `repo.approve` llama al RPC. Antes solo
+  cambiaba el estado. SECURITY INVOKER → RLS. Verificado en vivo
+  `scripts/test/count-adjustment-test.mjs` **9/9**.
+- **B-05a (Fase 2b — vistas reales):** nuevo `features/inventory-counts/counts-store.ts`
+  (`useCounts`/`useCount`/`useCountsReport` + `submitCount`/`approveCount`/`rejectCount`)
+  con **fallback a demo** (la API responde 409 en modo mock). Cableadas la lista
+  (`conteo-fisico`), el **detalle** (convertido a Client Component, botones
+  Enviar/Aprobar funcionales) y **Reportes › Conteos** a datos reales con lookups de
+  `useProducts`/catálogos/`useBranches`. Aviso "datos de demostración" cuando cae a mock.
+- **Fix bug latente:** el repo `inventoryCount.create` insertaba `difference_quantity`,
+  que es GENERATED ALWAYS en la BD → habría roto la creación real de conteos (tablas
+  vacías, nunca se ejecutó). Ahora la BD la calcula sola.
+- typecheck 0 + 1721 tests + build 0. **Botones por-ítem de Diferencias** (aprobar/
+  recontar/cuarentena) quedan informativos (la aprobación es a nivel de conteo).
+
 ## [0.71.0] - 2026-07-13
 
 **B-02 y B-03 corregidos: emisión y anulación de venta ATÓMICAS.** Cierra los dos

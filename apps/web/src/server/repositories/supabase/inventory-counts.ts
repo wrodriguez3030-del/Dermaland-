@@ -126,8 +126,6 @@ export const inventoryCountRepository: InventoryCountRepository = {
 
     if (input.items.length > 0) {
       const itemRows = input.items.map((it) => {
-        const expected = it.expectedQuantity;
-        const counted = it.countedQuantity;
         return {
           business_id: ctx.businessId,
           inventory_count_id: countRow.id,
@@ -138,9 +136,11 @@ export const inventoryCountRepository: InventoryCountRepository = {
           lot_number: it.lotNumber ?? null,
           expires_at: it.expiresAt ?? null,
           warehouse_id: it.warehouseId || warehouseId,
-          expected_quantity: expected,
-          counted_quantity: counted,
-          difference_quantity: it.differenceQuantity ?? counted - expected,
+          expected_quantity: it.expectedQuantity,
+          counted_quantity: it.countedQuantity,
+          // `difference_quantity` es GENERATED ALWAYS (counted - expected) en la BD:
+          // NO se puede insertar (lanza "cannot insert a non-DEFAULT value"). La BD
+          // la calcula sola. (Bug latente: las tablas estaban vacías, nunca se ejecutó.)
           status: it.status,
           last_scan_at: it.lastScanAt ?? null,
         };
@@ -196,11 +196,18 @@ export const inventoryCountRepository: InventoryCountRepository = {
   },
 
   async approve(ctx: RepoContext, countId: string) {
-    await transition(ctx, countId, {
-      status: "approved",
-      approved_at: new Date().toISOString(),
-      approved_by: ctx.userId ?? null,
-    }, "approve");
+    // B-05b (Fase 3b): aprobar AJUSTA el stock real de los lotes según las
+    // diferencias del conteo, atómico e idempotente (RPC `apply_count_adjustments`,
+    // mig 0030). Aplica el delta (respeta ventas intermedias), registra
+    // `count_adjustment` y nunca deja stock negativo. Antes solo cambiaba el estado.
+    const sb = await getClient("inventoryCount.approve");
+    const { error } = await sb.rpc("apply_count_adjustments", { p_count_id: countId });
+    if (error) {
+      if (/no encontrado|P0002/i.test(error.message)) {
+        throw new Error("Conteo no encontrado o sin permiso (approve).");
+      }
+      throw new SupabaseRepositoryError("inventoryCount.approve", error);
+    }
   },
 
   async reject(ctx: RepoContext, countId: string, reason: string) {

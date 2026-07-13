@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { ArrowLeft, ScanBarcode } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -19,29 +22,23 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
+import { useToast } from "@/components/ui/toast";
 import {
   CheckCircle,
   AlertCircle,
   Plus as PlusIcon,
-  Minus,
   ShieldAlert,
 } from "lucide-react";
-import {
-  getInventoryCountById,
-  getItemsForCount,
-  getScansForCount,
-} from "@/lib/mock-data/inventory-counts";
-import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
-import {
-  getProductById,
-  getBrandById,
-  getCategoryById,
-  getLaboratoryById,
-} from "@/lib/mock-data/catalog";
-import { getUserById } from "@/lib/mock-data/users";
-import { mockInventoryMovements } from "@/lib/mock-data/inventory-movements";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 import { PhysicalCountExcelButtons } from "@/features/inventory/components/physical-count-excel-button";
+import { useCount, submitCount, approveCount } from "@/features/inventory-counts/counts-store";
+import { useProducts } from "@/features/products/product-store";
+import {
+  useBrandsList,
+  useCategoriesList,
+  useLaboratoriesList,
+} from "@/features/products/catalog-store";
+import { useBranches } from "@/features/tenancy/branch-store";
 import { formatDateTime, formatDate } from "@/lib/utils/format";
 
 const itemStatusMeta: Record<
@@ -55,43 +52,92 @@ const itemStatusMeta: Record<
   unregistered: { label: "Sin registro", tone: "info" },
 };
 
-export default async function ConteoDetalle({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const count = getInventoryCountById(id);
-  if (!count) notFound();
+const typeLabel = (t: string) =>
+  t === "full" ? "Total" : t === "partial" ? "Parcial" : "Spot";
 
-  const items = getItemsForCount(count.id);
-  const scans = getScansForCount(count.id);
-  const branch = getBranchById(count.branchId);
-  const warehouse = getWarehouseById(count.warehouseId);
+export default function ConteoDetalle() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id;
+  const toast = useToast();
+
+  const { count, items, scans, loading, source, notFound } = useCount(id);
+  const products = useProducts();
+  const brands = useBrandsList();
+  const categories = useCategoriesList();
+  const laboratories = useLaboratoriesList();
+  const branches = useBranches();
+  const [pending, setPending] = useState(false);
+
+  const byId = <T extends { id: string }>(list: T[]) => {
+    const m = new Map<string, T>();
+    for (const x of list) m.set(x.id, x);
+    return m;
+  };
+  const productMap = useMemo(() => byId(products), [products]);
+  const brandMap = useMemo(() => byId(brands), [brands]);
+  const categoryMap = useMemo(() => byId(categories), [categories]);
+  const labMap = useMemo(() => byId(laboratories), [laboratories]);
+  const branchMap = useMemo(() => byId(branches), [branches]);
+
+  const branchName = count ? branchMap.get(count.branchId)?.name ?? "" : "";
+
+  const report = useMemo(() => {
+    if (!count) return null;
+    return buildPhysicalCountReport({
+      count,
+      items,
+      scans,
+      movements: [],
+      businessName: "DermaLand",
+      generatedAt: new Date().toISOString(),
+      lookups: {
+        product: (pid) => productMap.get(pid),
+        lotUnitCost: () => undefined,
+        brandName: (bid) => (bid ? brandMap.get(bid)?.name ?? "" : ""),
+        categoryName: (cid) => (cid ? categoryMap.get(cid)?.name ?? "" : ""),
+        labName: (lid) => (lid ? labMap.get(lid)?.name ?? "" : ""),
+        branchName: (brid) => (brid ? branchMap.get(brid)?.name ?? "" : ""),
+        userName: () => "",
+      },
+    });
+  }, [count, items, scans, productMap, brandMap, categoryMap, labMap, branchMap]);
+
+  async function doAction(action: "submit" | "approve") {
+    if (!id) return;
+    setPending(true);
+    const res = action === "approve" ? await approveCount(id) : await submitCount(id);
+    setPending(false);
+    if (res.ok) {
+      toast.success(
+        action === "approve"
+          ? "Conteo aprobado. Se ajustó el stock según las diferencias."
+          : "Conteo enviado a revisión.",
+      );
+    } else {
+      toast.error(res.error);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="py-16 text-center text-sm opacity-60">Cargando conteo…</div>
+    );
+  }
+  if (notFound || !count) {
+    return (
+      <div className="py-16 text-center">
+        <p className="text-sm opacity-60">Conteo no encontrado.</p>
+        <Link href="/conteo-fisico" className="mt-2 inline-block text-xs underline">
+          Volver a inventarios
+        </Link>
+      </div>
+    );
+  }
 
   const matches = items.filter((i) => i.status === "match").length;
   const shortages = items.filter((i) => i.status === "shortage").length;
   const overages = items.filter((i) => i.status === "overage").length;
   const expired = items.filter((i) => i.status === "expired").length;
-
-  // Informe completo (datos planos, sin ids internos) para exportar a Excel.
-  const report = buildPhysicalCountReport({
-    count,
-    items,
-    scans,
-    movements: mockInventoryMovements,
-    businessName: "DermaLand",
-    generatedAt: new Date().toISOString(),
-    lookups: {
-      product: (pid) => getProductById(pid),
-      lotUnitCost: () => undefined,
-      brandName: (bid) => getBrandById(bid)?.name ?? "",
-      categoryName: (cid) => getCategoryById(cid)?.name ?? "",
-      labName: (lid) => getLaboratoryById(lid)?.name ?? "",
-      branchName: (brid) => (brid ? getBranchById(brid)?.name ?? "" : ""),
-      userName: (uid) => (uid ? getUserById(uid)?.fullName ?? "" : ""),
-    },
-  });
 
   return (
     <>
@@ -102,16 +148,22 @@ export default async function ConteoDetalle({
         <ArrowLeft className="h-3 w-3" /> Volver a inventarios
       </Link>
 
+      {source === "mock" && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Datos de demostración (backend de conteos en modo local).
+        </div>
+      )}
+
       <PageHeader
         title={count.countNumber}
-        description={`${branch?.name} · ${warehouse?.name} · ${count.countType === "full" ? "Total" : count.countType === "partial" ? "Parcial" : "Spot"}`}
+        description={`${branchName} · ${typeLabel(count.countType)}`}
         breadcrumbs={[
           { label: "Inventario físico", href: "/conteo-fisico" },
           { label: count.countNumber },
         ]}
         actions={
           <>
-            <PhysicalCountExcelButtons report={report} />
+            {report && <PhysicalCountExcelButtons report={report} />}
             <Link href={`/conteo-fisico/${count.id}/escanear`}>
               <Button variant="outline" size="sm">
                 <ScanBarcode className="h-4 w-4" />
@@ -119,11 +171,17 @@ export default async function ConteoDetalle({
               </Button>
             </Link>
             {count.status === "submitted" || count.status === "reviewed" ? (
-              <Button size="sm">Aprobar ajustes</Button>
+              <Button size="sm" disabled={pending} onClick={() => doAction("approve")}>
+                {pending ? "Aprobando…" : "Aprobar ajustes"}
+              </Button>
             ) : count.status === "in_progress" ? (
-              <Button size="sm">Enviar a revisión</Button>
+              <Button size="sm" disabled={pending} onClick={() => doAction("submit")}>
+                {pending ? "Enviando…" : "Enviar a revisión"}
+              </Button>
             ) : count.status === "draft" ? (
-              <Button size="sm">Iniciar inventario</Button>
+              <Link href={`/conteo-fisico/${count.id}/escanear`}>
+                <Button size="sm">Iniciar inventario</Button>
+              </Link>
             ) : null}
           </>
         }
@@ -131,11 +189,7 @@ export default async function ConteoDetalle({
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Escaneos" value={count.scanCount} icon={ScanBarcode} />
-        <StatCard
-          label="Items contados"
-          value={count.itemCount}
-          icon={CheckCircle}
-        />
+        <StatCard label="Items contados" value={count.itemCount} icon={CheckCircle} />
         <StatCard
           label="Faltantes"
           value={shortages}
@@ -188,24 +242,16 @@ export default async function ConteoDetalle({
                       <TR key={it.id}>
                         <TD>
                           <div className="text-sm font-medium">{it.productName}</div>
-                          <div className="font-mono text-xs opacity-60">
-                            {it.productSku}
-                          </div>
+                          <div className="font-mono text-xs opacity-60">{it.productSku}</div>
                         </TD>
                         <TD>
                           <div className="font-mono text-xs">{it.lotNumber}</div>
                           {it.expiresAt && (
-                            <div className="text-[10px] opacity-60">
-                              {formatDate(it.expiresAt)}
-                            </div>
+                            <div className="text-[10px] opacity-60">{formatDate(it.expiresAt)}</div>
                           )}
                         </TD>
-                        <TD className="text-right tabular-nums">
-                          {it.expectedQuantity}
-                        </TD>
-                        <TD className="text-right tabular-nums font-medium">
-                          {it.countedQuantity}
-                        </TD>
+                        <TD className="text-right tabular-nums">{it.expectedQuantity}</TD>
+                        <TD className="text-right tabular-nums font-medium">{it.countedQuantity}</TD>
                         <TD
                           className={`text-right tabular-nums font-medium ${
                             it.differenceQuantity < 0
@@ -240,17 +286,13 @@ export default async function ConteoDetalle({
                 {items
                   .filter((i) => i.status !== "match")
                   .map((it) => (
-                    <div
-                      key={it.id}
-                      className="rounded-lg border border-black/5 bg-white p-4"
-                    >
+                    <div key={it.id} className="rounded-lg border border-black/5 bg-white p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="font-medium">{it.productName}</div>
                           <div className="mt-0.5 text-xs opacity-60">
-                            Lote {it.lotNumber} · esperado{" "}
-                            <strong>{it.expectedQuantity}</strong>, contado{" "}
-                            <strong>{it.countedQuantity}</strong>
+                            Lote {it.lotNumber} · esperado <strong>{it.expectedQuantity}</strong>,
+                            contado <strong>{it.countedQuantity}</strong>
                           </div>
                         </div>
                         <Badge tone={itemStatusMeta[it.status]!.tone}>
@@ -259,19 +301,16 @@ export default async function ConteoDetalle({
                           {it.differenceQuantity}
                         </Badge>
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button className="rounded-md border border-black/10 px-2 py-1 text-xs hover:bg-black/[0.02]">
-                          Aprobar ajuste
-                        </button>
-                        <button className="rounded-md border border-black/10 px-2 py-1 text-xs hover:bg-black/[0.02]">
-                          Pedir recuento
-                        </button>
-                        <button className="rounded-md border border-black/10 px-2 py-1 text-xs hover:bg-black/[0.02]">
-                          Mover a cuarentena
-                        </button>
-                      </div>
+                      <p className="mt-2 text-[11px] opacity-60">
+                        El ajuste se aplica al <strong>aprobar el conteo completo</strong>{" "}
+                        (botón «Aprobar ajustes»): suma la diferencia al stock del lote y registra
+                        el movimiento.
+                      </p>
                     </div>
                   ))}
+                {items.filter((i) => i.status !== "match").length === 0 && (
+                  <p className="py-8 text-center text-sm opacity-60">Sin diferencias.</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -303,11 +342,16 @@ export default async function ConteoDetalle({
                         </Badge>
                       </TD>
                       <TD className="text-xs">{s.scannedByName}</TD>
-                      <TD className="font-mono text-[10px] opacity-60">
-                        {s.deviceId}
-                      </TD>
+                      <TD className="font-mono text-[10px] opacity-60">{s.deviceId}</TD>
                     </TR>
                   ))}
+                  {scans.length === 0 && (
+                    <TR>
+                      <TD colSpan={6} className="py-8 text-center text-sm opacity-60">
+                        Sin escaneos registrados.
+                      </TD>
+                    </TR>
+                  )}
                 </TBody>
               </Table>
             </CardContent>
@@ -317,8 +361,8 @@ export default async function ConteoDetalle({
         <TabsContent value="evidence">
           <Card>
             <CardContent className="py-12 text-center text-sm opacity-60">
-              Adjuntos de evidencia (fotos del producto/lote/góndola, notas de voz)
-              llegan en el módulo móvil. Sin evidencia capturada en este inventario.
+              Adjuntos de evidencia (fotos del producto/lote/góndola, notas de voz) llegan en el
+              módulo móvil. Sin evidencia capturada en este inventario.
             </CardContent>
           </Card>
         </TabsContent>

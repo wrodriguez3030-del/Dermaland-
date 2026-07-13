@@ -15,7 +15,6 @@ import {
   type ReportKpi,
   type ReportBadgeTone,
 } from "@/components/reporting/report-layout";
-import { mockCountItems, mockInventoryCounts } from "@/lib/mock-data/inventory-counts";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
 import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import {
@@ -24,13 +23,14 @@ import {
 } from "@/features/inventory/counts-report-excel";
 import { buildCountsPdfSpec } from "@/features/inventory/counts-report-pdf";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
-import { getBranchById } from "@/lib/mock-data/tenancy";
+import { useCountsReport } from "@/features/inventory-counts/counts-store";
+import { useProducts } from "@/features/products/product-store";
 import {
-  getProductById,
-  getBrandById,
-  getCategoryById,
-  getLaboratoryById,
-} from "@/lib/mock-data/catalog";
+  useBrandsList,
+  useCategoriesList,
+  useLaboratoriesList,
+} from "@/features/products/catalog-store";
+import { useBranches } from "@/features/tenancy/branch-store";
 import { mockCurrentUser } from "@/lib/mock-data/users";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 
@@ -47,32 +47,43 @@ const STATUS_TONE: Record<string, ReportBadgeTone> = {
   unregistered: "medium",
 };
 
-// Resolutores de nombres legibles para el Excel/PDF. El módulo de conteo físico
-// corre sobre datos de ejemplo (mock): los ítems referencian productos/sucursales
-// mock, así que se resuelven contra el catálogo mock (mismos que la pantalla de
-// detalle). Al migrar el módulo a Supabase, se sustituyen estos resolvers.
-const countLookups: CountsReportLookups = {
-  branchName: (id) => (id ? getBranchById(id)?.name ?? "" : ""),
-  product: (id) => getProductById(id),
-  brandName: (id) => (id ? getBrandById(id)?.name ?? "" : ""),
-  labName: (id) => (id ? getLaboratoryById(id)?.name ?? "" : ""),
-  categoryName: (id) => (id ? getCategoryById(id)?.name ?? "" : ""),
-};
-
 export default function ReporteConteosPage() {
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
   }, []);
 
-  const approvedCounts = mockInventoryCounts.filter((c) => c.status === "approved").length;
-  const totalShortages = mockCountItems.filter((i) => i.status === "shortage").length;
-  const totalOverages = mockCountItems.filter((i) => i.status === "overage").length;
-  const expiredFound = mockCountItems.filter((i) => i.status === "expired").length;
+  // B-05a: conteos + ítems REALES desde Supabase (fallback a demo).
+  const { counts, items, source } = useCountsReport();
+  const products = useProducts();
+  const brands = useBrandsList();
+  const categories = useCategoriesList();
+  const laboratories = useLaboratoriesList();
+  const branches = useBranches();
+
+  // Resolvers de nombres legibles para el Excel/PDF, construidos con los hooks
+  // reales (en modo demo estos hooks devuelven los catálogos mock).
+  const countLookups: CountsReportLookups = React.useMemo(() => {
+    const idMap = <T extends { id: string }>(l: T[]) => new Map(l.map((x) => [x.id, x]));
+    const pMap = idMap(products), bMap = idMap(brands), cMap = idMap(categories),
+      lMap = idMap(laboratories), brMap = idMap(branches);
+    return {
+      branchName: (id) => (id ? brMap.get(id)?.name ?? "" : ""),
+      product: (id) => pMap.get(id),
+      brandName: (id) => (id ? bMap.get(id)?.name ?? "" : ""),
+      labName: (id) => (id ? lMap.get(id)?.name ?? "" : ""),
+      categoryName: (id) => (id ? cMap.get(id)?.name ?? "" : ""),
+    };
+  }, [products, brands, categories, laboratories, branches]);
+
+  const approvedCounts = counts.filter((c) => c.status === "approved" || c.status === "adjusted").length;
+  const totalShortages = items.filter((i) => i.status === "shortage").length;
+  const totalOverages = items.filter((i) => i.status === "overage").length;
+  const expiredFound = items.filter((i) => i.status === "expired").length;
 
   const diffs = React.useMemo(
-    () => mockCountItems.filter((i) => i.status !== "match"),
-    [],
+    () => items.filter((i) => i.status !== "match"),
+    [items],
   );
   const pag = usePagination(diffs);
 
@@ -94,8 +105,8 @@ export default function ReporteConteosPage() {
             <ExportPdfButton
               getSpec={() =>
                 buildCountsPdfSpec(
-                  mockInventoryCounts,
-                  mockCountItems,
+                  counts,
+                  items,
                   makePdfMeta({
                     title: "Inventario físico",
                     subtitle:
@@ -116,8 +127,8 @@ export default function ReporteConteosPage() {
             <ExportExcelButton
               getSpec={() =>
                 buildCountsWorkbookSpec(
-                  mockInventoryCounts,
-                  mockCountItems,
+                  counts,
+                  items,
                   {
                     title: "Reporte de inventario físico",
                     subtitle:
@@ -136,6 +147,12 @@ export default function ReporteConteosPage() {
           </>
         }
       />
+
+      {source === "mock" && (
+        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Datos de demostración (backend de conteos en modo local).
+        </div>
+      )}
 
       <ReportLayout>
         <ReportHeader

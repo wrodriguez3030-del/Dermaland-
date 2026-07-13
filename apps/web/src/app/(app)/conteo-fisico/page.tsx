@@ -22,11 +22,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
 import { formatDateTime, relativeTime } from "@/lib/utils/format";
-import {
-  mockInventoryCounts,
-  isPendingInventoryCount,
-} from "@/lib/mock-data/inventory-counts";
+import { isPendingInventoryCount } from "@/lib/mock-data/inventory-counts";
 import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
+import { useCounts } from "@/features/inventory-counts/counts-store";
+import { useBranches } from "@/features/tenancy/branch-store";
 import { buildCountsList, buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 import { downloadBlob } from "@/lib/utils/download";
@@ -86,7 +85,17 @@ function InventarioFisicoContent() {
   const params = useSearchParams();
   const pendingOnly = params.get("status") === "pending";
 
-  const { visible, hide } = useLocalSoftDelete(mockInventoryCounts);
+  // B-05a: historial de conteos REAL desde Supabase (fallback a demo si la API
+  // responde 409/red). El overlay local de soft-delete sigue para cancelar en UI.
+  const { counts, source: countsSource } = useCounts();
+  const branchesList = useBranches();
+  const branchMap = React.useMemo(
+    () => new Map(branchesList.map((b) => [b.id, b])),
+    [branchesList],
+  );
+  const branchNameOf = (id?: string) =>
+    (id ? branchMap.get(id)?.name ?? getBranchById(id)?.name ?? "" : "");
+  const { visible, hide } = useLocalSoftDelete(counts);
   const scopedCounts = React.useMemo(
     () => (pendingOnly ? visible.filter(isPendingInventoryCount) : visible),
     [visible, pendingOnly],
@@ -100,7 +109,7 @@ function InventarioFisicoContent() {
         "@/features/inventory/physical-count-export"
       );
       const rows = buildCountsList(sorted, {
-        branchName: (id) => (id ? getBranchById(id)?.name ?? "" : ""),
+        branchName: (id) => branchNameOf(id),
       });
       downloadBlob(
         countsListFilename(new Date().toISOString()),
@@ -309,7 +318,7 @@ function InventarioFisicoContent() {
             </THead>
             <TBody>
               {pag.pageItems.map((c) => {
-                const branch = getBranchById(c.branchId);
+                const branchLabel = branchNameOf(c.branchId);
                 const warehouse = getWarehouseById(c.warehouseId);
                 const meta = statusMeta[c.status] ?? statusMeta.draft!;
                 const cancellable = c.status === "draft" || c.status === "in_progress" || c.status === "paused";
@@ -323,7 +332,7 @@ function InventarioFisicoContent() {
                       </Link>
                     </TD>
                     <TD>
-                      <div className="text-sm">{branch?.name}</div>
+                      <div className="text-sm">{branchLabel}</div>
                       <div className="text-xs opacity-60">{warehouse?.name}</div>
                     </TD>
                     <TD>

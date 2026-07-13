@@ -54,7 +54,7 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 | B-02 | **Alta** | Emisión de venta y descuento de inventario **no atómicos**; venta puede quedar sin descontar stock, sin rollback | POS/Inventario | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC transaccional `emit_sale_atomic` (mig `0029`); verificado en vivo 14/14 |
 | B-03 | Media | **Anular venta no reingresa stock**; Nota de Crédito es demo | Devoluciones | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC `void_sale_atomic` reingresa stock (atómico e idempotente); NC sigue demo (pre-Fase G) |
 | B-04 | Media | **MFA no habilitado** para admin | Auth | Abierto | Activar TOTP para admin antes del go-live |
-| B-05 | Media | **Vistas de conteo físico = mock**; `approve` no ajusta stock | Conteo | Abierto | Conectar vistas a la API real (backend ya existe) + Fase 3b ajuste de stock. Mitigación: no usar para ajustar stock aún |
+| B-05 | Media | **Vistas de conteo físico = mock**; `approve` no ajusta stock | Conteo | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | Vistas cableadas a la API real (`counts-store`, fallback demo); `approve` ajusta stock atómico (`apply_count_adjustments`, mig `0030`), verificado 9/9. Fix bug latente: `difference_quantity` es generada |
 | B-06 | Baja | `product_lots` sin CHECK `current_quantity >= 0` (solo el RPC lo protege) | Inventario | ✅ **CERRADO** | CHECK aplicado a prod (mig `0028`, 0 filas violaban) |
 | B-07 | Baja | Historial de migraciones incompleto (13/27 rastreadas; 0007–0022 fuera de banda) | Migraciones | Abierto | `supabase migration repair` con autorización (no destructivo) |
 
@@ -96,7 +96,7 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 | Pagos / Caja | ✅ Real (montos recalculados server-side) | Bajo | Sí |
 | Devoluciones / Anulación | ✅ Anula y **reingresa stock** atómico (B-03 corregido, `void_sale_atomic`); NC aún demo | Bajo | Sí (anulación); NC vía ajuste manual |
 | Reportes | ✅ Real (ventas/clientes/inventario); conteos mock | Bajo | Sí (excepto reporte de conteos) |
-| Conteo físico / PWA | 🟡 Backend real, **vistas mock**, approve no ajusta (B-05) | Medio | Solo captura, ajuste manual |
+| Conteo físico / PWA | ✅ Vistas reales (fallback demo) + **approve ajusta stock** atómico (B-05 corregido) | Bajo | Sí |
 | Compras | ✅ Real | Bajo | Sí |
 | Proveedores | ✅ Real | Bajo | Sí |
 | Super-administración | 🔴 Mock (`mock-data/saas`) | Bajo (no operativo en 1 empresa) | No usar |
@@ -169,7 +169,7 @@ Leyenda: ✅ listo · 🟡 usable con vigilancia/límites · 🔴 no usar / apag
 | Backup en Free (B-01) | Pérdida de datos ante fallo de BD | `pg_dump` diario externo + restauración probada + backup pre-go-live | Antes del go-live (obligatorio) |
 | ~~Devolución sin reingreso (B-03)~~ | ✅ CORREGIDO (`void_sale_atomic`) — ya no aplica | — | Cerrado |
 | MFA off (B-04) | Cuenta admin más expuesta | Contraseña fuerte + activar TOTP antes del go-live | Go-live |
-| Conteo físico vistas mock (B-05) | Confusión con datos demo | No usar el módulo para ajustar stock; captura solamente | Antes de usar conteo para ajustes |
+| ~~Conteo físico vistas mock (B-05)~~ | ✅ CORREGIDO (vistas reales + approve ajusta stock) — ya no aplica | — | Cerrado |
 | `Leaked Password Protection` off | Contraseñas comprometidas aceptadas | Política de contraseña fuerte manual | Al subir a Pro |
 | Imágenes en localStorage | Fotos no persisten/sincronizan | Tratar fotos como cosméticas | Al migrar a bucket `product-images` |
 
