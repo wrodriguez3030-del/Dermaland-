@@ -674,12 +674,38 @@ export function PosTerminal() {
     // facturas; PROF-… solo para proformas reales (cotización / pendiente cierre).
     const number = comprobante ?? generateProformaNumber();
 
+    // B-02: plan de descuento de inventario (FEFO, multi-lote) calculado ANTES de
+    // emitir. En modo supabase el servidor lo aplica ATÓMICAMENTE junto con la
+    // venta (RPC `emit_sale_atomic`): si un lote no alcanza, la venta se revierte
+    // completa. Si el snapshot ya muestra stock insuficiente, ni siquiera emitimos.
+    const stockDecrements: { lotId: string; qty: number; reason?: string }[] = [];
+    for (const line of cart) {
+      let remaining = line.quantity;
+      const fefoLots = fefoLotsForBranch(lots, line.productId, branchId);
+      for (const lot of fefoLots) {
+        if (remaining <= 0) break;
+        const take = Math.min(remaining, lot.currentQuantity);
+        if (take > 0) {
+          stockDecrements.push({ lotId: lot.id, qty: take, reason: `Venta ${number}` });
+          remaining -= take;
+        }
+      }
+      if (remaining > 0) {
+        toast.error(
+          `Stock insuficiente para ${line.productName} (faltan ${remaining} unidades). Refrescá el inventario e intentá de nuevo.`,
+        );
+        return;
+      }
+    }
+
     const newProforma: Proforma = {
       id,
       // SEC-011: clave de idempotencia del cobro (el id de esta emisión). Si el
       // mismo cobro se reenvía (reintento de red / doble-submit), el servidor
       // devuelve la venta ya creada en vez de duplicar factura + NCF.
       idempotencyKey: id,
+      // B-02: plan FEFO para descuento atómico de stock en el servidor.
+      stockDecrements,
       businessId: "biz_dermaland",
       branchId,
       number,
@@ -762,40 +788,23 @@ export function PosTerminal() {
     // Generar incentivos del vendedor (fire-and-forget; no bloquea la venta).
     void generateIncentivesForSale(savedId);
 
-    // Descontar stock por cada línea del carrito (FEFO, multi-lote).
-    // Usamos el snapshot `lots` del render (reactivo: Supabase o local según DATA_SOURCE).
-    // No rellamamos listAllLots() entre líneas para mantener coherencia multi-línea.
-    // TODO: atomicidad — venta+descuento en endpoint /api/sales transaccional
-    const stockErrors: string[] = [];
-    for (const line of cart) {
-      let remaining = line.quantity;
-      // fefoLotsForBranch usa la misma regla que isLotSellable (incluye sin vencimiento).
-      const fefoLots = fefoLotsForBranch(lots, line.productId, branchId);
-
-      for (const lot of fefoLots) {
-        if (remaining <= 0) break;
-        const take = Math.min(remaining, lot.currentQuantity);
-        // SEC-010: decremento ATÓMICO (el servidor resta con guarda >= take);
-        // evita sobreventa si dos cobros consumen el mismo lote a la vez.
-        const adjResult = await decrementLotStock(lot.id, take, `Venta ${number}`);
+    // B-02: en modo supabase el descuento de inventario ya ocurrió ATÓMICAMENTE
+    // dentro de la emisión (RPC `emit_sale_atomic`, plan `stockDecrements`): la
+    // venta no pudo persistirse sin descontar el stock. Solo en modo LOCAL/mock
+    // aplicamos el plan al store local aquí.
+    if (process.env.NEXT_PUBLIC_DATA_SOURCE !== "supabase") {
+      const stockErrors: string[] = [];
+      for (const d of stockDecrements) {
+        const adjResult = await decrementLotStock(d.lotId, d.qty, d.reason ?? `Venta ${number}`);
         if (!adjResult.ok) {
-          stockErrors.push(
-            `No se pudo descontar stock de ${line.productName} (lote ${lot.lotNumber}): ${adjResult.error}`,
-          );
-        } else {
-          remaining -= take;
+          stockErrors.push(`No se pudo descontar stock (lote ${d.lotId}): ${adjResult.error}`);
         }
       }
-      if (remaining > 0) {
-        stockErrors.push(
-          `Stock insuficiente para completar el descuento de ${line.productName} (faltan ${remaining} unidades).`,
+      if (stockErrors.length > 0) {
+        toast.error(
+          `Venta emitida, pero hay errores en el descuento de stock:\n${stockErrors.join("\n")}`,
         );
       }
-    }
-    if (stockErrors.length > 0) {
-      toast.error(
-        `Venta emitida, pero hay errores en el descuento de stock:\n${stockErrors.join("\n")}`,
-      );
     }
 
     setIssued({

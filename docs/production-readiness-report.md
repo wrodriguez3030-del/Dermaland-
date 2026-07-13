@@ -51,8 +51,8 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 | ID | Sev | Bloqueador | Área | Estado | Acción requerida |
 |----|-----|-----------|------|--------|------------------|
 | B-01 | **Alta** | Plan Free sin backups automáticos/PITR; **restauración nunca probada** | DR/Backups | Abierto | Subir a Supabase Pro **o** `pg_dump` diario externo + **probar restauración** antes del go-live (`docs/backup-and-restore.md`) |
-| B-02 | **Alta** | Emisión de venta y descuento de inventario **no atómicos**; venta puede quedar sin descontar stock, sin rollback | POS/Inventario | Abierto (mitigable) | Mover venta+descuento a un endpoint/RPC transaccional. Mitigación piloto: cuadre diario de inventario |
-| B-03 | Media | **Anular venta no reingresa stock**; Nota de Crédito es demo | Devoluciones | Abierto | Implementar devolución real (reingreso a lote + `inventory_movement`). Mitigación: ajuste manual con motivo |
+| B-02 | **Alta** | Emisión de venta y descuento de inventario **no atómicos**; venta puede quedar sin descontar stock, sin rollback | POS/Inventario | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC transaccional `emit_sale_atomic` (mig `0029`); verificado en vivo 14/14 |
+| B-03 | Media | **Anular venta no reingresa stock**; Nota de Crédito es demo | Devoluciones | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC `void_sale_atomic` reingresa stock (atómico e idempotente); NC sigue demo (pre-Fase G) |
 | B-04 | Media | **MFA no habilitado** para admin | Auth | Abierto | Activar TOTP para admin antes del go-live |
 | B-05 | Media | **Vistas de conteo físico = mock**; `approve` no ajusta stock | Conteo | Abierto | Conectar vistas a la API real (backend ya existe) + Fase 3b ajuste de stock. Mitigación: no usar para ajustar stock aún |
 | B-06 | Baja | `product_lots` sin CHECK `current_quantity >= 0` (solo el RPC lo protege) | Inventario | ✅ **CERRADO** | CHECK aplicado a prod (mig `0028`, 0 filas violaban) |
@@ -92,9 +92,9 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 | Productos | ✅ Real (1355 en prod) | Bajo | Sí |
 | Inventario (movimientos) | ✅ Real | Bajo | Sí |
 | Lotes / Vencimientos | ✅ Real (decremento atómico) | Bajo | Sí |
-| POS / Ventas | 🟡 Real, **no atómico** venta+stock (B-02) | **Medio** | Sí, con cuadre diario |
+| POS / Ventas | ✅ Real, **atómico** venta+stock (B-02 corregido, `emit_sale_atomic`) | Bajo | Sí |
 | Pagos / Caja | ✅ Real (montos recalculados server-side) | Bajo | Sí |
-| Devoluciones / Anulación | 🔴 Anula estado pero **no reingresa stock** (B-03) | Medio | Solo con ajuste manual |
+| Devoluciones / Anulación | ✅ Anula y **reingresa stock** atómico (B-03 corregido, `void_sale_atomic`); NC aún demo | Bajo | Sí (anulación); NC vía ajuste manual |
 | Reportes | ✅ Real (ventas/clientes/inventario); conteos mock | Bajo | Sí (excepto reporte de conteos) |
 | Conteo físico / PWA | 🟡 Backend real, **vistas mock**, approve no ajusta (B-05) | Medio | Solo captura, ajuste manual |
 | Compras | ✅ Real | Bajo | Sí |
@@ -165,9 +165,9 @@ Leyenda: ✅ listo · 🟡 usable con vigilancia/límites · 🔴 no usar / apag
 
 | Riesgo | Impacto | Mitigación durante el piloto | Corregir para |
 |--------|---------|------------------------------|---------------|
-| POS no atómico (B-02) | Inventario sobrestimado si falla el descuento tras emitir | Cuadre de inventario diario; toast ya avisa del fallo | Antes de escalar a 2ª empresa |
+| ~~POS no atómico (B-02)~~ | ✅ CORREGIDO (`emit_sale_atomic`) — ya no aplica | — | Cerrado |
 | Backup en Free (B-01) | Pérdida de datos ante fallo de BD | `pg_dump` diario externo + restauración probada + backup pre-go-live | Antes del go-live (obligatorio) |
-| Devolución sin reingreso (B-03) | Stock no vuelve al anular | Ajuste manual de inventario con motivo | Antes de manejar devoluciones frecuentes |
+| ~~Devolución sin reingreso (B-03)~~ | ✅ CORREGIDO (`void_sale_atomic`) — ya no aplica | — | Cerrado |
 | MFA off (B-04) | Cuenta admin más expuesta | Contraseña fuerte + activar TOTP antes del go-live | Go-live |
 | Conteo físico vistas mock (B-05) | Confusión con datos demo | No usar el módulo para ajustar stock; captura solamente | Antes de usar conteo para ajustes |
 | `Leaked Password Protection` off | Contraseñas comprometidas aceptadas | Política de contraseña fuerte manual | Al subir a Pro |
@@ -205,10 +205,10 @@ Producción / go-live:
 - [x] **Cross-tenant** verificado en vivo (7/7)
 - [x] **Roles** validados server-side
 - [ ] **MFA** para admin (B-04)
-- [x] **POS** persiste correctamente — ⚠️ atomicidad pendiente (B-02)
+- [x] **POS** persiste correctamente + **atomicidad venta+stock** (B-02 ✅ `emit_sale_atomic`)
 - [x] **Inventario** con decremento atómico y sin negativos (0 hoy)
 - [x] **Compras** reales
-- [ ] **Devoluciones** con reingreso de stock (B-03)
+- [x] **Devoluciones** (anulación) con reingreso de stock (B-03 ✅ `void_sale_atomic`)
 - [ ] **Backups** automáticos/probados (B-01) ← **crítico**
 - [ ] **Restauración** probada (B-01) ← **crítico**
 - [x] **Logs / Auditoría** (`audit_logs` + Vercel)

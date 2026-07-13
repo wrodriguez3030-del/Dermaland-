@@ -395,6 +395,59 @@ export const proformaRepository: ProformaRepository = {
         : {}),
     };
 
+    // B-02: EMISIÓN ATÓMICA. Si el POS envía un plan de descuento de stock,
+    // creamos venta + ítems + pagos + descuento de lotes en UNA transacción
+    // (RPC `emit_sale_atomic`). Si algún lote no alcanza, la venta COMPLETA se
+    // revierte — nunca queda una venta persistida sin su descuento de inventario.
+    const decrements = (proforma.stockDecrements ?? [])
+      .filter((d) => d && isUuid(d.lotId) && Number.isFinite(d.qty) && d.qty > 0)
+      .map((d) => ({ lot_id: String(d.lotId), qty: Math.round(d.qty), reason: d.reason }));
+    if (decrements.length > 0) {
+      const itemsPayload = recomputed.items.map((it, idx) => ({
+        business_id: ctx.businessId,
+        line_no: idx + 1,
+        product_id: nullableUuid(it.productId),
+        product_sku: it.productSku,
+        product_name: it.productName,
+        product_lot_id: nullableUuid(it.lotId),
+        lot_number: it.lotNumber ?? null,
+        quantity: toDbInt(it.quantity, "cantidad"),
+        unit_price: toDbMoney(it.unitPrice, "precio unitario"),
+        itbis_rate: toDbMoney(it.itbisRate, "tasa de ITBIS"),
+        discount: toDbMoney(it.discount, "descuento"),
+        subtotal: toDbMoney(it.subtotal, "subtotal"),
+        itbis: toDbMoney(it.itbis, "ITBIS"),
+        total: toDbMoney(it.total, "total"),
+        kind: "bien",
+      }));
+      const paymentsPayload = (proforma.payments ?? []).map((p) => ({
+        method_code: mapPaymentMethod(p.method),
+        amount: toDbMoney(p.amount, "monto del pago"),
+        reference: p.reference ?? null,
+        user_id: cashierId,
+        user_name: p.userName ?? ctx.userName ?? null,
+      }));
+      const { data: emit, error: emitErr } = await sb.rpc("emit_sale_atomic", {
+        p_sale: proformaRow,
+        p_items: itemsPayload,
+        p_payments: paymentsPayload,
+        p_decrements: decrements,
+      });
+      if (emitErr) {
+        if (/STOCK_INSUFICIENTE/i.test(emitErr.message)) {
+          throw new UserFacingRepositoryError(
+            "No se pudo emitir la venta: stock insuficiente en uno o más lotes. Refresca el inventario e intenta de nuevo.",
+          );
+        }
+        throw new SupabaseRepositoryError("proforma.create:emit_atomic", emitErr);
+      }
+      const newId = (emit as { id: string; reused?: boolean }).id;
+      const { data: row } = await sb
+        .from("proformas").select("*")
+        .eq("business_id", ctx.businessId).eq("id", newId).single();
+      return hydrate(row as Parameters<typeof proformaRowToTs>[0]);
+    }
+
     const { data: inserted, error } = await sb
       .from("proformas")
       .insert(proformaRow)
@@ -692,20 +745,21 @@ export const proformaRepository: ProformaRepository = {
 
   async cancel(ctx: RepoContext, id: string, reason: string) {
     const sb = await getClient("proforma.cancel");
-    // C1: usar .select("id").maybeSingle() para detectar que la fila existe y
-    // pertenece al tenant antes de aceptar silenciosamente 0 filas afectadas.
-    const { data, error } = await sb
-      .from("proformas")
-      .update({
-        status: "cancelled",
-        notes: reason,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("business_id", ctx.businessId)
-      .eq("id", id)
-      .select("id")
-      .maybeSingle();
-    if (error) throw new SupabaseRepositoryError("proforma.cancel", error);
+    // B-03: ANULACIÓN ATÓMICA. El RPC marca la venta como cancelada Y reingresa
+    // el stock de sus movimientos `exit_sale` (registrando `return_in`), todo en
+    // una transacción e idempotente (si ya estaba anulada, no reingresa dos veces).
+    // Antes, cancelar solo cambiaba el estado y el inventario quedaba descontado.
+    const { data, error } = await sb.rpc("void_sale_atomic", {
+      p_proforma_id: id,
+      p_reason: reason,
+    });
+    if (error) {
+      // P0002 = no encontrada / no pertenece al tenant (mensaje claro al usuario).
+      if (/no encontrada|P0002/i.test(error.message)) {
+        throw new UserFacingRepositoryError("Proforma no encontrada o no pertenece al negocio");
+      }
+      throw new SupabaseRepositoryError("proforma.cancel", error);
+    }
     if (!data) throw new Error("Proforma no encontrada o no pertenece al negocio");
   },
 

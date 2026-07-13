@@ -11,6 +11,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.71.0] - 2026-07-13
+
+**B-02 y B-03 corregidos: emisión y anulación de venta ATÓMICAS.** Cierra los dos
+bloqueadores de la ruta de dinero de la validación de producción.
+
+- **B-02 (emisión atómica):** el POS creaba la venta y LUEGO descontaba el stock en
+  llamadas separadas (sin transacción); si el descuento fallaba, la venta quedaba
+  persistida sin descontar inventario. Nuevo RPC `emit_sale_atomic` (migración
+  `0029`) crea venta + ítems + pagos + descuento de lotes (guarda `>= qty`) en UNA
+  transacción. Si algún lote no alcanza → RAISE → **rollback total** (no queda venta
+  fantasma). El POS calcula el plan FEFO y lo envía; en supabase el descuento es
+  atómico, en local se aplica al store. Idempotencia SEC-011 preservada.
+- **B-03 (anulación atómica con reingreso de stock):** anular una venta solo cambiaba
+  el estado; el inventario quedaba descontado. Nuevo RPC `void_sale_atomic` marca la
+  venta cancelada Y **reingresa el stock** revirtiendo los movimientos `exit_sale`
+  REALES (por `proforma_id`, no por el lote del ítem — que difiere por FEFO), registra
+  `return_in`, y es **idempotente** (no reingresa dos veces). Nueva columna
+  `inventory_movements.proforma_id` (nullable, FK).
+- **Seguridad:** ambos RPCs son SECURITY INVOKER → RLS aplica; el tenant sale de
+  `auth_business_id()` (JWT), nunca del cliente. Aislamiento por empresa garantizado.
+- **Verificación:** test en vivo `scripts/test/atomic-sale-test.mjs` **14/14**
+  (emisión, idempotencia, rollback ante stock insuficiente, anulación con reingreso,
+  anulación idempotente); autolimpiante. typecheck 0 + 1721 tests + build 0.
+- **Nota:** la Nota de Crédito DGII sigue siendo demo (pre-Fase G, no autorizada).
+
 ## [0.70.2] - 2026-07-12
 
 **Validación para producción real + parche de auditoría.** Auditoría integral de

@@ -539,6 +539,14 @@ export interface Proforma extends Audited, BranchScoped {
    * (índice único `(business_id, idempotency_key)`).
    */
   idempotencyKey?: string;
+  /**
+   * B-02: plan de descuento de inventario (FEFO calculado en el POS). Cuando
+   * viene presente, la emisión es ATÓMICA: el servidor crea la venta y descuenta
+   * estos lotes en UNA transacción (RPC `emit_sale_atomic`). Si algún lote no
+   * tiene stock, la venta COMPLETA se revierte. No se persiste en la proforma;
+   * es solo entrada para la emisión.
+   */
+  stockDecrements?: { lotId: ID; qty: number; reason?: string }[];
 }
 
 export interface CashRegisterSession extends Audited, BranchScoped {
