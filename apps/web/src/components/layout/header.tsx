@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Bell, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { MobileNav } from "./mobile-nav";
@@ -122,7 +123,11 @@ export function Header({
           <Bell className="h-4 w-4" />
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" />
         </button>
-        <div className="flex items-center gap-2 rounded-lg border border-black/5 bg-white pl-1 pr-2 py-1">
+        <Link
+          href="/perfil/seguridad"
+          title="Seguridad de la cuenta (2FA)"
+          className="flex items-center gap-2 rounded-lg border border-black/5 bg-white pl-1 pr-2 py-1 hover:bg-black/[0.02]"
+        >
           <span
             className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
             style={{ background: mockCurrentUser.avatarColor }}
@@ -143,7 +148,7 @@ export function Header({
             </div>
           </div>
           <ChevronDown className="h-3 w-3 opacity-40" />
-        </div>
+        </Link>
       </div>
       </header>
     </>

@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.73.0] - 2026-07-13
+
+**B-04: verificación en dos pasos (2FA/TOTP) completa.**
+- `/perfil/seguridad`: enrolamiento TOTP con QR (Google Authenticator/Authy),
+  clave manual de respaldo, confirmación con código de 6 dígitos y desactivación.
+  Acceso desde el chip de usuario en el header.
+- `/login/mfa`: paso de challenge en el login — pide el código cuando la sesión
+  está en `aal1` pero el usuario tiene un factor verificado; respeta `?next=`.
+- `middleware.ts`: enforcement — con factor TOTP verificado y sesión `aal1` se
+  exige completar el challenge antes de cualquier ruta privada. Solo afecta a
+  quien ACTIVÓ 2FA; fail-open ante error del chequeo (evita lockout).
+- `scripts/test/mfa-enroll-test.mjs`: verificación en vivo del ciclo completo
+  (enroll → challenge → verify → aal2 → unenroll) contra el proyecto real: 6/6.
+- **Pendiente del usuario:** enrolar al ADMIN desde `/perfil/seguridad` (escanear QR).
+
 ## [0.72.2] - 2026-07-13
 
 **B-01 (backup) — restaurabilidad validada + herramientas de restauración.**

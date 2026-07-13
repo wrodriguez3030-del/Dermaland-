@@ -61,6 +61,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // B-04: enforcement 2FA. Si el usuario tiene un factor TOTP verificado pero la
+  // sesión aún está en aal1 (solo contraseña), exigimos completar el challenge
+  // antes de cualquier ruta privada. Solo afecta a quien ACTIVÓ 2FA (los demás
+  // tienen nextLevel=aal1 → no se redirige). `/login/mfa` es público → no hay bucle.
+  // Fail-open ante error para no bloquear el acceso por un fallo del chequeo.
+  try {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.currentLevel === "aal1") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login/mfa";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+  } catch {
+    // No bloquear si el chequeo de aal falla (evita lockout).
+  }
+
   // Bloqueo super-admin: requiere claim `is_platform_admin` de `app_metadata`
   // (solo escribible por service_role). NUNCA `user_metadata` — el usuario lo
   // puede modificar con `auth.updateUser` y auto-elevarse (SEC-001).
