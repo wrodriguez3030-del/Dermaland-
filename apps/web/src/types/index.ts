@@ -735,7 +735,7 @@ export interface WhatsappMessage {
 export interface AIAgent {
   id: ID;
   name: string;
-  model: "gpt-4o-mini" | "gpt-4o" | "claude-haiku-4-5";
+  model: "gpt-5.4-mini" | "gpt-5.4" | "claude-haiku-4-5";
   active: boolean;
   toolsAllowed: string[];
   monthlyCallsLimit: number;

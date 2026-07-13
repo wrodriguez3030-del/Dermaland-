@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.74.0] - 2026-07-13
+
+**Catálogo de modelos de IA actualizado a la línea actual de OpenAI (jul-2026).**
+- El wizard de proveedores sugería modelos retirados (`gpt-4o-mini`, `o4-mini`):
+  al reconectar una key, volvía a configurar un modelo inexistente y el chat caía
+  de nuevo con 403 `model_not_found`. Nuevos defaults: `gpt-5.4-mini` (default y
+  económico) y `gpt-5.4` (razonamiento).
+- `pricing.ts` con precios oficiales actuales (por 1K tokens): gpt-5.6 sol/terra/
+  luna, gpt-5.5, gpt-5.4 ($2.50/$15 por 1M), gpt-5.4-mini ($0.75/$4.50), gpt-5.4-nano
+  ($0.20/$1.25); legacy se mantiene para logs históricos → el costo estimado del
+  chat ya no sale "—".
+- Placeholder de modelo en agentes, descripción del catálogo, `OPENAI_DEFAULT_MODEL`
+  (env), mocks y tipo `AIAgent` alineados a gpt-5.4.
+- Datos prod: el usuario reconectó el proveedor con key nueva (…aJsA) y el wizard
+  le puso los defaults viejos; además los agentes quedaron atados al proveedor
+  borrado (error "Elige un modelo para este agente"). Corregido: proveedor nuevo
+  → `gpt-5.4-mini`/`gpt-5.4`/`gpt-5.3-chat-latest` + rebind de ambos agentes.
+  Verificado en vivo 2/2 vía `/api/ai/agents/:id/test`.
+
 ## [0.73.1] - 2026-07-13
 
 **Fix chat IA: 403 `model_not_found` (proyecto OpenAI con modelos limitados).**

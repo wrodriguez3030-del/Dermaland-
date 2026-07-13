@@ -50,7 +50,7 @@ const schema = z.object({
   WHATSAPP_APP_SECRET: z.string().optional(),
 
   OPENAI_API_KEY: z.string().optional(),
-  OPENAI_DEFAULT_MODEL: z.string().default("gpt-4o-mini"),
+  OPENAI_DEFAULT_MODEL: z.string().default("gpt-5.4-mini"),
 
   // Master key (AES-256-GCM, base64 de 32 bytes) para cifrar las API keys de
   // proveedores de IA guardadas por empresa. SOLO servidor; nunca se imprime.
@@ -80,7 +80,7 @@ export const env: Env = parsed.success
       SESSION_COOKIE_NAME: "dermaland-session",
       DGII_ENVIRONMENT: "testecf",
       DGII_TESTECF_SEND_ENABLED: "false",
-      OPENAI_DEFAULT_MODEL: "gpt-4o-mini",
+      OPENAI_DEFAULT_MODEL: "gpt-5.4-mini",
     } as Env);
 
 /**

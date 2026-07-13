@@ -24,7 +24,7 @@ const STATUS_TONE: Record<ProviderView["status"], "success" | "danger" | "warnin
 };
 
 const CATALOG = [
-  { type: "openai", name: "OpenAI", available: true, desc: "Plataforma API de OpenAI (GPT-4o, o4-mini…)." },
+  { type: "openai", name: "OpenAI", available: true, desc: "Plataforma API de OpenAI (GPT-5.4, gpt-5.4-mini…)." },
   { type: "openai_compatible", name: "Compatible con OpenAI", available: true, desc: "Servicios con API estilo OpenAI (base URL propia)." },
   { type: "anthropic", name: "Anthropic", available: false, desc: "Claude — próximamente." },
   { type: "google", name: "Google Gemini", available: false, desc: "Gemini — próximamente." },

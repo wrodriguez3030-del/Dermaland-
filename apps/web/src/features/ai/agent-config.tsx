@@ -90,7 +90,7 @@ export function AgentConfigPanel() {
                   <Label>Modelo</Label>
                   <Input
                     defaultValue={b?.model ?? ""}
-                    placeholder="gpt-4o-mini"
+                    placeholder="gpt-5.4-mini"
                     onBlur={(e) => { if (e.target.value !== (b?.model ?? "")) saveBinding(a.id, { model: e.target.value || null }); }}
                   />
                 </div>

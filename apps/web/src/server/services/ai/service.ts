@@ -128,10 +128,10 @@ class AIServiceImpl implements AIService {
       usage: {
         inputTokens: data.usage.prompt_tokens,
         outputTokens: data.usage.completion_tokens,
-        // gpt-4o-mini: ~$0.15/1M input + $0.60/1M output (precio nominal)
+        // gpt-5.4-mini: ~$0.75/1M input + $4.50/1M output (precio nominal)
         costUSD:
-          (data.usage.prompt_tokens / 1_000_000) * 0.15 +
-          (data.usage.completion_tokens / 1_000_000) * 0.6,
+          (data.usage.prompt_tokens / 1_000_000) * 0.75 +
+          (data.usage.completion_tokens / 1_000_000) * 4.5,
       },
     };
   }

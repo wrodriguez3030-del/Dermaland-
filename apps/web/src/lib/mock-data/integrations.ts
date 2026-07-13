@@ -141,7 +141,7 @@ export const mockAIAgents: AIAgent[] = [
   {
     id: "agent_concierge",
     name: "Concierge dermatológico",
-    model: "gpt-4o-mini",
+    model: "gpt-5.4-mini",
     active: true,
     toolsAllowed: [
       "get_client",
@@ -160,7 +160,7 @@ export const mockAIAgents: AIAgent[] = [
   {
     id: "agent_inventory_assistant",
     name: "Asistente de inventario",
-    model: "gpt-4o",
+    model: "gpt-5.4",
     active: false,
     toolsAllowed: [
       "get_inventory_stock",
