@@ -32,17 +32,19 @@ function friendlyError(status: number, code?: string): ProviderHttpError {
   let message =
     code === "insufficient_quota"
       ? "La cuenta de OpenAI no tiene crédito disponible. Agrega un método de pago o créditos en platform.openai.com → Billing."
-      : status === 401
-        ? "No pudimos validar la API key."
-        : status === 403
-          ? "La API key no tiene permiso para usar este servicio. Si es una clave restringida, actívale el permiso de Responses/Model capabilities en platform.openai.com."
-          : status === 404
-            ? "El modelo seleccionado no está disponible para esta conexión."
-            : status === 429
-              ? "El proveedor está limitando las solicitudes (rate limit o crédito agotado). Intenta más tarde."
-              : status >= 500
-                ? "El proveedor de IA no está disponible en este momento."
-                : `El proveedor rechazó la solicitud (HTTP ${status}).`;
+      : code === "model_not_found"
+        ? "El proyecto de la API key no tiene acceso al modelo configurado. En IA → Proveedores elige un modelo de la lista disponible, o habilita el modelo en platform.openai.com → Settings → Limits del proyecto."
+        : status === 401
+          ? "No pudimos validar la API key."
+          : status === 403
+            ? "La API key no tiene permiso para usar este servicio. Si es una clave restringida, actívale el permiso de Responses/Model capabilities en platform.openai.com."
+            : status === 404
+              ? "El modelo seleccionado no está disponible para esta conexión."
+              : status === 429
+                ? "El proveedor está limitando las solicitudes (rate limit o crédito agotado). Intenta más tarde."
+                : status >= 500
+                  ? "El proveedor de IA no está disponible en este momento."
+                  : `El proveedor rechazó la solicitud (HTTP ${status}).`;
   if (code && code !== "insufficient_quota") message += ` (código: ${code})`;
   return new ProviderHttpError(status, message);
 }

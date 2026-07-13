@@ -51,6 +51,14 @@ describe("OpenAIProviderAdapter", () => {
       .rejects.toThrow("El modelo seleccionado no está disponible para esta conexión.");
   });
 
+  it("403 model_not_found → proyecto sin acceso al modelo (regresión: key con modelos limitados)", async () => {
+    // Proyecto OpenAI con "Limits → Model usage": /models responde OK pero
+    // /responses da 403 model_not_found si el modelo no está en la lista.
+    vi.stubGlobal("fetch", mockFetch(403, { error: { code: "model_not_found", message: "Project does not have access" } }));
+    await expect(adapter().createResponse({ model: "gpt-4o-mini", input: "x" }))
+      .rejects.toThrow(/El proyecto de la API key no tiene acceso al modelo configurado/);
+  });
+
   it("estima costo por modelo conocido y null por desconocido", async () => {
     const a = adapter();
     expect(await a.calculateEstimatedCost({ inputTokens: 1000, outputTokens: 1000 }, "gpt-4o-mini")).toBeGreaterThan(0);

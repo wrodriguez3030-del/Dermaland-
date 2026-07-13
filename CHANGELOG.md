@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.73.1] - 2026-07-13
+
+**Fix chat IA: 403 `model_not_found` (proyecto OpenAI con modelos limitados).**
+- Causa raíz: la API key pertenece a un proyecto de OpenAI con acceso limitado a
+  4 modelos (`gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-chat-latest`, `gpt-3.5-turbo-16k`)
+  y el proveedor estaba configurado con `gpt-4o-mini` (fijado administrativamente
+  en v0.66.2, sin validar contra la key) → toda llamada del chat devolvía 403
+  `model_not_found`, aunque el test de conexión (GET /models) pasara.
+- Datos prod (aprobado por el usuario): proveedor OpenAI apuntado a modelos
+  permitidos — default/económico `gpt-5.4-mini`, razonamiento `gpt-5.4`, fallback
+  `gpt-5.3-chat-latest`. Verificado en vivo vía `/api/ai/agents/:id/test`: ambos
+  agentes responden (concierge e inventario, sin fallback).
+- `friendlyError` ahora distingue `model_not_found`: explica que el proyecto de la
+  key no tiene acceso al modelo y cómo resolverlo (elegir modelo disponible o
+  habilitarlo en Limits del proyecto). Antes sugería permisos de Responses, que
+  no era la causa. + test de regresión.
+- Nota: `estimated_cost_usd` queda `null` para los modelos gpt-5.x (sin precio en
+  `pricing.ts`; no se inventan tarifas).
+
 ## [0.73.0] - 2026-07-13
 
 **B-04: verificación en dos pasos (2FA/TOTP) completa.**
