@@ -493,7 +493,8 @@ const productLot: ProductLotRepository = {
         if (opts?.expiringWithinDays == null) return true;
         const d = daysUntil(l.expiresAt);
         return d >= 0 && d <= opts.expiringWithinDays;
-      });
+      })
+      .filter((l) => !opts?.expiredOnly || daysUntil(l.expiresAt) < 0);
   },
   async byId(ctx, id) {
     guard(ctx);

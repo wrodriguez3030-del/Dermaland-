@@ -41,11 +41,20 @@ export interface AIChatMessage {
   content: string;
 }
 
+/**
+ * Ítems de continuación de tool-calling (Responses API): tras ejecutar las
+ * herramientas, se reenvía el historial + la llamada del modelo + su resultado.
+ */
+export type AIInputItem =
+  | AIChatMessage
+  | { type: "function_call"; callId: string; name: string; argumentsJson: string }
+  | { type: "function_call_output"; callId: string; output: string };
+
 export interface AIRequest {
   model: string;
   instructions?: string;
-  /** Texto simple, o conversación multi-turno (chat). */
-  input: string | AIChatMessage[];
+  /** Texto simple, conversación multi-turno (chat), o ítems con tool-calling. */
+  input: string | AIChatMessage[] | AIInputItem[];
   tools?: AIToolSpec[];
   maxOutputTokens?: number;
   temperature?: number;
@@ -61,6 +70,8 @@ export interface AIUsage {
 export interface AIToolInvocation {
   name: string;
   arguments: Record<string, unknown>;
+  /** Id de la llamada (Responses API) — necesario para devolver el resultado. */
+  callId?: string;
 }
 
 export interface AIResponse {

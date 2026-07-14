@@ -201,6 +201,8 @@ export interface ProductLotRepository {
     productId?: ID;
     status?: ProductLot["status"];
     expiringWithinDays?: number;
+    /** Solo lotes YA vencidos (expires_at < hoy). Excluyente con expiringWithinDays. */
+    expiredOnly?: boolean;
   }): Promise<ProductLot[]>;
   byId(ctx: RepoContext, id: ID): Promise<ProductLot | null>;
   /** FEFO: lote más próximo a vencer disponible para el producto. */

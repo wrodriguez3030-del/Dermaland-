@@ -281,6 +281,9 @@ export const productLotRepository: ProductLotRepository = {
         .gte("expires_at", today.toISOString().slice(0, 10))
         .lte("expires_at", cutoff.toISOString().slice(0, 10));
     }
+    if (opts?.expiredOnly) {
+      q = q.lt("expires_at", new Date().toISOString().slice(0, 10));
+    }
 
     q = q.order("expires_at", { ascending: true });
     const { data, error } = await q;

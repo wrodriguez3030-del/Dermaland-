@@ -163,9 +163,11 @@ export const mockAIAgents: AIAgent[] = [
     model: "gpt-5.4",
     active: false,
     toolsAllowed: [
+      "search_products",
       "get_inventory_stock",
       "get_product_lots",
       "get_expiring_lots",
+      "get_sales_summary",
       "get_purchase_suggestions",
       "get_inventory_count_summary",
       "get_inventory_count_differences",

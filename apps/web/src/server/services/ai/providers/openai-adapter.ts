@@ -155,7 +155,7 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
   async createResponse(input: AIRequest): Promise<AIResponse> {
     const body: Record<string, unknown> = {
       model: input.model,
-      input: input.input,
+      input: serializeInput(input.input),
       ...(input.instructions ? { instructions: input.instructions } : {}),
       ...(input.maxOutputTokens ? { max_output_tokens: input.maxOutputTokens } : {}),
       ...(input.temperature != null ? { temperature: input.temperature } : {}),
@@ -199,6 +199,22 @@ export class OpenAIProviderAdapter implements AIProviderAdapter {
   }
 }
 
+/**
+ * Serializa el input al formato de la Responses API. Los mensajes {role,content}
+ * pasan tal cual; los ítems de tool-calling van en snake_case con `call_id`.
+ */
+function serializeInput(input: AIRequest["input"]): unknown {
+  if (typeof input === "string") return input;
+  return input.map((item) => {
+    if ("type" in item) {
+      return item.type === "function_call"
+        ? { type: "function_call", call_id: item.callId, name: item.name, arguments: item.argumentsJson }
+        : { type: "function_call_output", call_id: item.callId, output: item.output };
+    }
+    return item;
+  });
+}
+
 interface OpenAIResponseBody {
   status?: string;
   output_text?: string;
@@ -207,6 +223,7 @@ interface OpenAIResponseBody {
     content?: Array<{ type?: string; text?: string }>;
     name?: string;
     arguments?: string;
+    call_id?: string;
   }>;
   usage?: { input_tokens?: number; output_tokens?: number };
 }
@@ -222,7 +239,7 @@ function parseResponse(json: OpenAIResponseBody, model: string): AIResponse {
       } catch {
         args = {};
       }
-      toolCalls.push({ name: item.name, arguments: args });
+      toolCalls.push({ name: item.name, arguments: args, callId: item.call_id });
     }
     if (!text && item.content) {
       text = item.content

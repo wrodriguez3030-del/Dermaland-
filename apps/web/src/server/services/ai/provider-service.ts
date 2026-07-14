@@ -9,9 +9,11 @@ import type {
   AIModel,
   AIRequest,
   AIResponse,
+  AIToolInvocation,
   AIToolSpec,
   ConnectionTestResult,
 } from "./providers/types";
+import { runWithTools } from "./tool-loop";
 import { estimateCost } from "./providers/pricing";
 import {
   getProvider,
@@ -145,6 +147,12 @@ export interface RunRequestParams {
   conversationId?: string;
   channel?: string;
   tools?: AIToolSpec[];
+  /**
+   * Ejecutor de tools: si se define junto con `tools`, se corre el bucle de
+   * tool-calling (el modelo consulta datos reales antes de responder). Las
+   * rondas se topan con `provider.maxToolCalls` (default 5).
+   */
+  executeTool?: (call: AIToolInvocation) => Promise<string>;
   maxOutputTokens?: number;
   temperature?: number;
   /** Si se define, se usa cuando el principal falla por causa retriable. */
@@ -198,9 +206,10 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
     store: provider.storeResponses,
   };
 
+  const maxRounds = provider.maxToolCalls ?? 5;
   try {
     const adapter = await adapterFor(params.businessId, provider);
-    const res = await adapter.createResponse(req);
+    const res = await runWithTools((r) => adapter.createResponse(r), req, params.executeTool, maxRounds);
     const latencyMs = Date.now() - started;
     const cost = estimateCost(res.usage, params.model);
     if (params.logging !== false) {
@@ -210,7 +219,7 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
         conversationId: params.conversationId, channel: params.channel,
         inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens,
         estimatedCostUsd: cost ?? 0, latencyMs,
-        toolsUsed: res.toolCalls.map((t) => t.name),
+        toolsUsed: res.toolsUsed,
         status: "success",
       });
     }
@@ -223,7 +232,12 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
       if (fb) {
         const startedFb = Date.now();
         const adapter = await adapterFor(params.businessId, fb);
-        const res = await adapter.createResponse({ ...req, model: params.fallback.model });
+        const res = await runWithTools(
+          (r) => adapter.createResponse(r),
+          { ...req, model: params.fallback.model },
+          params.executeTool,
+          fb.maxToolCalls ?? maxRounds,
+        );
         const latencyMs = Date.now() - startedFb;
         const cost = estimateCost(res.usage, params.fallback.model);
         if (params.logging !== false) {
@@ -233,7 +247,7 @@ export async function runRequest(params: RunRequestParams): Promise<RunRequestRe
             conversationId: params.conversationId, channel: params.channel,
             inputTokens: res.usage.inputTokens, outputTokens: res.usage.outputTokens,
             estimatedCostUsd: cost ?? 0, latencyMs,
-            toolsUsed: res.toolCalls.map((t) => t.name),
+            toolsUsed: res.toolsUsed,
             status: "fallback", wasFallback: true,
             errorSummary: `principal falló: ${reason}`,
           });

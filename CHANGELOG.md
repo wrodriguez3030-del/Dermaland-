@@ -11,6 +11,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.75.0] - 2026-07-13
+
+**Chat IA conectado a la base de datos real (tool-calling).**
+- Antes el chat era "solo conversación": el agente pedía al usuario que le pegara
+  el inventario. Ahora el modelo consulta datos REALES del negocio con
+  herramientas de SOLO LECTURA: `search_products`, `get_inventory_stock`,
+  `get_product_lots`, `get_expiring_lots` (vencidos + por vencer, solo lotes con
+  stock), `get_client`, `get_sales_summary`. Las de efecto (WhatsApp/handoff) NO
+  se exponen por este canal.
+- Nuevo `tool-executor.ts`: ejecuta las tools vía repositorios (RLS + business_id
+  del ctx, nunca del modelo), resultados compactos, errores como JSON (una tool
+  caída no rompe el chat). Nuevo `tool-loop.ts`: bucle de tool-calling de la
+  Responses API (function_call/function_call_output con `call_id`), tope
+  `provider.maxToolCalls` y última ronda sin tools para forzar respuesta textual.
+- `runRequest` acepta `executeTool` (bucle también en el fallback); logs
+  registran `tools_used` de todas las rondas y usage acumulado.
+- Repos: `productLot.list` acepta `expiredOnly` (lotes ya vencidos; el filtro
+  `expiringWithinDays` los excluía) — Supabase y mock.
+- "Probar agente" usa las mismas tools de lectura. Asistente de inventario ahora
+  permite `search_products` y `get_sales_summary`.
+- Tests: bucle (4) + ejecutor (5); typecheck 0.
+
 ## [0.74.0] - 2026-07-13
 
 **Catálogo de modelos de IA actualizado a la línea actual de OpenAI (jul-2026).**
