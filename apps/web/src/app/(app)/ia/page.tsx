@@ -21,7 +21,7 @@ export default function IAOverview() {
     <>
       <PageHeader
         title="Agentes IA"
-        description="Concierge dermatológico y asistente de inventario. Tools internas — prohibido agendamiento."
+        description="NAURA (asistente DermaLand) y asistente de inventario. Tools internas — prohibido agendamiento."
         breadcrumbs={[{ label: "IA" }]}
         actions={
           <Link href="/ia/agentes">

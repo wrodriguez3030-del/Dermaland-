@@ -11,6 +11,22 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.75.1] - 2026-07-13
+
+**NAURA: el Concierge configurado como asistente oficial de DermaLand.**
+- Prompt oficial NAURA (identidad definida por el negocio): prioridades
+  exactitud→seguridad→rapidez, personalidad de asistente ejecutivo, formato
+  Resumen/Detalles/Recomendación para preguntas de datos, sugerencias
+  proactivas, reglas de seguridad (nunca revelar credenciales) y solo lectura.
+  Acotado a las capacidades REALES de hoy: lo que aún no tiene herramienta
+  (compras/caja/reportes/administración) se orienta al módulo del sistema.
+- El agente ahora también puede consultar `get_product_lots` y
+  `get_sales_summary` ("¿cuánto vendimos ayer?").
+- Renombrado en UI: "Concierge dermatológico" → "NAURA — Asistente DermaLand".
+- Las instrucciones del chat incluyen la fecha actual (zona RD) — "vencidos",
+  "ayer" y "este mes" se interpretan correctamente.
+- Asistente de inventario: prompt igualmente reescrito orientado a herramientas.
+
 ## [0.75.0] - 2026-07-13
 
 **Chat IA conectado a la base de datos real (tool-calling).**

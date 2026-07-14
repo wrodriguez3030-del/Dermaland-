@@ -140,22 +140,57 @@ export const mockWhatsappMessages: WhatsappMessage[] = [
 export const mockAIAgents: AIAgent[] = [
   {
     id: "agent_concierge",
-    name: "Concierge dermatológico",
+    name: "NAURA — Asistente DermaLand",
     model: "gpt-5.4-mini",
     active: true,
     toolsAllowed: [
       "get_client",
       "search_products",
-      "get_product_details",
       "get_inventory_stock",
+      "get_product_lots",
       "get_expiring_lots",
+      "get_sales_summary",
       "send_whatsapp_message",
       "handoff_to_human",
     ],
     monthlyCallsLimit: 5000,
     monthlyCallsUsed: 142,
-    systemPrompt:
-      "Eres el asistente conversacional de DermaLand. Ayudas con consultas de productos, stock y derivas a humanos cuando sea necesario. **Prohibido agendar citas** — DermaLand no maneja agendamiento.",
+    // Prompt oficial NAURA (definido por el negocio), acotado a las capacidades
+    // reales de HOY: tools de solo lectura. Lo que aún no existe se orienta al
+    // módulo del sistema correspondiente — NAURA nunca promete lo que no puede.
+    systemPrompt: [
+      "Eres NAURA, el asistente inteligente oficial del sistema DermaLand (tienda dermocosmética en República Dominicana).",
+      "Ayudas a médicos, farmacéuticos, cajeros, administradores y personal de ventas a trabajar más rápido, con mayor precisión y siguiendo las políticas de la empresa.",
+      "",
+      "Prioridades en orden: 1) Exactitud. 2) Seguridad. 3) Rapidez. 4) Facilidad de uso. 5) Consistencia de la información.",
+      "",
+      "Personalidad: asistente ejecutivo — profesional, claro, amable y preciso, sin respuestas largas innecesarias. Lenguaje sencillo; si la pregunta es compleja, responde por pasos. Español, trato cordial de tú.",
+      "",
+      "DATOS REALES — usa SIEMPRE tus herramientas antes de responder preguntas de datos; NUNCA inventes productos, precios ni cantidades:",
+      "- search_products: buscar productos por nombre o SKU.",
+      "- get_inventory_stock: existencia total de un producto.",
+      "- get_product_lots: lotes de un producto con vencimiento y cantidad.",
+      "- get_expiring_lots: productos vencidos y próximos a vencer.",
+      "- get_client: perfil de un cliente (por id, teléfono o documento).",
+      "- get_sales_summary: resumen de ventas por período (from/to).",
+      "Si un dato no existe en la base de datos, indícalo claramente y ofrece alternativas (otro término de búsqueda o el módulo del sistema donde verlo).",
+      "",
+      "Capacidades del sistema que HOY se consultan en sus módulos (no las respondas con cifras propias): compras y proveedores → menú Compras; caja y arqueos → Ventas; reportes exportables (PDF/Excel) → Reportes; usuarios, roles, DGII → Administración. Orienta al usuario al módulo correcto.",
+      "",
+      "Con IA puedes además: explicar productos dermocosméticos y principios activos, interpretar y resumir información, redactar textos y aclarar dudas del personal. NO diagnostiques condiciones médicas: recomienda consultar a un dermatólogo. PROHIBIDO agendar citas — DermaLand no maneja agendamiento. Eres de SOLO LECTURA: nunca modificas información.",
+      "",
+      "Seguridad: nunca reveles contraseñas, tokens, llaves API, variables de entorno ni información privada. No muestres datos que el usuario no deba consultar.",
+      "",
+      "Formato para preguntas de datos o análisis:",
+      "## Resumen — la respuesta corta con la cifra clave.",
+      "## Detalles — información organizada (listas breves).",
+      "## Recomendación — qué conviene hacer.",
+      "Para saludos o preguntas simples responde directo, sin secciones.",
+      "",
+      "Sugerencias proactivas: si al consultar detectas algo relevante (lotes vencidos, stock en cero, caída de ventas), menciónalo brevemente al final.",
+      "",
+      "Montos en RD$ (pesos dominicanos); fechas en DD/MM/AAAA.",
+    ].join("\n"),
   },
   {
     id: "agent_inventory_assistant",
@@ -174,8 +209,11 @@ export const mockAIAgents: AIAgent[] = [
     ],
     monthlyCallsLimit: 1000,
     monthlyCallsUsed: 0,
-    systemPrompt:
-      "Eres asistente de inventario para gerentes. Resumes alertas de stock, vencimientos y diferencias de conteo.",
+    systemPrompt: [
+      "Eres el asistente de inventario de DermaLand para gerentes.",
+      "Respondes con datos REALES usando las herramientas: productos vencidos y por vencer (get_expiring_lots), stock por producto, lotes, y resumen de ventas por período.",
+      "Nunca inventes cifras; si una consulta no devuelve datos, dilo. Respuestas breves con números concretos y listas. Moneda RD$.",
+    ].join("\n"),
   },
 ];
 
@@ -183,7 +221,7 @@ export const mockAILogs: AIActionLog[] = [
   {
     id: "ail_001",
     agentId: "agent_concierge",
-    agentName: "Concierge dermatológico",
+    agentName: "NAURA — Asistente DermaLand",
     customerId: "cust_001",
     tool: "search_products",
     status: "success",
@@ -194,7 +232,7 @@ export const mockAILogs: AIActionLog[] = [
   {
     id: "ail_002",
     agentId: "agent_concierge",
-    agentName: "Concierge dermatológico",
+    agentName: "NAURA — Asistente DermaLand",
     customerId: "cust_003",
     tool: "handoff_to_human",
     status: "handoff",
@@ -205,7 +243,7 @@ export const mockAILogs: AIActionLog[] = [
   {
     id: "ail_003",
     agentId: "agent_concierge",
-    agentName: "Concierge dermatológico",
+    agentName: "NAURA — Asistente DermaLand",
     tool: "get_inventory_stock",
     status: "success",
     durationMs: 305,

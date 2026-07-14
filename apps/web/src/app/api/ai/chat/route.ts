@@ -17,11 +17,16 @@ const MAX_HISTORY = 20; // últimos turnos que se envían al modelo
 const MAX_MESSAGE_CHARS = 4000;
 
 /** Instrucción fija cuando el agente tiene tools de datos conectadas. */
-const TOOLS_HINT =
-  "\n\nTienes herramientas conectadas a la base de datos REAL del negocio " +
-  "(productos, stock, lotes y vencimientos, clientes, resumen de ventas). " +
-  "Úsalas SIEMPRE antes de responder preguntas de datos; nunca le pidas al " +
-  "usuario que te pegue el inventario. Responde con cifras concretas.";
+function toolsHint(): string {
+  const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santo_Domingo" })
+    .format(new Date()); // YYYY-MM-DD
+  return (
+    "\n\nTienes herramientas conectadas a la base de datos REAL del negocio " +
+    "(productos, stock, lotes y vencimientos, clientes, resumen de ventas). " +
+    "Úsalas SIEMPRE antes de responder preguntas de datos; nunca le pidas al " +
+    `usuario que te pegue el inventario. Responde con cifras concretas. Hoy es ${hoy}.`
+  );
+}
 
 /**
  * Chat conversacional con un agente (multi-turno). El historial viaja del
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       agentId,
       providerId: target.providerId,
       model: target.model,
-      instructions: agent.systemPrompt + (tools.length ? TOOLS_HINT : ""),
+      instructions: agent.systemPrompt + (tools.length ? toolsHint() : ""),
       input: messages,
       tools: tools.length ? tools : undefined,
       executeTool,
