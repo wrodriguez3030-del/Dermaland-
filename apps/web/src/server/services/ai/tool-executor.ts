@@ -67,11 +67,22 @@ export function makeChatToolExecutor(ctx: RepoContext) {
       case "search_products": {
         const query = str(a.query);
         if (!query) return { error: "Falta query." };
-        const products = await repos.product.list(ctx, {
-          search: query,
-          limit: int(a.limit, 10, 1, MAX_ROWS),
-          activeOnly: true,
-        });
+        const limit = int(a.limit, 10, 1, MAX_ROWS);
+        const find = (search: string) =>
+          repos.product.list(ctx, { search, limit, activeOnly: true });
+        // La búsqueda es ILIKE de la frase completa: "Bálsamo" no matchea
+        // "Balsamo" y una frase larga no matchea nada. Reintentos: sin acentos
+        // → palabra más distintiva (la más larga, suele ser la marca/línea).
+        const sinAcentos = Array.from(query.normalize("NFD")).filter((ch) => ch < "̀" || ch > "ͯ").join("");
+        let products = await find(query);
+        if (!products.length && sinAcentos !== query) products = await find(sinAcentos);
+        if (!products.length) {
+          const palabra = sinAcentos.split(/\s+/).filter((w) => w.length >= 4)
+            .sort((x, y) => y.length - x.length)[0];
+          if (palabra && palabra.toLowerCase() !== sinAcentos.toLowerCase()) {
+            products = await find(palabra);
+          }
+        }
         // Política del negocio: solo se RECOMIENDAN productos con existencia.
         // Los agotados se listan aparte (solo nombre) para poder decir
         // "está agotado" sin que el modelo los ofrezca.

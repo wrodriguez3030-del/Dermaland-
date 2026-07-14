@@ -102,6 +102,21 @@ describe("makeChatToolExecutor", () => {
     expect(out.aviso).toContain("from inválido");
   });
 
+  it("search_products reintenta sin acentos y por palabra más distintiva (regresión Rilastil)", async () => {
+    // "Xerolact Bálsamo" no matchea ILIKE la frase; el 3er intento ("Xerolact") sí.
+    repos.product.list
+      .mockResolvedValueOnce([]) // frase completa
+      .mockResolvedValueOnce([]) // sin acentos
+      .mockResolvedValueOnce([{ id: "p9", sku: "S9", name: "Rilastil Xerolact PB Balsamo", price: 900, unit: "unidad" }]);
+    repos.product.totalStock.mockResolvedValue(0);
+    const exec = makeChatToolExecutor(ctx);
+    const out = JSON.parse(await exec({ name: "search_products", arguments: { query: "Xerolact Bálsamo" } }));
+    expect(repos.product.list).toHaveBeenNthCalledWith(2, ctx, { search: "Xerolact Balsamo", limit: 10, activeOnly: true });
+    expect(repos.product.list).toHaveBeenNthCalledWith(3, ctx, { search: "Xerolact", limit: 10, activeOnly: true });
+    expect(out.agotados).toEqual(["Rilastil Xerolact PB Balsamo"]); // existe pero sin stock
+    expect(out.disponibles).toEqual([]);
+  });
+
   it("get_inventory_stock con id no-UUID devuelve guía en vez de romper la query", async () => {
     const exec = makeChatToolExecutor(ctx);
     const out = JSON.parse(await exec({

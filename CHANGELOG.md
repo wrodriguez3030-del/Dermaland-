@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.75.4] - 2026-07-13
+
+**Búsqueda de productos de NAURA más robusta (regresión Rilastil).**
+- "¿Tienen Rilastil Xerolact PB Bálsamo?" fallaba: la búsqueda es ILIKE de la
+  frase completa y "Bálsamo" (con acento) no matchea "Balsamo" en la BD → NAURA
+  decía "no tengo registro" de un producto que SÍ existe (agotado).
+- `search_products` ahora reintenta: (1) query sin acentos, (2) la palabra más
+  distintiva (la más larga ≥4 letras, típicamente marca/línea). Con esto el
+  producto agotado se reporta como agotado, no como inexistente. + test.
+
 ## [0.75.3] - 2026-07-13
 
 **NAURA solo recomienda productos con existencia (política del negocio).**
