@@ -11,6 +11,18 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.75.2] - 2026-07-13
+
+**Fix: parámetros inventados por el modelo rompían get_sales_summary.**
+- En la validación en vivo, "¿Cuánto vendimos este mes?" falló: el modelo pasó
+  `branch_id`/fechas no válidos ("principal", "este-mes") y Postgres rechaza la
+  query completa (22P02/22007) → `SupabaseRepository: proforma.listHeaders`.
+- El ejecutor ahora SANEA los parámetros antes de la BD: UUIDs con regex
+  (branch_id, product_id, cliente por id — no-UUID cae a búsqueda), fechas solo
+  `YYYY-MM-DD` (inválidas se ignoran con aviso al modelo), ids no-UUID de
+  producto devuelven guía ("usa el id de search_products") en vez de romper.
+- +2 tests de regresión (46/46 IA en verde).
+
 ## [0.75.1] - 2026-07-13
 
 **NAURA: el Concierge configurado como asistente oficial de DermaLand.**

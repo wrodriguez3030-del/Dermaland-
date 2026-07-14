@@ -77,4 +77,33 @@ describe("makeChatToolExecutor", () => {
     const out = JSON.parse(await exec({ name: "send_whatsapp_message", arguments: {} }));
     expect(out.error).toContain("no disponible en este canal");
   });
+
+  it("get_sales_summary sanea parámetros inventados (regresión 22P02/22007)", async () => {
+    repos.proforma.listHeaders.mockResolvedValue([
+      { status: "paid", total: 1000 },
+      { status: "cancelled", total: 400 },
+    ]);
+    const exec = makeChatToolExecutor(ctx);
+    const out = JSON.parse(await exec({
+      name: "get_sales_summary",
+      arguments: { from: "este-mes", to: "2026-07-31", branch_id: "principal" },
+    }));
+    // "este-mes" y "principal" NO llegan a la BD; la fecha válida sí.
+    expect(repos.proforma.listHeaders).toHaveBeenCalledWith(ctx, {
+      from: undefined, to: "2026-07-31", branchId: undefined,
+    });
+    expect(out.ventas).toBe(1);
+    expect(out.totalDOP).toBe(1000);
+    expect(out.aviso).toContain("from inválido");
+  });
+
+  it("get_inventory_stock con id no-UUID devuelve guía en vez de romper la query", async () => {
+    const exec = makeChatToolExecutor(ctx);
+    const out = JSON.parse(await exec({
+      name: "get_inventory_stock",
+      arguments: { product_id: "shampoo" },
+    }));
+    expect(out.error).toContain("search_products");
+    expect(repos.product.totalStock).not.toHaveBeenCalled();
+  });
 });

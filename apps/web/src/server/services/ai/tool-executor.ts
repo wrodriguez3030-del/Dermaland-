@@ -38,6 +38,19 @@ const int = (v: unknown, def: number, min: number, max: number): number => {
   const n = typeof v === "number" ? Math.trunc(v) : Number.parseInt(String(v ?? ""), 10);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
 };
+// El modelo a veces inventa parámetros ("principal", "este-mes"): Postgres los
+// rechaza (22P02/22007) y se cae toda la consulta. Se sanean ANTES de la BD.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const uuid = (v: unknown): string | undefined => {
+  const s = str(v);
+  return s && UUID_RE.test(s) ? s : undefined;
+};
+const dateStr = (v: unknown): string | undefined => {
+  const s = str(v);
+  return s && DATE_RE.test(s) ? s : undefined;
+};
+const BAD_ID = { error: "Id inválido: usa el id exacto devuelto por search_products." };
 
 /** Crea el ejecutor ligado a la sesión (tenant) actual. Devuelve JSON string. */
 export function makeChatToolExecutor(ctx: RepoContext) {
@@ -65,8 +78,8 @@ export function makeChatToolExecutor(ctx: RepoContext) {
       }
 
       case "get_inventory_stock": {
-        const productId = str(a.product_id);
-        if (!productId) return { error: "Falta product_id." };
+        const productId = uuid(a.product_id);
+        if (!productId) return str(a.product_id) ? BAD_ID : { error: "Falta product_id." };
         const [product, totalStock] = await Promise.all([
           repos.product.byId(ctx, productId),
           repos.product.totalStock(ctx, productId),
@@ -76,8 +89,8 @@ export function makeChatToolExecutor(ctx: RepoContext) {
       }
 
       case "get_product_lots": {
-        const productId = str(a.product_id);
-        if (!productId) return { error: "Falta product_id." };
+        const productId = uuid(a.product_id);
+        if (!productId) return str(a.product_id) ? BAD_ID : { error: "Falta product_id." };
         const lots = await repos.productLot.list(ctx, { productId });
         return lots.slice(0, MAX_ROWS).map((l) => ({
           lotNumber: l.lotNumber, expiresAt: l.expiresAt,
@@ -114,7 +127,7 @@ export function makeChatToolExecutor(ctx: RepoContext) {
         if (!identifier) return { error: "Falta identifier." };
         const kind = str(a.kind);
         const customer =
-          kind === "id"
+          kind === "id" && uuid(identifier)
             ? await repos.customer.byId(ctx, identifier)
             : (await repos.customer.list(ctx, { search: identifier }))[0] ?? null;
         if (!customer) return { error: "Cliente no encontrado." };
@@ -126,15 +139,20 @@ export function makeChatToolExecutor(ctx: RepoContext) {
       }
 
       case "get_sales_summary": {
+        // Solo fechas YYYY-MM-DD y branch UUID reales; lo demás se ignora.
+        const from = dateStr(a.from);
+        const to = dateStr(a.to);
         const headers = await repos.proforma.listHeaders(ctx, {
-          from: str(a.from), to: str(a.to), branchId: str(a.branch_id),
+          from, to, branchId: uuid(a.branch_id),
         });
         const valid = headers.filter((h) => h.status !== "cancelled");
         return {
           ventas: valid.length,
           totalDOP: Math.round(valid.reduce((s, h) => s + h.total, 0) * 100) / 100,
           anuladas: headers.length - valid.length,
-          desde: str(a.from) ?? null, hasta: str(a.to) ?? null,
+          desde: from ?? null, hasta: to ?? null,
+          ...(str(a.from) && !from ? { aviso: "from inválido (usa YYYY-MM-DD); se ignoró" } : {}),
+          ...(str(a.to) && !to ? { aviso_to: "to inválido (usa YYYY-MM-DD); se ignoró" } : {}),
         };
       }
 
