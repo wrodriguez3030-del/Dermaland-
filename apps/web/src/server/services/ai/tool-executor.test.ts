@@ -33,14 +33,19 @@ describe("chatToolSpecs", () => {
 });
 
 describe("makeChatToolExecutor", () => {
-  it("search_products devuelve filas compactas", async () => {
+  it("search_products separa disponibles (con stock) de agotados — solo se recomienda lo disponible", async () => {
     repos.product.list.mockResolvedValue([
       { id: "p1", sku: "S1", name: "Crema X", price: 100, unit: "unidad", cost: 1 },
+      { id: "p2", sku: "S2", name: "Serum Y", price: 200, unit: "unidad", cost: 2 },
     ]);
+    repos.product.totalStock.mockImplementation(async (_c: never, id: string) => (id === "p1" ? 12 : 0));
     const exec = makeChatToolExecutor(ctx);
     const out = JSON.parse(await exec({ name: "search_products", arguments: { query: "crema" } }));
     expect(repos.product.list).toHaveBeenCalledWith(ctx, { search: "crema", limit: 10, activeOnly: true });
-    expect(out).toEqual([{ id: "p1", sku: "S1", name: "Crema X", price: 100, unit: "unidad" }]);
+    expect(out.disponibles).toEqual([
+      { id: "p1", sku: "S1", name: "Crema X", price: 100, unit: "unidad", stock: 12 },
+    ]);
+    expect(out.agotados).toEqual(["Serum Y"]); // solo el nombre: no ofrecible
   });
 
   it("get_expiring_lots separa vencidos y por vencer, solo con stock", async () => {

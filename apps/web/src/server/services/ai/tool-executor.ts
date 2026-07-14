@@ -72,9 +72,19 @@ export function makeChatToolExecutor(ctx: RepoContext) {
           limit: int(a.limit, 10, 1, MAX_ROWS),
           activeOnly: true,
         });
-        return products.map((p) => ({
-          id: p.id, sku: p.sku, name: p.name, price: p.price, unit: p.unit,
-        }));
+        // Política del negocio: solo se RECOMIENDAN productos con existencia.
+        // Los agotados se listan aparte (solo nombre) para poder decir
+        // "está agotado" sin que el modelo los ofrezca.
+        const withStock = await Promise.all(
+          products.map(async (p) => ({
+            id: p.id, sku: p.sku, name: p.name, price: p.price, unit: p.unit,
+            stock: await repos.product.totalStock(ctx, p.id).catch(() => 0),
+          })),
+        );
+        return {
+          disponibles: withStock.filter((p) => p.stock > 0),
+          agotados: withStock.filter((p) => p.stock <= 0).map((p) => p.name),
+        };
       }
 
       case "get_inventory_stock": {

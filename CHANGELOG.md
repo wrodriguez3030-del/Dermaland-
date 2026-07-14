@@ -11,6 +11,15 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.75.3] - 2026-07-13
+
+**NAURA solo recomienda productos con existencia (política del negocio).**
+- `search_products` ahora consulta el stock real de cada resultado y separa
+  `disponibles` (con stock y precio) de `agotados` (solo el nombre, para poder
+  decir "está agotado" sin ofrecerlo).
+- Prompt: regla de stock explícita — nunca ofrecer/sugerir un producto agotado;
+  si lo piden, decirlo claro y proponer alternativas similares CON stock.
+
 ## [0.75.2] - 2026-07-13
 
 **Fix: parámetros inventados por el modelo rompían get_sales_summary.**
