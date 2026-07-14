@@ -11,6 +11,7 @@ import {
   type AgentView,
   type ChatMessage,
 } from "@/features/ai/ai-client";
+import { ChatMarkdown } from "@/features/ai/chat-markdown";
 
 /**
  * Chat IA estilo WhatsApp: burbujas, entrada abajo, selector de agente.
@@ -214,7 +215,11 @@ function ChatContent() {
                     : "rounded-bl-sm border border-black/5 bg-white"
               }`}
             >
-              <div className="whitespace-pre-wrap break-words">{b.content}</div>
+              {b.role === "assistant" && !b.error ? (
+                <ChatMarkdown content={b.content} />
+              ) : (
+                <div className="whitespace-pre-wrap break-words">{b.content}</div>
+              )}
               <div className={`mt-1 text-right text-[10px] ${b.role === "user" ? "text-white/70" : "opacity-40"}`}>
                 {hora(b.at)}{b.meta ? ` · ${b.meta}` : ""}
               </div>

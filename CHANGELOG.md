@@ -11,6 +11,19 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.76.0] - 2026-07-13
+
+**Chat IA: respuestas legibles (Markdown) + NAURA busca sola.**
+- Las burbujas del asistente mostraban `**negritas**` y `## títulos` crudos —
+  nuevo `ChatMarkdown` (sin dependencias, sin HTML crudo): negritas, títulos,
+  listas con viñetas/numeradas y código inline se ven bien. Los mensajes del
+  usuario y los errores siguen como texto plano.
+- Prompt de NAURA — REGLA DE BÚSQUEDA: si una búsqueda no da resultados,
+  reintenta ELLA con sinónimos/categoría/ingrediente activo (2-3 intentos) en
+  vez de preguntarle al usuario "¿busco por nombre o ingrediente?"; solo si
+  nada aparece dice que no hay y con qué términos probó.
+- Tests: parser de Markdown (3) — 50/50 IA en verde.
+
 ## [0.75.4] - 2026-07-13
 
 **Búsqueda de productos de NAURA más robusta (regresión Rilastil).**

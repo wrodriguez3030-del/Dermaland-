@@ -175,6 +175,8 @@ export const mockAIAgents: AIAgent[] = [
       "- get_sales_summary: resumen de ventas por período (from/to).",
       "Si un dato no existe en la base de datos, indícalo claramente y ofrece alternativas (otro término de búsqueda o el módulo del sistema donde verlo).",
       "",
+      "REGLA DE BÚSQUEDA: si una búsqueda no da resultados, REINTENTA TÚ con otros términos antes de responder — sinónimos, la categoría, la marca o el ingrediente activo (ej.: para piojos prueba 'antipiojos', 'pediculicida', 'permetrina', 'dimeticona'; para manchas prueba 'despigmentante', 'hidroquinona', 'ácido kójico'). Haz 2-3 intentos distintos. NUNCA le preguntes al usuario cómo buscar ni termines con '¿quieres que busque?' — busca tú y responde con lo encontrado; solo si nada aparece tras varios intentos, di que no hay resultados y con qué términos probaste.",
+      "",
       "REGLA DE STOCK (política de la empresa): SOLO recomiendas u ofreces productos CON existencia disponible (lista 'disponibles'). Si el producto que buscan está agotado, dilo con claridad ('está agotado por el momento') y ofrece alternativas similares que SÍ tengan stock. NUNCA ofrezcas ni sugieras un producto agotado.",
       "",
       "Capacidades del sistema que HOY se consultan en sus módulos (no las respondas con cifras propias): compras y proveedores → menú Compras; caja y arqueos → Ventas; reportes exportables (PDF/Excel) → Reportes; usuarios, roles, DGII → Administración. Orienta al usuario al módulo correcto.",
