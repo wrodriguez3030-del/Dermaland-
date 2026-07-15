@@ -84,6 +84,28 @@ export const ALLOWED_TOOLS: Tool[] = [
     },
   },
   {
+    name: "get_receivables",
+    description:
+      "Cuentas por cobrar (ventas a crédito): total pendiente, clientes que más deben, facturas que vencen hoy, vencidas +60 días, cobrado esta semana, saldo por vendedor e índice de recuperación.",
+    parameters: {
+      type: "object",
+      properties: {
+        view: {
+          type: "string",
+          enum: [
+            "summary",
+            "top_debtors",
+            "due_today",
+            "overdue_60",
+            "collected_week",
+            "by_seller",
+          ],
+        },
+      },
+      required: ["view"],
+    },
+  },
+  {
     name: "get_inventory_count_differences",
     description: "Diferencias de un conteo físico aprobado.",
     parameters: {

@@ -402,6 +402,13 @@ export interface Customer extends Audited, SoftDeletable, BusinessScoped {
   lastVisitAt?: string;
   notes?: string;
   consents: { templateId: string; grantedAt: string }[];
+  // ── Crédito (Cuentas por Cobrar, mig 0031) ──
+  /** Límite de crédito en RD$. null/undefined = sin límite definido. */
+  creditLimit?: number;
+  /** Días de crédito del cliente; si falta se usa el default del negocio. */
+  creditDays?: number;
+  /** true = bloqueado para nuevas ventas a crédito. */
+  creditBlocked?: boolean;
 }
 
 export interface CustomerNote {
@@ -470,6 +477,8 @@ export interface Payment {
   userId: ID;
   userName: string;
   createdAt: string;
+  /** Saldo de la factura DESPUÉS de este pago (CxC, mig 0031; null en pagos viejos). */
+  balanceAfter?: number;
 }
 
 export interface Proforma extends Audited, BranchScoped {
@@ -539,6 +548,12 @@ export interface Proforma extends Audited, BranchScoped {
    * (índice único `(business_id, idempotency_key)`).
    */
   idempotencyKey?: string;
+  /**
+   * CxC: fecha de vencimiento de la venta a crédito (YYYY-MM-DD). La fija el
+   * SERVIDOR al emitir con saldo pendiente (días de crédito del cliente o el
+   * default del negocio). La cuenta por cobrar ES la proforma con balance > 0.
+   */
+  dueDate?: string;
   /**
    * B-02: plan de descuento de inventario (FEFO calculado en el POS). Cuando
    * viene presente, la emisión es ATÓMICA: el servidor crea la venta y descuenta

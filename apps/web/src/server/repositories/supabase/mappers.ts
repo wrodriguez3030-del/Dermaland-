@@ -378,6 +378,16 @@ export function clientRowToTs(row: Tables["clients"]["Row"]): Customer {
     lastVisitAt: row.last_visit_at ?? undefined,
     notes: row.notes ?? undefined,
     consents,
+    // Crédito CxC (mig 0031) — cast defensivo mientras database.types no se regenere.
+    creditLimit: ((): number | undefined => {
+      const v = (row as { credit_limit?: number | string | null }).credit_limit;
+      return v == null ? undefined : Number(v);
+    })(),
+    creditDays: ((): number | undefined => {
+      const v = (row as { credit_days?: number | null }).credit_days;
+      return v == null ? undefined : Number(v);
+    })(),
+    creditBlocked: Boolean((row as { credit_blocked?: boolean | null }).credit_blocked),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -417,6 +427,10 @@ export function proformaPaymentRowToTs(
     userId: row.user_id,
     userName: row.user_name,
     createdAt: row.created_at,
+    balanceAfter: ((): number | undefined => {
+      const v = (row as { balance_after?: number | string | null }).balance_after;
+      return v == null ? undefined : Number(v);
+    })(),
   };
 }
 
@@ -473,6 +487,8 @@ export function proformaRowToTs(
       ((row as { source_proforma_id?: string | null }).source_proforma_id as
         | string
         | null) ?? undefined,
+    // CxC (mig 0031): vencimiento de la venta a crédito.
+    dueDate: ((row as { due_date?: string | null }).due_date as string | null) ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -67,6 +67,12 @@ interface ChargeSaleModalProps {
   total: number;
   billingType: DefaultBillingType;
   onConfirm: (result: ChargeSaleResult) => void;
+  /**
+   * CxC: nombre del cliente seleccionado en el POS. Si existe, habilita
+   * "Emitir a crédito" (sin pago inicial): la venta queda con saldo y entra a
+   * Cuentas por cobrar. El server valida bloqueo/límite de crédito al emitir.
+   */
+  creditCustomerName?: string | null;
 }
 
 function round2(n: number): string {
@@ -82,6 +88,7 @@ export function ChargeSaleModal({
   total,
   billingType,
   onConfirm,
+  creditCustomerName = null,
 }: ChargeSaleModalProps) {
   const [payments, setPayments] = React.useState<BuiltPayment[]>([]);
   const [method, setMethod] = React.useState<CheckoutMethod | null>(null);
@@ -540,7 +547,17 @@ export function ChargeSaleModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex items-center justify-end gap-2 border-t border-black/5 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-black/5 px-5 py-4">
+          {creditCustomerName && payments.length === 0 && !draftValid && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onConfirm({ payments: [], amountReceived: 0, changeAmount: 0 })}
+              title={`La venta completa queda como cuenta por cobrar de ${creditCustomerName}`}
+            >
+              Emitir a crédito · {creditCustomerName.split(" ")[0]}
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>

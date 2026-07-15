@@ -19,6 +19,7 @@ export const CHAT_READ_TOOLS = new Set([
   "get_product_lots",
   "get_expiring_lots",
   "get_sales_summary",
+  "get_receivables",
 ]);
 
 const MAX_ROWS = 25;
@@ -175,6 +176,74 @@ export function makeChatToolExecutor(ctx: RepoContext) {
           ...(str(a.from) && !from ? { aviso: "from inválido (usa YYYY-MM-DD); se ignoró" } : {}),
           ...(str(a.to) && !to ? { aviso_to: "to inválido (usa YYYY-MM-DD); se ignoró" } : {}),
         };
+      }
+
+      case "get_receivables": {
+        const { listPending, summary, collectionHistory } = await import(
+          "@/server/services/receivables/service"
+        );
+        const view = str(a.view) ?? "summary";
+        if (view === "summary") {
+          const s = await summary(ctx);
+          return {
+            totalPendienteDOP: s.totalPendiente,
+            facturasPendientes: s.facturasPendientes,
+            facturasVencidas: s.facturasVencidas,
+            montoVencidoDOP: s.montoVencido,
+            clientesMorosos: s.clientesMorosos,
+            cobradoHoyDOP: s.cobradoHoy,
+            cobradoMesDOP: s.cobradoMes,
+            vencenEn7Dias: s.proximos7Dias,
+            promedioDiasCobro: s.promedioDiasCobro,
+            indiceRecuperacionPct: s.recuperacionPct,
+            antiguedad: s.aging.amount,
+          };
+        }
+        const pending = await listPending(ctx);
+        if (view === "top_debtors") {
+          const m = new Map<string, number>();
+          for (const r of pending) {
+            const k = r.customerName;
+            m.set(k, Math.round(((m.get(k) ?? 0) + r.balance) * 100) / 100);
+          }
+          return [...m.entries()]
+            .sort((x, y) => y[1] - x[1])
+            .slice(0, 10)
+            .map(([cliente, saldoDOP]) => ({ cliente, saldoDOP }));
+        }
+        if (view === "due_today") {
+          const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santo_Domingo" }).format(new Date());
+          return pending
+            .filter((r) => r.dueDate === hoy)
+            .map((r) => ({ factura: r.number, cliente: r.customerName, saldoDOP: r.balance }));
+        }
+        if (view === "overdue_60") {
+          return pending
+            .filter((r) => r.bucket === "v60")
+            .map((r) => ({
+              factura: r.number, cliente: r.customerName,
+              diasVencidos: r.overdueDays, saldoDOP: r.balance,
+            }));
+        }
+        if (view === "collected_week") {
+          const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+          const rows = (await collectionHistory(ctx, 500)).filter((h) => h.createdAt >= weekAgo);
+          return {
+            cobros: rows.length,
+            totalDOP: Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100,
+          };
+        }
+        if (view === "by_seller") {
+          const m = new Map<string, number>();
+          for (const r of pending) {
+            const k = r.sellerName ?? r.cashierName;
+            m.set(k, Math.round(((m.get(k) ?? 0) + r.balance) * 100) / 100);
+          }
+          return [...m.entries()]
+            .sort((x, y) => y[1] - x[1])
+            .map(([vendedor, saldoCreditoDOP]) => ({ vendedor, saldoCreditoDOP }));
+        }
+        return { error: "view inválida." };
       }
 
       default:

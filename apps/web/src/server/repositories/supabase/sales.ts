@@ -91,6 +91,63 @@ async function fetchItemsForProformas(
   return out;
 }
 
+/**
+ * CxC: política de crédito vigente para una emisión con saldo pendiente.
+ * Config del negocio (ar_settings) + crédito del cliente + saldo ya utilizado
+ * (suma de balances pendientes). Todo filtrado por business_id (R-SEC-01).
+ */
+async function loadCreditPolicy(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any,
+  businessId: string,
+  clientId: string | null,
+): Promise<{
+  defaultCreditDays: number;
+  blockOverLimit: boolean;
+  creditLimit: number | null;
+  creditDays: number | null;
+  creditBlocked: boolean;
+  usedBalance: number;
+}> {
+  const { data: settings } = await sb
+    .from("ar_settings")
+    .select("default_credit_days, block_over_limit")
+    .eq("business_id", businessId)
+    .maybeSingle();
+  const base = {
+    defaultCreditDays: Number(settings?.default_credit_days ?? 30),
+    blockOverLimit: Boolean(settings?.block_over_limit),
+    creditLimit: null as number | null,
+    creditDays: null as number | null,
+    creditBlocked: false,
+    usedBalance: 0,
+  };
+  if (!clientId) return base;
+  const { data: client } = await sb
+    .from("clients")
+    .select("credit_limit, credit_days, credit_blocked")
+    .eq("business_id", businessId)
+    .eq("id", clientId)
+    .maybeSingle();
+  const { data: pending } = await sb
+    .from("proformas")
+    .select("balance")
+    .eq("business_id", businessId)
+    .eq("customer_id", clientId)
+    .gt("balance", 0)
+    .not("status", "in", "(cancelled,draft,expired)");
+  return {
+    ...base,
+    creditLimit: client?.credit_limit == null ? null : Number(client.credit_limit),
+    creditDays: client?.credit_days == null ? null : Number(client.credit_days),
+    creditBlocked: Boolean(client?.credit_blocked),
+    usedBalance: ((pending ?? []) as { balance: number | string }[]).reduce(
+      (s, r) => s + Number(r.balance ?? 0),
+      0,
+    ),
+  };
+}
+
 async function fetchPaymentsForProformas(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sb: any,
@@ -348,6 +405,49 @@ export const proformaRepository: ProformaRepository = {
       })),
     });
 
+    // ── CxC: venta a crédito ──────────────────────────────────────────────
+    // Si la emisión deja saldo, la venta ES una cuenta por cobrar: se valida
+    // la política de crédito ANTES de emitir y se fija el vencimiento según
+    // los días de crédito del cliente (o el default del negocio).
+    const leavesBalance = recomputed.balance > 0.009;
+    let dueDate: string | null = null;
+    if (leavesBalance && proforma.status !== "draft") {
+      const policy = await loadCreditPolicy(
+        sb,
+        ctx.businessId,
+        nullableUuid(proforma.customerId),
+      );
+      if (policy.creditBlocked) {
+        throw new UserFacingRepositoryError(
+          "Este cliente está bloqueado para ventas a crédito. Cobra el total o revisa Cuentas por cobrar → Configuración.",
+        );
+      }
+      if (
+        policy.blockOverLimit &&
+        policy.creditLimit != null &&
+        policy.usedBalance + recomputed.balance > policy.creditLimit + 0.009
+      ) {
+        const disponible = Math.max(0, policy.creditLimit - policy.usedBalance);
+        throw new UserFacingRepositoryError(
+          `El saldo de esta venta (RD$${recomputed.balance.toFixed(2)}) supera el crédito disponible del cliente (RD$${disponible.toFixed(2)}).`,
+        );
+      }
+      const days = policy.creditDays ?? policy.defaultCreditDays;
+      const d = new Date();
+      d.setDate(d.getDate() + Math.max(0, days));
+      dueDate = d.toISOString().slice(0, 10);
+    }
+    // Status derivado del saldo recomputado (el POS enviaba "issued" para pagos
+    // parciales): pagada / parcialmente pagada / emitida. Estados fiscales y
+    // draft pasan tal cual.
+    const derivedStatus = ["issued", "paid", "partially_paid"].includes(proforma.status)
+      ? recomputed.balance <= 0.009
+        ? "paid"
+        : recomputed.paid > 0.009
+          ? "partially_paid"
+          : "issued"
+      : proforma.status;
+
     const proformaRow = {
       business_id: ctx.businessId,
       branch_id: branchId,
@@ -363,9 +463,12 @@ export const proformaRepository: ProformaRepository = {
       discount: toDbMoney(recomputed.discount, "descuento"),
       itbis: toDbMoney(recomputed.itbis, "ITBIS"),
       total: toDbMoney(recomputed.total, "total"),
-      status: proforma.status,
+      status: derivedStatus,
       paid: toDbMoney(recomputed.paid, "monto pagado"),
       balance: toDbMoney(recomputed.balance, "balance"),
+      // CxC: vencimiento de la venta a crédito (mig 0031). En la ruta atómica
+      // el RPC ignora claves desconocidas; se fija con el update post-emisión.
+      ...(dueDate ? { due_date: dueDate } : {}),
       notes: proforma.notes ?? null,
       ecf_number: proforma.ecfNumber ?? null,
       cash_register_session_id: nullableUuid(proforma.cashRegisterSessionId),
@@ -442,6 +545,16 @@ export const proformaRepository: ProformaRepository = {
         throw new SupabaseRepositoryError("proforma.create:emit_atomic", emitErr);
       }
       const newId = (emit as { id: string; reused?: boolean }).id;
+      // CxC: el RPC emit_sale_atomic extrae columnas explícitas de p_sale y no
+      // conoce due_date — se fija aquí (solo en emisión nueva, no en reuso
+      // idempotente). Metadato no-monetario: no compromete la atomicidad B-02.
+      if (dueDate && !(emit as { reused?: boolean }).reused) {
+        await sb
+          .from("proformas")
+          .update({ due_date: dueDate })
+          .eq("business_id", ctx.businessId)
+          .eq("id", newId);
+      }
       const { data: row } = await sb
         .from("proformas").select("*")
         .eq("business_id", ctx.businessId).eq("id", newId).single();

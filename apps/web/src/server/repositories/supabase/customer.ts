@@ -126,6 +126,10 @@ export const customerRepository: CustomerRepository = {
     if (patch.totalSpent !== undefined) row.total_spent = patch.totalSpent;
     if (patch.totalOrders !== undefined) row.total_orders = patch.totalOrders;
     if (patch.lastVisitAt !== undefined) row.last_visit_at = patch.lastVisitAt ?? null;
+    // Crédito CxC (mig 0031). El gate de rol vive en la API route.
+    if (patch.creditLimit !== undefined) row.credit_limit = patch.creditLimit ?? null;
+    if (patch.creditDays !== undefined) row.credit_days = patch.creditDays ?? null;
+    if (patch.creditBlocked !== undefined) row.credit_blocked = !!patch.creditBlocked;
     const { data, error } = await sb
       .from("clients")
       .update(row)

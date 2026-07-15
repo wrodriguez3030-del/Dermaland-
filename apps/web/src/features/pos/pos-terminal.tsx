@@ -742,7 +742,9 @@ export function PosTerminal() {
       discount: globalDiscountAmount,
       itbis: scaledItbis,
       total,
-      status: paidTotal >= total ? "paid" : "issued",
+      // CxC: pago parcial → "partially_paid"; sin pagos → "issued". Ambas con
+      // balance > 0 = cuenta por cobrar (el server deriva igual en supabase).
+      status: paidTotal >= total ? "paid" : paidTotal > 0 ? "partially_paid" : "issued",
       payments: result.payments.map((p, i) => ({
         id: `pay_${Date.now()}_${i}`,
         proformaId: id,
@@ -1356,6 +1358,7 @@ export function PosTerminal() {
         total={total}
         billingType={billingType}
         onConfirm={finalizeCharge}
+        creditCustomerName={customer ? `${customer.firstName} ${customer.lastName}`.trim() : null}
       />
       <QuickCreateCustomerModal
         open={quickCreateOpen}

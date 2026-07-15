@@ -79,6 +79,24 @@ export const groups: NavGroup[] = [
     ],
   },
   {
+    label: "Cuentas por cobrar",
+    icon: Receipt,
+    items: [
+      { label: "Dashboard", href: "/cuentas-por-cobrar" },
+      { label: "Facturas pendientes", href: "/cuentas-por-cobrar/pendientes" },
+      { label: "Cobros", href: "/cuentas-por-cobrar/cobros" },
+      { label: "Pagos parciales", href: "/cuentas-por-cobrar/historial" },
+      { label: "Calendario de vencimientos", href: "/cuentas-por-cobrar/calendario" },
+      { label: "Clientes con mora", href: "/cuentas-por-cobrar/mora" },
+      { label: "Promesas de pago", href: "/cuentas-por-cobrar/promesas" },
+      { label: "Estados de cuenta", href: "/cuentas-por-cobrar/estados-de-cuenta" },
+      { label: "Notas de crédito", href: "/notas-credito" },
+      { label: "Historial", href: "/cuentas-por-cobrar/historial" },
+      { label: "Reportes", href: "/cuentas-por-cobrar/reportes" },
+      { label: "Configuración", href: "/cuentas-por-cobrar/configuracion" },
+    ],
+  },
+  {
     label: "Compras",
     icon: Truck,
     items: [

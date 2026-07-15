@@ -11,6 +11,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.77.0] - 2026-07-14
+
+**Nuevo módulo: Cuentas por Cobrar** (`/cuentas-por-cobrar`, menú bajo Ventas).
+Doc completa en `docs/cuentas-por-cobrar.md`.
+
+- **Cero duplicación**: la cuenta por cobrar ES la venta con `balance > 0`.
+  Mig `0031`: crédito en `clients` (límite/días/bloqueo), `proformas.due_date`,
+  `proforma_payments.balance_after`, tablas `ar_promises`/`ar_settings` (RLS) y
+  RPC atómico `ar_apply_payments` (cobro multi-factura, valida saldo, todo-o-nada).
+- **Integración con Ventas (automática)**: al emitir con saldo el server deriva
+  el status (paid/partially_paid/issued), fija `due_date` (días del cliente o
+  default del negocio) y aplica la política de crédito (cliente bloqueado y
+  límite excedido → rechazo configurable). El POS ofrece **"Emitir a crédito"**
+  cuando hay cliente seleccionado; el pago parcial ya marca `partially_paid`.
+- **12 pantallas**: Dashboard ejecutivo (KPIs + antigüedad + cobranza mensual +
+  por sucursal/vendedor + alerta de promesas), Facturas pendientes (filtros por
+  sucursal/cliente/estado/vendedor/monto, colores verde→rojo oscuro), Cobros
+  (pago total/parcial/múltiple con método/referencia/banco), Clientes con mora
+  (llamar/WhatsApp/correo/promesa/pago), Promesas (alerta al llegar la fecha),
+  Calendario de vencimientos, Estados de cuenta (PDF profesional por cliente),
+  Historial inmutable (saldo anterior→nuevo), Reportes (Excel 8 hojas con el
+  motor central + PDF + CSV), Configuración (política del negocio + crédito por
+  cliente). Notas de crédito enlaza al módulo existente.
+- **Permisos** por rol (`features/receivables/permissions.ts`); los pagos NUNCA
+  se eliminan. **Auditoría** con IP: `ar.collect/promise_*/settings_update/
+  credit_update`. **IA**: tool `get_receivables` (summary/top_debtors/due_today/
+  overdue_60/collected_week/by_seller) habilitada en NAURA e inventario.
+- Tests: aging (3) + suite completa 1740/1740; e2e vivo
+  `scripts/test/receivables-e2e-test.mjs` (crédito→parcial→saldo 0→historial),
+  autolimpiante.
+
 ## [0.76.0] - 2026-07-13
 
 **Chat IA: respuestas legibles (Markdown) + NAURA busca sola.**
