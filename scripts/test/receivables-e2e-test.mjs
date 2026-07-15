@@ -101,7 +101,10 @@ try {
   const sale = create.json.proforma ?? create.json;
   saleId = sale?.id ?? null;
   assert(!!saleId, "la venta tiene id");
-  assert(Number(sale?.balance) === 590, `balance = 590 (real: ${sale?.balance})`);
+  // El SERVER recalcula los montos (SEC-002, precio con ITBIS incluido): el
+  // balance de referencia sale de la respuesta, no se asume.
+  const totalReal = Number(sale?.balance);
+  assert(totalReal > 0 && Number(sale?.paid) === 0, `balance recomputado > 0 y paid = 0 (balance: ${totalReal})`);
   assert(sale?.status === "issued", `status issued sin pago inicial (real: ${sale?.status})`);
   assert(typeof sale?.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sale.dueDate), `due_date fijada por el server (${sale?.dueDate})`);
 
@@ -112,18 +115,20 @@ try {
   assert(row?.bucket === "al_dia" || row?.bucket === "por_vencer", `bucket inicial sano (${row?.bucket})`);
   assert(row?.customerName === clientName, "cliente correcto en la fila");
 
-  // 3) Cobro parcial.
+  // 3) Cobro parcial (200 del total real).
+  const PARCIAL = 200;
+  const resto = Math.round((totalReal - PARCIAL) * 100) / 100;
   const partial = await api("/api/receivables/collect", {
     method: "POST",
     body: JSON.stringify({
-      items: [{ proformaId: saleId, amount: 200 }],
+      items: [{ proformaId: saleId, amount: PARCIAL }],
       method: "cash",
       reference: "E2E parcial",
     }),
   });
   assert(partial.status === 201, `cobro parcial aceptado (HTTP ${partial.status}: ${partial.json?.error ?? "ok"})`);
   const ap = partial.json.result?.applied?.[0];
-  assert(Number(ap?.new_balance) === 390, `saldo tras parcial = 390 (real: ${ap?.new_balance})`);
+  assert(Number(ap?.new_balance) === resto, `saldo tras parcial = ${resto} (real: ${ap?.new_balance})`);
   assert(ap?.new_status === "partially_paid", `status partially_paid (real: ${ap?.new_status})`);
 
   // 3b) Sobrepago rechazado.
@@ -137,14 +142,14 @@ try {
   const rest = await api("/api/receivables/collect", {
     method: "POST",
     body: JSON.stringify({
-      items: [{ proformaId: saleId, amount: 390 }],
+      items: [{ proformaId: saleId, amount: resto }],
       method: "transfer",
       reference: "E2E final",
       bank: "Banco Prueba",
     }),
   });
   const ap2 = rest.json.result?.applied?.[0];
-  assert(rest.status === 201, `cobro final aceptado (HTTP ${rest.status})`);
+  assert(rest.status === 201, `cobro final aceptado (HTTP ${rest.status}: ${rest.json?.error ?? "ok"})`);
   assert(Number(ap2?.new_balance) === 0, `saldo final = 0 (real: ${ap2?.new_balance})`);
   assert(ap2?.new_status === "paid", `status final paid (real: ${ap2?.new_status})`);
 
@@ -152,10 +157,16 @@ try {
   const hist = await api("/api/receivables/history");
   const mine = (hist.json.rows ?? []).filter((h) => h.proformaId === saleId);
   assert(mine.length === 2, `2 cobros en historial (real: ${mine.length})`);
-  const first = mine.find((h) => h.amount === 200);
-  const second = mine.find((h) => h.amount === 390);
-  assert(first?.balanceBefore === 590 && first?.balanceAfter === 390, "parcial: 590 → 390");
-  assert(second?.balanceBefore === 390 && second?.balanceAfter === 0, "final: 390 → 0");
+  const first = mine.find((h) => h.amount === PARCIAL);
+  const second = mine.find((h) => h.amount === resto);
+  assert(
+    first?.balanceBefore === totalReal && first?.balanceAfter === resto,
+    `parcial: ${totalReal} → ${resto} (real: ${first?.balanceBefore} → ${first?.balanceAfter})`,
+  );
+  assert(
+    second?.balanceBefore === resto && second?.balanceAfter === 0,
+    `final: ${resto} → 0 (real: ${second?.balanceBefore} → ${second?.balanceAfter})`,
+  );
 
   // 6) Ya no está en pendientes.
   const pending2 = await api("/api/receivables");
