@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Plus,
@@ -33,6 +33,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
   useActiveBranches,
+  useCurrentBranch,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
 import { getProductById } from "@/lib/mock-data/catalog";
@@ -44,16 +45,20 @@ import {
   applyTransferScan,
   type TransferRow,
 } from "@/features/inventory/transfer-scan";
+import { resolveTransferPrefill } from "@/features/inventory/transfer-prefill";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import type { ProductLot } from "@/types";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function NuevaTransferenciaPage() {
+function NuevaTransferenciaContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillProductId = searchParams.get("producto");
   const toast = useToast();
   useInventoryTick();
   const branches = useActiveBranches();
+  const { branchId: currentBranchId } = useCurrentBranch();
 
   const [origin, setOrigin] = React.useState("");
   const [destination, setDestination] = React.useState("");
@@ -67,6 +72,26 @@ export default function NuevaTransferenciaPage() {
   const [cameraOpen, setCameraOpen] = React.useState(false);
   const [lastScan, setLastScan] = React.useState<{ ok: boolean; text: string } | null>(null);
   const scanInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Deep-link desde el detalle de producto (?producto=<id>): precarga origen
+  // (prefiere la sucursal actual) y el lote FEFO de ese producto. Corre una sola
+  // vez, cuando ya cargó la sucursal actual.
+  const prefilledRef = React.useRef(false);
+  React.useEffect(() => {
+    if (prefilledRef.current || !prefillProductId || !currentBranchId) return;
+    const result = resolveTransferPrefill({
+      productId: prefillProductId,
+      currentBranchId,
+      lots: listAllLots(),
+    });
+    prefilledRef.current = true;
+    if (result) {
+      setOrigin(result.originBranchId);
+      setRows([{ lotId: result.lotId, quantity: "1" }]);
+      const p = getProductById(prefillProductId);
+      if (p) setLastScan({ ok: true, text: `${p.name} · cantidad 1` });
+    }
+  }, [prefillProductId, currentBranchId]);
 
   // Lotes disponibles en la sucursal origen.
   const availableLots = React.useMemo(() => {
@@ -485,5 +510,15 @@ export default function NuevaTransferenciaPage() {
       />
       <toast.Toast />
     </>
+  );
+}
+
+export default function NuevaTransferenciaPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando…</div>}
+    >
+      <NuevaTransferenciaContent />
+    </React.Suspense>
   );
 }

@@ -29,6 +29,8 @@ import {
   listTransfers,
   useTransfersTick,
 } from "@/features/inventory/transfer-store";
+import { matchesTransferSearch } from "@/features/inventory/transfer-search";
+import { getProductById } from "@/lib/mock-data/catalog";
 
 export default function TransferenciasPage() {
   useTransfersTick();
@@ -49,18 +51,13 @@ export default function TransferenciasPage() {
   const filtered = all.filter((t) => {
     if (origin && t.originBranchId !== origin) return false;
     if (destination && t.destinationBranchId !== destination) return false;
-    if (q.trim()) {
-      const term = q.trim().toLowerCase();
-      const hay =
-        t.transferNumber.toLowerCase().includes(term) ||
-        t.createdByName.toLowerCase().includes(term) ||
-        t.items.some(
-          (i) =>
-            i.lotNumber.toLowerCase().includes(term) ||
-            i.productId.toLowerCase().includes(term),
-        );
-      if (!hay) return false;
-    }
+    if (
+      !matchesTransferSearch(t, q, (id) => {
+        const p = getProductById(id);
+        return p ? { name: p.name, barcode: p.barcode } : undefined;
+      })
+    )
+      return false;
     return true;
   });
 
@@ -82,38 +79,40 @@ export default function TransferenciasPage() {
         }
       />
 
-      <FilterBar className="mb-4">
-        <SearchInput
-          placeholder="Buscar por número, usuario, lote o producto…"
-          containerClassName="flex-1 min-w-[240px]"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <Select value={origin} onChange={(e) => setOrigin(e.target.value)}>
-          <option value="">Origen: todas</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-        >
-          <option value="">Destino: todas</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </Select>
-        {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={clear}>
-            <X className="h-4 w-4" /> Limpiar filtros
-          </Button>
-        )}
-      </FilterBar>
+      {all.length > 0 && (
+        <FilterBar className="mb-4">
+          <SearchInput
+            placeholder="Buscar por número, usuario, producto, código de barra o lote…"
+            containerClassName="flex-1 min-w-[240px]"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <Select value={origin} onChange={(e) => setOrigin(e.target.value)}>
+            <option value="">Origen: todas</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+          >
+            <option value="">Destino: todas</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </Select>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clear}>
+              <X className="h-4 w-4" /> Limpiar filtros
+            </Button>
+          )}
+        </FilterBar>
+      )}
 
       <Card>
         <CardContent className="p-0">

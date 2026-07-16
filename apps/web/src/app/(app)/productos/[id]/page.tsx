@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   PackagePlus,
   SlidersHorizontal,
   History,
@@ -196,7 +197,7 @@ export default function ProductDetailPage() {
       />
 
       {/* Acciones rápidas */}
-      <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
         <QuickAction
           icon={PackagePlus}
           label="Agregar stock"
@@ -209,6 +210,11 @@ export default function ProductDetailPage() {
             if (firstAdjustable) setAdjustLot(firstAdjustable);
             else toast.success("Agrega un lote antes de ajustar stock.");
           }}
+        />
+        <QuickAction
+          icon={ArrowRightLeft}
+          label="Transferir"
+          href={`/inventario/transferencias/nueva?producto=${product.id}`}
         />
         <QuickAction
           icon={History}
