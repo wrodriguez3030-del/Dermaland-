@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.78.0] - 2026-07-16
+
+**Escanear código de barra en Nueva Transferencia** (`/inventario/transferencias/nueva`).
+
+- Nueva barra "Escanear producto" (visible al elegir sucursal origen): campo con
+  foco para lector USB/físico (Enter procesa) + botón "Escanear con cámara"
+  (`BarcodeScanModal`, celular). Reutiliza la infraestructura de escaneo del
+  módulo de Inventario físico (`useBarcodeScanner`, `findProductByCode`).
+- Al escanear se resuelve el producto por `barcode`/`SKU`, se elige el lote con
+  **vencimiento más próximo (FEFO)** con stock en el origen y se suma **+1**
+  (campo de cantidad editable; el lote se puede cambiar en la fila).
+- Lógica pura y testeada `features/inventory/transfer-scan.ts`
+  (`applyTransferScan`) con 9 pruebas unitarias; casos: sin origen, código
+  desconocido, sin stock en origen, FEFO en fila vacía, incremento, tope de
+  stock, match por SKU. Suite completa 1749/1749 en verde.
+- Sin migraciones ni cambios de backend; `createTransfer` intacto.
+- Doc: `docs/superpowers/specs/2026-07-16-transferencias-escaneo-codigo-barra-design.md`
+  y `docs/superpowers/plans/2026-07-16-transferencias-escaneo-barcode.md`.
+
 ## [0.77.0] - 2026-07-14
 
 **Nuevo módulo: Cuentas por Cobrar** (`/cuentas-por-cobrar`, menú bajo Ventas).
