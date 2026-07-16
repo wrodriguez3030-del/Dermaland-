@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.80.0] - 2026-07-16
+
+**Transferencias entre sucursales conectadas a Supabase (datos reales + stock atomico).**
+
+Antes TODO el modulo de transferencias vivia en mock/localStorage: mostraba datos
+demo (no el inventario real) y "mover stock" no movia nada real. Ahora usa la base
+compartida y mueve stock de verdad.
+
+- **RPC atomico** `transfer_stock_atomic` (mig `0032`, replica de `emit_sale_atomic`,
+  SECURITY INVOKER, tenant de `auth_business_id()`): descuenta el lote origen con
+  guarda de stock, crea/suma el lote destino (upsert por lote+almacen conservando
+  vencimiento), registra `inventory_transfers` + items + 2 movimientos
+  `transfer_out`/`transfer_in`. Todo en una transaccion; si falta stock, rollback total.
+- **Tablas** `inventory_transfers`/`inventory_transfer_items` (mig `0010`) — estaban
+  en el repo pero nunca se habian aplicado a prod; ya creadas con RLS por negocio.
+- **Backend:** repositorio `supabase/transfers.ts` + rutas `/api/transfers` (GET/POST)
+  y `/api/transfers/[id]`; resuelve almacen real, genera numero secuencial, ensambla
+  sucursal/usuario/lote.
+- **Cliente:** `TRANSFER_BACKEND`, `submitTransfer`, `useTransfers`/`useTransfer`
+  (gate supabase/local). Nueva/lista/detalle leen lotes y productos REALES
+  (`useAllLots`/`useProducts`); escaneo, busqueda y prellenado sobre inventario real.
+- Helper puro testeable `buildTransferPayload`. e2e en vivo `transfer-atomic-test.mjs`
+  10/10 contra prod. typecheck 0, tests 1767/1767.
+
 ## [0.79.0] - 2026-07-16
 
 **Transferencias más fáciles** (mejoras de UX pedidas por el usuario).
