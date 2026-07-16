@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.79.0] - 2026-07-16
+
+**Transferencias más fáciles** (mejoras de UX pedidas por el usuario).
+
+- **Lista** (`/inventario/transferencias`): la búsqueda ahora encuentra por **nombre**
+  y **código de barra** del producto (antes solo por `productId` interno → "RADIOCARE"
+  no encontraba nada), además de número, usuario y lote. Función pura testeable
+  `features/inventory/transfer-search.ts`.
+- **Lista vacía sin ruido:** cuando aún no hay transferencias, se ocultan el buscador y
+  los filtros; solo se ve el botón "Nueva transferencia" y el mensaje vacío.
+- **Detalle de producto** (`/productos/[id]`): nuevo botón de acción rápida **"Transferir"**
+  que abre Nueva Transferencia con el producto ya cargado — origen = una sucursal con stock
+  (prioriza la actual), lote FEFO precargado; solo eliges destino y cantidad. Lógica de
+  selección de origen `features/inventory/transfer-prefill.ts` (pura + test).
+- **Nueva Transferencia**: lee el deep-link `?producto=<id>`; contenido envuelto en
+  `Suspense` por `useSearchParams`.
+- Sin migraciones ni cambios de backend. typecheck 0, tests 1763/1763.
+- Doc: `docs/superpowers/specs/2026-07-16-transferencias-ux-mejoras-design.md`.
+
 ## [0.78.0] - 2026-07-16
 
 **Escanear código de barra en Nueva Transferencia** (`/inventario/transferencias/nueva`).
