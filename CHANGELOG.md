@@ -11,6 +11,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.80.2] - 2026-07-16
+
+**Migraciones pendientes aplicadas a prod + verificación de Compras.**
+
+Auditoría reveló que el historial de migraciones de Supabase estaba incompleto y que
+3 migraciones nunca se habían aplicado a prod. Aplicadas por MCP (aditivas/idempotentes,
+sin borrar datos):
+
+- **0012_purchases** → 7 tablas del módulo **Compras** (`suppliers`, `supplier_invoices`,
+  `supplier_invoice_items`, `expenses`, `expense_categories`, `recurring_expenses`,
+  `recurring_expense_runs`).
+- **0013_pos_favorites_line_discount** → `pos_product_favorites` + columnas de descuento
+  por línea en `proforma_items`.
+- **0014_billing_settings_ecf** → `billing_settings`, `cash_closing_ecf_items`, `dgii_logs`
+  + columnas `ecf_*` en `cash_closings`. Arranca `real_emission_enabled=false`/`mock` →
+  NO activa emisión fiscal.
+
+Resultado: 0 tablas del repo faltantes en la BD. El módulo Compras ya estaba cableado a
+Supabase (`PURCHASES_BACKEND` + rutas `/api/*`); solo le faltaban las tablas. **Verificado
+end-to-end 10/10** con `scripts/test/purchases-e2e-test.mjs` (CRUD proveedor/factura/gasto/
+recurrente + aislamiento RLS lectura y escritura entre negocios).
+
 ## [0.80.1] - 2026-07-16
 
 **Fix Nueva Transferencia: por producto, solo sus lotes (y el prellenado ya funciona).**
