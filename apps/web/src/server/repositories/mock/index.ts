@@ -19,6 +19,7 @@ import type {
   DgiiRepository,
   InventoryCountRepository,
   InventoryMovementRepository,
+  InventoryTransferRepository,
   LaboratoryRepository,
   PlanRepository,
   ProductLotRepository,
@@ -556,6 +557,21 @@ const inventoryMovement: InventoryMovementRepository = {
   },
   async create() {
     throw new Error("create() requiere backend Supabase");
+  },
+};
+
+// Transferencias: en modo mock el flujo vive en el store cliente
+// (`features/inventory/transfer-store.ts`, localStorage); el repo no se usa
+// (la ruta /api/transfers responde 409 fuera de Supabase). Stubs mínimos.
+const inventoryTransfer: InventoryTransferRepository = {
+  async list() {
+    return [];
+  },
+  async byId() {
+    return null;
+  },
+  async create() {
+    throw new Error("inventoryTransfer.create requiere backend Supabase");
   },
 };
 
@@ -1443,6 +1459,7 @@ export const mockRepositories: Repositories = {
   product,
   productLot,
   inventoryMovement,
+  inventoryTransfer,
   inventoryCount,
   customer,
   proforma,

@@ -18,28 +18,27 @@ import {
   TD,
 } from "@/components/ui";
 import { resolveBranchName } from "@/features/tenancy/branch-store";
-import { getProductById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
-import {
-  getTransfer,
-  useTransfersTick,
-} from "@/features/inventory/transfer-store";
-import type { Transfer } from "@/features/inventory/transfer-store";
+import { useTransfer } from "@/features/inventory/transfer-store";
 
 
 export default function TransferDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
-  useTransfersTick();
+  const { transfer, loading } = useTransfer(id);
+  const products = useProducts();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
 
   const [mounted, setMounted] = React.useState(false);
-  const [transfer, setTransfer] = React.useState<Transfer | undefined>();
   React.useEffect(() => {
     setMounted(true);
-    setTransfer(getTransfer(id));
-  }, [id]);
+  }, []);
 
-  if (!mounted) {
+  if (!mounted || loading) {
     return (
       <div className="mx-auto max-w-3xl p-6 text-center text-sm opacity-70">
         Cargando transferencia…
@@ -167,7 +166,7 @@ export default function TransferDetailPage() {
             </THead>
             <TBody>
               {transfer.items.map((it) => {
-                const p = getProductById(it.productId);
+                const p = productById.get(it.productId);
                 return (
                   <TR key={it.id}>
                     <TD>

@@ -65,6 +65,7 @@ import type {
   CreateRecurringInput,
 } from "@/features/purchases/compras-store";
 import type { GlobalSearchResults } from "@/features/search/search-types";
+import type { Transfer, CreateTransferInput } from "@/features/inventory/transfer-store";
 
 // ─── Suppliers / ExpenseCategories ──────────────────────────────────────────
 
@@ -232,6 +233,15 @@ export interface ProductLotRepository {
 export interface InventoryMovementRepository {
   list(ctx: RepoContext, opts?: { productId?: ID; lotId?: ID; limit?: number }): Promise<InventoryMovement[]>;
   create(ctx: RepoContext, movement: Omit<InventoryMovement, "id" | "createdAt">): Promise<InventoryMovement>;
+}
+
+// ─── Inventory transfers ────────────────────────────────────────────────────
+
+export interface InventoryTransferRepository {
+  list(ctx: RepoContext): Promise<Transfer[]>;
+  byId(ctx: RepoContext, id: ID): Promise<Transfer | null>;
+  /** Mueve stock real entre sucursales de forma atómica (RPC transfer_stock_atomic). */
+  create(ctx: RepoContext, input: CreateTransferInput): Promise<Transfer>;
 }
 
 // ─── Inventory counts (Phase 2.1) ───────────────────────────────────────────
@@ -562,6 +572,7 @@ export interface Repositories {
   product: ProductRepository;
   productLot: ProductLotRepository;
   inventoryMovement: InventoryMovementRepository;
+  inventoryTransfer: InventoryTransferRepository;
   inventoryCount: InventoryCountRepository;
   customer: CustomerRepository;
   proforma: ProformaRepository;

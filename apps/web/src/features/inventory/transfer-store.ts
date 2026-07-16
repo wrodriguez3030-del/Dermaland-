@@ -21,6 +21,14 @@ const KEY_TRANSFERS = "dermaland.transfers";
 const CHANGE_EVENT = "dermaland:transfers-changed";
 const ACTOR = { userId: "usr_cashier_1", userName: "Rosa Peralta" };
 
+/**
+ * Backend de transferencias. En "supabase" el flujo real vive en el server
+ * (RPC `transfer_stock_atomic` vía `/api/transfers`) y mueve stock REAL; en
+ * "local" es el MVP mock/localStorage.
+ */
+export const TRANSFER_BACKEND: "local" | "supabase" =
+  process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase" ? "supabase" : "local";
+
 export interface TransferItemDraft {
   lotId: string;
   productId: string;
@@ -210,6 +218,133 @@ export function createTransfer(input: CreateTransferInput): CreateTransferResult
 
 export function clearLocalTransfers(): void {
   safeWrite(KEY_TRANSFERS, []);
+}
+
+// ─── Backend Supabase (datos reales) ──────────────────────────────────────────
+
+/** POST /api/transfers → crea la transferencia real (RPC atómico). */
+export async function createTransferOnServer(
+  input: CreateTransferInput,
+): Promise<CreateTransferResult> {
+  try {
+    const res = await fetch("/api/transfers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const json = await res.json().catch(() => ({}) as Record<string, unknown>);
+    if (!res.ok) {
+      return {
+        ok: false,
+        error:
+          (json as { error?: string }).error ??
+          "No se pudo crear la transferencia.",
+      };
+    }
+    return { ok: true, transfer: (json as { transfer: Transfer }).transfer };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Error de red al crear la transferencia.",
+    };
+  }
+}
+
+/** Crea una transferencia usando el backend activo (supabase real o local). */
+export async function submitTransfer(
+  input: CreateTransferInput,
+): Promise<CreateTransferResult> {
+  if (TRANSFER_BACKEND === "supabase") return createTransferOnServer(input);
+  return createTransfer(input);
+}
+
+export async function fetchTransfersFromServer(): Promise<Transfer[]> {
+  const res = await fetch("/api/transfers", {
+    headers: { "Cache-Control": "no-store" },
+  });
+  if (!res.ok) throw new Error("No se pudieron cargar las transferencias.");
+  const json = (await res.json()) as { transfers?: Transfer[] };
+  return json.transfers ?? [];
+}
+
+export async function fetchTransferFromServer(id: string): Promise<Transfer | null> {
+  const res = await fetch(`/api/transfers/${id}`, {
+    headers: { "Cache-Control": "no-store" },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("No se pudo cargar la transferencia.");
+  const json = (await res.json()) as { transfer?: Transfer };
+  return json.transfer ?? null;
+}
+
+/** Lista de transferencias (real en supabase, localStorage en local). */
+export function useTransfers(): { transfers: Transfer[]; loading: boolean } {
+  const [transfers, setTransfers] = React.useState<Transfer[]>(() =>
+    TRANSFER_BACKEND === "supabase" ? [] : listTransfers(),
+  );
+  const [loading, setLoading] = React.useState(TRANSFER_BACKEND === "supabase");
+  React.useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      if (TRANSFER_BACKEND === "supabase") {
+        fetchTransfersFromServer()
+          .then((t) => {
+            if (alive) {
+              setTransfers(t);
+              setLoading(false);
+            }
+          })
+          .catch(() => {
+            if (alive) setLoading(false);
+          });
+      } else {
+        setTransfers(listTransfers());
+      }
+    };
+    window.addEventListener(CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, []);
+  return { transfers, loading };
+}
+
+/** Una transferencia por id (real en supabase, localStorage en local). */
+export function useTransfer(id: string): { transfer: Transfer | undefined; loading: boolean } {
+  const [transfer, setTransfer] = React.useState<Transfer | undefined>(() =>
+    TRANSFER_BACKEND === "supabase" ? undefined : getTransfer(id),
+  );
+  const [loading, setLoading] = React.useState(TRANSFER_BACKEND === "supabase");
+  React.useEffect(() => {
+    let alive = true;
+    if (TRANSFER_BACKEND === "supabase") {
+      setLoading(true);
+      fetchTransferFromServer(id)
+        .then((t) => {
+          if (alive) {
+            setTransfer(t ?? undefined);
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          if (alive) setLoading(false);
+        });
+      return () => {
+        alive = false;
+      };
+    }
+    const refresh = () => setTransfer(getTransfer(id));
+    window.addEventListener(CHANGE_EVENT, refresh);
+    refresh();
+    return () => {
+      window.removeEventListener(CHANGE_EVENT, refresh);
+    };
+  }, [id]);
+  return { transfer, loading };
 }
 
 export function useTransfersTick(): number {

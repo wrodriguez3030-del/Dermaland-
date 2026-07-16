@@ -36,11 +36,10 @@ import {
   useCurrentBranch,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
-import { getProductById } from "@/lib/mock-data/catalog";
 import { formatDate } from "@/lib/utils/format";
-import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
-import { createTransfer } from "@/features/inventory/transfer-store";
-import { listAllProducts } from "@/features/products/product-store";
+import { useAllLots } from "@/features/inventory/lot-store";
+import { submitTransfer } from "@/features/inventory/transfer-store";
+import { useProducts } from "@/features/products/product-store";
 import {
   applyTransferScan,
   type TransferRow,
@@ -56,9 +55,14 @@ function NuevaTransferenciaContent() {
   const searchParams = useSearchParams();
   const prefillProductId = searchParams.get("producto");
   const toast = useToast();
-  useInventoryTick();
   const branches = useActiveBranches();
   const { branchId: currentBranchId } = useCurrentBranch();
+  const products = useProducts();
+  const allLots = useAllLots();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
 
   const [origin, setOrigin] = React.useState("");
   const [destination, setDestination] = React.useState("");
@@ -69,6 +73,7 @@ function NuevaTransferenciaContent() {
   const [error, setError] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState(false);
   const [scanValue, setScanValue] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
   const [cameraOpen, setCameraOpen] = React.useState(false);
   const [lastScan, setLastScan] = React.useState<{ ok: boolean; text: string } | null>(null);
   const scanInputRef = React.useRef<HTMLInputElement>(null);
@@ -79,27 +84,28 @@ function NuevaTransferenciaContent() {
   const prefilledRef = React.useRef(false);
   React.useEffect(() => {
     if (prefilledRef.current || !prefillProductId || !currentBranchId) return;
+    if (allLots.length === 0) return; // esperar a que carguen los lotes reales
     const result = resolveTransferPrefill({
       productId: prefillProductId,
       currentBranchId,
-      lots: listAllLots(),
+      lots: allLots,
     });
     prefilledRef.current = true;
     if (result) {
       setOrigin(result.originBranchId);
       setRows([{ lotId: result.lotId, quantity: "1" }]);
-      const p = getProductById(prefillProductId);
+      const p = productById.get(prefillProductId);
       if (p) setLastScan({ ok: true, text: `${p.name} · cantidad 1` });
     }
-  }, [prefillProductId, currentBranchId]);
+  }, [prefillProductId, currentBranchId, allLots, productById]);
 
-  // Lotes disponibles en la sucursal origen.
+  // Lotes disponibles en la sucursal origen (inventario real).
   const availableLots = React.useMemo(() => {
     if (!origin) return [] as ProductLot[];
-    return listAllLots().filter(
+    return allLots.filter(
       (l) => l.branchId === origin && l.status === "available" && l.currentQuantity > 0,
     );
-  }, [origin]);
+  }, [origin, allLots]);
 
   const lotById = (id: string) => availableLots.find((l) => l.id === id);
 
@@ -117,7 +123,7 @@ function NuevaTransferenciaContent() {
       originSelected: !!origin,
       rows,
       availableLots,
-      products: listAllProducts(),
+      products,
     });
     switch (outcome.result) {
       case "empty":
@@ -190,14 +196,17 @@ function NuevaTransferenciaContent() {
     setConfirm(true);
   };
 
-  const doGuardar = () => {
+  const doGuardar = async () => {
+    if (saving) return;
+    setConfirm(false);
     const items = rows
       .filter((r) => r.lotId && Number(r.quantity) > 0)
       .map((r) => {
         const lot = lotById(r.lotId)!;
         return { lotId: r.lotId, productId: lot.productId, quantity: Number(r.quantity) };
       });
-    const res = createTransfer({
+    setSaving(true);
+    const res = await submitTransfer({
       originBranchId: origin,
       destinationBranchId: destination,
       transferDate: date,
@@ -205,7 +214,7 @@ function NuevaTransferenciaContent() {
       items,
       createdByName: responsible,
     });
-    setConfirm(false);
+    setSaving(false);
     if (!res.ok) {
       setError(res.error);
       return;
@@ -403,7 +412,7 @@ function NuevaTransferenciaContent() {
               <TBody>
                 {rows.map((row, i) => {
                   const lot = lotById(row.lotId);
-                  const product = lot ? getProductById(lot.productId) : undefined;
+                  const product = lot ? productById.get(lot.productId) : undefined;
                   const over =
                     lot != null && Number(row.quantity) > lot.currentQuantity;
                   return (
@@ -415,7 +424,7 @@ function NuevaTransferenciaContent() {
                         >
                           <option value="">— Selecciona producto / lote —</option>
                           {availableLots.map((l) => {
-                            const p = getProductById(l.productId);
+                            const p = productById.get(l.productId);
                             return (
                               <option key={l.id} value={l.id}>
                                 {p?.name ?? "Producto no encontrado"} · {p?.sku} · lote{" "}
@@ -480,8 +489,9 @@ function NuevaTransferenciaContent() {
               Cancelar
             </Button>
           </Link>
-          <Button size="sm" onClick={tryGuardar}>
-            <ArrowRightLeft className="h-4 w-4" /> Guardar transferencia
+          <Button size="sm" onClick={tryGuardar} disabled={saving}>
+            <ArrowRightLeft className="h-4 w-4" />{" "}
+            {saving ? "Guardando…" : "Guardar transferencia"}
           </Button>
         </div>
       </div>

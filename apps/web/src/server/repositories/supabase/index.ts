@@ -34,6 +34,7 @@ import { customerRepository } from "./customer";
 import { dgiiRepository } from "./dgii";
 import { inventoryMovementRepository } from "./inventory";
 import { inventoryCountRepository } from "./inventory-counts";
+import { inventoryTransferRepository } from "./transfers";
 import { productLotRepository, productRepository } from "./product";
 import {
   cashRegisterRepository,
@@ -68,6 +69,7 @@ export const supabaseRepositories: Repositories = {
   product: productRepository,
   productLot: productLotRepository,
   inventoryMovement: inventoryMovementRepository,
+  inventoryTransfer: inventoryTransferRepository,
   // Conteo físico — Fase 1 (lectura) implementada en `./inventory-counts.ts`:
   // list/byId/items/scans reales sobre Supabase. Las escrituras (recordScan,
   // submit, approve, reject) llegan en la Fase 3 y por ahora rechazan con un

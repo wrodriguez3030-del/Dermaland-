@@ -25,17 +25,18 @@ import {
   useActiveBranches,
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
-import {
-  listTransfers,
-  useTransfersTick,
-} from "@/features/inventory/transfer-store";
+import { useTransfers } from "@/features/inventory/transfer-store";
 import { matchesTransferSearch } from "@/features/inventory/transfer-search";
-import { getProductById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
 
 export default function TransferenciasPage() {
-  useTransfersTick();
   const branches = useActiveBranches();
-  const all = listTransfers();
+  const { transfers: all, loading } = useTransfers();
+  const products = useProducts();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
 
   const [q, setQ] = React.useState("");
   const [origin, setOrigin] = React.useState("");
@@ -53,7 +54,7 @@ export default function TransferenciasPage() {
     if (destination && t.destinationBranchId !== destination) return false;
     if (
       !matchesTransferSearch(t, q, (id) => {
-        const p = getProductById(id);
+        const p = productById.get(id);
         return p ? { name: p.name, barcode: p.barcode } : undefined;
       })
     )
@@ -134,23 +135,29 @@ export default function TransferenciasPage() {
                 <TR>
                   <TD colSpan={8}>
                     <div className="py-12 text-center">
-                      <ArrowRightLeft className="mx-auto mb-2 h-8 w-8 opacity-30" />
-                      <p className="text-sm font-medium">
-                        {all.length === 0
-                          ? "Aún no hay transferencias."
-                          : "Ninguna transferencia coincide con los filtros."}
-                      </p>
-                      <p className="mt-1 text-xs opacity-60">
-                        {all.length === 0
-                          ? "Crea la primera con “Nueva transferencia”."
-                          : "Ajusta o limpia los filtros."}
-                      </p>
-                      {all.length === 0 && (
-                        <Link href="/inventario/transferencias/nueva">
-                          <Button size="sm" className="mt-3">
-                            <Plus className="h-4 w-4" /> Nueva transferencia
-                          </Button>
-                        </Link>
+                      {loading ? (
+                        <p className="text-sm opacity-60">Cargando transferencias…</p>
+                      ) : (
+                        <>
+                          <ArrowRightLeft className="mx-auto mb-2 h-8 w-8 opacity-30" />
+                          <p className="text-sm font-medium">
+                            {all.length === 0
+                              ? "Aún no hay transferencias."
+                              : "Ninguna transferencia coincide con los filtros."}
+                          </p>
+                          <p className="mt-1 text-xs opacity-60">
+                            {all.length === 0
+                              ? "Crea la primera con “Nueva transferencia”."
+                              : "Ajusta o limpia los filtros."}
+                          </p>
+                          {all.length === 0 && (
+                            <Link href="/inventario/transferencias/nueva">
+                              <Button size="sm" className="mt-3">
+                                <Plus className="h-4 w-4" /> Nueva transferencia
+                              </Button>
+                            </Link>
+                          )}
+                        </>
                       )}
                     </div>
                   </TD>
