@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.80.1] - 2026-07-16
+
+**Fix Nueva Transferencia: por producto, solo sus lotes (y el prellenado ya funciona).**
+
+Causa raíz: la página cargaba TODOS los lotes con `useAllLots()`, pero `productLot.list`
+sin `productId` no ponía `.limit()` y PostgREST **corta en 1000 filas** (hay 1369 lotes) →
+(a) el prellenado desde "Transferir" a veces no encontraba los lotes del producto (quedaban
+fuera de las 1000) y pedía buscar de nuevo; (b) el dropdown mostraba los lotes de TODOS los
+productos.
+
+- La página ahora trabaja **por producto**: cada línea es un producto con su lote, y su
+  dropdown muestra **solo los lotes de ese producto** en el origen. Los lotes se cargan por
+  `productId` (`/api/lots?productId=`, nunca capado).
+- El botón "Transferir" del producto ahora precarga bien (origen + lote FEFO) sin pedir buscar
+  otra vez. Agregar productos: escanear código, o **buscar por nombre** con sugerencias.
+- Helper puro `addProductLine` (`transfer-lines.ts`, +5 tests); se retira `transfer-scan.ts`.
+- typecheck 0, tests 1763/1763. (Nota: el tope de 1000 en `productLot.list` sigue latente para
+  otros consumidores de `useAllLots` — pendiente paginar como en productos.)
+
 ## [0.80.0] - 2026-07-16
 
 **Transferencias entre sucursales conectadas a Supabase (datos reales + stock atomico).**

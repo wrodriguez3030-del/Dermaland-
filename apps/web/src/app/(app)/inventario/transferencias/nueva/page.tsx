@@ -37,18 +37,35 @@ import {
   resolveBranchName,
 } from "@/features/tenancy/branch-store";
 import { formatDate } from "@/lib/utils/format";
-import { useAllLots } from "@/features/inventory/lot-store";
+import {
+  LOT_BACKEND,
+  fetchLotsFromServer,
+  listLotsByProduct,
+} from "@/features/inventory/lot-store";
 import { submitTransfer } from "@/features/inventory/transfer-store";
 import { useProducts } from "@/features/products/product-store";
-import {
-  applyTransferScan,
-  type TransferRow,
-} from "@/features/inventory/transfer-scan";
+import { findProductByCode } from "@/features/inventory-counts/scan-session-store";
 import { resolveTransferPrefill } from "@/features/inventory/transfer-prefill";
+import { addProductLine, type TransferLine } from "@/features/inventory/transfer-lines";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import type { ProductLot } from "@/types";
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** Lotes de UN producto (por productId, nunca capado) filtrados al origen. */
+async function fetchProductLots(productId: string): Promise<ProductLot[]> {
+  return LOT_BACKEND === "supabase"
+    ? fetchLotsFromServer(productId)
+    : listLotsByProduct(productId);
+}
+function scopeToOrigin(lots: ProductLot[], originBranchId: string): ProductLot[] {
+  return lots.filter(
+    (l) =>
+      l.branchId === originBranchId &&
+      l.status === "available" &&
+      l.currentQuantity > 0,
+  );
+}
 
 function NuevaTransferenciaContent() {
   const router = useRouter();
@@ -58,7 +75,6 @@ function NuevaTransferenciaContent() {
   const branches = useActiveBranches();
   const { branchId: currentBranchId } = useCurrentBranch();
   const products = useProducts();
-  const allLots = useAllLots();
   const productById = React.useMemo(
     () => new Map(products.map((p) => [p.id, p])),
     [products],
@@ -69,104 +85,144 @@ function NuevaTransferenciaContent() {
   const [date, setDate] = React.useState(today());
   const [notes, setNotes] = React.useState("");
   const [responsible, setResponsible] = React.useState("Rosa Peralta");
-  const [rows, setRows] = React.useState<TransferRow[]>([{ lotId: "", quantity: "" }]);
+  const [lines, setLines] = React.useState<TransferLine[]>([]);
+  // Lotes por producto (ya filtrados al origen). Se limpia al cambiar de origen.
+  const [lotsByProduct, setLotsByProduct] = React.useState<Record<string, ProductLot[]>>({});
   const [error, setError] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState(false);
-  const [scanValue, setScanValue] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [scanValue, setScanValue] = React.useState("");
+  const [search, setSearch] = React.useState("");
   const [cameraOpen, setCameraOpen] = React.useState(false);
   const [lastScan, setLastScan] = React.useState<{ ok: boolean; text: string } | null>(null);
   const scanInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Deep-link desde el detalle de producto (?producto=<id>): precarga origen
-  // (prefiere la sucursal actual) y el lote FEFO de ese producto. Corre una sola
-  // vez, cuando ya cargó la sucursal actual.
-  const prefilledRef = React.useRef(false);
-  React.useEffect(() => {
-    if (prefilledRef.current || !prefillProductId || !currentBranchId) return;
-    if (allLots.length === 0) return; // esperar a que carguen los lotes reales
-    const result = resolveTransferPrefill({
-      productId: prefillProductId,
-      currentBranchId,
-      lots: allLots,
-    });
-    prefilledRef.current = true;
-    if (result) {
-      setOrigin(result.originBranchId);
-      setRows([{ lotId: result.lotId, quantity: "1" }]);
-      const p = productById.get(prefillProductId);
-      if (p) setLastScan({ ok: true, text: `${p.name} · cantidad 1` });
-    }
-  }, [prefillProductId, currentBranchId, allLots, productById]);
+  const lotsFor = React.useCallback(
+    (productId: string) => lotsByProduct[productId] ?? [],
+    [lotsByProduct],
+  );
 
-  // Lotes disponibles en la sucursal origen (inventario real).
-  const availableLots = React.useMemo(() => {
-    if (!origin) return [] as ProductLot[];
-    return allLots.filter(
-      (l) => l.branchId === origin && l.status === "available" && l.currentQuantity > 0,
-    );
-  }, [origin, allLots]);
-
-  const lotById = (id: string) => availableLots.find((l) => l.id === id);
-
-  const total = rows.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
-
-  const addRow = () => setRows((r) => [...r, { lotId: "", quantity: "" }]);
-  const removeRow = (i: number) =>
-    setRows((r) => (r.length === 1 ? r : r.filter((_, ix) => ix !== i)));
-  const setRow = (i: number, patch: Partial<TransferRow>) =>
-    setRows((r) => r.map((row, ix) => (ix === i ? { ...row, ...patch } : row)));
-
-  const handleScan = (raw: string) => {
-    const outcome = applyTransferScan({
-      code: raw,
-      originSelected: !!origin,
-      rows,
-      availableLots,
-      products,
-    });
-    switch (outcome.result) {
-      case "empty":
-        break;
-      case "no_origin":
-        toast.error("Selecciona primero la sucursal origen.");
-        break;
-      case "not_found":
-        setLastScan({ ok: false, text: `Código ${outcome.code} no encontrado.` });
-        toast.error(`Código ${outcome.code} no encontrado.`);
-        break;
-      case "no_stock":
-        setLastScan({
-          ok: false,
-          text: `${outcome.product.name} no tiene stock en la sucursal origen.`,
-        });
-        toast.error(`${outcome.product.name} no tiene stock en la sucursal origen.`);
-        break;
-      case "at_max":
-        setRows(outcome.rows);
-        setLastScan({
-          ok: true,
-          text: `${outcome.product.name} · máximo del lote (${outcome.quantity}).`,
-        });
-        toast.show(`Alcanzaste el stock disponible del lote (${outcome.quantity}).`, "info");
-        break;
-      case "added":
-      case "incremented":
-        setRows(outcome.rows);
-        setLastScan({
-          ok: true,
-          text: `${outcome.product.name} · cantidad ${outcome.quantity}`,
-        });
-        break;
-    }
+  // Cambio de origen por el usuario: reinicia líneas y caché de lotes.
+  const changeOrigin = (value: string) => {
+    setOrigin(value);
+    setLines([]);
+    setLotsByProduct({});
+    setLastScan(null);
+    setError(null);
   };
+
+  // Agrega (o incrementa) un producto: carga sus lotes en el origen si hace falta.
+  const addProduct = React.useCallback(
+    async (product: { id: string; name: string }) => {
+      if (!origin) {
+        toast.error("Selecciona primero la sucursal origen.");
+        return;
+      }
+      let lots = lotsByProduct[product.id];
+      if (!lots) {
+        lots = scopeToOrigin(await fetchProductLots(product.id), origin);
+        setLotsByProduct((prev) => ({ ...prev, [product.id]: lots! }));
+      }
+      const outcome = addProductLine({ lines, product, lots });
+      if (outcome.result === "no_stock") {
+        setLastScan({ ok: false, text: `${product.name} no tiene stock en la sucursal origen.` });
+        toast.error(`${product.name} no tiene stock en la sucursal origen.`);
+        return;
+      }
+      setLines(outcome.lines);
+      if (outcome.result === "at_max") {
+        setLastScan({ ok: true, text: `${product.name} · máximo del lote (${outcome.quantity}).` });
+        toast.show(`Alcanzaste el stock disponible del lote (${outcome.quantity}).`, "info");
+      } else {
+        setLastScan({ ok: true, text: `${product.name} · cantidad ${outcome.quantity}` });
+      }
+    },
+    [origin, lines, lotsByProduct, toast],
+  );
+
+  const handleScanCode = React.useCallback(
+    async (raw: string) => {
+      const code = raw.trim();
+      if (!code) return;
+      if (!origin) {
+        toast.error("Selecciona primero la sucursal origen.");
+        return;
+      }
+      const product = findProductByCode(products, code);
+      if (!product) {
+        setLastScan({ ok: false, text: `Código ${code} no encontrado.` });
+        toast.error(`Código ${code} no encontrado.`);
+        return;
+      }
+      await addProduct({ id: product.id, name: product.name });
+    },
+    [origin, products, addProduct, toast],
+  );
 
   const submitScanInput = () => {
     const raw = scanValue.trim();
     setScanValue("");
-    handleScan(raw);
+    void handleScanCode(raw);
     scanInputRef.current?.focus();
   };
+
+  // Sugerencias de búsqueda por nombre / SKU / código de barra.
+  const suggestions = React.useMemo(() => {
+    const t = search.trim().toLowerCase();
+    if (!t) return [];
+    return products
+      .filter(
+        (p) =>
+          p.name.toLowerCase().includes(t) ||
+          p.sku.toLowerCase().includes(t) ||
+          (p.barcode ?? "").includes(search.trim()),
+      )
+      .slice(0, 8);
+  }, [search, products]);
+
+  // Deep-link desde el detalle de producto (?producto=<id>): elige origen (prefiere
+  // la sucursal actual) y precarga el lote FEFO de ESE producto. Corre una vez.
+  const prefilledRef = React.useRef(false);
+  React.useEffect(() => {
+    if (prefilledRef.current || !prefillProductId || !currentBranchId) return;
+    const product = productById.get(prefillProductId);
+    if (!product) return; // esperar a que carguen los productos
+    prefilledRef.current = true;
+    void (async () => {
+      const productLots = await fetchProductLots(prefillProductId);
+      const result = resolveTransferPrefill({
+        productId: prefillProductId,
+        currentBranchId,
+        lots: productLots,
+      });
+      if (!result) {
+        setLastScan({
+          ok: false,
+          text: `${product.name} no tiene stock disponible en ninguna sucursal.`,
+        });
+        return;
+      }
+      const scoped = scopeToOrigin(productLots, result.originBranchId);
+      setOrigin(result.originBranchId);
+      setLotsByProduct({ [prefillProductId]: scoped });
+      setLines([
+        {
+          productId: prefillProductId,
+          productName: product.name,
+          lotId: result.lotId,
+          quantity: "1",
+        },
+      ]);
+      setLastScan({ ok: true, text: `${product.name} · cantidad 1` });
+    })();
+  }, [prefillProductId, currentBranchId, productById]);
+
+  const setLine = (i: number, patch: Partial<TransferLine>) =>
+    setLines((prev) => prev.map((l, ix) => (ix === i ? { ...l, ...patch } : l)));
+  const removeLine = (i: number) =>
+    setLines((prev) => prev.filter((_, ix) => ix !== i));
+
+  const total = lines.reduce((s, l) => s + (Number(l.quantity) || 0), 0);
 
   const validateLocal = (): string | null => {
     if (!origin) return "Selecciona la sucursal origen.";
@@ -174,13 +230,13 @@ function NuevaTransferenciaContent() {
     if (origin === destination)
       return "La sucursal origen y destino no pueden ser iguales.";
     if (!date) return "Indica la fecha.";
-    const valid = rows.filter((r) => r.lotId && Number(r.quantity) > 0);
+    const valid = lines.filter((l) => l.lotId && Number(l.quantity) > 0);
     if (valid.length === 0) return "Agrega al menos un producto con cantidad.";
-    for (const r of valid) {
-      const lot = lotById(r.lotId);
-      if (!lot) return "Uno de los lotes ya no está disponible.";
-      if (Number(r.quantity) > lot.currentQuantity) {
-        return "La cantidad a transferir supera el stock disponible.";
+    for (const l of valid) {
+      const lot = lotsFor(l.productId).find((x) => x.id === l.lotId);
+      if (!lot) return `El lote de ${l.productName} ya no está disponible.`;
+      if (Number(l.quantity) > lot.currentQuantity) {
+        return `La cantidad de ${l.productName} supera el stock del lote.`;
       }
     }
     return null;
@@ -199,12 +255,9 @@ function NuevaTransferenciaContent() {
   const doGuardar = async () => {
     if (saving) return;
     setConfirm(false);
-    const items = rows
-      .filter((r) => r.lotId && Number(r.quantity) > 0)
-      .map((r) => {
-        const lot = lotById(r.lotId)!;
-        return { lotId: r.lotId, productId: lot.productId, quantity: Number(r.quantity) };
-      });
+    const items = lines
+      .filter((l) => l.lotId && Number(l.quantity) > 0)
+      .map((l) => ({ lotId: l.lotId, productId: l.productId, quantity: Number(l.quantity) }));
     setSaving(true);
     const res = await submitTransfer({
       originBranchId: origin,
@@ -244,9 +297,9 @@ function NuevaTransferenciaContent() {
       />
 
       <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-900">
-        Selecciona la sucursal origen, la sucursal destino y los productos/lotes
-        que deseas mover. El sistema descontará del origen y sumará al destino
-        automáticamente, conservando el lote y su vencimiento.
+        Selecciona la sucursal origen y destino, luego agrega los productos a mover
+        (escaneando su código, buscándolos por nombre, o desde el botón “Transferir”
+        de un producto). Para cada producto solo verás sus propios lotes del origen.
       </div>
 
       {error && (
@@ -261,13 +314,7 @@ function NuevaTransferenciaContent() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label>Sucursal origen *</Label>
-              <Select
-                value={origin}
-                onChange={(e) => {
-                  setOrigin(e.target.value);
-                  setRows([{ lotId: "", quantity: "" }]);
-                }}
-              >
+              <Select value={origin} onChange={(e) => changeOrigin(e.target.value)}>
                 <option value="">— Selecciona —</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -294,18 +341,11 @@ function NuevaTransferenciaContent() {
             </div>
             <div>
               <Label>Fecha *</Label>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div>
               <Label>Usuario responsable</Label>
-              <Input
-                value={responsible}
-                onChange={(e) => setResponsible(e.target.value)}
-              />
+              <Input value={responsible} onChange={(e) => setResponsible(e.target.value)} />
             </div>
             <div className="sm:col-span-2">
               <Label>Observaciones</Label>
@@ -319,6 +359,7 @@ function NuevaTransferenciaContent() {
         </CardContent>
       </Card>
 
+      {/* Agregar productos (solo cuando hay origen) */}
       {origin && (
         <Card className="mb-4">
           <CardContent className="p-4">
@@ -341,20 +382,45 @@ function NuevaTransferenciaContent() {
                   placeholder="Escanea con el lector o escribe y presiona Enter…"
                   className="h-12 text-base"
                 />
-                <p className="mt-1 text-xs opacity-60">
-                  El lector funciona como teclado: cada escaneo agrega el producto
-                  (lote de vencimiento más próximo) y suma +1. El lote es editable
-                  en la fila.
-                </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCameraOpen(true)}
-              >
+              <Button type="button" variant="outline" onClick={() => setCameraOpen(true)}>
                 <Smartphone className="h-4 w-4" /> Escanear con cámara
               </Button>
             </div>
+
+            <div className="relative mt-3">
+              <Label>Buscar producto por nombre</Label>
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Escribe el nombre del producto…"
+              />
+              {suggestions.length > 0 && (
+                <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-black/10 bg-white shadow-lg">
+                  {suggestions.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        className="block w-full px-3 py-2 text-left text-sm hover:bg-black/5"
+                        onClick={() => {
+                          setSearch("");
+                          void addProduct({ id: p.id, name: p.name });
+                        }}
+                      >
+                        <span className="font-medium">{p.name}</span>{" "}
+                        <span className="font-mono text-xs opacity-60">{p.sku}</span>
+                        {p.barcode ? (
+                          <span className="ml-1 font-mono text-xs opacity-40">
+                            · {p.barcode}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             {lastScan && (
               <div
                 className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
@@ -377,32 +443,24 @@ function NuevaTransferenciaContent() {
 
       <Card className="mb-6">
         <CardContent className="p-0">
-          <div className="flex items-center justify-between border-b border-black/5 px-4 py-3">
-            <div className="text-sm font-semibold">Productos y servicios</div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={addRow}
-              disabled={!origin}
-            >
-              <Plus className="h-4 w-4" /> Agregar producto
-            </Button>
+          <div className="border-b border-black/5 px-4 py-3 text-sm font-semibold">
+            Productos a transferir
           </div>
 
           {!origin ? (
             <div className="px-4 py-10 text-center text-sm opacity-60">
-              Selecciona primero la sucursal origen para ver los lotes
-              disponibles.
+              Selecciona primero la sucursal origen.
             </div>
-          ) : availableLots.length === 0 ? (
+          ) : lines.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm opacity-60">
-              La sucursal origen no tiene lotes disponibles para transferir.
+              Escanea o busca un producto para agregarlo a la transferencia.
             </div>
           ) : (
             <Table>
               <THead>
                 <TR>
-                  <TH>Producto / Lote</TH>
+                  <TH>Producto</TH>
+                  <TH>Lote</TH>
                   <TH>Vence</TH>
                   <TH className="text-right">Disponible</TH>
                   <TH className="text-right">A transferir</TH>
@@ -410,35 +468,34 @@ function NuevaTransferenciaContent() {
                 </TR>
               </THead>
               <TBody>
-                {rows.map((row, i) => {
-                  const lot = lotById(row.lotId);
-                  const product = lot ? productById.get(lot.productId) : undefined;
+                {lines.map((line, i) => {
+                  const lots = lotsFor(line.productId);
+                  const lot = lots.find((l) => l.id === line.lotId);
                   const over =
-                    lot != null && Number(row.quantity) > lot.currentQuantity;
+                    lot != null && Number(line.quantity) > lot.currentQuantity;
                   return (
-                    <TR key={i}>
+                    <TR key={`${line.productId}-${i}`}>
+                      <TD>
+                        <div className="text-sm font-medium">{line.productName}</div>
+                        <div className="text-[11px] opacity-60">
+                          {productById.get(line.productId)?.sku}
+                        </div>
+                      </TD>
                       <TD>
                         <Select
-                          value={row.lotId}
-                          onChange={(e) => setRow(i, { lotId: e.target.value })}
+                          value={line.lotId}
+                          onChange={(e) => setLine(i, { lotId: e.target.value })}
                         >
-                          <option value="">— Selecciona producto / lote —</option>
-                          {availableLots.map((l) => {
-                            const p = productById.get(l.productId);
-                            return (
-                              <option key={l.id} value={l.id}>
-                                {p?.name ?? "Producto no encontrado"} · {p?.sku} · lote{" "}
-                                {l.lotNumber} (disp. {l.currentQuantity})
-                              </option>
-                            );
-                          })}
+                          {lots.length === 0 && (
+                            <option value="">— sin lotes —</option>
+                          )}
+                          {lots.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              lote {l.lotNumber} · vence {formatDate(l.expiresAt)} (disp.{" "}
+                              {l.currentQuantity})
+                            </option>
+                          ))}
                         </Select>
-                        {product && (
-                          <div className="mt-1 text-[11px] opacity-60">
-                            {product.sku}
-                            {product.barcode ? ` · ${product.barcode}` : ""}
-                          </div>
-                        )}
                       </TD>
                       <TD className="text-xs">
                         {lot ? formatDate(lot.expiresAt) : "—"}
@@ -450,8 +507,8 @@ function NuevaTransferenciaContent() {
                         <Input
                           type="number"
                           min="1"
-                          value={row.quantity}
-                          onChange={(e) => setRow(i, { quantity: e.target.value })}
+                          value={line.quantity}
+                          onChange={(e) => setLine(i, { quantity: e.target.value })}
                           className={`ml-auto w-24 text-right ${
                             over ? "border-rose-400" : ""
                           }`}
@@ -461,9 +518,9 @@ function NuevaTransferenciaContent() {
                       <TD className="pr-4 text-right">
                         <button
                           type="button"
-                          aria-label="Eliminar fila"
-                          title="Eliminar fila"
-                          onClick={() => removeRow(i)}
+                          aria-label="Quitar producto"
+                          title="Quitar producto"
+                          onClick={() => removeLine(i)}
                           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -516,7 +573,7 @@ function NuevaTransferenciaContent() {
         open={cameraOpen}
         continuous
         onClose={() => setCameraOpen(false)}
-        onDetected={handleScan}
+        onDetected={(code) => void handleScanCode(code)}
       />
       <toast.Toast />
     </>
