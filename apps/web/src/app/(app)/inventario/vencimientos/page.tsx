@@ -23,7 +23,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { StatCard } from "@/components/ui/stat-card";
 import { CalendarClock, AlertTriangle, ShieldAlert, X } from "lucide-react";
 import { RowActions } from "@/components/ui/row-actions";
-import { getProductById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
 import {
   getBranchDisplayName,
   useActiveBranches,
@@ -68,6 +68,11 @@ function VencimientosContent() {
   const [branch, setBranch] = React.useState(() => params.get("branch") ?? "");
   const [dayFilter, setDayFilter] = React.useState<DayFilter>(initialDays);
   const rawLots = useAllLots();
+  const products = useProducts();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
 
   // Vencimientos operativos: solo lotes de sucursales ACTIVAS.
   const activeBranchIds = new Set(activeBranches.map((b) => b.id));
@@ -187,7 +192,7 @@ function VencimientosContent() {
                 </TR>
               )}
               {filtered.map((lot) => {
-                const p = getProductById(lot.productId);
+                const p = productById.get(lot.productId);
                 const days = daysUntil(lot.expiresAt);
                 const st = expiryStatus(lot.expiresAt);
                 return (

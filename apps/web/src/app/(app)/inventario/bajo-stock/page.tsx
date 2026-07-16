@@ -15,8 +15,8 @@ import {
   TD,
 } from "@/components/ui";
 import { ShoppingBag } from "lucide-react";
-import { getBrandById } from "@/lib/mock-data/catalog";
 import { useProducts } from "@/features/products/product-store";
+import { useBrandsList } from "@/features/products/catalog-store";
 import { useAllLots, totalSellableStock } from "@/features/inventory/lot-store";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 
@@ -25,6 +25,11 @@ export default function BajoStockPage() {
   // leía el seed estático `mockProducts` + `mockProductLots` y el listado de
   // reorden salía vacío/incorrecto en producción.
   const products = useProducts();
+  const brands = useBrandsList();
+  const brandById = React.useMemo(
+    () => new Map(brands.map((b) => [b.id, b])),
+    [brands],
+  );
   const lots = useAllLots();
   const activeBranches = useActiveBranches();
   const activeBranchIds = React.useMemo(
@@ -83,7 +88,7 @@ export default function BajoStockPage() {
                 </TR>
               )}
               {rows.map(({ p, stock }) => {
-                const brand = getBrandById(p.brandId);
+                const brand = p.brandId ? brandById.get(p.brandId) : undefined;
                 const reorder = Math.max(p.maxStock - stock, p.minStock * 2);
                 return (
                   <TR key={p.id}>

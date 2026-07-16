@@ -62,6 +62,12 @@ export default function StockPorLotePage() {
     () => new Map(products.map((p) => [p.id, p])),
     [products],
   );
+  // Solo sucursales ACTIVAS: excluye lotes huérfanos de sucursales inactivas/
+  // borradas (que además no se podían filtrar en el dropdown, que solo lista activas).
+  const activeBranchIds = React.useMemo(
+    () => new Set(activeBranches.map((b) => b.id)),
+    [activeBranches],
+  );
   const brandName = React.useMemo(() => {
     const m = new Map(brands.map((b) => [b.id, b.name]));
     return (id?: string) => (id ? m.get(id) ?? "" : "");
@@ -73,21 +79,23 @@ export default function StockPorLotePage() {
 
   const allRows: LotRow[] = React.useMemo(
     () =>
-      lots.map((lot) => {
-        const product = productById.get(lot.productId);
-        return {
-          lot,
-          product,
-          productName: product?.name ?? "Producto no encontrado",
-          sku: product?.sku ?? "",
-          brandName: brandName(product?.brandId),
-          labName: labName(product?.laboratoryId),
-          branchName: getBranchDisplayName(lot.branchId),
-          days: daysUntil(lot.expiresAt),
-          value: lot.currentQuantity * lot.unitCost,
-        };
-      }),
-    [lots, productById, brandName, labName],
+      lots
+        .filter((lot) => activeBranchIds.has(lot.branchId))
+        .map((lot) => {
+          const product = productById.get(lot.productId);
+          return {
+            lot,
+            product,
+            productName: product?.name ?? "Producto no encontrado",
+            sku: product?.sku ?? "",
+            brandName: brandName(product?.brandId),
+            labName: labName(product?.laboratoryId),
+            branchName: getBranchDisplayName(lot.branchId),
+            days: daysUntil(lot.expiresAt),
+            value: lot.currentQuantity * lot.unitCost,
+          };
+        }),
+    [lots, activeBranchIds, productById, brandName, labName],
   );
 
   // ── Filtros ────────────────────────────────────────────────────────────────

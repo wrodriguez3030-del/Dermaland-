@@ -16,7 +16,7 @@ import {
 } from "@/components/ui";
 import { RowActions } from "@/components/ui/row-actions";
 import { ShieldAlert, ShieldCheck, Megaphone } from "lucide-react";
-import { getProductById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
 import { useAllLots } from "@/features/inventory/lot-store";
 import { blockedLots } from "@/features/inventory/lot-selectors";
 import { getBranchDisplayName } from "@/features/tenancy/branch-store";
@@ -41,6 +41,11 @@ function BloqueadosContent() {
   const [tab, setTab] = React.useState<Tab>(initialTab);
 
   const allLots = useAllLots();
+  const products = useProducts();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
 
   // Fuente ÚNICA: mismos lotes bloqueados (cuarentena + recall) que cuenta el
   // KPI "Lotes bloqueados" del dashboard → el total de "Todos" coincide.
@@ -132,7 +137,7 @@ function BloqueadosContent() {
                 </TR>
               )}
               {rows.map((lot) => {
-                const p = getProductById(lot.productId);
+                const p = productById.get(lot.productId);
                 const days = daysUntil(lot.expiresAt);
                 return (
                   <TR key={lot.id}>

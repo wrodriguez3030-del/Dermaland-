@@ -459,4 +459,17 @@ export const productLotRepository: ProductLotRepository = {
     const rows = (data ?? []) as unknown[];
     return rows.length > 0 ? productLotRowToTs(rows[0] as never) : null;
   },
+
+  async updateNotes(ctx: RepoContext, lotId: string, notes: string) {
+    const sb = await getClient("productLot.updateNotes");
+    const { data, error } = await sb
+      .from("product_lots")
+      .update({ notes, updated_at: new Date().toISOString() })
+      .eq("business_id", ctx.businessId)
+      .eq("id", lotId)
+      .select("*")
+      .single();
+    if (error) failRepo("productLot.updateNotes", error);
+    return productLotRowToTs(data);
+  },
 };

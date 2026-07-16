@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -23,7 +24,7 @@ import {
   useTableSort,
 } from "@/components/ui/sortable-table-header";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
-import { getProductById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
 import { useAllMovements } from "@/features/inventory/lot-store";
 import { formatDateTime } from "@/lib/utils/format";
 import type { InventoryMovement } from "@/types";
@@ -39,22 +40,29 @@ const typeColors: Record<string, "success" | "danger" | "warning" | "info" | "ne
   count_adjustment: "warning",
 };
 
-const comparators = {
-  date: (a: InventoryMovement, b: InventoryMovement) =>
-    +new Date(a.createdAt) - +new Date(b.createdAt),
-  product: (a: InventoryMovement, b: InventoryMovement) => {
-    const an = getProductById(a.productId)?.name ?? "";
-    const bn = getProductById(b.productId)?.name ?? "";
-    return an.localeCompare(bn);
-  },
-  type: (a: InventoryMovement, b: InventoryMovement) =>
-    a.type.localeCompare(b.type),
-  quantity: (a: InventoryMovement, b: InventoryMovement) =>
-    a.quantity - b.quantity,
-};
-
 export default function MovimientosPage() {
   const allMovements = useAllMovements();
+  const products = useProducts();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
+  const comparators = React.useMemo(
+    () => ({
+      date: (a: InventoryMovement, b: InventoryMovement) =>
+        +new Date(a.createdAt) - +new Date(b.createdAt),
+      product: (a: InventoryMovement, b: InventoryMovement) => {
+        const an = productById.get(a.productId)?.name ?? "";
+        const bn = productById.get(b.productId)?.name ?? "";
+        return an.localeCompare(bn);
+      },
+      type: (a: InventoryMovement, b: InventoryMovement) =>
+        a.type.localeCompare(b.type),
+      quantity: (a: InventoryMovement, b: InventoryMovement) =>
+        a.quantity - b.quantity,
+    }),
+    [productById],
+  );
   const { sort, sorted, toggle } = useTableSort(
     allMovements,
     "date",
@@ -107,7 +115,7 @@ export default function MovimientosPage() {
               <div className="px-4 py-10 text-center text-sm opacity-60">Sin movimientos.</div>
             )}
             {pag.pageItems.map((m) => {
-              const p = getProductById(m.productId);
+              const p = productById.get(m.productId);
               return (
                 <Link
                   key={m.id}
@@ -168,7 +176,7 @@ export default function MovimientosPage() {
             </THead>
             <TBody>
               {pag.pageItems.map((m) => {
-                const p = getProductById(m.productId);
+                const p = productById.get(m.productId);
                 return (
                   <TR key={m.id}>
                     <TD className="text-xs whitespace-nowrap">

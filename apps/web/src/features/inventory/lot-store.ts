@@ -950,6 +950,31 @@ export async function quarantineLotAnywhere(
   }
 }
 
+/** Wrapper gated: actualiza la nota/motivo de un lote vía API (supabase) o local. */
+export async function updateLotNoteAnywhere(
+  lotId: string,
+  notes: string,
+): Promise<LotActionResult> {
+  if (LOT_BACKEND === "local") {
+    const res = updateLotNoteLocal(lotId, notes);
+    if (res.ok) notifyInventoryChanged();
+    return res;
+  }
+  try {
+    const res = await fetch(`/api/lots/${lotId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    notifyInventoryChanged();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 /**
  * Variante PURA de `stockBranchSummary` que recibe los lotes ya cargados.
  * Útil para páginas que computan desde los hooks reactivos.

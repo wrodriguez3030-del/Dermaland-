@@ -25,13 +25,13 @@ import {
   expiryStatus,
   releaseLotAnywhere,
   recallLotAnywhere,
-  updateLotNoteLocal,
+  updateLotNoteAnywhere,
 } from "@/features/inventory/lot-store";
 import {
   resolveBranchName,
   useActiveBranches,
 } from "@/features/tenancy/branch-store";
-import { getProductById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
 import { formatDate } from "@/lib/utils/format";
 import {
   ShieldAlert,
@@ -59,6 +59,7 @@ function ReleaseLotModal({ lot, onClose, onDone }: ReleaseLotModalProps) {
   const [error, setError] = React.useState<string | null>(null);
   const toast = useToast();
   const activeBranches = useActiveBranches();
+  const products = useProducts();
 
   React.useEffect(() => {
     if (!lot) return;
@@ -70,7 +71,7 @@ function ReleaseLotModal({ lot, onClose, onDone }: ReleaseLotModalProps) {
 
   if (!lot) return null;
 
-  const p = getProductById(lot.productId);
+  const p = products.find((x) => x.id === lot.productId);
   const branchName = resolveBranchName(lot.branchId);
   const activeBranchIds = new Set(activeBranches.map((b) => b.id));
   const isExpired = expiryStatus(lot.expiresAt) === "expired";
@@ -190,6 +191,7 @@ function RecallLotModal({ lot, onClose, onDone }: RecallLotModalProps) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const toast = useToast();
+  const products = useProducts();
 
   React.useEffect(() => {
     if (!lot) return;
@@ -200,7 +202,7 @@ function RecallLotModal({ lot, onClose, onDone }: RecallLotModalProps) {
 
   if (!lot) return null;
 
-  const p = getProductById(lot.productId);
+  const p = products.find((x) => x.id === lot.productId);
 
   async function handleRecall() {
     if (!reason.trim()) { setError("El motivo del recall es obligatorio."); return; }
@@ -279,6 +281,7 @@ interface EditNoteModalProps {
 
 function EditNoteModal({ lot, onClose, onDone }: EditNoteModalProps) {
   const [note, setNote] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
   const toast = useToast();
 
   React.useEffect(() => {
@@ -287,8 +290,14 @@ function EditNoteModal({ lot, onClose, onDone }: EditNoteModalProps) {
 
   if (!lot) return null;
 
-  function handleSave() {
-    updateLotNoteLocal(lot!.id, note.trim());
+  async function handleSave() {
+    setSaving(true);
+    const res = await updateLotNoteAnywhere(lot!.id, note.trim());
+    setSaving(false);
+    if (!res.ok) {
+      toast.error(res.error ?? "No se pudo actualizar el motivo.");
+      return;
+    }
     toast.success("Motivo actualizado.");
     onDone();
   }
@@ -301,8 +310,10 @@ function EditNoteModal({ lot, onClose, onDone }: EditNoteModalProps) {
         onClose={onClose}
         footer={
           <>
-            <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
-            <Button size="sm" onClick={handleSave}>Guardar</Button>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>Cancelar</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? "Guardando…" : "Guardar"}
+            </Button>
           </>
         }
       >
@@ -332,6 +343,11 @@ function EditNoteModal({ lot, onClose, onDone }: EditNoteModalProps) {
 export default function CuarentenaPage() {
   const allLots = useAllLots();
   const lots = allLots.filter((l) => l.status === "quarantine");
+  const products = useProducts();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
 
   const [releaseLot, setReleaseLot] = React.useState<ProductLot | null>(null);
   const [recallLot, setRecallLot] = React.useState<ProductLot | null>(null);
@@ -388,7 +404,7 @@ export default function CuarentenaPage() {
                 </TR>
               )}
               {lots.map((lot) => {
-                const p = getProductById(lot.productId);
+                const p = productById.get(lot.productId);
                 const branchName = resolveBranchName(lot.branchId);
                 const expired = expiryStatus(lot.expiresAt) === "expired";
 

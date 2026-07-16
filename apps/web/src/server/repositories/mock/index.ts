@@ -544,6 +544,12 @@ const productLot: ProductLotRepository = {
     lotQtyOverrides[lotId] = next;
     return { ...lot, currentQuantity: next, updatedAt: new Date().toISOString() };
   },
+  async updateNotes(ctx, lotId, notes) {
+    guard(ctx);
+    const lot = mockLotsView(ctx.businessId).find((l) => l.id === lotId);
+    if (!lot) throw new Error(`Lote no encontrado: ${lotId}`);
+    return { ...lot, notes, updatedAt: new Date().toISOString() };
+  },
 };
 
 const inventoryMovement: InventoryMovementRepository = {

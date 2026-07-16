@@ -11,6 +11,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.80.3] - 2026-07-16
+
+**Fix inconsistencias del módulo de Inventario (nombres mock sobre datos reales).**
+
+Auditoría del módulo: varias pantallas leían lotes/movimientos reales de Supabase pero
+resolvían el NOMBRE del producto desde el catálogo MOCK (`getProductById`), que no tiene
+los IDs reales → nombres/SKU equivocados o vacíos. Corregido a `useProducts()` (datos reales):
+
+- **Movimientos, Vencimientos, Bloqueados, Cuarentena, Recall**: nombre/SKU de producto real.
+- **Bajo stock**: marca real vía `useBrandsList()` (antes `getBrandById` mock → "—").
+- **Stock por lote**: excluye lotes de sucursales INACTIVAS/borradas (huérfanos que ni se
+  podían filtrar en el dropdown, que solo lista activas).
+- **Cuarentena — "cambiar motivo/nota"**: ahora persiste en Supabase (antes solo localStorage,
+  no guardaba en prod). Nuevo `updateLotNoteAnywhere` + `productLot.updateNotes` + modo `notes`
+  en `PATCH /api/lots/[id]`.
+
+Nota de diseño (no bug): Stock actual es por sucursal (la actual, solo vendibles) mientras
+Stock por lote es multi-sucursal — por eso un producto puede verse "Sin stock" en Stock actual
+y con existencias en otra sucursal en Stock por lote. typecheck 0, tests 1763/1763.
+
 ## [0.80.2] - 2026-07-16
 
 **Migraciones pendientes aplicadas a prod + verificación de Compras.**

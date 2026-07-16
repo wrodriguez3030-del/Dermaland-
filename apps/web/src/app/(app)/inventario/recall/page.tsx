@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Card,
@@ -13,7 +14,7 @@ import {
   TD,
 } from "@/components/ui";
 import { Megaphone } from "lucide-react";
-import { getProductById } from "@/lib/mock-data/catalog";
+import { useProducts } from "@/features/products/product-store";
 import { useAllLots } from "@/features/inventory/lot-store";
 import { formatDate } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
@@ -24,6 +25,11 @@ export default function RecallPage() {
   // y la lista salía vacía en producción.
   const allLots = useAllLots();
   const lots = allLots.filter((l) => l.status === "recalled");
+  const products = useProducts();
+  const productById = React.useMemo(
+    () => new Map(products.map((p) => [p.id, p])),
+    [products],
+  );
   return (
     <>
       <PageHeader
@@ -64,7 +70,7 @@ export default function RecallPage() {
                 </TR>
               )}
               {lots.map((lot) => {
-                const p = getProductById(lot.productId);
+                const p = productById.get(lot.productId);
                 return (
                   <TR key={lot.id}>
                     <TD>

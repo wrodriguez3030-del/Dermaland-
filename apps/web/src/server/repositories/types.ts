@@ -228,6 +228,8 @@ export interface ProductLotRepository {
    * Devuelve el lote actualizado, o `null` si no había stock suficiente.
    */
   decrementQuantity(ctx: RepoContext, lotId: ID, qty: number): Promise<ProductLot | null>;
+  /** Actualiza la nota/motivo del lote (no toca stock ni estado). */
+  updateNotes(ctx: RepoContext, lotId: ID, notes: string): Promise<ProductLot>;
 }
 
 export interface InventoryMovementRepository {

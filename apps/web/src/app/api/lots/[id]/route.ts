@@ -29,14 +29,21 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { newQuantity, decrementBy, reason } = body as {
+    const { newQuantity, decrementBy, reason, notes } = body as {
       newQuantity?: number;
       decrementBy?: number;
       reason?: string;
+      notes?: string;
     };
 
     const ctx = await getRepoContext();
     const repos = getRepositories();
+
+    // ── Modo NOTA — actualiza solo la nota/motivo del lote (no toca stock/estado).
+    if (typeof notes === "string") {
+      const lot = await repos.productLot.updateNotes(ctx, id, notes);
+      return NextResponse.json({ lot });
+    }
 
     // ── SEC-010: modo VENTA — decremento ATÓMICO (evita sobreventa por carrera).
     // El POS usa este modo: en vez de fijar un valor absoluto calculado desde un
