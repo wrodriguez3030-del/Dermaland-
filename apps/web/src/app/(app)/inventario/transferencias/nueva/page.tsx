@@ -3,7 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  ArrowRightLeft,
+  AlertTriangle,
+  ScanBarcode,
+  Smartphone,
+  CheckCircle2,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Button,
@@ -30,12 +39,13 @@ import { getProductById } from "@/lib/mock-data/catalog";
 import { formatDate } from "@/lib/utils/format";
 import { listAllLots, useInventoryTick } from "@/features/inventory/lot-store";
 import { createTransfer } from "@/features/inventory/transfer-store";
+import { listAllProducts } from "@/features/products/product-store";
+import {
+  applyTransferScan,
+  type TransferRow,
+} from "@/features/inventory/transfer-scan";
+import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import type { ProductLot } from "@/types";
-
-interface Row {
-  lotId: string;
-  quantity: string;
-}
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -50,9 +60,13 @@ export default function NuevaTransferenciaPage() {
   const [date, setDate] = React.useState(today());
   const [notes, setNotes] = React.useState("");
   const [responsible, setResponsible] = React.useState("Rosa Peralta");
-  const [rows, setRows] = React.useState<Row[]>([{ lotId: "", quantity: "" }]);
+  const [rows, setRows] = React.useState<TransferRow[]>([{ lotId: "", quantity: "" }]);
   const [error, setError] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState(false);
+  const [scanValue, setScanValue] = React.useState("");
+  const [cameraOpen, setCameraOpen] = React.useState(false);
+  const [lastScan, setLastScan] = React.useState<{ ok: boolean; text: string } | null>(null);
+  const scanInputRef = React.useRef<HTMLInputElement>(null);
 
   // Lotes disponibles en la sucursal origen.
   const availableLots = React.useMemo(() => {
@@ -69,8 +83,59 @@ export default function NuevaTransferenciaPage() {
   const addRow = () => setRows((r) => [...r, { lotId: "", quantity: "" }]);
   const removeRow = (i: number) =>
     setRows((r) => (r.length === 1 ? r : r.filter((_, ix) => ix !== i)));
-  const setRow = (i: number, patch: Partial<Row>) =>
+  const setRow = (i: number, patch: Partial<TransferRow>) =>
     setRows((r) => r.map((row, ix) => (ix === i ? { ...row, ...patch } : row)));
+
+  const handleScan = (raw: string) => {
+    const outcome = applyTransferScan({
+      code: raw,
+      originSelected: !!origin,
+      rows,
+      availableLots,
+      products: listAllProducts(),
+    });
+    switch (outcome.result) {
+      case "empty":
+        break;
+      case "no_origin":
+        toast.error("Selecciona primero la sucursal origen.");
+        break;
+      case "not_found":
+        setLastScan({ ok: false, text: `Código ${outcome.code} no encontrado.` });
+        toast.error(`Código ${outcome.code} no encontrado.`);
+        break;
+      case "no_stock":
+        setLastScan({
+          ok: false,
+          text: `${outcome.product.name} no tiene stock en la sucursal origen.`,
+        });
+        toast.error(`${outcome.product.name} no tiene stock en la sucursal origen.`);
+        break;
+      case "at_max":
+        setRows(outcome.rows);
+        setLastScan({
+          ok: true,
+          text: `${outcome.product.name} · máximo del lote (${outcome.quantity}).`,
+        });
+        toast.show(`Alcanzaste el stock disponible del lote (${outcome.quantity}).`, "info");
+        break;
+      case "added":
+      case "incremented":
+        setRows(outcome.rows);
+        setLastScan({
+          ok: true,
+          text: `${outcome.product.name} · cantidad ${outcome.quantity}`,
+        });
+        break;
+    }
+  };
+
+  const submitScanInput = () => {
+    const raw = scanValue.trim();
+    setScanValue("");
+    handleScan(raw);
+    scanInputRef.current?.focus();
+  };
 
   const validateLocal = (): string | null => {
     if (!origin) return "Selecciona la sucursal origen.";
@@ -220,6 +285,62 @@ export default function NuevaTransferenciaPage() {
         </CardContent>
       </Card>
 
+      {origin && (
+        <Card className="mb-4">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end">
+              <div className="flex-1">
+                <Label>
+                  <ScanBarcode className="mr-1 inline h-4 w-4" /> Escanear código de
+                  barra o escribir SKU
+                </Label>
+                <Input
+                  ref={scanInputRef}
+                  value={scanValue}
+                  onChange={(e) => setScanValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      submitScanInput();
+                    }
+                  }}
+                  placeholder="Escanea con el lector o escribe y presiona Enter…"
+                  className="h-12 text-base"
+                />
+                <p className="mt-1 text-xs opacity-60">
+                  El lector funciona como teclado: cada escaneo agrega el producto
+                  (lote de vencimiento más próximo) y suma +1. El lote es editable
+                  en la fila.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCameraOpen(true)}
+              >
+                <Smartphone className="h-4 w-4" /> Escanear con cámara
+              </Button>
+            </div>
+            {lastScan && (
+              <div
+                className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                  lastScan.ok
+                    ? "bg-emerald-50 text-emerald-900"
+                    : "bg-rose-50 text-rose-900"
+                }`}
+              >
+                {lastScan.ok ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4" />
+                )}
+                <span>{lastScan.text}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mb-6">
         <CardContent className="p-0">
           <div className="flex items-center justify-between border-b border-black/5 px-4 py-3">
@@ -355,6 +476,12 @@ export default function NuevaTransferenciaPage() {
         }
         onCancel={() => setConfirm(false)}
         onConfirm={doGuardar}
+      />
+      <BarcodeScanModal
+        open={cameraOpen}
+        continuous
+        onClose={() => setCameraOpen(false)}
+        onDetected={handleScan}
       />
       <toast.Toast />
     </>
