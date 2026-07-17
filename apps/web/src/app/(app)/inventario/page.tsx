@@ -94,11 +94,16 @@ function InventarioContent() {
     const m = new Map(laboratories.map((l) => [l.id, l.name]));
     return (id?: string) => (id ? m.get(id) ?? "—" : "—");
   }, [laboratories]);
+  // Umbral "por vencer" según la regla del laboratorio del producto (o default 30).
+  const labMinDays = React.useMemo(() => {
+    const m = new Map(laboratories.map((l) => [l.id, l.minShelfLifeDays]));
+    return (id?: string) => (id ? m.get(id) ?? undefined : undefined);
+  }, [laboratories]);
 
   // Motor único: mismas filas de stock que usan POS/Productos (por sucursal).
   const allRows: Row[] = React.useMemo(
     () =>
-      getInventoryRows(lots, products, engineBranch).map((r) => ({
+      getInventoryRows(lots, products, engineBranch, labMinDays).map((r) => ({
         product: r.product,
         brandName: brandName(r.product.brandId),
         categoryName: categoryName(r.product.categoryId),
@@ -106,7 +111,7 @@ function InventarioContent() {
         inv: r.inv,
         lotNumbers: r.lotNumbers.join(" "),
       })),
-    [lots, products, engineBranch, brandName, categoryName, labName],
+    [lots, products, engineBranch, brandName, categoryName, labName, labMinDays],
   );
 
   // ── Filtros ────────────────────────────────────────────────────────────────
@@ -160,6 +165,27 @@ function InventarioContent() {
   const { totalUnits, totalValue, lowStockCount, noStockCount } =
     getInventoryStockSummary(filtered);
 
+  // ── Unidades bloqueadas (visibles al filtrar Vencidos/Cuarentena/Recall) ─────
+  // "Stock actual" muestra lo DISPONIBLE; al filtrar un estado bloqueado, además
+  // se hace visible la cantidad bloqueada (que antes no aparecía como número).
+  const blockStatus: "expired" | "quarantine" | "recall" | null =
+    status === "vencidos" ? "expired"
+    : status === "cuarentena" ? "quarantine"
+    : status === "recall" ? "recall"
+    : null;
+  const blockedUnitsOf = (inv: Row["inv"]) =>
+    blockStatus === "expired" ? inv.expiredUnits
+    : blockStatus === "quarantine" ? inv.quarantineUnits
+    : blockStatus === "recall" ? inv.recalledUnits
+    : 0;
+  const blockedUnitsTotal = blockStatus
+    ? filtered.reduce((s, r) => s + blockedUnitsOf(r.inv), 0)
+    : 0;
+  const blockedLabel =
+    blockStatus === "expired" ? "Unidades vencidas"
+    : blockStatus === "quarantine" ? "Unidades en cuarentena"
+    : "Unidades en recall";
+
   const [addStockProduct, setAddStockProduct] = React.useState<{
     id: string;
     name: string;
@@ -193,6 +219,15 @@ function InventarioContent() {
           tone="warning"
         />
         <StatCard label="Sin stock" value={noStockCount} icon={ShieldAlert} tone="danger" />
+        {blockStatus && (
+          <StatCard
+            label={blockedLabel}
+            value={blockedUnitsTotal}
+            icon={ShieldAlert}
+            tone="danger"
+            hint="No disponibles para venta"
+          />
+        )}
       </div>
 
       {/* Filtros */}
@@ -272,6 +307,11 @@ function InventarioContent() {
                       <div className="text-[10px] opacity-50">
                         {inv.lotCount} lotes · mín {p.minStock}
                       </div>
+                      {blockStatus && blockedUnitsOf(inv) > 0 && (
+                        <div className="mt-0.5 text-[11px] font-medium tabular-nums text-rose-600">
+                          {blockedUnitsOf(inv)} u. {blockStatus === "expired" ? "vencidas" : blockStatus === "quarantine" ? "cuarentena" : "recall"}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-black/10">
@@ -365,6 +405,11 @@ function InventarioContent() {
                         {inv.quarantine && <Badge tone="warning">Cuarentena</Badge>}
                         {inv.recalled && <Badge tone="danger">Recall</Badge>}
                       </div>
+                      {blockStatus && blockedUnitsOf(inv) > 0 && (
+                        <div className="mt-1 text-xs font-medium tabular-nums text-rose-600">
+                          {blockedUnitsOf(inv)} u. {blockStatus === "expired" ? "vencidas" : blockStatus === "quarantine" ? "en cuarentena" : "en recall"}
+                        </div>
+                      )}
                     </TD>
                     <TD className="pr-4">
                       <RowActions
