@@ -182,6 +182,7 @@ export function NewLotModal({
         unitCost: Number(unitCost) || 0,
         notes: notes || undefined,
         reason: "Entrada inicial",
+        confirmBelowMin,
       },
       requireExpiry,
     );

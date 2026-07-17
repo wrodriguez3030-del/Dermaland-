@@ -3,6 +3,8 @@ import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
+import { receptionShelfLifeCheck } from "@/features/inventory/reception-shelf-life";
+import { canReceiveBelowShelfLife } from "@/features/tenancy/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +48,67 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const ctx = await getRepoContext();
     const repos = getRepositories();
 
+    // ── Regla de vencimiento del laboratorio (al recibir) ────────────────────
+    // Si el lote llega por debajo del mínimo de vida útil del laboratorio del
+    // producto: exigir confirmación explícita (422) y que sea admin/manager
+    // (403). El override queda auditado tras crear el lote.
+    let belowMin: { remainingDays: number | null; minDays: number | null } | null = null;
+    if (body?.productId && body?.expiresAt) {
+      const product = await repos.product.byId(ctx, body.productId);
+      const labId = product?.laboratoryId;
+      if (labId) {
+        const labs = await repos.laboratory.list(ctx);
+        const minShelfLifeDays = labs.find((l) => l.id === labId)?.minShelfLifeDays;
+        const check = receptionShelfLifeCheck({ expiresAt: body.expiresAt, minShelfLifeDays });
+        if (check.belowMinimum) {
+          if (!body.confirmBelowMin) {
+            return NextResponse.json(
+              {
+                error: `Este lote vence en ${check.remainingDays} días; el laboratorio exige un mínimo de ${check.minDays} días.`,
+                code: "below_min_shelf_life",
+                remainingDays: check.remainingDays,
+                minDays: check.minDays,
+              },
+              { status: 422 },
+            );
+          }
+          if (!canReceiveBelowShelfLife(session.user.role)) {
+            return NextResponse.json(
+              {
+                error:
+                  "Solo un administrador o gerente puede recibir un lote por debajo del mínimo de vida útil del laboratorio.",
+              },
+              { status: 403 },
+            );
+          }
+          belowMin = { remainingDays: check.remainingDays, minDays: check.minDays };
+        }
+      }
+    }
+
     const lot = await repos.productLot.create(ctx, body);
+
+    if (belowMin) {
+      try {
+        await repos.audit.log(ctx, {
+          businessId: ctx.businessId,
+          userId: session.user.id,
+          userName: session.user.fullName,
+          action: "lot.received_below_min",
+          entity: "product_lot",
+          entityId: lot.id,
+          branchId: lot.branchId,
+          metadata: {
+            lotNumber: lot.lotNumber,
+            productId: lot.productId,
+            remainingDays: belowMin.remainingDays,
+            minDays: belowMin.minDays,
+          },
+        });
+      } catch {
+        // La auditoría no debe romper la recepción.
+      }
+    }
 
     // Registrar movimiento de entrada por el lote inicial.
     await repos.inventoryMovement.create(ctx, {

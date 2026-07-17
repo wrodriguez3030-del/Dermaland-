@@ -246,6 +246,8 @@ export interface AddLotInput {
   notes?: string;
   /** Motivo del movimiento de entrada. */
   reason?: string;
+  /** El usuario confirmó recibir bajo el mínimo de vida útil del laboratorio. */
+  confirmBelowMin?: boolean;
 }
 
 export type AddLotResult =
@@ -807,6 +809,7 @@ export async function addLotAnywhere(input: AddLotInput, requireExpiry = true): 
       status: "available",
       supplierId: input.supplierId,
       notes: input.notes,
+      confirmBelowMin: input.confirmBelowMin ?? false,
     };
     const res = await fetch("/api/lots", {
       method: "POST",
