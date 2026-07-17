@@ -11,6 +11,22 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.83.2] - 2026-07-17
+
+**Regla de vencimiento por laboratorio — cierre (enforcement + auditoría + ficha).**
+
+- **Recepción bajo mínimo — control server-side + auditoría:** al Agregar stock,
+  `POST /api/lots` ahora valida contra la regla del laboratorio: si el lote llega
+  bajo el mínimo, exige confirmación (422) y que el rol sea **admin/manager** (403);
+  el override de un admin queda **auditado** (`audit_logs`, `lot.received_below_min`
+  con lote/producto/días/mínimo). Antes era solo un checkbox de cliente.
+- **Ficha de producto** (`/productos/[id]`): los lotes se marcan "por vencer" según
+  el umbral del laboratorio del producto (consistente con Stock actual).
+- **Vencimientos** se mantiene como vista de plazos absolutos (15/30/90 días).
+- **Pendiente (fuera de esta entrega):** advertencia al recibir en **Compras** — su
+  modal usa productos mock y su wiring a inventario está incompleto; se hará cuando
+  ese flujo sea real.
+
 ## [0.83.1] - 2026-07-17
 
 **Advertencia al recibir productos bajo el mínimo de vida útil del laboratorio.**
