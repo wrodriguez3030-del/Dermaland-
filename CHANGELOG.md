@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.83.1] - 2026-07-17
+
+**Advertencia al recibir productos bajo el mínimo de vida útil del laboratorio.**
+
+En **Inventario → Agregar stock**, si la fecha de vencimiento deja menos días que
+el mínimo del laboratorio del producto, se muestra una **advertencia** ("vence en X
+días; el laboratorio exige Y") y un **checkbox de confirmación** — el guardado se
+bloquea hasta marcarlo. (Recepción en Compras, auditoría del override y gate
+admin-only server-side: en curso.)
+
 ## [0.83.0] - 2026-07-17
 
 **Regla de vencimiento por laboratorio (configuración + seguimiento) — parte 1.**
