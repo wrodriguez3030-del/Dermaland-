@@ -17,8 +17,13 @@ import {
 import { ShoppingBag } from "lucide-react";
 import { useProducts } from "@/features/products/product-store";
 import { useBrandsList } from "@/features/products/catalog-store";
-import { useAllLots, totalSellableStock } from "@/features/inventory/lot-store";
+import {
+  useAllLots,
+  totalSellableStock,
+  sellableStockForBranch,
+} from "@/features/inventory/lot-store";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { BranchFilter, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 
 export default function BajoStockPage() {
   // Catálogo y stock REALES (Supabase o local según DATA_SOURCE); antes se
@@ -36,17 +41,21 @@ export default function BajoStockPage() {
     () => new Set(activeBranches.map((b) => b.id)),
     [activeBranches],
   );
+  const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
 
   const rows = React.useMemo(
     () =>
       products
         .map((p) => ({
           p,
-          stock: totalSellableStock(lots, p.id, activeBranchIds),
+          stock:
+            branchFilter === ALL_BRANCHES
+              ? totalSellableStock(lots, p.id, activeBranchIds)
+              : sellableStockForBranch(lots, p.id, branchFilter),
         }))
         .filter(({ p, stock }) => stock <= p.minStock)
         .sort((a, b) => a.stock - b.stock),
-    [products, lots, activeBranchIds],
+    [products, lots, activeBranchIds, branchFilter],
   );
 
   return (
@@ -65,6 +74,10 @@ export default function BajoStockPage() {
           </Button>
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+      </div>
 
       <Card>
         <CardContent className="p-0">

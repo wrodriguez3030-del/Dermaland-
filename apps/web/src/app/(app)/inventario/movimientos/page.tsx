@@ -26,6 +26,7 @@ import {
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { useProducts } from "@/features/products/product-store";
 import { useAllMovements } from "@/features/inventory/lot-store";
+import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { formatDateTime } from "@/lib/utils/format";
 import type { InventoryMovement } from "@/types";
 
@@ -63,8 +64,13 @@ export default function MovimientosPage() {
     }),
     [productById],
   );
+  const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
+  const branchFiltered = React.useMemo(
+    () => allMovements.filter((m) => branchMatches(m.branchId, branchFilter)),
+    [allMovements, branchFilter],
+  );
   const { sort, sorted, toggle } = useTableSort(
-    allMovements,
+    branchFiltered,
     "date",
     "desc",
     comparators,
@@ -93,18 +99,7 @@ export default function MovimientosPage() {
           placeholder="Buscar por producto, lote o referencia…"
           containerClassName="flex-1 min-w-[260px]"
         />
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todos los tipos</option>
-          <option>Entradas (compra)</option>
-          <option>Salidas (venta)</option>
-          <option>Ajustes</option>
-          <option>Cuarentena / Liberación</option>
-          <option>Vencimiento</option>
-        </select>
-        <input
-          type="date"
-          className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm"
-        />
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
       </FilterBar>
 
       <Card>

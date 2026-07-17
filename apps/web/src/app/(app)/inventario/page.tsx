@@ -8,7 +8,6 @@ import { RowActions } from "@/components/ui/row-actions";
 import { ProductImage } from "@/features/products/components/product-image";
 import {
   Badge,
-  Button,
   Card,
   CardContent,
   Select,
@@ -26,7 +25,7 @@ import {
 } from "@/components/ui/sortable-table-header";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { StatCard } from "@/components/ui/stat-card";
-import { Boxes, AlertTriangle, PackagePlus, ShieldAlert, X, Layers } from "lucide-react";
+import { Boxes, AlertTriangle, PackagePlus, ShieldAlert, Layers } from "lucide-react";
 import { useProducts } from "@/features/products/product-store";
 import {
   useBrandsList,
@@ -40,11 +39,7 @@ import {
   getInventoryStockSummary,
   type InventoryRow,
 } from "@/features/inventory/inventory-stock-engine";
-import {
-  useCurrentBranch,
-  useBranches,
-  getBranchDisplayName,
-} from "@/features/tenancy/branch-store";
+import { BranchFilter, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { NewLotModal } from "@/features/inventory/lot-modals";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
@@ -70,15 +65,13 @@ interface Row {
 
 function InventarioContent() {
   const params = useSearchParams();
-  const urlBranch = params.get("branch") ?? "";
-  const { branchId: selectedBranchId } = useCurrentBranch();
-  // La sucursal efectiva es la del deep-link (?branch=) o, por defecto, la
-  // seleccionada arriba. NUNCA se muestra el UUID.
-  const effectiveBranch = urlBranch || selectedBranchId || "";
-  const branches = useBranches();
-  const branchName =
-    branches.find((b) => b.id === effectiveBranch)?.name ??
-    getBranchDisplayName(effectiveBranch, "Sucursal seleccionada");
+  // Filtro de sucursal POR PÁGINA (reemplaza al selector global del encabezado).
+  // Deep-link `?branch=<id>` (desde dashboards) lo pre-selecciona; por defecto
+  // "Todas las sucursales". "Todas" = branchId "" en el motor (agrega todo).
+  const [branchFilter, setBranchFilter] = React.useState(
+    () => params.get("branch") || ALL_BRANCHES,
+  );
+  const engineBranch = branchFilter === ALL_BRANCHES ? "" : branchFilter;
 
   const products = useProducts();
   // Lotes reales directos (NUNCA `onlyActiveBranches`, que lee el store mock
@@ -105,7 +98,7 @@ function InventarioContent() {
   // Motor único: mismas filas de stock que usan POS/Productos (por sucursal).
   const allRows: Row[] = React.useMemo(
     () =>
-      getInventoryRows(lots, products, effectiveBranch).map((r) => ({
+      getInventoryRows(lots, products, engineBranch).map((r) => ({
         product: r.product,
         brandName: brandName(r.product.brandId),
         categoryName: categoryName(r.product.categoryId),
@@ -113,7 +106,7 @@ function InventarioContent() {
         inv: r.inv,
         lotNumbers: r.lotNumbers.join(" "),
       })),
-    [lots, products, effectiveBranch, brandName, categoryName, labName],
+    [lots, products, engineBranch, brandName, categoryName, labName],
   );
 
   // ── Filtros ────────────────────────────────────────────────────────────────
@@ -180,17 +173,9 @@ function InventarioContent() {
         breadcrumbs={[{ label: "Inventario" }]}
       />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
-        <span>
-          Sucursal actual: <strong>{branchName}</strong>
-        </span>
-        {urlBranch && (
-          <Link href="/inventario">
-            <Button variant="ghost" size="sm">
-              <X className="h-4 w-4" /> Quitar filtro de sucursal
-            </Button>
-          </Link>
-        )}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-sm opacity-70">Sucursal:</span>
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
       </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -424,7 +409,7 @@ function InventarioContent() {
           onClose={() => setAddStockProduct(null)}
           productId={addStockProduct.id}
           productName={addStockProduct.name}
-          defaultBranchId={effectiveBranch || undefined}
+          defaultBranchId={engineBranch || undefined}
           requireExpiry={true}
         />
       )}

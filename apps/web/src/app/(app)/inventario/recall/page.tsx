@@ -16,6 +16,7 @@ import {
 import { Megaphone } from "lucide-react";
 import { useProducts } from "@/features/products/product-store";
 import { useAllLots } from "@/features/inventory/lot-store";
+import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { formatDate } from "@/lib/utils/format";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
 
@@ -24,7 +25,10 @@ export default function RecallPage() {
   // se cambia en runtime desde Cuarentena — antes se leía el seed estático
   // y la lista salía vacía en producción.
   const allLots = useAllLots();
-  const lots = allLots.filter((l) => l.status === "recalled");
+  const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
+  const lots = allLots.filter(
+    (l) => l.status === "recalled" && branchMatches(l.branchId, branchFilter),
+  );
   const products = useProducts();
   const productById = React.useMemo(
     () => new Map(products.map((p) => [p.id, p])),
@@ -46,6 +50,10 @@ export default function RecallPage() {
           </Button>
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+      </div>
 
       <Card>
         <CardContent className="p-0">

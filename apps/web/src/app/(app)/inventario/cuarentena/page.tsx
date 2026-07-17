@@ -31,6 +31,7 @@ import {
   resolveBranchName,
   useActiveBranches,
 } from "@/features/tenancy/branch-store";
+import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { useProducts } from "@/features/products/product-store";
 import { formatDate } from "@/lib/utils/format";
 import {
@@ -342,7 +343,10 @@ function EditNoteModal({ lot, onClose, onDone }: EditNoteModalProps) {
 
 export default function CuarentenaPage() {
   const allLots = useAllLots();
-  const lots = allLots.filter((l) => l.status === "quarantine");
+  const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
+  const lots = allLots.filter(
+    (l) => l.status === "quarantine" && branchMatches(l.branchId, branchFilter),
+  );
   const products = useProducts();
   const productById = React.useMemo(
     () => new Map(products.map((p) => [p.id, p])),
@@ -379,6 +383,10 @@ export default function CuarentenaPage() {
           </Button>
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+      </div>
 
       <Card>
         <CardContent className="p-0">

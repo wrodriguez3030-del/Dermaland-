@@ -25,7 +25,7 @@ describe("MobileNav", () => {
     expect(screen.getByRole("button", { name: "Abrir menú" })).toBeInTheDocument();
   });
 
-  it("2 y 3. al abrir muestra los módulos y el selector de sucursal", () => {
+  it("2 y 3. al abrir muestra los módulos y el botón cerrar", () => {
     render(<MobileNav />);
     fireEvent.click(screen.getByRole("button", { name: "Abrir menú" }));
     // Módulos principales visibles.
@@ -33,9 +33,8 @@ describe("MobileNav", () => {
     expect(screen.getByText("Inventario")).toBeInTheDocument();
     expect(screen.getByText("Inventario físico")).toBeInTheDocument();
     expect(screen.getByText("Reportes")).toBeInTheDocument();
-    // Selector de sucursal (sincronizado con header/POS por el store).
-    expect(screen.getByRole("combobox")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "DermaLand Principal" })).toBeInTheDocument();
+    // El selector de sucursal se retiró del menú (ahora es filtro por página).
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     // Botón cerrar.
     expect(screen.getByRole("button", { name: "Cerrar menú" })).toBeInTheDocument();
   });

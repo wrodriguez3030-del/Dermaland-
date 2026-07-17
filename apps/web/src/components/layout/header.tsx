@@ -8,10 +8,7 @@ import { MobileNav } from "./mobile-nav";
 import { GlobalSearch, GlobalSearchMobile } from "@/features/search/global-search";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { mockCurrentUser } from "@/lib/mock-data/users";
-import {
-  useCurrentBranch,
-  readCachedCurrentBranchName,
-} from "@/features/tenancy/branch-store";
+import { useCurrentBranch } from "@/features/tenancy/branch-store";
 
 export function Header({
   className,
@@ -20,27 +17,10 @@ export function Header({
   className?: string;
   showSuperAdmin?: boolean;
 }) {
-  const {
-    branchId: branch,
-    branches,
-    setBranchId: setBranch,
-    loading,
-    notice,
-    dismissNotice,
-  } = useCurrentBranch();
-  const currentBranch = branches.find((b) => b.id === branch);
-
-  // Nombre cacheado (solo para mostrar mientras carga, sin parpadeo). Se lee
-  // tras montar para no romper la hidratación (server no tiene localStorage).
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
-  const cachedName = mounted ? readCachedCurrentBranchName() : null;
-
-  // Estado del selector:
-  //  - cargando + aún sin lista → "Cargando sucursales…" (o el nombre cacheado).
-  //  - sin sucursales tras cargar → "Sin sucursales".
-  //  - con sucursales → select normal.
-  const isLoadingBranches = loading && branches.length === 0;
+  // El selector de sucursal del encabezado se retiró: cada pantalla de consulta
+  // filtra por sucursal ("Todas / …") y las operativas eligen su sucursal. Solo
+  // conservamos el aviso de reconciliación de la sucursal guardada.
+  const { notice, dismissNotice } = useCurrentBranch();
 
   return (
     <>
@@ -79,33 +59,6 @@ export function Header({
           <span className="rounded-full bg-[color:var(--brand-primary)]/10 px-2.5 py-0.5 font-medium text-[color:var(--brand-accent)]">
             {mockBusiness.commercialName}
           </span>
-          <span className="opacity-40">·</span>
-          {isLoadingBranches ? (
-            <span className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs opacity-60">
-              {cachedName ?? "Cargando sucursales…"}
-            </span>
-          ) : branches.length === 0 ? (
-            <span className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs opacity-60">
-              Sin sucursales
-            </span>
-          ) : (
-            <select
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-              className="rounded-md border border-black/10 bg-white px-2 py-1 text-xs"
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          )}
-          {currentBranch && (
-            <span className="hidden lg:inline opacity-60">
-              {currentBranch.address}
-            </span>
-          )}
         </div>
 
         {/* Buscador global (escritorio): input inline + dropdown. */}

@@ -11,6 +11,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.81.0] - 2026-07-17
+
+**Filtro de sucursal por página (con "Todas las sucursales") en vez del selector global.**
+
+Se retiró el selector global de sucursal del **encabezado** (desktop y menú móvil). En su
+lugar, cada pantalla de CONSULTA tiene su propio filtro "Todas las sucursales / Principal /
+Cutis" (como Stock por lote), y las pantallas OPERATIVAS mantienen su selección de una sucursal.
+
+- Nuevo componente reutilizable `<BranchFilter>` + `branchMatches` (`features/tenancy/branch-filter.tsx`, +2 tests).
+- **Inventario**: Stock actual y Productos (lista) pasan de scope global a filtro por página
+  ("Todas" = agregado). Movimientos, Bloqueados, Cuarentena, Recall y Bajo stock ganan filtro
+  de sucursal (Vencimientos y Stock por lote ya lo tenían).
+- **Operativas sin cambio de comportamiento**: POS (su propio switcher), Nuevo conteo y Nueva
+  transferencia (sus selectores). **Caja**: se le agregó un selector de sucursal en "Abrir caja"
+  (antes dependía del selector global).
+- Los demás módulos (Reportes, Ventas, Clientes, etc.) NO usaban la sucursal global → no se
+  afectan; si se quiere filtro por sucursal ahí, es un paso siguiente.
+- typecheck 0, tests 1765/1765.
+
 ## [0.80.3] - 2026-07-16
 
 **Fix inconsistencias del módulo de Inventario (nombres mock sobre datos reales).**

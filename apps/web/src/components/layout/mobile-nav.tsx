@@ -8,7 +8,6 @@ import { Menu, X, ChevronDown, Shield, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { groups } from "./sidebar";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
-import { useCurrentBranch } from "@/features/tenancy/branch-store";
 
 const brandLogo = mockBusiness.logoUrl ?? "/brand/dermaland-logo.svg";
 
@@ -28,7 +27,6 @@ export function MobileNav({ showSuperAdmin = true }: { showSuperAdmin?: boolean 
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const pathname = usePathname() ?? "/";
-  const { branchId, branches, setBranchId } = useCurrentBranch();
 
   // Cerrar al navegar (cambio de ruta).
   React.useEffect(() => {
@@ -79,25 +77,6 @@ export function MobileNav({ showSuperAdmin = true }: { showSuperAdmin?: boolean 
                 <X className="h-5 w-5" />
               </button>
             </div>
-
-            {branches.length > 0 && (
-              <div className="border-b border-black/5 px-4 py-3">
-                <label className="mb-1 block text-[10px] uppercase tracking-wider text-black/50">
-                  Sucursal
-                </label>
-                <select
-                  value={branchId}
-                  onChange={(e) => setBranchId(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             <nav className="flex-1 overflow-y-auto px-2 py-3">
               {groups.map((g) => (

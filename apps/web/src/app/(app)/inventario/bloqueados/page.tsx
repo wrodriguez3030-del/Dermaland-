@@ -18,6 +18,7 @@ import { RowActions } from "@/components/ui/row-actions";
 import { ShieldAlert, ShieldCheck, Megaphone } from "lucide-react";
 import { useProducts } from "@/features/products/product-store";
 import { useAllLots } from "@/features/inventory/lot-store";
+import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { blockedLots } from "@/features/inventory/lot-selectors";
 import { getBranchDisplayName } from "@/features/tenancy/branch-store";
 import { lotStatusBadge } from "@/features/inventory/lot-badges";
@@ -39,6 +40,7 @@ function BloqueadosContent() {
     return t && TABS.includes(t as Tab) ? (t as Tab) : "todos";
   })();
   const [tab, setTab] = React.useState<Tab>(initialTab);
+  const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
 
   const allLots = useAllLots();
   const products = useProducts();
@@ -59,8 +61,9 @@ function BloqueadosContent() {
     [blocked],
   );
 
-  const rows =
-    tab === "cuarentena" ? quarantine : tab === "recall" ? recalled : blocked;
+  const rows = (
+    tab === "cuarentena" ? quarantine : tab === "recall" ? recalled : blocked
+  ).filter((l) => branchMatches(l.branchId, branchFilter));
 
   const counts: Record<Tab, number> = {
     todos: blocked.length,
@@ -109,6 +112,10 @@ function BloqueadosContent() {
             </button>
           );
         })}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
       </div>
 
       <Card>

@@ -43,10 +43,8 @@ import {
   sellableStockForBranch,
   totalSellableStock,
 } from "@/features/inventory/lot-store";
-import {
-  useCurrentBranch,
-  useActiveBranches,
-} from "@/features/tenancy/branch-store";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { BranchFilter, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { NewLotModal } from "@/features/inventory/lot-modals";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Product } from "@/types";
@@ -62,12 +60,15 @@ export default function ProductosPage() {
   );
   const toast = useToast();
   const lots = useAllLots(); // ya es reactivo a cambios de inventario (local y supabase)
-  const { branchId } = useCurrentBranch();
   const activeBranches = useActiveBranches();
   const activeBranchIds = React.useMemo(
     () => new Set(activeBranches.map((b) => b.id)),
     [activeBranches],
   );
+  // Filtro de sucursal por página ("Todas" => "" => stock total). Reemplaza al
+  // selector global del encabezado.
+  const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
+  const branchId = branchFilter === ALL_BRANCHES ? "" : branchFilter;
 
   const [q, setQ] = React.useState("");
   const [brand, setBrand] = React.useState("");
@@ -215,6 +216,7 @@ export default function ProductosPage() {
           <option value="low">Bajo stock</option>
           <option value="out">Sin stock</option>
         </Select>
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>
             <X className="h-4 w-4" />

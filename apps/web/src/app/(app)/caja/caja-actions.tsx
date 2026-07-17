@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
@@ -10,7 +10,7 @@ import {
   openCashSession,
   closeCashSession,
 } from "@/features/sales/cash-session-store";
-import { useCurrentBranch } from "@/features/tenancy/branch-store";
+import { useCurrentBranch, useActiveBranches } from "@/features/tenancy/branch-store";
 
 // ─── Abrir caja ─────────────────────────────────────────────────────────────
 
@@ -24,6 +24,15 @@ export function AbrirCajaButton() {
   const [loading, setLoading] = React.useState(false);
   const toast = useToast();
   const { branchId } = useCurrentBranch();
+  const activeBranches = useActiveBranches();
+  // Sucursal donde se abre la caja (una sola). Por defecto la última usada o la
+  // primera activa. El selector global del encabezado se retiró.
+  const [branch, setBranch] = React.useState("");
+  React.useEffect(() => {
+    if (branch) return;
+    const seed = branchId || activeBranches[0]?.id || "";
+    if (seed) setBranch(seed);
+  }, [branch, branchId, activeBranches]);
 
   const handleOpen = async () => {
     const parsed = parseFloat(amount.replace(",", "."));
@@ -32,9 +41,9 @@ export function AbrirCajaButton() {
       return;
     }
     setLoading(true);
-    // Abre la caja para la sucursal seleccionada arriba (si el usuario tiene
-    // acceso); el servidor valida y cae a la del contexto si no aplica.
-    const result = await openCashSession(parsed, branchId || undefined);
+    // Abre la caja para la sucursal elegida; el servidor valida y cae a la del
+    // contexto si no aplica.
+    const result = await openCashSession(parsed, branch || undefined);
     setLoading(false);
     if (result.ok) {
       toast.success("Caja abierta correctamente.");
@@ -69,6 +78,22 @@ export function AbrirCajaButton() {
         }
       >
         <div className="space-y-3">
+          {activeBranches.length > 1 && (
+            <div>
+              <Label htmlFor="open-branch">Sucursal</Label>
+              <Select
+                id="open-branch"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+              >
+                {activeBranches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           <div>
             <Label htmlFor="opening-amount">Monto de apertura (RD$)</Label>
             <Input
