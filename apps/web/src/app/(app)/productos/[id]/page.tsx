@@ -501,7 +501,9 @@ export default function ProductDetailPage() {
                   )}
                   {lots.map((lot) => {
                     const days = daysUntil(lot.expiresAt);
-                    const st = expiryStatus(lot.expiresAt);
+                    // "Por vencer" según el umbral del laboratorio del producto (o 30 por defecto).
+                    const soonDays = laboratory?.minShelfLifeDays ?? 30;
+                    const st = expiryStatus(lot.expiresAt, new Date(), soonDays, soonDays);
                     return (
                       <TR key={lot.id} className={expiryRowBg[st]}>
                         <TD>
