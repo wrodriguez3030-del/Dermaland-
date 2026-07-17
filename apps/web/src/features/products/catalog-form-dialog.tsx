@@ -4,10 +4,12 @@ import * as React from "react";
 import { Modal, Button, Input, Label, Textarea } from "@/components/ui";
 
 export interface CatalogField {
-  key: "name" | "country" | "description";
+  key: "name" | "country" | "description" | "minShelfLifeDays";
   label: string;
-  type?: "text" | "textarea";
+  type?: "text" | "textarea" | "number";
   required?: boolean;
+  /** Texto de ayuda debajo del campo. */
+  hint?: string;
 }
 
 export interface CatalogFormDialogProps {
@@ -52,9 +54,18 @@ export function CatalogFormDialog({
             <Label>{f.label}{f.required ? " *" : ""}</Label>
             {f.type === "textarea" ? (
               <Textarea value={values[f.key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} />
+            ) : f.type === "number" ? (
+              <Input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={values[f.key] ?? ""}
+                onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+              />
             ) : (
               <Input value={values[f.key] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} />
             )}
+            {f.hint && <p className="mt-1 text-[11px] text-black/50">{f.hint}</p>}
           </div>
         ))}
       </div>

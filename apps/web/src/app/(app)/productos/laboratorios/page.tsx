@@ -150,7 +150,19 @@ export default function LaboratoriosPage() {
 
   const onSubmit = async (values: Record<string, string>) => {
     setSubmitting(true); setError(null);
-    const res = await saveLaboratory(dialog!.mode, { name: values.name ?? "", country: values.country }, dialog?.id);
+    // Días mín. de vida útil: vacío = sin regla (null); número entero ≥ 0.
+    const raw = (values.minShelfLifeDays ?? "").trim();
+    let minShelfLifeDays: number | null = null;
+    if (raw !== "") {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+        setSubmitting(false);
+        setError("Los días mínimos de vida útil deben ser un entero ≥ 0 (o vacío).");
+        return;
+      }
+      minShelfLifeDays = n;
+    }
+    const res = await saveLaboratory(dialog!.mode, { name: values.name ?? "", country: values.country, minShelfLifeDays }, dialog?.id);
     setSubmitting(false);
     if (!res.ok) { setError(res.error); return; }
     toast.success(dialog!.mode === "create" ? "Laboratorio creado." : "Cambios guardados.");
@@ -343,6 +355,7 @@ export default function LaboratoriosPage() {
                 <TH className="w-[56px] text-center">#</TH>
                 <TH>Laboratorio</TH>
                 <TH>País</TH>
+                <TH className="text-right">Días mín.</TH>
                 <TH className="w-[34%]">Ventas (vs líder)</TH>
                 <TH className="text-right">Total</TH>
                 <TH className="text-right">Unidades</TH>
@@ -352,7 +365,7 @@ export default function LaboratoriosPage() {
             <TBody>
               {displayed.length === 0 && (
                 <TR>
-                  <TD colSpan={7} className="py-10 text-center text-sm opacity-60">
+                  <TD colSpan={8} className="py-10 text-center text-sm opacity-60">
                     {summary.hasSales
                       ? "Ningún laboratorio coincide con los filtros."
                       : "Aún no hay ventas registradas para mostrar el ranking."}
@@ -376,6 +389,13 @@ export default function LaboratoriosPage() {
                   </TD>
                   <TD className={`font-medium ${r.isUnassigned ? "italic opacity-70" : ""}`}>{r.lab.name}</TD>
                   <TD className="text-sm opacity-70">{r.isUnassigned ? "—" : r.lab.country ?? "—"}</TD>
+                  <TD className="text-right tabular-nums text-sm">
+                    {r.isUnassigned || r.lab.minShelfLifeDays == null ? (
+                      <span className="opacity-40">—</span>
+                    ) : (
+                      <span>{r.lab.minShelfLifeDays} d</span>
+                    )}
+                  </TD>
                   <TD>
                     <div className="flex items-center gap-2">
                       <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-black/5">
@@ -399,7 +419,7 @@ export default function LaboratoriosPage() {
                     ) : (
                       <RowActions
                         viewHref={`/productos?laboratory=${r.lab.id}`}
-                        onEdit={() => { setError(null); setDialog({ mode: "edit", id: r.lab.id, initial: { name: r.lab.name, country: r.lab.country ?? "" } }); }}
+                        onEdit={() => { setError(null); setDialog({ mode: "edit", id: r.lab.id, initial: { name: r.lab.name, country: r.lab.country ?? "", minShelfLifeDays: r.lab.minShelfLifeDays != null ? String(r.lab.minShelfLifeDays) : "" } }); }}
                         onDelete={async () => {
                           const res = await deleteLaboratoryAnywhere(r.lab.id);
                           if (!res.ok) toast.error(res.error);
@@ -420,7 +440,11 @@ export default function LaboratoriosPage() {
       <CatalogFormDialog
         open={dialog !== null}
         title={dialog?.mode === "edit" ? "Editar laboratorio" : "Nuevo laboratorio"}
-        fields={[{ key: "name", label: "Nombre", required: true }, { key: "country", label: "País" }]}
+        fields={[
+          { key: "name", label: "Nombre", required: true },
+          { key: "country", label: "País" },
+          { key: "minShelfLifeDays", label: "Días mín. de vida útil al recibir", type: "number", hint: "Al recibir, se advierte si el lote vence en menos de estos días (ej. 90). Vacío = sin regla." },
+        ]}
         initial={dialog?.initial}
         submitting={submitting}
         error={error}
