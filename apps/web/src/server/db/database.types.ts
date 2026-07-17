@@ -2262,6 +2262,7 @@ export type Database = {
           country: string | null
           created_at: string
           id: string
+          min_shelf_life_days: number | null
           name: string
           updated_at: string
         }
@@ -2270,6 +2271,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           id?: string
+          min_shelf_life_days?: number | null
           name: string
           updated_at?: string
         }
@@ -2278,6 +2280,7 @@ export type Database = {
           country?: string | null
           created_at?: string
           id?: string
+          min_shelf_life_days?: number | null
           name?: string
           updated_at?: string
         }

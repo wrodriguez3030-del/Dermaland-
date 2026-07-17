@@ -164,9 +164,14 @@ export async function deleteCategoryAnywhere(id: string): Promise<CatalogDeleteR
 }
 
 // Laboratories
-export async function saveLaboratory(mode: "create" | "edit", input: { name: string; country?: string }, id?: string): Promise<CatalogResult<Laboratory>> {
+export async function saveLaboratory(mode: "create" | "edit", input: { name: string; country?: string; minShelfLifeDays?: number | null }, id?: string): Promise<CatalogResult<Laboratory>> {
   if (!input.name?.trim()) return { ok: false, error: "El nombre es obligatorio." };
-  const payload = { name: input.name.trim(), country: input.country?.trim() || undefined };
+  // `null` limpia la regla; un número la fija; se envía siempre para reflejar el form.
+  const payload = {
+    name: input.name.trim(),
+    country: input.country?.trim() || undefined,
+    minShelfLifeDays: input.minShelfLifeDays ?? null,
+  };
   if (CATALOG_BACKEND === "supabase") {
     return mode === "create"
       ? serverWrite<Laboratory>("POST", "/api/laboratories", payload, "laboratory")
@@ -174,10 +179,10 @@ export async function saveLaboratory(mode: "create" | "edit", input: { name: str
   }
   const now = new Date().toISOString();
   if (mode === "create") {
-    const item: Laboratory = { id: genId("lab"), businessId: mockLaboratories[0]?.businessId ?? "biz_dermaland", name: payload.name, country: payload.country, createdAt: now, updatedAt: now };
+    const item: Laboratory = { id: genId("lab"), businessId: mockLaboratories[0]?.businessId ?? "biz_dermaland", name: payload.name, country: payload.country, minShelfLifeDays: payload.minShelfLifeDays ?? undefined, createdAt: now, updatedAt: now };
     labOverlay.extra.push(item); notifyCatalogChanged(); return { ok: true, item };
   }
-  labOverlay.patches[id!] = { ...(labOverlay.patches[id!] ?? {}), ...payload, updatedAt: now };
+  labOverlay.patches[id!] = { ...(labOverlay.patches[id!] ?? {}), ...payload, minShelfLifeDays: payload.minShelfLifeDays ?? undefined, updatedAt: now };
   const item = viewLocal(mockLaboratories, labOverlay).find((l) => l.id === id);
   notifyCatalogChanged();
   return item ? { ok: true, item } : { ok: false, error: "Laboratorio no encontrado." };

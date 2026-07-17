@@ -402,6 +402,7 @@ const laboratory: LaboratoryRepository = {
       businessId: ctx.businessId,
       name: input.name,
       country: input.country,
+      minShelfLifeDays: input.minShelfLifeDays ?? undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -410,7 +411,12 @@ const laboratory: LaboratoryRepository = {
   },
   async update(ctx, id, patch) {
     guard(ctx);
-    laboratoryPatches[id] = { ...(laboratoryPatches[id] ?? {}), ...patch };
+    // `null` (limpiar la regla) se normaliza a `undefined` para casar con el tipo.
+    const normalized: Partial<Laboratory> = {
+      ...patch,
+      minShelfLifeDays: patch.minShelfLifeDays ?? undefined,
+    };
+    laboratoryPatches[id] = { ...(laboratoryPatches[id] ?? {}), ...normalized };
     const found = (await laboratory.list(ctx)).find((l) => l.id === id);
     if (!found) throw new Error("Laboratorio no encontrado");
     return found;

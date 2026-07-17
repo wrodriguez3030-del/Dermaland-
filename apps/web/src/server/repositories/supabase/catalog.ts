@@ -126,21 +126,34 @@ export const laboratoryRepository: LaboratoryRepository = {
     return (data ?? []).map(laboratoryRowToTs);
   },
 
-  async create(ctx: RepoContext, input: { name: string; country?: string }) {
+  async create(
+    ctx: RepoContext,
+    input: { name: string; country?: string; minShelfLifeDays?: number | null },
+  ) {
     const sb = await getClient("laboratory.create");
     const { data, error } = await sb
       .from("laboratories")
-      .insert({ business_id: ctx.businessId, name: input.name, country: input.country ?? null })
+      .insert({
+        business_id: ctx.businessId,
+        name: input.name,
+        country: input.country ?? null,
+        min_shelf_life_days: input.minShelfLifeDays ?? null,
+      })
       .select("*").single();
     if (error) throw failRepo("laboratory.create", error);
     return laboratoryRowToTs(data);
   },
 
-  async update(ctx: RepoContext, id: string, patch: { name?: string; country?: string }) {
+  async update(
+    ctx: RepoContext,
+    id: string,
+    patch: { name?: string; country?: string; minShelfLifeDays?: number | null },
+  ) {
     const sb = await getClient("laboratory.update");
     const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (patch.name !== undefined) row.name = patch.name;
     if (patch.country !== undefined) row.country = patch.country ?? null;
+    if (patch.minShelfLifeDays !== undefined) row.min_shelf_life_days = patch.minShelfLifeDays ?? null;
     const { data, error } = await sb
       .from("laboratories").update(row)
       .eq("business_id", ctx.businessId).eq("id", id)

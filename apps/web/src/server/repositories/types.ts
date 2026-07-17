@@ -169,8 +169,15 @@ export interface CategoryRepository {
 
 export interface LaboratoryRepository {
   list(ctx: RepoContext): Promise<Laboratory[]>;
-  create(ctx: RepoContext, input: { name: string; country?: string }): Promise<Laboratory>;
-  update(ctx: RepoContext, id: ID, patch: { name?: string; country?: string }): Promise<Laboratory>;
+  create(
+    ctx: RepoContext,
+    input: { name: string; country?: string; minShelfLifeDays?: number | null },
+  ): Promise<Laboratory>;
+  update(
+    ctx: RepoContext,
+    id: ID,
+    patch: { name?: string; country?: string; minShelfLifeDays?: number | null },
+  ): Promise<Laboratory>;
   delete(ctx: RepoContext, id: ID): Promise<void>;
 }
 

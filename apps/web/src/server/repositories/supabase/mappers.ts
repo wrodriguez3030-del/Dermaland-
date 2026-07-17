@@ -177,6 +177,7 @@ export function laboratoryRowToTs(
     businessId: row.business_id,
     name: row.name,
     country: row.country ?? undefined,
+    minShelfLifeDays: row.min_shelf_life_days ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

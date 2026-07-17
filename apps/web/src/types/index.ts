@@ -126,6 +126,11 @@ export interface Laboratory extends Audited, BusinessScoped {
   country?: string;
   /** Tipo/categoría del laboratorio (p. ej. "Dermocosmética"). Solo UI. */
   type?: string;
+  /**
+   * Días mínimos de vida útil exigidos al RECIBIR productos de este laboratorio
+   * (p. ej. 90, 120). `undefined` = sin regla → usa el default global (30 días).
+   */
+  minShelfLifeDays?: number;
 }
 
 export interface Category extends Audited, BusinessScoped {
