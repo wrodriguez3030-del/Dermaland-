@@ -11,6 +11,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.84.0] - 2026-07-17
+
+**Stock actual: columnas "Físico (real)" + "Disponible" (menos confuso).**
+
+La columna "Stock" mostraba solo lo **disponible** (vendible) y ocultaba las
+unidades físicas (vencidas/bloqueadas) — un producto con lotes vencidos aparecía
+en 0/bajo aunque físicamente tuviera existencia (ej. ISDIN: 30 disponible pero
+4,458 físicas). Ahora cada producto muestra **dos columnas**:
+
+- **Físico** = todas las unidades en existencia (real).
+- **Disponible** = vendible (sin vencidos/cuarentena/recall).
+
+- Nuevo `InventoryRow.physicalStock` (suma de TODOS los lotes de la sucursal) +
+  `getInventoryStockSummary.totalPhysicalUnits`. KPI principal pasa a **"Unidades
+  físicas (real)"** con "X disponibles para venta" de hint. Tabla (columna Físico
+  ordenable) y tarjeta móvil actualizadas. typecheck 0, tests 1787/1787.
+
 ## [0.83.2] - 2026-07-17
 
 **Regla de vencimiento por laboratorio — cierre (enforcement + auditoría + ficha).**
