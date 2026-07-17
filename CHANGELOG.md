@@ -11,6 +11,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.83.0] - 2026-07-17
+
+**Regla de vencimiento por laboratorio (configuración + seguimiento) — parte 1.**
+
+Cada laboratorio puede definir sus **días mínimos de vida útil**; el umbral se usa
+para el control de vencimientos. Esta entrega trae la configuración y el
+seguimiento; la advertencia al recibir (parte 2) queda en curso.
+
+- **Productos → Laboratorios**: en el diálogo **Nuevo/Editar laboratorio**, campo
+  **"Días mín. de vida útil al recibir"** (entero ≥ 0, o vacío = sin regla) +
+  columna "Días mín." en la tabla. (Migración `0033`, columna nullable.)
+- **Seguimiento por laboratorio**: "por vencer" ahora usa el umbral **de cada
+  laboratorio** en vez del fijo de 30 días (`expiryStatus` extendido y
+  retrocompatible; sin regla = 30/90 como antes).
+- **Stock actual — visibilidad de bloqueados** (corrige el reporte del filtro): al
+  filtrar **Vencidos / Cuarentena / Recall**, la pantalla muestra la **cantidad
+  bloqueada** — StatCard con el total (cuadra con las 5,768 unidades vencidas de
+  hoy) y el detalle por fila (tabla y móvil). Antes solo mostraba lo disponible.
+- Lógica pura testeada: `receptionShelfLifeCheck`, `expiryStatus(…, soonDays,
+  warnDays)`, `getInventoryRows(…, labMinDays)`, `canReceiveBelowShelfLife`.
+  typecheck 0, tests 1786/1786.
+
 ## [0.82.2] - 2026-07-17
 
 **POS: el selector de sucursal va primero, antes de buscar productos.**
