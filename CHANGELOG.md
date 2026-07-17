@@ -11,6 +11,22 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.85.0] - 2026-07-17
+
+**Recall: "Notificar clientes" ahora funciona (antes era un botón muerto).**
+
+En **Inventario → Recall**, cada lote retirado tiene un botón **"Notificar clientes"**
+que abre un modal con **quién compró ese lote**: se cruzan las ventas
+(`proforma_items.product_lot_id` → proforma de venta → cliente) y se agrega por
+cliente (cantidad total, última compra, teléfono). Acciones: **copiar lista**,
+**exportar CSV** y **enlace WhatsApp** por cliente con un mensaje de recall listo.
+
+- Solo cuenta ventas reales (issued/paid/partially_paid/pending_ecf/converted_to_ecf).
+- `productLot.buyers(ctx, lotId)` (Supabase) + `GET /api/lots/[id]/buyers`;
+  `aggregateLotBuyers` pura (+4 tests). Query verificada contra prod.
+- Se retiró el botón muerto "Iniciar recall" (el recall se inicia desde Cuarentena →
+  "Enviar a recall"). typecheck 0.
+
 ## [0.84.0] - 2026-07-17
 
 **Stock actual: columnas "Físico (real)" + "Disponible" (menos confuso).**
