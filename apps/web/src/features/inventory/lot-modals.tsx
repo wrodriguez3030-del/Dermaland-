@@ -9,6 +9,7 @@ import {
   adjustStockAnywhere,
   expiryError,
 } from "@/features/inventory/lot-store";
+import { receptionShelfLifeCheck } from "@/features/inventory/reception-shelf-life";
 import {
   useActiveBranches,
   defaultWarehouseForBranch,
@@ -82,6 +83,16 @@ export function NewLotModal({
   const [notes, setNotes] = React.useState("");
   const [missing, setMissing] = React.useState<Set<string>>(new Set());
   const [error, setError] = React.useState<string | null>(null);
+  // Confirmación explícita para recibir un lote por debajo del mínimo del lab.
+  const [confirmBelowMin, setConfirmBelowMin] = React.useState(false);
+
+  // Regla de vencimiento del laboratorio seleccionado (o el actual del producto).
+  const shelfCheck = receptionShelfLifeCheck({
+    expiresAt,
+    minShelfLifeDays: laboratories.find(
+      (l) => l.id === (laboratoryId || currentLabId),
+    )?.minShelfLifeDays,
+  });
 
   // Resetear formulario solo al ABRIR el modal (no al cambiar defaultBranchId en caliente).
   // Depender también de defaultBranchId causaba que el formulario se borrara mientras
@@ -97,6 +108,7 @@ export function NewLotModal({
       setNotes("");
       setMissing(new Set());
       setError(null);
+      setConfirmBelowMin(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -122,6 +134,7 @@ export function NewLotModal({
     setNotes("");
     setMissing(new Set());
     setError(null);
+    setConfirmBelowMin(false);
   };
 
   const submit = async () => {
@@ -146,6 +159,15 @@ export function NewLotModal({
             : fieldErrors.has("unitCost")
               ? "El costo no puede ser negativo."
               : "Completa los campos obligatorios (sucursal, lote, cantidad y vencimiento)."),
+      );
+      return;
+    }
+    // Regla del laboratorio: si el lote llega bajo el mínimo de vida útil, exigir
+    // confirmación explícita antes de recibirlo.
+    if (shelfCheck.belowMinimum && !confirmBelowMin) {
+      setMissing(new Set(["expiresAt"]));
+      setError(
+        `Este lote vence en ${shelfCheck.remainingDays} días y el laboratorio exige un mínimo de ${shelfCheck.minDays}. Marca "Recibir bajo mínimo" para continuar.`,
       );
       return;
     }
@@ -250,6 +272,28 @@ export function NewLotModal({
             onChange={(e) => setExpiresAt(e.target.value)}
             className={isMissing("expiresAt") ? "border-rose-400" : undefined}
           />
+          {shelfCheck.belowMinimum && (
+            <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div className="flex-1">
+                  <p>
+                    Vence en <strong>{shelfCheck.remainingDays} días</strong>; el
+                    laboratorio exige un mínimo de <strong>{shelfCheck.minDays} días</strong> al recibir.
+                  </p>
+                  <label className="mt-1.5 flex items-center gap-2 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={confirmBelowMin}
+                      onChange={(e) => setConfirmBelowMin(e.target.checked)}
+                      className="h-3.5 w-3.5"
+                    />
+                    Recibir bajo mínimo (bajo mi responsabilidad)
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div>
           <Label>Costo del lote (unidad)</Label>
