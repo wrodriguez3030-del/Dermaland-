@@ -12,6 +12,8 @@ import {
   pgUniqueConstraint,
 } from "./client";
 import { productLotRowToTs, productRowToTs } from "./mappers";
+import { fetchAllPages } from "./pagination";
+import type { Database } from "@/server/db/database.types";
 import { ensureDefaultWarehouseForBranch } from "./warehouse";
 import { SKU_PREFIX, nextSkuAfter } from "@/features/products/product-sku";
 
@@ -265,30 +267,44 @@ export const productRepository: ProductRepository = {
 export const productLotRepository: ProductLotRepository = {
   async list(ctx: RepoContext, opts) {
     const sb = await getClient("productLot.list");
-    let q = sb
-      .from("product_lots")
-      .select("*")
-      .eq("business_id", ctx.businessId);
 
-    if (opts?.productId) q = q.eq("product_id", opts.productId);
-    if (opts?.status) q = q.eq("status", opts.status);
-
+    // Fechas de corte una sola vez (fuera del loop de páginas).
+    const today = new Date().toISOString().slice(0, 10);
+    let expiringCutoff: string | null = null;
     if (opts?.expiringWithinDays != null) {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() + opts.expiringWithinDays);
-      const today = new Date();
-      q = q
-        .gte("expires_at", today.toISOString().slice(0, 10))
-        .lte("expires_at", cutoff.toISOString().slice(0, 10));
-    }
-    if (opts?.expiredOnly) {
-      q = q.lt("expires_at", new Date().toISOString().slice(0, 10));
+      expiringCutoff = cutoff.toISOString().slice(0, 10);
     }
 
-    q = q.order("expires_at", { ascending: true });
-    const { data, error } = await q;
-    if (error) throw new SupabaseRepositoryError("productLot.list", error);
-    return (data ?? []).map(productLotRowToTs);
+    // Trae TODOS los lotes paginando: sin `.range()`, PostgREST corta en 1000 y
+    // con >1000 lotes (hoy ~1370) el stock salía incompleto — Stock actual
+    // mostraba 0 en los productos cuyos lotes caían fuera de la 1ª página. El
+    // orden total (expires_at, id) hace que los rangos no solapen ni dejen huecos.
+    const rows = await fetchAllPages<
+      Database["public"]["Tables"]["product_lots"]["Row"]
+    >(async (from, to) => {
+      let q = sb
+        .from("product_lots")
+        .select("*")
+        .eq("business_id", ctx.businessId);
+
+      if (opts?.productId) q = q.eq("product_id", opts.productId);
+      if (opts?.status) q = q.eq("status", opts.status);
+      if (expiringCutoff != null) {
+        q = q.gte("expires_at", today).lte("expires_at", expiringCutoff);
+      }
+      if (opts?.expiredOnly) q = q.lt("expires_at", today);
+
+      const { data, error } = await q
+        .order("expires_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to);
+      if (error) throw new SupabaseRepositoryError("productLot.list", error);
+      return data ?? [];
+    });
+
+    return rows.map(productLotRowToTs);
   },
 
   async byId(ctx: RepoContext, id: string) {

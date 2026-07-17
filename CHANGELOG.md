@@ -11,6 +11,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.82.1] - 2026-07-17
+
+**Fix: "Stock actual" (y todo consumidor de lotes) traía solo 1000 de 1370 lotes.**
+
+`productLot.list` consultaba `product_lots` sin `.range()`, así que PostgREST
+cortaba la respuesta en **1000 filas** en silencio. Con **1370 lotes** en prod,
+se perdían **370 lotes** → **Stock actual** mostraba **0 unidades en 369
+productos** y subestimaba el stock total en **~11,080 unidades (46,460 → 35,380)**.
+Como el corte era por `expires_at` ascendente, desaparecían los productos con
+lotes de vencimiento más lejano.
+
+- **Causa raíz:** consulta sin paginación → tope por defecto de PostgREST (1000).
+- **Fix:** `productLot.list` ahora **pagina en el servidor** y trae TODOS los
+  lotes (helper puro `fetchAllPages`, páginas de 1000 con `.range()`, orden total
+  `expires_at, id` para que los rangos no solapen ni dejen huecos). Beneficia a
+  todos los consumidores: Stock actual, Vencimientos, Bloqueados, Cuarentena,
+  Recall, Bajo stock, reportes y las tools de IA (`expiredOnly`/`expiringWithinDays`).
+- Mismo patrón ya usado para el catálogo (`fetchProductsFromServer`).
+- Nuevo `fetchAllPages` (`server/repositories/supabase/pagination.ts`) + 4 tests
+  (incluye borde de múltiplo exacto y tope anti-loop). typecheck 0.
+
 ## [0.82.0] - 2026-07-17
 
 **Selector de "Sucursal a facturar" en el POS (solo admin/manager).**
