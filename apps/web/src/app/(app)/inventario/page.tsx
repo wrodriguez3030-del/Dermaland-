@@ -150,6 +150,7 @@ function InventarioContent() {
       categoria: (a: Row, b: Row) => a.categoryName.localeCompare(b.categoryName),
       laboratorio: (a: Row, b: Row) => a.labName.localeCompare(b.labName),
       lotes: (a: Row, b: Row) => a.inv.lotCount - b.inv.lotCount,
+      fisico: (a: Row, b: Row) => a.inv.physicalStock - b.inv.physicalStock,
       stock: (a: Row, b: Row) => a.inv.sellableStock - b.inv.sellableStock,
       min: (a: Row, b: Row) => a.product.minStock - b.product.minStock,
       valor: (a: Row, b: Row) => a.inv.value - b.inv.value,
@@ -162,7 +163,7 @@ function InventarioContent() {
   });
 
   // ── Totales (motor único, sobre lo filtrado) ─────────────────────────────────
-  const { totalUnits, totalValue, lowStockCount, noStockCount } =
+  const { totalUnits, totalPhysicalUnits, totalValue, lowStockCount, noStockCount } =
     getInventoryStockSummary(filtered);
 
   // ── Unidades bloqueadas (visibles al filtrar Vencidos/Cuarentena/Recall) ─────
@@ -205,7 +206,13 @@ function InventarioContent() {
       </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Unidades disponibles" value={totalUnits} icon={Boxes} tone="primary" />
+        <StatCard
+          label="Unidades físicas (real)"
+          value={totalPhysicalUnits}
+          icon={Boxes}
+          tone="primary"
+          hint={`${totalUnits.toLocaleString()} disponibles para venta`}
+        />
         <StatCard
           label="Valor de inventario"
           value={formatCurrency(totalValue)}
@@ -299,10 +306,14 @@ function InventarioContent() {
                       <div className="mt-0.5 text-xs opacity-60">{labName}</div>
                     </div>
                     <div className="shrink-0 text-right">
+                      <div className="font-semibold tabular-nums">
+                        {inv.physicalStock}{" "}
+                        <span className="text-[10px] font-normal opacity-50">u. físico</span>
+                      </div>
                       <div
-                        className={`font-semibold tabular-nums ${noStock ? "text-rose-600" : lowStock ? "text-amber-600" : ""}`}
+                        className={`text-[11px] tabular-nums ${noStock ? "text-rose-600" : lowStock ? "text-amber-600" : "opacity-60"}`}
                       >
-                        {inv.sellableStock} u.
+                        {inv.sellableStock} disponible
                       </div>
                       <div className="text-[10px] opacity-50">
                         {inv.lotCount} lotes · mín {p.minStock}
@@ -336,7 +347,8 @@ function InventarioContent() {
                 <SortableTH sortKey="categoria" state={sort} onClick={toggle}>Categoría</SortableTH>
                 <SortableTH sortKey="laboratorio" state={sort} onClick={toggle}>Laboratorio</SortableTH>
                 <SortableTH sortKey="lotes" state={sort} onClick={toggle} align="right">Lotes</SortableTH>
-                <SortableTH sortKey="stock" state={sort} onClick={toggle} align="right">Stock</SortableTH>
+                <SortableTH sortKey="fisico" state={sort} onClick={toggle} align="right">Físico</SortableTH>
+                <SortableTH sortKey="stock" state={sort} onClick={toggle} align="right">Disponible</SortableTH>
                 <SortableTH sortKey="min" state={sort} onClick={toggle} align="right">Mín / Máx</SortableTH>
                 <SortableTH sortKey="valor" state={sort} onClick={toggle} align="right">Valor</SortableTH>
                 <TH>Alertas</TH>
@@ -346,7 +358,7 @@ function InventarioContent() {
             <TBody>
               {sorted.length === 0 && (
                 <TR>
-                  <TD colSpan={11} className="py-10 text-center text-sm opacity-60">
+                  <TD colSpan={12} className="py-10 text-center text-sm opacity-60">
                     {products.length === 0
                       ? "Esta sucursal no tiene inventario cargado."
                       : "No hay productos que coincidan con los filtros."}
@@ -378,6 +390,9 @@ function InventarioContent() {
                     <TD className="text-sm opacity-70">{categoryName}</TD>
                     <TD className="text-sm opacity-70">{labName}</TD>
                     <TD className="text-right tabular-nums">{inv.lotCount}</TD>
+                    <TD className="text-right tabular-nums font-semibold">
+                      {inv.physicalStock}
+                    </TD>
                     <TD className="text-right tabular-nums font-medium">
                       <div className={noStock ? "text-rose-600" : lowStock ? "text-amber-600" : ""}>
                         {inv.sellableStock}

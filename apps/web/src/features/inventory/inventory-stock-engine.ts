@@ -71,28 +71,33 @@ export function getInventoryRows(
 }
 
 export interface InventorySummary {
+  /** Unidades DISPONIBLES (vendibles). */
   totalUnits: number;
+  /** Unidades FÍSICAS reales (todas, incluye bloqueadas). */
+  totalPhysicalUnits: number;
   totalValue: number;
   lowStockCount: number;
   noStockCount: number;
 }
 
 /**
- * Totales de Stock actual a partir de las filas (unidades vendibles, valor,
- * bajo mínimo, sin stock).
+ * Totales de Stock actual a partir de las filas (unidades vendibles y físicas,
+ * valor, bajo mínimo, sin stock).
  */
 export function getInventoryStockSummary(
   rows: { product: { minStock: number }; inv: InventoryRow }[],
 ): InventorySummary {
   let totalUnits = 0;
+  let totalPhysicalUnits = 0;
   let totalValue = 0;
   let lowStockCount = 0;
   let noStockCount = 0;
   for (const r of rows) {
     totalUnits += r.inv.sellableStock;
+    totalPhysicalUnits += r.inv.physicalStock;
     totalValue += r.inv.value;
     if (r.inv.sellableStock <= r.product.minStock) lowStockCount += 1;
     if (r.inv.sellableStock === 0) noStockCount += 1;
   }
-  return { totalUnits, totalValue, lowStockCount, noStockCount };
+  return { totalUnits, totalPhysicalUnits, totalValue, lowStockCount, noStockCount };
 }

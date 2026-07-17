@@ -83,6 +83,19 @@ describe("inventoryRowForBranch — motor único de Stock actual", () => {
     expect(r.recalledUnits).toBe(30);
   });
 
+  it("physicalStock suma TODAS las unidades (vendibles + vencidas + bloqueadas)", () => {
+    const lots = [
+      lot({ currentQuantity: 50 }), // vendible
+      lot({ currentQuantity: 40, status: "quarantine" }),
+      lot({ currentQuantity: 30, status: "recalled" }),
+      lot({ currentQuantity: 20, expiresAt: "2020-01-01" }), // vencido
+      lot({ branchId: CUTIS, currentQuantity: 999 }), // otra sucursal → no cuenta
+    ];
+    const r = inventoryRowForBranch(lots, P, PRINCIPAL);
+    expect(r.physicalStock).toBe(140); // 50+40+30+20
+    expect(r.sellableStock).toBe(50);
+  });
+
   it("soonDays usa el umbral del laboratorio para 'por vencer'", () => {
     const in60 = new Date(Date.now() + 60 * 86_400_000).toISOString();
     const lots = [lot({ currentQuantity: 10, expiresAt: in60 })];

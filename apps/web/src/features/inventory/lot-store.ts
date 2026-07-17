@@ -1182,7 +1182,10 @@ export function getSellableLotForProduct(
  */
 export interface InventoryRow {
   productId: string;
+  /** Stock DISPONIBLE (vendible): available, no vencido/cuarentena/recall. */
   sellableStock: number;
+  /** Stock FÍSICO real: TODAS las unidades en existencia (incluye bloqueadas). */
+  physicalStock: number;
   value: number;
   lotCount: number;
   totalLotCount: number;
@@ -1208,6 +1211,7 @@ export function inventoryRowForBranch(
   const row: InventoryRow = {
     productId,
     sellableStock: 0,
+    physicalStock: 0,
     value: 0,
     lotCount: 0,
     totalLotCount: 0,
@@ -1223,6 +1227,7 @@ export function inventoryRowForBranch(
     if (l.productId !== productId) continue;
     if (branchId && l.branchId !== branchId) continue;
     row.totalLotCount += 1;
+    row.physicalStock += l.currentQuantity;
     if (l.status === "quarantine") {
       row.quarantine = true;
       row.quarantineUnits += l.currentQuantity;
