@@ -3,8 +3,18 @@ import { Button } from "@/components/ui";
 import { Receipt } from "lucide-react";
 import Link from "next/link";
 import { PosTerminal } from "@/features/pos/pos-terminal";
+import { getSession } from "@/server/auth/context";
+import { canSwitchBillingBranch } from "@/features/tenancy/permissions";
 
-export default function PosPage() {
+export default async function PosPage() {
+  // Rol REAL desde el JWT (app_metadata). Solo admin/manager/super_admin pueden
+  // elegir a qué sucursal facturar; el resto queda fijo en la sucursal actual.
+  // En modo demo (mock) la sesión es admin → puede cambiar.
+  const session = await getSession();
+  const canSwitchBranch = session
+    ? canSwitchBillingBranch(session.user.role)
+    : false;
+
   return (
     <>
       <PageHeader
@@ -20,7 +30,7 @@ export default function PosPage() {
           </Link>
         }
       />
-      <PosTerminal />
+      <PosTerminal canSwitchBranch={canSwitchBranch} />
     </>
   );
 }

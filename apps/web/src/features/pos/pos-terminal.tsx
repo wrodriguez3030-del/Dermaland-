@@ -16,7 +16,7 @@ import {
   Star,
   Percent,
 } from "lucide-react";
-import { Badge, Button } from "@/components/ui";
+import { Badge, Button, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { useCustomers } from "@/features/customers/customer-store";
@@ -215,7 +215,16 @@ export function BranchStockModal({
   );
 }
 
-export function PosTerminal() {
+export function PosTerminal({
+  canSwitchBranch = false,
+}: {
+  /**
+   * ¿Puede el usuario elegir a qué sucursal facturar? (admin/manager). Lo
+   * decide el Server Component `pos/page.tsx` con el rol real del JWT. Si es
+   * `false`, la sucursal se muestra como texto fijo (sin selector).
+   */
+  canSwitchBranch?: boolean;
+} = {}) {
   const customers = useCustomers();
   const billingSettings = useBillingSettings();
   const toast = useToast();
@@ -888,9 +897,29 @@ export function PosTerminal() {
         </div>
 
         {branchId && (
-          <div className="mx-4 mt-3 flex items-center gap-1.5 text-xs text-black/50">
-            <MapPin className="h-3 w-3" />
-            <span>Sucursal: <strong className="text-black/70">{branchName}</strong></span>
+          <div className="mx-4 mt-3 flex items-center gap-2 text-xs text-black/50">
+            <MapPin className="h-3 w-3 shrink-0" />
+            {canSwitchBranch && activeBranches.length > 1 ? (
+              <label className="flex items-center gap-2">
+                <span>Facturar a:</span>
+                <Select
+                  aria-label="Sucursal a facturar"
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  className="h-8 w-auto py-0 text-xs font-medium"
+                >
+                  {activeBranches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : (
+              <span>
+                Sucursal: <strong className="text-black/70">{branchName}</strong>
+              </span>
+            )}
           </div>
         )}
 

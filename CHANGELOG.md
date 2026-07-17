@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.82.0] - 2026-07-17
+
+**Selector de "Sucursal a facturar" en el POS (solo admin/manager).**
+
+Tras v0.81.0 (que retiró el selector global del encabezado), el POS mostraba la
+sucursal como **texto de solo lectura** y no había forma directa de elegir a qué
+sucursal facturar. Ahora el administrador puede seleccionarla desde el propio POS.
+
+- **POS · Nueva venta**: el rótulo `Sucursal: …` se convierte en un `<Select>`
+  "Facturar a:" cuando el usuario es **admin/manager/super_admin** y hay más de una
+  sucursal activa. Cajero/vendedor siguen viendo la sucursal fija (sin regresión).
+  La sucursal elegida define —como ya ocurría— tanto el stock (lotes que se descuentan)
+  como la sucursal a la que se factura/reporta. Reusa el `ConfirmDialog` existente si
+  hay carrito de otra sucursal.
+- El permiso se evalúa con el **rol real del JWT** (`app_metadata`) en el Server
+  Component `pos/page.tsx` vía `getSession()`, no con el usuario mock. En modo demo la
+  sesión es admin → puede cambiar.
+- Nuevo helper puro `canSwitchBillingBranch(role)` (`features/tenancy/permissions.ts`,
+  mismo conjunto de roles que `canManageBranches`) + 4 tests.
+- **Auditoría de otros menús operativos**: Compras (facturas/pagos/recepción), Alta de
+  lote, Conteo físico, Transferencias y Caja (Abrir caja) **ya tenían** su propio
+  selector de sucursal → el POS era el único hueco.
+- typecheck 0, tests 1769/1769.
+
 ## [0.81.0] - 2026-07-17
 
 **Filtro de sucursal por página (con "Todas las sucursales") en vez del selector global.**
