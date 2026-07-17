@@ -14,6 +14,7 @@ import {
 import { productLotRowToTs, productRowToTs } from "./mappers";
 import { fetchAllPages } from "./pagination";
 import type { Database } from "@/server/db/database.types";
+import type { LotBuyerRow } from "@/features/inventory/lot-buyers";
 import { ensureDefaultWarehouseForBranch } from "./warehouse";
 import { SKU_PREFIX, nextSkuAfter } from "@/features/products/product-sku";
 
@@ -317,6 +318,81 @@ export const productLotRepository: ProductLotRepository = {
       .maybeSingle();
     if (error) throw new SupabaseRepositoryError("productLot.byId", error);
     return data ? productLotRowToTs(data) : null;
+  },
+
+  async buyers(ctx: RepoContext, lotId: string) {
+    const sb = await getClient("productLot.buyers");
+    // 1) Líneas de venta de este lote.
+    const { data: items, error: e1 } = await sb
+      .from("proforma_items")
+      .select("proforma_id, quantity")
+      .eq("business_id", ctx.businessId)
+      .eq("product_lot_id", lotId);
+    if (e1) throw new SupabaseRepositoryError("productLot.buyers.items", e1);
+    const itemRows = (items ?? []) as { proforma_id: string; quantity: number }[];
+    if (itemRows.length === 0) return [];
+
+    // 2) Solo proformas que representan una VENTA real (con cliente).
+    const SALE_STATUSES = [
+      "issued",
+      "paid",
+      "partially_paid",
+      "pending_ecf",
+      "converted_to_ecf",
+    ];
+    const proformaIds = [...new Set(itemRows.map((i) => i.proforma_id))];
+    const { data: profsData, error: e2 } = await sb
+      .from("proformas")
+      .select("id, customer_id, number, created_at")
+      .eq("business_id", ctx.businessId)
+      .in("id", proformaIds)
+      .in("status", SALE_STATUSES);
+    if (e2) throw new SupabaseRepositoryError("productLot.buyers.proformas", e2);
+    const profs = (profsData ?? []) as {
+      id: string;
+      customer_id: string | null;
+      number: string | null;
+      created_at: string;
+    }[];
+    const profById = new Map(
+      profs.filter((p) => p.customer_id).map((p) => [p.id, p] as const),
+    );
+    if (profById.size === 0) return [];
+
+    // 3) Datos de contacto de los clientes.
+    const customerIds = [
+      ...new Set([...profById.values()].map((p) => p.customer_id as string)),
+    ];
+    const { data: clientsData, error: e3 } = await sb
+      .from("clients")
+      .select("id, first_name, last_name, phone")
+      .eq("business_id", ctx.businessId)
+      .in("id", customerIds);
+    if (e3) throw new SupabaseRepositoryError("productLot.buyers.clients", e3);
+    const clients = (clientsData ?? []) as {
+      id: string;
+      first_name: string;
+      last_name: string;
+      phone: string | null;
+    }[];
+    const clientById = new Map(clients.map((c) => [c.id, c] as const));
+
+    const out: LotBuyerRow[] = [];
+    for (const it of itemRows) {
+      const prof = profById.get(it.proforma_id);
+      if (!prof || !prof.customer_id) continue;
+      const client = clientById.get(prof.customer_id);
+      if (!client) continue;
+      out.push({
+        customerId: client.id,
+        customerName: `${client.first_name} ${client.last_name}`.trim(),
+        phone: client.phone ?? "",
+        quantity: Number(it.quantity),
+        date: prof.created_at,
+        proformaNumber: prof.number ?? "",
+      });
+    }
+    return out;
   },
 
   async selectFefo(ctx: RepoContext, productId: string) {

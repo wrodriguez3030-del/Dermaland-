@@ -66,6 +66,7 @@ import type {
 } from "@/features/purchases/compras-store";
 import type { GlobalSearchResults } from "@/features/search/search-types";
 import type { Transfer, CreateTransferInput } from "@/features/inventory/transfer-store";
+import type { LotBuyerRow } from "@/features/inventory/lot-buyers";
 
 // ─── Suppliers / ExpenseCategories ──────────────────────────────────────────
 
@@ -218,6 +219,8 @@ export interface ProductLotRepository {
   quarantine(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
   release(ctx: RepoContext, lotId: ID): Promise<void>;
   recall(ctx: RepoContext, lotId: ID, reason: string): Promise<void>;
+  /** Clientes que compraron este lote (para notificar en un recall). */
+  buyers(ctx: RepoContext, lotId: ID): Promise<LotBuyerRow[]>;
   /** Crea un lote nuevo con business_id del ctx (nunca del body). */
   create(
     ctx: RepoContext,

@@ -520,6 +520,10 @@ const productLot: ProductLotRepository = {
   async recall() {
     throw new Error("recall() requiere backend Supabase");
   },
+  async buyers() {
+    // En demo (mock) no hay ventas ligadas a lotes → lista vacía.
+    return [];
+  },
   async create(ctx, input) {
     guard(ctx);
     const now = new Date().toISOString();
