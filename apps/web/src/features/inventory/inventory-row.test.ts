@@ -69,4 +69,26 @@ describe("inventoryRowForBranch — motor único de Stock actual", () => {
     ];
     expect(inventoryRowForBranch(lots, P, "").sellableStock).toBe(40);
   });
+
+  it("cuenta unidades vencidas / cuarentena / recall por separado", () => {
+    const lots = [
+      lot({ currentQuantity: 50 }), // vendible
+      lot({ currentQuantity: 40, status: "quarantine" }),
+      lot({ currentQuantity: 30, status: "recalled" }),
+      lot({ currentQuantity: 20, expiresAt: "2020-01-01" }), // vencido
+    ];
+    const r = inventoryRowForBranch(lots, P, PRINCIPAL);
+    expect(r.expiredUnits).toBe(20);
+    expect(r.quarantineUnits).toBe(40);
+    expect(r.recalledUnits).toBe(30);
+  });
+
+  it("soonDays usa el umbral del laboratorio para 'por vencer'", () => {
+    const in60 = new Date(Date.now() + 60 * 86_400_000).toISOString();
+    const lots = [lot({ currentQuantity: 10, expiresAt: in60 })];
+    // default 30 → 60 días es 'warn', no 'soon'
+    expect(inventoryRowForBranch(lots, P, PRINCIPAL).soon).toBe(0);
+    // umbral del lab 90 → 60 días ya es 'por vencer'
+    expect(inventoryRowForBranch(lots, P, PRINCIPAL, 90).soon).toBe(1);
+  });
 });

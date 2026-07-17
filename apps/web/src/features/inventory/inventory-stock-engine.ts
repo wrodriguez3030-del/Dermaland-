@@ -46,6 +46,11 @@ export function getInventoryRows(
   lots: ProductLot[],
   products: Product[],
   branchId: string,
+  /**
+   * Umbral "por vencer" (días) según el laboratorio del producto. Devuelve
+   * `undefined` cuando el lab no tiene regla → se usa el default global de 30.
+   */
+  labMinDays?: (laboratoryId?: string) => number | undefined,
 ): ProductStockRow[] {
   const byProduct = new Map<string, ProductLot[]>();
   for (const l of lots) {
@@ -56,9 +61,10 @@ export function getInventoryRows(
   }
   return products.map((p) => {
     const pLots = byProduct.get(p.id) ?? [];
+    const soonDays = labMinDays?.(p.laboratoryId) ?? 30;
     return {
       product: p,
-      inv: inventoryRowForBranch(pLots, p.id, branchId),
+      inv: inventoryRowForBranch(pLots, p.id, branchId, soonDays),
       lotNumbers: pLots.map((l) => l.lotNumber),
     };
   });

@@ -1187,12 +1187,20 @@ export interface InventoryRow {
   expired: boolean;
   quarantine: boolean;
   recalled: boolean;
+  /** Unidades de lotes VENCIDOS (por fecha o status) de la sucursal. */
+  expiredUnits: number;
+  /** Unidades de lotes en cuarentena. */
+  quarantineUnits: number;
+  /** Unidades de lotes en recall. */
+  recalledUnits: number;
 }
 
 export function inventoryRowForBranch(
   lots: ProductLot[],
   productId: string,
   branchId: string,
+  /** Umbral "por vencer" en días (por defecto 30; con regla del lab, su valor). */
+  soonDays = 30,
 ): InventoryRow {
   const row: InventoryRow = {
     productId,
@@ -1204,21 +1212,31 @@ export function inventoryRowForBranch(
     expired: false,
     quarantine: false,
     recalled: false,
+    expiredUnits: 0,
+    quarantineUnits: 0,
+    recalledUnits: 0,
   };
   for (const l of lots) {
     if (l.productId !== productId) continue;
     if (branchId && l.branchId !== branchId) continue;
     row.totalLotCount += 1;
-    if (l.status === "quarantine") row.quarantine = true;
-    if (l.status === "recalled") row.recalled = true;
+    if (l.status === "quarantine") {
+      row.quarantine = true;
+      row.quarantineUnits += l.currentQuantity;
+    }
+    if (l.status === "recalled") {
+      row.recalled = true;
+      row.recalledUnits += l.currentQuantity;
+    }
     if (l.status === "expired" || expiryStatus(l.expiresAt) === "expired") {
       row.expired = true;
+      row.expiredUnits += l.currentQuantity;
     }
     if (isLotSellable(l)) {
       row.sellableStock += l.currentQuantity;
       row.value += l.currentQuantity * l.unitCost;
       row.lotCount += 1;
-      if (expiryStatus(l.expiresAt) === "soon") row.soon += 1;
+      if (expiryStatus(l.expiresAt, new Date(), soonDays) === "soon") row.soon += 1;
     }
   }
   return row;
