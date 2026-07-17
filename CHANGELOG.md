@@ -11,6 +11,14 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.82.2] - 2026-07-17
+
+**POS: el selector de sucursal va primero, antes de buscar productos.**
+
+En POS · Nueva venta, el bloque "Facturar a:" (sucursal) se movió al **tope** del
+panel de catálogo, arriba del buscador — el flujo natural es elegir la sucursal y
+luego buscar/agregar productos. Sin cambios de lógica; solo orden y separador visual.
+
 ## [0.82.1] - 2026-07-17
 
 **Fix: "Stock actual" (y todo consumidor de lotes) traía solo 1000 de 1370 lotes.**

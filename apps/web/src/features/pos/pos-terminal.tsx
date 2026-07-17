@@ -851,6 +851,33 @@ export function PosTerminal({
     <div className="grid min-h-[calc(100vh-12rem)] gap-4 xl:gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(380px,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(420px,1fr)]">
       {/* ───────────────────────── Izquierda: catálogo ──────────────────── */}
       <div className="flex min-w-0 flex-col rounded-2xl border border-black/5 bg-white shadow-sm">
+        {/* Sucursal PRIMERO: se elige a qué sucursal facturar y desde ahí se busca. */}
+        {branchId && (
+          <div className="flex items-center gap-2 border-b border-black/5 px-4 py-3 text-xs text-black/50">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            {canSwitchBranch && activeBranches.length > 1 ? (
+              <label className="flex items-center gap-2">
+                <span className="font-medium">Facturar a:</span>
+                <Select
+                  aria-label="Sucursal a facturar"
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  className="h-8 w-auto py-0 text-xs font-medium"
+                >
+                  {activeBranches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : (
+              <span>
+                Sucursal: <strong className="text-black/70">{branchName}</strong>
+              </span>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 border-b border-black/5 p-4">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-40" />
@@ -895,33 +922,6 @@ export function PosTerminal({
             </span>
           </Button>
         </div>
-
-        {branchId && (
-          <div className="mx-4 mt-3 flex items-center gap-2 text-xs text-black/50">
-            <MapPin className="h-3 w-3 shrink-0" />
-            {canSwitchBranch && activeBranches.length > 1 ? (
-              <label className="flex items-center gap-2">
-                <span>Facturar a:</span>
-                <Select
-                  aria-label="Sucursal a facturar"
-                  value={branchId}
-                  onChange={(e) => setBranchId(e.target.value)}
-                  className="h-8 w-auto py-0 text-xs font-medium"
-                >
-                  {activeBranches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            ) : (
-              <span>
-                Sucursal: <strong className="text-black/70">{branchName}</strong>
-              </span>
-            )}
-          </div>
-        )}
 
         {/* ── Banner: sin stock en esta sucursal ──────────────────────────── */}
         {noBranchStock && (
