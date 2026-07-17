@@ -25,3 +25,14 @@ export function canSwitchBillingBranch(
 ): boolean {
   return BRANCH_MANAGER_ROLES.includes(role);
 }
+
+/**
+ * ¿El usuario puede RECIBIR un lote por debajo del mínimo de vida útil del
+ * laboratorio (forzar el override)? Sólo admin/manager/super_admin. El resto ve
+ * la advertencia pero no puede confirmar la recepción bajo mínimo.
+ */
+export function canReceiveBelowShelfLife(
+  role: UserRole = mockCurrentUser.role,
+): boolean {
+  return BRANCH_MANAGER_ROLES.includes(role);
+}

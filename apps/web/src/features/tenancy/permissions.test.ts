@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { canManageBranches, canSwitchBillingBranch } from "./permissions";
+import {
+  canManageBranches,
+  canReceiveBelowShelfLife,
+  canSwitchBillingBranch,
+} from "./permissions";
 import type { UserRole } from "@/types";
 
 const ALL_ROLES: UserRole[] = [
@@ -43,5 +47,16 @@ describe("canSwitchBillingBranch", () => {
     for (const role of ALL_ROLES) {
       expect(canSwitchBillingBranch(role)).toBe(canManageBranches(role));
     }
+  });
+});
+
+describe("canReceiveBelowShelfLife", () => {
+  it("solo admin/manager/super_admin pueden forzar recepción bajo mínimo", () => {
+    expect(canReceiveBelowShelfLife("super_admin")).toBe(true);
+    expect(canReceiveBelowShelfLife("admin")).toBe(true);
+    expect(canReceiveBelowShelfLife("manager")).toBe(true);
+    expect(canReceiveBelowShelfLife("cashier")).toBe(false);
+    expect(canReceiveBelowShelfLife("vendedor")).toBe(false);
+    expect(canReceiveBelowShelfLife("inventory")).toBe(false);
   });
 });
