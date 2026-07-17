@@ -30,11 +30,8 @@ import {
   formatDateTime,
   daysUntil,
   formatDate,
-  isToday,
-  isSameCalendarMonth,
 } from "@/lib/utils/format";
 import { useProformas } from "@/features/sales/proforma-store";
-import { isInvoiceDocument } from "@/features/sales/document-label";
 import {
   useCurrentCashSession,
 } from "@/features/sales/cash-session-store";
@@ -43,7 +40,16 @@ import { useProducts } from "@/features/products/product-store";
 import { useAllLots, totalSellableStock } from "@/features/inventory/lot-store";
 import { lotsExpiringWithin, blockedLots } from "@/features/inventory/lot-selectors";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { useCustomers } from "@/features/customers/customer-store";
+import {
+  matchesPeriod,
+  availableYears,
+  MONTH_NAMES,
+  type MonthFilter,
+  type YearFilter,
+} from "@/features/dashboard/dashboard-filters";
+import { Select } from "@/components/ui";
 import { getProductById } from "@/lib/mock-data/catalog";
 import { mockAuditLogs } from "@/lib/mock-data/users";
 import {
@@ -77,54 +83,85 @@ export default function DashboardPage() {
     [activeBranches],
   );
 
+  // ── Filtros del dashboard: sucursal / mes / año (Todos por defecto) ──────────
+  const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
+  const [monthFilter, setMonthFilter] = React.useState<MonthFilter>("all");
+  const [yearFilter, setYearFilter] = React.useState<YearFilter>("all");
+  const years = React.useMemo(
+    () => availableYears(proformas.map((p) => p.createdAt)),
+    [proformas],
+  );
+  // Sucursales dentro del alcance del filtro (para las métricas de inventario,
+  // que son "ahora" y solo dependen de la sucursal, no del mes/año).
+  const scopedBranchIds = React.useMemo(() => {
+    if (branchFilter === ALL_BRANCHES) return activeBranchIds;
+    return new Set(activeBranchIds.has(branchFilter) ? [branchFilter] : []);
+  }, [branchFilter, activeBranchIds]);
+  const inPeriod = React.useCallback(
+    (dateIso: string, respectBranch: boolean, branchId?: string) =>
+      matchesPeriod(dateIso, monthFilter, yearFilter) &&
+      (!respectBranch || branchMatches(branchId ?? "", branchFilter)),
+    [monthFilter, yearFilter, branchFilter],
+  );
+
   // "Ventas hoy" = facturas (NCF/e-CF) emitidas HOY. MISMA definición que la
   // pantalla /ventas (isInvoiceDocument) → el KPI y `/ventas?period=today`
   // cuentan exactamente lo mismo (coherencia KPI↔detalle).
-  const salesTodayDocs = React.useMemo(
+  // Ventas completadas dentro del filtro (sucursal + mes + año). Fuente única de
+  // las métricas y gráficos de ventas del dashboard.
+  const filteredSaleDocs = React.useMemo(
     () =>
-      proformas.filter((p) => isInvoiceDocument(p) && isToday(p.createdAt)),
-    [proformas],
+      proformas.filter(
+        (p) =>
+          SALE_DONE.has(p.status) &&
+          branchMatches(p.branchId, branchFilter) &&
+          matchesPeriod(p.createdAt, monthFilter, yearFilter),
+      ),
+    [proformas, branchFilter, monthFilter, yearFilter],
   );
-  const salesToday = salesTodayDocs.reduce((s, p) => s + p.total, 0);
-  const transactionsToday = salesTodayDocs.length;
+  const salesToday = filteredSaleDocs.reduce((s, p) => s + p.total, 0);
+  const transactionsToday = filteredSaleDocs.length;
 
   // Actividad de ventas del día (para el listado "Ventas recientes"): proformas
   // y facturas completadas hoy, más recientes primero.
   const todayProformas = React.useMemo(
     () =>
-      proformas
-        .filter((p) => isToday(p.createdAt) && SALE_DONE.has(p.status))
-        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
-    [proformas],
+      [...filteredSaleDocs].sort(
+        (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
+      ),
+    [filteredSaleDocs],
   );
 
   // Lotes próximos a vencer (≤90 días, sucursales activas) — MISMO selector que
   // `/inventario/vencimientos?days=90`. Sin cap: el KPI cuenta TODOS, no 5.
   const expiringSoon = React.useMemo(
-    () => lotsExpiringWithin(lots, activeBranchIds, 90),
-    [lots, activeBranchIds],
+    () => lotsExpiringWithin(lots, scopedBranchIds, 90),
+    [lots, scopedBranchIds],
   );
 
   const lowStockProducts = React.useMemo(
     () =>
       products
-        .map((p) => ({ p, stock: totalSellableStock(lots, p.id, activeBranchIds) }))
+        .map((p) => ({ p, stock: totalSellableStock(lots, p.id, scopedBranchIds) }))
         .filter((x) => x.stock <= x.p.minStock)
         .slice(0, 5),
-    [products, lots, activeBranchIds],
+    [products, lots, scopedBranchIds],
   );
 
   // Lotes bloqueados (cuarentena + recall) — MISMO selector que
-  // `/inventario/bloqueados`. Cuadra con la etiqueta "Cuarentena + recall".
-  const blocked = React.useMemo(() => blockedLots(lots), [lots]);
+  // `/inventario/bloqueados`, acotado a la sucursal del filtro.
+  const blocked = React.useMemo(
+    () => blockedLots(lots).filter((l) => scopedBranchIds.has(l.branchId)),
+    [lots, scopedBranchIds],
+  );
 
   const recentLogs = mockAuditLogs.slice(0, 6);
 
   // Clientes nuevos del mes ACTUAL — MISMA definición que
   // `/clientes?created=this_month`.
   const newCustomersThisMonth = React.useMemo(
-    () => customers.filter((c) => isSameCalendarMonth(c.createdAt)).length,
-    [customers],
+    () => customers.filter((c) => matchesPeriod(c.createdAt, monthFilter, yearFilter)).length,
+    [customers, monthFilter, yearFilter],
   );
 
   // Inventarios pendientes (borrador + en progreso) — MISMO predicado que
@@ -144,21 +181,26 @@ export default function DashboardPage() {
   }, [cashSession, proformas]);
 
   // ── Gráficos ejecutivos (mismas ventas completadas que "Ventas recientes") ──
-  const saleDocs = React.useMemo(
-    () => proformas.filter((p) => SALE_DONE.has(p.status)),
-    [proformas],
-  );
   const branchNameById = React.useMemo(
     () => new Map(activeBranches.map((b) => [b.id, b.name])),
     [activeBranches],
   );
   const branchSales = React.useMemo(
-    () => salesByBranch(saleDocs, (id) => branchNameById.get(id) ?? ""),
-    [saleDocs, branchNameById],
+    () => salesByBranch(filteredSaleDocs, (id) => branchNameById.get(id) ?? ""),
+    [filteredSaleDocs, branchNameById],
   );
-  const methodSales = React.useMemo(() => paymentsByMethod(saleDocs), [saleDocs]);
-  const trend = React.useMemo(() => monthlyTrend(saleDocs, 6), [saleDocs]);
-  const topProds = React.useMemo(() => topProducts(saleDocs, 5), [saleDocs]);
+  const methodSales = React.useMemo(() => paymentsByMethod(filteredSaleDocs), [filteredSaleDocs]);
+  // La tendencia mensual es una serie de tiempo (últimos 6 meses): respeta la
+  // sucursal pero NO el mes/año elegidos (colapsarían la serie a un punto).
+  const trendDocs = React.useMemo(
+    () =>
+      proformas.filter(
+        (p) => SALE_DONE.has(p.status) && branchMatches(p.branchId, branchFilter),
+      ),
+    [proformas, branchFilter],
+  );
+  const trend = React.useMemo(() => monthlyTrend(trendDocs, 6), [trendDocs]);
+  const topProds = React.useMemo(() => topProducts(filteredSaleDocs, 5), [filteredSaleDocs]);
   const insights = React.useMemo(
     () =>
       buildInsights({
@@ -178,10 +220,6 @@ export default function DashboardPage() {
         description="Resumen de operación de DermaLand Santiago — sucursal piloto"
         actions={
           <>
-            <Button variant="outline" size="sm">
-              <CalendarClock className="h-4 w-4" />
-              Período
-            </Button>
             <Link href="/pos">
               <Button size="sm">
                 <ShoppingCart className="h-4 w-4" />
@@ -192,15 +230,47 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Filtros: sucursal / mes / año (Todos por defecto). */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-sm opacity-70">Filtros:</span>
+        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+        <Select
+          value={monthFilter}
+          onChange={(e) => setMonthFilter(e.target.value)}
+          aria-label="Mes"
+          className="w-auto"
+        >
+          <option value="all">Todos los meses</option>
+          {MONTH_NAMES.map((name, i) => (
+            <option key={i} value={String(i + 1)}>
+              {name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={yearFilter}
+          onChange={(e) => setYearFilter(e.target.value)}
+          aria-label="Año"
+          className="w-auto"
+        >
+          <option value="all">Todos los años</option>
+          {years.map((y) => (
+            <option key={y} value={String(y)}>
+              {y}
+            </option>
+          ))}
+        </Select>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Ventas hoy"
+          label="Ventas del período"
           value={formatCurrency(salesToday)}
-          hint={`${transactionsToday} ${transactionsToday === 1 ? "factura" : "facturas"}`}
+          hint={`${transactionsToday} ${transactionsToday === 1 ? "venta" : "ventas"}`}
           icon={Coins}
           tone="primary"
-          href="/ventas?period=today"
-          ariaLabel={`Ventas de hoy: ${formatCurrency(salesToday)} en ${transactionsToday} facturas. Ver ventas de hoy.`}
+          href="/ventas"
+          ariaLabel={`Ventas del período: ${formatCurrency(salesToday)} en ${transactionsToday} ventas. Ver ventas.`}
         />
         <StatCard
           label="Productos en catálogo"
@@ -234,10 +304,10 @@ export default function DashboardPage() {
         <StatCard
           label="Clientes nuevos"
           value={newCustomersThisMonth}
-          hint="este mes"
+          hint="en el período"
           icon={Users}
-          href="/clientes?created=this_month"
-          ariaLabel={`${newCustomersThisMonth} clientes nuevos este mes. Ver clientes nuevos.`}
+          href="/clientes"
+          ariaLabel={`${newCustomersThisMonth} clientes nuevos en el período. Ver clientes.`}
         />
         <StatCard
           label="Inventarios pendientes"

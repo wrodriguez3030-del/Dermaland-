@@ -11,6 +11,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.86.0] - 2026-07-17
+
+**Dashboard: filtros de Sucursal / Mes / Año (Todos por defecto).**
+
+El dashboard tenía un botón "Período" muerto. Ahora arriba hay tres filtros —
+**Sucursal** (Todas + cada sucursal), **Mes** (Todos + Ene–Dic) y **Año** (Todos +
+los años con datos) — que arrancan en **Todos/Todos/Todos** (histórico completo).
+
+- **Ventas** (nueva tarjeta "Ventas del período", # ventas, ventas por sucursal,
+  cobros por método, top productos, ventas recientes, clientes nuevos) respetan
+  **sucursal + mes + año**.
+- **Inventario** (por vencer, bloqueados, bajo stock) respeta solo **Sucursal**
+  (el stock es "ahora"; mes/año no aplica).
+- La **tendencia mensual** respeta la sucursal pero no el mes/año (es una serie de
+  tiempo: colapsarían la serie).
+- Lógica pura `matchesPeriod` / `availableYears` (UTC, determinista) +7 tests.
+
 ## [0.85.0] - 2026-07-17
 
 **Recall: "Notificar clientes" ahora funciona (antes era un botón muerto).**

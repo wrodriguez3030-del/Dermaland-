@@ -16,11 +16,13 @@ afterEach(cleanup);
 // Destino esperado de cada tarjeta KPI del dashboard. Todas son rutas REALES
 // existentes en apps/web (ver árbol de app/(app)/…) → ningún click da 404.
 const EXPECTED_CARD_LINKS = [
-  "/ventas?period=today",
+  // "Ventas del período" y "Clientes nuevos" ahora dependen de los filtros del
+  // dashboard (sucursal/mes/año), así que enlazan a la vista general.
+  "/ventas",
   "/productos",
   "/inventario/vencimientos?days=90",
   "/inventario/bloqueados",
-  "/clientes?created=this_month",
+  "/clientes",
   "/conteo-fisico?status=pending",
   "/caja",
   "/dgii",
