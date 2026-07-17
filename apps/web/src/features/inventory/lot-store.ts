@@ -156,13 +156,25 @@ export function listMovementsByProduct(productId: string): InventoryMovement[] {
 export type ExpiryStatus = "expired" | "soon" | "warn" | "ok";
 
 /** Clasifica un lote por su fecha de vencimiento (soon < 30d, warn < 90d). */
-export function expiryStatus(expiresAt: string, ref: Date = new Date()): ExpiryStatus {
+/**
+ * Estado de vencimiento de un lote.
+ *
+ * `soonDays`/`warnDays` permiten usar el umbral del LABORATORIO (p. ej. 90 días).
+ * Sin ellos = comportamiento por defecto (30/90) idéntico al histórico. `expired`
+ * (días < 0) es universal y no depende del umbral: es lo único que bloquea venta.
+ */
+export function expiryStatus(
+  expiresAt: string,
+  ref: Date = new Date(),
+  soonDays = 30,
+  warnDays = 90,
+): ExpiryStatus {
   const days = Math.ceil(
     (new Date(expiresAt).getTime() - ref.getTime()) / 86_400_000,
   );
   if (days < 0) return "expired";
-  if (days < 30) return "soon";
-  if (days < 90) return "warn";
+  if (days < soonDays) return "soon";
+  if (days < warnDays) return "warn";
   return "ok";
 }
 
