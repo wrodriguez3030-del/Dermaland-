@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { RowActions } from "@/components/ui/row-actions";
 import { Megaphone, MessageCircle, Copy, FileText, Users } from "lucide-react";
 import { useProducts } from "@/features/products/product-store";
 import { useAllLots } from "@/features/inventory/lot-store";
@@ -156,19 +157,28 @@ function NotifyClientsModal({
                     <TD className="text-xs opacity-70">{b.phone || "—"}</TD>
                     <TD className="text-right tabular-nums">{b.totalQuantity}</TD>
                     <TD className="text-xs">{formatDate(b.lastPurchase)}</TD>
-                    <TD className="text-right pr-2">
-                      {wa ? (
-                        <a
-                          href={`https://wa.me/${wa}?text=${encodeURIComponent(recallMessage(b.customerName, productName, lot.lotNumber))}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
-                        >
-                          <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                        </a>
-                      ) : (
-                        <span className="text-xs opacity-40">sin teléfono</span>
-                      )}
+                    <TD className="pr-2">
+                      <RowActions
+                        canView={false}
+                        canEdit={false}
+                        canDelete={false}
+                        customActions={[
+                          wa
+                            ? {
+                                label: "Enviar WhatsApp",
+                                icon: MessageCircle,
+                                href: `https://wa.me/${wa}?text=${encodeURIComponent(recallMessage(b.customerName, productName, lot.lotNumber))}`,
+                                external: true,
+                              }
+                            : {
+                                label: "WhatsApp",
+                                icon: MessageCircle,
+                                disabled: true,
+                                disabledReason:
+                                  "Este cliente no tiene teléfono registrado.",
+                              },
+                        ]}
+                      />
                     </TD>
                   </TR>
                 );
@@ -251,13 +261,19 @@ export default function RecallPage() {
                     <TD className="text-xs">{formatDate(lot.expiresAt)}</TD>
                     <TD className="text-xs opacity-80">{lot.notes ?? "—"}</TD>
                     <TD>{lotStatusBadge(lot.status)}</TD>
-                    <TD className="text-right pr-4">
-                      <button
-                        onClick={() => setNotifyLot(lot)}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-[color:var(--brand-accent)] hover:underline"
-                      >
-                        <Users className="h-3.5 w-3.5" /> Notificar clientes
-                      </button>
+                    <TD className="pr-4">
+                      <RowActions
+                        canView={false}
+                        canEdit={false}
+                        canDelete={false}
+                        customActions={[
+                          {
+                            label: "Notificar clientes",
+                            icon: Users,
+                            onClick: () => setNotifyLot(lot),
+                          },
+                        ]}
+                      />
                     </TD>
                   </TR>
                 );

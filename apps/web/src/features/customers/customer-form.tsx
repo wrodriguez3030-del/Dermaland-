@@ -551,25 +551,6 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
           <FormSection title="Contacto" description="Teléfono, email, dirección.">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>Teléfono *</Label>
-                <Input
-                  value={phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  placeholder="809-555-0000"
-                  inputMode="tel"
-                  autoComplete="off"
-                  className={
-                    isMissing("phoneOrWhatsapp") ? "border-rose-400" : undefined
-                  }
-                />
-                {phoneError && (
-                  <HelpText className="text-amber-700">{phoneError}</HelpText>
-                )}
-                {liveHints.phone && (
-                  <HelpText className="text-rose-700">{liveHints.phone}</HelpText>
-                )}
-              </div>
-              <div>
                 <Label>WhatsApp *</Label>
                 <Input
                   value={whatsapp}
@@ -588,6 +569,28 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
                   <HelpText className="text-rose-700">
                     {liveHints.whatsapp}
                   </HelpText>
+                )}
+                <HelpText>
+                  Número al que se envía la factura por WhatsApp.
+                </HelpText>
+              </div>
+              <div>
+                <Label>Teléfono</Label>
+                <Input
+                  value={phone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  placeholder="809-555-0000"
+                  inputMode="tel"
+                  autoComplete="off"
+                  className={
+                    isMissing("phoneOrWhatsapp") ? "border-rose-400" : undefined
+                  }
+                />
+                {phoneError && (
+                  <HelpText className="text-amber-700">{phoneError}</HelpText>
+                )}
+                {liveHints.phone && (
+                  <HelpText className="text-rose-700">{liveHints.phone}</HelpText>
                 )}
               </div>
               {isMissing("phoneOrWhatsapp") && (

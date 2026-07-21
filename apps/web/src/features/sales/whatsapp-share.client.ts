@@ -8,6 +8,10 @@ import {
   normalizeWhatsappPhone,
 } from "@/features/sales/proforma-share";
 import { PROFORMA_BACKEND } from "@/features/sales/proforma-store";
+import {
+  getCustomerByIdFromStore,
+  preferredSendPhone,
+} from "@/features/customers/customer-store";
 
 /**
  * Comparte un documento de venta por WhatsApp con el PDF adjunto como enlace.
@@ -29,8 +33,17 @@ export async function shareProformaWhatsapp(
     return { ok: false, error: "No se pudo preparar el mensaje de WhatsApp." };
   }
 
+  // Destino de envío: WhatsApp VIGENTE del cliente (no el snapshot congelado en
+  // la venta). En modo local lo resolvemos del store; en supabase la ruta
+  // servidor hace la resolución y aquí el snapshot solo sirve de pre-chequeo.
+  const liveClient = p.customerId
+    ? getCustomerByIdFromStore(p.customerId)
+    : undefined;
+  const sendPhone =
+    (liveClient ? preferredSendPhone(liveClient) : null) ?? p.customerPhone;
+
   // Validación temprana de teléfono (mensaje claro, sin abrir pestañas).
-  if (!normalizeWhatsappPhone(p.customerPhone)) {
+  if (!normalizeWhatsappPhone(sendPhone)) {
     return { ok: false, error: "Este cliente no tiene teléfono/WhatsApp registrado." };
   }
 
@@ -61,7 +74,10 @@ export async function shareProformaWhatsapp(
     // Modo local/demo: enlace a la vista imprimible (Guardar como PDF).
     const base = documentRouteBase(p);
     const pdfUrl = `${window.location.origin}${base}/${p.id}/print`;
-    const waUrl = buildWhatsappShareUrl(p, mockBusiness, { pdfUrl });
+    const waUrl = buildWhatsappShareUrl(p, mockBusiness, {
+      pdfUrl,
+      phone: sendPhone,
+    });
     navigate(win, waUrl);
     return { ok: true };
   } catch {

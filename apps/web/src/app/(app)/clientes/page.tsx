@@ -28,6 +28,7 @@ import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { useToast } from "@/components/ui/toast";
 import { deleteCustomerAnywhere } from "@/features/customers/customer-store";
 import { useCustomersReport } from "@/features/customers/customer-profile-hooks";
+import { isNewCustomer } from "@/features/customers/customer-flags";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
 import { skinTypeLabel } from "@/features/customers/billing";
 import {
@@ -146,8 +147,13 @@ function ClientesContent() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate font-medium">
-                      {c.firstName} {c.lastName}
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <span className="truncate">
+                        {c.firstName} {c.lastName}
+                      </span>
+                      {isNewCustomer(c) && (
+                        <Badge tone="success">Nuevo</Badge>
+                      )}
                     </div>
                     <div className="font-mono text-xs opacity-60">{c.customerNumber}</div>
                     <div className="mt-1 text-xs opacity-70">
@@ -235,8 +241,13 @@ function ClientesContent() {
                       onDoubleClick={(e) => e.stopPropagation()}
                       className="hover:text-[color:var(--brand-accent)]"
                     >
-                      <div className="font-medium">
-                        {c.firstName} {c.lastName}
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <span>
+                          {c.firstName} {c.lastName}
+                        </span>
+                        {isNewCustomer(c) && (
+                          <Badge tone="success">Nuevo</Badge>
+                        )}
                       </div>
                       <div className="text-xs opacity-60 font-mono">
                         {c.customerNumber}

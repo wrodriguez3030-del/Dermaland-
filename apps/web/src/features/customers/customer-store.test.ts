@@ -8,6 +8,7 @@ import {
   createCustomer,
   getCustomerByIdFromStore,
   listAllCustomers,
+  preferredSendPhone,
 } from "./customer-store";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 
@@ -18,6 +19,25 @@ describe("customer-store (localStorage)", () => {
 
   afterEach(() => {
     clearLocalCustomers();
+  });
+
+  it("preferredSendPhone prefiere WhatsApp sobre teléfono", () => {
+    // El número de envío de factura debe ser el WhatsApp vigente, no el teléfono.
+    expect(
+      preferredSendPhone({ phone: "809-111-1111", whatsapp: "829-222-2222" }),
+    ).toBe("829-222-2222");
+    // Sin WhatsApp cae al teléfono.
+    expect(
+      preferredSendPhone({ phone: "809-111-1111", whatsapp: undefined }),
+    ).toBe("809-111-1111");
+    // Sin ninguno devuelve null (el caller decide el respaldo).
+    expect(preferredSendPhone({ phone: undefined, whatsapp: undefined })).toBe(
+      null,
+    );
+    // Ignora cadenas en blanco.
+    expect(preferredSendPhone({ phone: "809-111-1111", whatsapp: "  " })).toBe(
+      "809-111-1111",
+    );
   });
 
   it("listAllCustomers incluye seed mock", () => {

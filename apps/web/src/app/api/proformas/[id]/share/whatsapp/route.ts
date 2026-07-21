@@ -48,8 +48,25 @@ export async function POST(
       );
     }
 
+    // Destino de envío: WhatsApp VIGENTE del cliente (no el snapshot congelado
+    // en la venta). Si el cliente editó su número, el envío usa el actual;
+    // caemos al snapshot solo si el cliente ya no está o no tiene número.
+    let sendPhone: string | null | undefined = proforma.customerPhone;
+    if (proforma.customerId) {
+      try {
+        const client = await getRepositories().customer.byId(
+          ctx,
+          proforma.customerId,
+        );
+        const live = client?.whatsapp?.trim() || client?.phone?.trim();
+        if (live) sendPhone = live;
+      } catch {
+        // Si no se puede resolver el cliente, usar el snapshot.
+      }
+    }
+
     // Validación: el cliente debe tener teléfono/WhatsApp.
-    if (!normalizeWhatsappPhone(proforma.customerPhone)) {
+    if (!normalizeWhatsappPhone(sendPhone)) {
       return NextResponse.json(
         { error: "Este cliente no tiene teléfono/WhatsApp registrado." },
         { status: 422 },
@@ -62,7 +79,10 @@ export async function POST(
     const filename = whatsappPdfFilename(proforma);
 
     const message = buildWhatsappShareMessage(proforma, mockBusiness, { pdfUrl });
-    const waUrl = buildWhatsappShareUrl(proforma, mockBusiness, { pdfUrl });
+    const waUrl = buildWhatsappShareUrl(proforma, mockBusiness, {
+      pdfUrl,
+      phone: sendPhone,
+    });
 
     // Auditoría / log de envío (best-effort, no rompe el flujo).
     try {
@@ -77,7 +97,7 @@ export async function POST(
         branchId: ctx.branchId,
         metadata: {
           channel: "whatsapp_web",
-          phone: normalizeWhatsappPhone(proforma.customerPhone),
+          phone: normalizeWhatsappPhone(sendPhone),
           pdfFilename: filename,
           documentNumber: proforma.ecfNumber ?? proforma.number,
         },

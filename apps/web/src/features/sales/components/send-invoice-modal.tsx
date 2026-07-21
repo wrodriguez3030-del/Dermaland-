@@ -14,6 +14,7 @@ import {
   buildEmailSubject,
   normalizeWhatsappPhone,
 } from "@/features/sales/proforma-share";
+import { resolveCustomerSendPhone } from "@/features/customers/customer-store";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -56,12 +57,24 @@ export function SendInvoiceModal({
   React.useEffect(() => {
     if (!open || !proforma) return;
     setTab(initialTab);
+    // Default inmediato: snapshot de la venta (evita parpadeo del input).
     setPhone(proforma.customerPhone ?? "");
     setEmail("");
     setPhoneErr(false);
     setEmailErr(false);
     setSubject(buildEmailSubject(proforma, mockBusiness));
     setMessage(buildEmailShareMessage(proforma, mockBusiness, { pdfUrl: link }));
+    // Preferir el WhatsApp VIGENTE del cliente (no el snapshot congelado en la
+    // venta). Si el cliente editó su número, el envío usa el actual.
+    let alive = true;
+    if (proforma.customerId) {
+      void resolveCustomerSendPhone(proforma.customerId).then((num) => {
+        if (alive && num) setPhone(num);
+      });
+    }
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, proforma?.id]);
 

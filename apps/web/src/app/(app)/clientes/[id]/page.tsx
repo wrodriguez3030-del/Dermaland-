@@ -17,6 +17,8 @@ import {
   Pencil,
   Phone,
   Pin,
+  Printer,
+  Send,
   ShoppingCart,
   Tag,
 } from "lucide-react";
@@ -42,12 +44,14 @@ import {
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
 import { useCustomerProfile } from "@/features/customers/customer-profile-hooks";
+import { isNewCustomer } from "@/features/customers/customer-flags";
 import { getCustomerNotes } from "@/lib/mock-data/customers";
 import {
   comprobanteLabel,
 } from "@/features/sales/sales-report";
 import { documentRouteBase } from "@/features/sales/document-label";
 import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
+import { RowActions } from "@/components/ui/row-actions";
 import { mockRecommendations } from "@/lib/mock-data/dermatology";
 import type { Proforma } from "@/types";
 import {
@@ -171,6 +175,7 @@ export default function ClienteDetallePage() {
 
       <PageHeader
         title={`${c.firstName} ${c.lastName}`}
+        titleBadge={isNewCustomer(c) ? <Badge tone="success">Nuevo</Badge> : null}
         description={`${c.customerNumber}${c.documentType ? ` · ${c.documentType}` : ""}${c.documentNumber ? ` ${c.documentNumber}` : ""}`}
         breadcrumbs={[
           { label: "Clientes", href: "/clientes" },
@@ -347,32 +352,30 @@ export default function ClienteDetallePage() {
                         </Badge>
                       </TD>
                       <TD className="pr-4">
-                        <div className="flex items-center justify-end gap-2 text-xs">
-                          <Link
-                            className="text-[color:var(--brand-accent)] hover:underline"
-                            href={`${documentRouteBase(p)}/${p.id}`}
-                          >
-                            Ver
-                          </Link>
-                          <Link
-                            className="text-[color:var(--brand-accent)] hover:underline"
-                            href={`${documentRouteBase(p)}/${p.id}/imprimir`}
-                          >
-                            Imprimir
-                          </Link>
-                          <button
-                            className="text-[color:var(--brand-accent)] hover:underline"
-                            onClick={() => setSendModal({ proforma: p, tab: "whatsapp" })}
-                          >
-                            WhatsApp
-                          </button>
-                          <button
-                            className="text-[color:var(--brand-accent)] hover:underline"
-                            onClick={() => setSendModal({ proforma: p, tab: "email" })}
-                          >
-                            Correo
-                          </button>
-                        </div>
+                        <RowActions
+                          viewHref={`${documentRouteBase(p)}/${p.id}`}
+                          canEdit={false}
+                          canDelete={false}
+                          customActions={[
+                            {
+                              label: "Imprimir",
+                              icon: Printer,
+                              href: `${documentRouteBase(p)}/${p.id}/print`,
+                            },
+                            {
+                              label: "Enviar WhatsApp",
+                              icon: Send,
+                              onClick: () =>
+                                setSendModal({ proforma: p, tab: "whatsapp" }),
+                            },
+                            {
+                              label: "Enviar por correo",
+                              icon: Mail,
+                              onClick: () =>
+                                setSendModal({ proforma: p, tab: "email" }),
+                            },
+                          ]}
+                        />
                       </TD>
                     </TR>
                   ))}

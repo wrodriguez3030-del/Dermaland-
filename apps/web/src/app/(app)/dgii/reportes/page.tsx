@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { RowActions } from "@/components/ui/row-actions";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -440,7 +441,7 @@ export default function DgiiReportesPage() {
                 <TH>Estado</TH>
                 <TH>TrackId</TH>
                 <TH>Emitida</TH>
-                <TH className="text-right pr-4">Ver</TH>
+                <TH className="text-right pr-4">Acciones</TH>
               </TR>
             </THead>
             <TBody>
@@ -461,13 +462,12 @@ export default function DgiiReportesPage() {
                     {i.trackId ?? "—"}
                   </TD>
                   <TD className="text-xs">{formatDateTime(i.createdAt)}</TD>
-                  <TD className="pr-4 text-right">
-                    <Link
-                      href={`/dgii/facturas/${i.id}`}
-                      className="text-xs font-medium text-[color:var(--brand-primary)] hover:underline"
-                    >
-                      detalle →
-                    </Link>
+                  <TD className="pr-4">
+                    <RowActions
+                      viewHref={`/dgii/facturas/${i.id}`}
+                      canEdit={false}
+                      canDelete={false}
+                    />
                   </TD>
                 </TR>
               ))}

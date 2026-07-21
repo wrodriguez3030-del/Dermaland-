@@ -437,6 +437,45 @@ export async function fetchCustomersFromServer(search?: string): Promise<Custome
   return ((await res.json()) as { customers: Customer[] }).customers;
 }
 
+/**
+ * Número de contacto VIGENTE del cliente para envíos (factura por WhatsApp):
+ * WhatsApp preferido, teléfono como respaldo. Devuelve `null` si no hay ninguno.
+ *
+ * Es la fuente única del "a qué número enviar": nunca uses el snapshot
+ * `proforma.customerPhone` (congelado al momento de la venta) como destino,
+ * porque queda desactualizado cuando el cliente edita su contacto.
+ */
+export function preferredSendPhone(
+  c: Pick<Customer, "phone" | "whatsapp">,
+): string | null {
+  return c.whatsapp?.trim() || c.phone?.trim() || null;
+}
+
+/**
+ * Resuelve el número de envío vigente de un cliente por id (WhatsApp preferido).
+ * Funciona en ambos backends: en supabase pide `/api/customers/[id]`, en local
+ * lee el store. Devuelve `null` ante cualquier fallo o si el cliente no tiene
+ * número — el caller decide el respaldo (p. ej. el snapshot de la proforma).
+ */
+export async function resolveCustomerSendPhone(
+  id: string,
+): Promise<string | null> {
+  if (CUSTOMER_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/customers/${id}`, { cache: "no-store" });
+      if (!res.ok) return null;
+      const body = (await res.json().catch(() => ({}))) as {
+        customer?: Customer;
+      };
+      return body.customer ? preferredSendPhone(body.customer) : null;
+    } catch {
+      return null;
+    }
+  }
+  const c = getCustomerByIdFromStore(id);
+  return c ? preferredSendPhone(c) : null;
+}
+
 /** Alta de cliente vía API compartida. Devuelve el mismo shape que el local. */
 async function createCustomerOnServer(
   input: CreateCustomerInput,

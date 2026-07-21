@@ -11,6 +11,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.87.0] - 2026-07-21
+
+**Clientes: envío por WhatsApp al número vigente, reorden de contacto, iconos en acciones y badge "Nuevo".**
+
+- **Fix WhatsApp "teléfono viejo":** al enviar la factura por WhatsApp se usaba
+  `proforma.customerPhone` (snapshot congelado al momento de la venta), no el
+  contacto actual del cliente. Ahora el **destino** es el **WhatsApp vigente**
+  (fallback teléfono), resuelto en vivo por `customerId`. El mensaje/PDF siguen
+  reflejando el documento. Fuente única `preferredSendPhone` /
+  `resolveCustomerSendPhone`; corregido en los 3 caminos (modal de envío, ruta
+  servidor `share/whatsapp`, helper local). La edición del teléfono/WhatsApp ya
+  persistía bien — el bug era solo el destino de envío.
+- **Formulario de cliente:** el campo **WhatsApp \*** ahora va primero (es el
+  número de envío de facturas), luego **Teléfono**. Validación intacta ("al
+  menos uno").
+- **Iconos en menús de Acciones:** auditoría del sistema (37 tablas, 34 ya con
+  iconos). Migradas a `RowActions` (solo-icono + tooltip) las 3 que quedaban con
+  texto: compras del cliente, DGII → Reportes (e-CF) e Inventario → Recall. De
+  paso se corrigió un enlace roto (`/imprimir` → `/print`).
+- **Badge "Nuevo":** los clientes creados hace **menos de 7 días** se marcan con
+  un distintivo verde **"Nuevo"** en la lista (tarjeta + tabla) y en el detalle.
+  Se calcula en render (`isNewCustomer`), así expira solo. `PageHeader` acepta
+  `titleBadge`. +7 tests (`customer-flags`, `preferredSendPhone`). typecheck 0.
+
 ## [0.86.0] - 2026-07-17
 
 **Dashboard: filtros de Sucursal / Mes / Año (Todos por defecto).**

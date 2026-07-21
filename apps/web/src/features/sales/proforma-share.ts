@@ -77,6 +77,13 @@ function businessFooter(business: Business): string[] {
 export interface WhatsappShareOptions {
   /** Enlace público al PDF de la factura/proforma. */
   pdfUrl?: string;
+  /**
+   * Número de destino (wa.me). Si se provee, tiene prioridad sobre el snapshot
+   * `p.customerPhone`. Úsalo para enviar al WhatsApp VIGENTE del cliente en vez
+   * del teléfono congelado al momento de la venta. Solo afecta el destino; el
+   * contenido del mensaje/PDF sigue reflejando el documento.
+   */
+  phone?: string | null;
 }
 
 /**
@@ -232,7 +239,7 @@ export function buildWhatsappShareUrl(
   business: Business,
   opts: WhatsappShareOptions = {},
 ): string {
-  const phone = normalizeWhatsappPhone(p.customerPhone) ?? "";
+  const phone = normalizeWhatsappPhone(opts.phone ?? p.customerPhone) ?? "";
   const text = encodeURIComponent(buildWhatsappShareMessage(p, business, opts));
   return `https://wa.me/${phone}?text=${text}`;
 }
