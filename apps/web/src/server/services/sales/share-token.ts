@@ -67,7 +67,15 @@ export function verifyDocumentShareToken(
   const [payloadPart, sigPart] = token.split(".", 2);
   if (!payloadPart || !sigPart) return null;
 
-  const expected = sign(payloadPart ? fromB64url(payloadPart).toString() : "");
+  // Fail-closed: si el secreto no está configurado (o la firma falla), la
+  // verificación RECHAZA (null) en vez de lanzar — así la página pública
+  // muestra "enlace no disponible" y nunca crashea por una mala config.
+  let expected: string;
+  try {
+    expected = sign(fromB64url(payloadPart).toString());
+  } catch {
+    return null;
+  }
   const expectedBuf = Buffer.from(expected);
   const gotBuf = Buffer.from(sigPart);
   if (

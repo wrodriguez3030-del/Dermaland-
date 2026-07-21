@@ -47,11 +47,10 @@ export function SendInvoiceModal({
   const [message, setMessage] = React.useState("");
   const [phoneErr, setPhoneErr] = React.useState(false);
   const [emailErr, setEmailErr] = React.useState(false);
-
-  const link =
-    typeof window !== "undefined" && proforma
-      ? `${window.location.origin}${documentRouteBase(proforma)}/${proforma.id}/print`
-      : "";
+  // Enlace que viaja en el mensaje. Arranca en la vista imprimible (funciona en
+  // local/demo) y, en supabase, se reemplaza por el enlace PÚBLICO firmado
+  // (`/factura/[token]`) — sin login y con logo/OG en la vista previa de WhatsApp.
+  const [shareLink, setShareLink] = React.useState("");
 
   // Precargar datos cuando se abre para un documento.
   React.useEffect(() => {
@@ -62,8 +61,10 @@ export function SendInvoiceModal({
     setEmail("");
     setPhoneErr(false);
     setEmailErr(false);
+    const fallbackLink = `${window.location.origin}${documentRouteBase(proforma)}/${proforma.id}/print`;
+    setShareLink(fallbackLink);
     setSubject(buildEmailSubject(proforma, mockBusiness));
-    setMessage(buildEmailShareMessage(proforma, mockBusiness, { pdfUrl: link }));
+    setMessage(buildEmailShareMessage(proforma, mockBusiness, { pdfUrl: fallbackLink }));
     // Preferir el WhatsApp VIGENTE del cliente (no el snapshot congelado en la
     // venta). Si el cliente editó su número, el envío usa el actual.
     let alive = true;
@@ -72,6 +73,19 @@ export function SendInvoiceModal({
         if (alive && num) setPhone(num);
       });
     }
+    // Enlace PÚBLICO (sin login) con logo/OG. Solo supabase; si falla, se queda
+    // con la vista imprimible.
+    void fetch(`/api/proformas/${proforma.id}/share-link`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { viewUrl?: string } | null) => {
+        if (alive && body?.viewUrl) {
+          setShareLink(body.viewUrl);
+          setMessage(
+            buildEmailShareMessage(proforma, mockBusiness, { pdfUrl: body.viewUrl }),
+          );
+        }
+      })
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -81,7 +95,7 @@ export function SendInvoiceModal({
   if (!open || !proforma) return null;
 
   const doc = getDocumentDisplayInfo(proforma);
-  const waMessage = buildWhatsappShareMessage(proforma, mockBusiness, { pdfUrl: link });
+  const waMessage = buildWhatsappShareMessage(proforma, mockBusiness, { pdfUrl: shareLink });
 
   const openWhatsapp = () => {
     const normalized = normalizeWhatsappPhone(phone);
@@ -114,7 +128,7 @@ export function SendInvoiceModal({
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(shareLink);
       toast.success("Enlace de la factura copiado.");
     } catch {
       toast.error("No se pudo copiar. Selecciona y copia el enlace manualmente.");

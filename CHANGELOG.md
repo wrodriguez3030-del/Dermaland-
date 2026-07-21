@@ -11,6 +11,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.88.0] - 2026-07-21
+
+**Factura por WhatsApp: enlace público (sin login) con logo de DermaLand en la vista previa.**
+
+- **Fix "pide login":** el enlace que recibía el cliente apuntaba a `/print`
+  (ruta privada) → redirigía a login. Ahora se comparte una **página pública
+  tokenizada** `/factura/[token]` que el cliente abre **sin iniciar sesión**
+  (autorización por token firmado HMAC, no por sesión; acotado al `businessId`
+  del token vía service-role). Muestra logo, negocio, ítems, total, forma de
+  pago y un botón **Descargar PDF**.
+- **Logo en el chat de WhatsApp:** la página lleva meta **Open Graph** con una
+  imagen generada (`next/og`) que incluye el **logo de DermaLand** + número y
+  total del comprobante → al pegar el enlace, WhatsApp muestra la tarjeta con el
+  logo.
+- **Middleware:** `/factura/*` y el PDF firmado `/api/proformas/[id]/pdf` pasan a
+  públicos (cada uno valida su propio token). El endpoint que mintea el enlace
+  (`/api/proformas/[id]/share-link`) sí exige sesión de personal.
+- Todos los caminos de envío (modal + `share/whatsapp`) ahora mandan el enlace
+  público de la página, no el PDF crudo. `verifyDocumentShareToken` endurecido
+  (fail-closed: rechaza en vez de lanzar si falta el secreto). Reutiliza
+  `readSharedProforma`. typecheck 0, build 0, 1803 tests OK. Requiere
+  `DOCUMENT_SHARE_SECRET` + `SUPABASE_SERVICE_ROLE_KEY` (ya en prod).
+
 ## [0.87.0] - 2026-07-21
 
 **Clientes: envío por WhatsApp al número vigente, reorden de contacto, iconos en acciones y badge "Nuevo".**

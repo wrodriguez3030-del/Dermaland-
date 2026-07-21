@@ -73,14 +73,20 @@ export async function POST(
       );
     }
 
-    // Enlace firmado al PDF (abrible sin sesión por el cliente).
+    // Enlaces firmados (abribles sin sesión por el cliente):
+    //  - viewUrl: página `/factura/[token]` (HTML con logo/OG) → es la que viaja
+    //    en el mensaje, así WhatsApp muestra la tarjeta con el logo de DermaLand.
+    //  - pdfUrl: PDF directo (se devuelve por si el caller lo necesita).
     const token = signDocumentShareToken(ctx.businessId, id);
+    const viewUrl = `${req.nextUrl.origin}/factura/${token}`;
     const pdfUrl = `${req.nextUrl.origin}/api/proformas/${id}/pdf?t=${token}`;
     const filename = whatsappPdfFilename(proforma);
 
-    const message = buildWhatsappShareMessage(proforma, mockBusiness, { pdfUrl });
+    const message = buildWhatsappShareMessage(proforma, mockBusiness, {
+      pdfUrl: viewUrl,
+    });
     const waUrl = buildWhatsappShareUrl(proforma, mockBusiness, {
-      pdfUrl,
+      pdfUrl: viewUrl,
       phone: sendPhone,
     });
 

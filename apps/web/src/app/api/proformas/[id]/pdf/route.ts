@@ -3,12 +3,7 @@ import { env } from "@/lib/env";
 import type { Proforma } from "@/types";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
-import { createServiceRoleClient } from "@/lib/supabase/server";
-import {
-  proformaItemRowToTs,
-  proformaPaymentRowToTs,
-  proformaRowToTs,
-} from "@/server/repositories/supabase/mappers";
+import { readSharedProforma } from "@/server/services/sales/shared-document";
 import { verifyDocumentShareToken } from "@/server/services/sales/share-token";
 import { generateSaleDocumentPdf } from "@/server/services/sales/document-pdf";
 import { whatsappPdfFilename } from "@/features/sales/proforma-share";
@@ -29,42 +24,6 @@ export const dynamic = "force-dynamic";
 
 const NOT_FOUND = "No pudimos abrir este documento.";
 
-async function readByServiceRole(
-  businessId: string,
-  id: string,
-): Promise<Proforma | null> {
-  const sb = createServiceRoleClient();
-  if (!sb) return null;
-  const { data, error } = await sb
-    .from("proformas")
-    .select("*")
-    .eq("business_id", businessId)
-    .eq("id", id)
-    .maybeSingle();
-  if (error || !data) return null;
-
-  const [{ data: items }, { data: payments }] = await Promise.all([
-    sb
-      .from("proforma_items")
-      .select("*")
-      .eq("business_id", businessId)
-      .eq("proforma_id", id)
-      .order("line_no", { ascending: true }),
-    sb
-      .from("proforma_payments")
-      .select("*")
-      .eq("business_id", businessId)
-      .eq("proforma_id", id)
-      .order("created_at", { ascending: true }),
-  ]);
-
-  return proformaRowToTs(
-    data,
-    (items ?? []).map(proformaItemRowToTs),
-    (payments ?? []).map(proformaPaymentRowToTs),
-  );
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -78,7 +37,7 @@ export async function GET(
 
     if (claims && claims.id === id) {
       // Enlace público firmado → lectura acotada por el negocio del token.
-      proforma = await readByServiceRole(claims.businessId, id);
+      proforma = await readSharedProforma(claims.businessId, id);
       // Fallback: si no hay service-role configurado, intenta con sesión.
       if (!proforma && env.DATA_SOURCE === "supabase") {
         try {

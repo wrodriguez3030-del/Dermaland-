@@ -18,12 +18,20 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/api/whatsapp/webhook",
   "/api/health",
+  // Comprobante público: página del cliente (`/factura/[token]`) + su imagen OG.
+  // Autorización por token firmado, NO por sesión (por eso pasa el middleware).
+  "/factura",
   "/_next",
   "/favicon.ico",
 ];
 
+// PDF público firmado del comprobante: `/api/proformas/[id]/pdf?t=<token>`.
+// El endpoint valida el token internamente (service-role acotado por business).
+const PUBLIC_PATH_PATTERNS = [/^\/api\/proformas\/[^/]+\/pdf$/];
+
 const isPublic = (pathname: string) =>
-  PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
+  PUBLIC_PATH_PATTERNS.some((re) => re.test(pathname));
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
