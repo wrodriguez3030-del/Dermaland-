@@ -11,6 +11,18 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.88.3] - 2026-07-21
+
+**Factura pública: ítems apilados (no se corta el Total en el móvil).**
+
+- La tabla de 4 columnas (Producto/Cant./Precio/Total) era más ancha que la
+  pantalla del móvil y la columna **Total se cortaba** a la derecha. Ahora cada
+  ítem se muestra **apilado**: nombre del producto arriba, `cantidad × precio`
+  debajo, y el total a la derecha (`flex justify-between` con `min-w-0` /
+  `shrink-0`). Cabe en cualquier ancho y el total nunca se recorta. Padding del
+  card reducido en móvil (`p-4 sm:p-6`). Verificado con preview a 400px.
+  typecheck 0, build 0, 198 tests de ventas OK.
+
 ## [0.88.2] - 2026-07-21
 
 **Factura (vista HTML): columnas separadas y desglose de totales que suma.**
