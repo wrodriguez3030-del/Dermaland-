@@ -6,6 +6,7 @@
  * traducen a texto que un usuario de negocio entienda, con un fallback que al
  * menos prettifica el código (sin puntos/guiones bajos).
  */
+import { formatCurrency } from "@/lib/utils/format";
 
 const ACTION_LABELS: Record<string, string> = {
   append: "Anexo agregado",
@@ -60,7 +61,9 @@ const ENTITY_LABELS: Record<string, string> = {
   inventory_count: "Conteo físico",
   inventory_movement: "Movimiento de inventario",
   user: "Usuario",
+  session: "Sesión",
   cash_register: "Caja",
+  cash_register_session: "Sesión de caja",
   cash_closing: "Cierre de caja",
   payment: "Pago",
   receivable: "Cuenta por cobrar",
@@ -70,6 +73,46 @@ const ENTITY_LABELS: Record<string, string> = {
   sequence: "Secuencia e-NCF",
   commission_batch: "Lote de comisiones",
 };
+
+// Etiquetas de claves de metadata + cuáles se muestran como moneda.
+const META_LABELS: Record<string, string> = {
+  name: "Nombre",
+  reason: "Motivo",
+  total: "Total",
+  subtotal: "Subtotal",
+  itbis: "ITBIS",
+  amount: "Monto",
+  openingAmount: "Monto de apertura",
+  closingAmount: "Monto de cierre",
+  balance: "Balance",
+  items: "Ítems",
+  quantity: "Cantidad",
+  adjustments: "Ajustes",
+  shortages: "Faltantes",
+  overages: "Sobrantes",
+  phone: "Teléfono",
+  documentNumber: "Comprobante",
+  ncf: "NCF",
+  ecfNumber: "e-NCF",
+  channel: "Canal",
+  pdfFilename: "Archivo",
+  percentage: "Porcentaje",
+};
+
+const META_CURRENCY_KEYS = new Set([
+  "total",
+  "subtotal",
+  "itbis",
+  "amount",
+  "openingAmount",
+  "closingAmount",
+  "balance",
+]);
+
+/** Claves de metadata con IDs internos que no aportan a un usuario de negocio. */
+function isIdLikeKey(key: string): boolean {
+  return /(^id$|Id$|_id$)/.test(key);
+}
 
 function prettify(code: string): string {
   const s = code.replace(/[._]/g, " ").trim();
@@ -84,4 +127,30 @@ export function auditActionLabel(action: string): string {
 /** Tipo de entidad en texto legible (ej. `proforma` → "Comprobante"). */
 export function auditEntityLabel(entity: string): string {
   return ENTITY_LABELS[entity] ?? prettify(entity);
+}
+
+/**
+ * Convierte el `metadata` de un registro en pares { etiqueta, valor } legibles,
+ * en vez del JSON crudo. Omite IDs internos y formatea montos como moneda.
+ */
+export function formatAuditMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+): { label: string; value: string }[] {
+  if (!metadata || typeof metadata !== "object") return [];
+  return Object.entries(metadata)
+    .filter(
+      ([k, v]) => v !== null && v !== undefined && v !== "" && !isIdLikeKey(k),
+    )
+    .map(([k, v]) => {
+      const label = META_LABELS[k] ?? prettify(k);
+      let value: string;
+      if (typeof v === "number" && META_CURRENCY_KEYS.has(k)) {
+        value = formatCurrency(v);
+      } else if (typeof v === "object") {
+        value = JSON.stringify(v);
+      } else {
+        value = String(v);
+      }
+      return { label, value };
+    });
 }

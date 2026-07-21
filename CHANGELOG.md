@@ -11,6 +11,18 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.89.2] - 2026-07-21
+
+**Auditoría: se quitan los últimos códigos (entityId, JSON crudo, entidad sin traducir).**
+
+- El `entityId` técnico (`#prof_202`, `#crs_2026`) ya NO se muestra como texto
+  (queda en el tooltip de la fila).
+- El `metadata` ya no sale como **JSON crudo**: se muestra como texto legible
+  ("Total: RD$2,890.00 · Ítems: 3", "Monto de apertura: RD$5,000.00"), con
+  montos formateados como moneda y omitiendo IDs internos (`productId`).
+- Entidades que quedaban en inglés/código ahora mapeadas: `cash_register_session`
+  → "Sesión de caja", `session` → "Sesión". +4 tests. typecheck 0, build 0.
+
 ## [0.89.1] - 2026-07-21
 
 **Nombres legibles (no UUID/códigos) en Usuarios, Auditoría y Catálogo de permisos.**

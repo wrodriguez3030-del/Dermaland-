@@ -12,6 +12,7 @@ import {
 import {
   auditActionLabel,
   auditEntityLabel,
+  formatAuditMetadata,
 } from "@/features/admin/audit-labels";
 import { formatDateTime, relativeTime } from "@/lib/utils/format";
 
@@ -89,28 +90,29 @@ export default function AuditoriaPage() {
                       {formatDateTime(log.createdAt)} ({relativeTime(log.createdAt)})
                     </span>
                   </div>
-                  <div className="mt-1 text-sm">
+                  <div className="mt-1 text-sm" title={log.entityId}>
                     <span className="opacity-60">Entidad </span>
                     <span className="font-medium">{auditEntityLabel(log.entity)}</span>
-                    {log.entityId && (
-                      <span
-                        className="ml-1 text-xs opacity-50"
-                        title={log.entityId}
-                      >
-                        #{String(log.entityId).slice(0, 8)}
-                      </span>
-                    )}
                     {log.branchId && (
                       <span className="ml-2 text-xs opacity-60">
                         · {getBranchDisplayName(log.branchId, "Sucursal")}
                       </span>
                     )}
                   </div>
-                  {log.metadata && (
-                    <pre className="mt-2 overflow-x-auto rounded-lg bg-black/[0.03] p-2 text-[11px]">
-                      {JSON.stringify(log.metadata, null, 2)}
-                    </pre>
-                  )}
+                  {(() => {
+                    const meta = formatAuditMetadata(log.metadata);
+                    if (meta.length === 0) return null;
+                    return (
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs opacity-70">
+                        {meta.map(({ label, value }) => (
+                          <span key={label}>
+                            <span className="opacity-60">{label}: </span>
+                            <span className="font-medium">{value}</span>
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {log.ipAddress && (
                     <div className="mt-1 text-[10px] opacity-50">
                       IP {log.ipAddress}
