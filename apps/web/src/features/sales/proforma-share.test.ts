@@ -115,32 +115,37 @@ describe("buildWhatsappShareUrl", () => {
 });
 
 describe("buildWhatsappShareMessage", () => {
-  it("factura NCF: dice que comparte la factura en PDF + link", () => {
+  it("factura NCF: mensaje mínimo (saludo + link), los detalles van en la tarjeta OG", () => {
     const msg = buildWhatsappShareMessage(
       makeProforma({ documentKind: "invoice", ecfType: undefined, number: "B0200000123" }),
       business,
       { pdfUrl: "https://x/pdf" },
     );
-    expect(msg).toContain("Ver factura y descargar PDF:");
     expect(msg).toContain("https://x/pdf");
     expect(msg).toContain("DermaLand");
     expect(msg).toContain("gracias por su compra");
+    // Sin datos duplicados con la tarjeta: NO repite número ni total en el texto.
+    expect(msg).not.toContain("B0200000123");
+    expect(msg).not.toMatch(/Total:/);
     // Una factura NCF NUNCA debe mencionar e-CF / e-NCF / representación e-CF.
     expect(msg).not.toContain("e-CF");
     expect(msg).not.toContain("e-NCF");
     expect(msg).not.toContain("representación");
+    // Conciso: pocas líneas.
+    expect(msg.split("\n").filter((l) => l.trim()).length).toBeLessThanOrEqual(3);
   });
 
-  it("proforma: aclara que no tiene validez fiscal", () => {
+  it("proforma: mensaje mínimo + aviso de que no tiene validez fiscal", () => {
     const msg = buildWhatsappShareMessage(makeProforma(), business, {
       pdfUrl: "https://x/pdf",
     });
     expect(msg).toContain("proforma");
+    expect(msg).toContain("https://x/pdf");
     expect(msg).toMatch(/no tiene validez fiscal/i);
-    expect(msg).toContain("Ver proforma:");
+    expect(msg).not.toContain("PROF-2026-00001"); // el número va en la tarjeta
   });
 
-  it("e-CF demo: incluye la nota de ambiente demo/no fiscal", () => {
+  it("e-CF demo: mensaje mínimo + nota demo/no fiscal", () => {
     const msg = buildWhatsappShareMessage(
       makeProforma({ documentKind: "invoice", ecfType: "32", ecfNumber: "E320000001" }),
       business,
@@ -148,13 +153,14 @@ describe("buildWhatsappShareMessage", () => {
     );
     expect(msg).toContain("comprobante");
     expect(msg).toContain("sin validez fiscal");
-    expect(msg).toContain("E320000001");
+    expect(msg).toContain("https://x/pdf");
+    expect(msg).not.toContain("E320000001"); // el número va en la tarjeta
   });
 
-  it("el mensaje base incluye negocio, número y total", () => {
+  it("el mensaje base incluye negocio y saludo", () => {
     const msg = buildWhatsappMessage(makeProforma(), business);
     expect(msg).toContain("DermaLand");
-    expect(msg).toContain("PROF-2026-00001");
+    expect(msg).toMatch(/Hola/);
   });
 });
 

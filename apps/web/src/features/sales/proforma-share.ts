@@ -88,38 +88,30 @@ export function buildWhatsappShareMessage(
   business: Business,
   opts: WhatsappShareOptions = {},
 ): string {
+  // Mensaje MÍNIMO: solo saludo + enlace. El tipo de documento, número y total
+  // ya aparecen en la tarjeta de vista previa (Open Graph) que WhatsApp muestra
+  // bajo el enlace — repetirlos aquí duplicaría la información.
   const cls = classifySaleDocument(p);
   const cliente = p.customerName || "cliente";
-  const total = formatCurrency(p.total);
   const comercio = business.commercialName || "DermaLand";
   const lines: string[] = [];
 
-  if (cls === "ecf") {
+  if (cls === "ncf") {
     lines.push(
-      `Hola ${cliente}, le compartimos su comprobante de ${comercio}.`,
-      "",
-      `${proformaDocLabel(p)} · ${p.ecfNumber ?? p.number}`,
-      `Total: ${total}`,
+      `Hola ${cliente}, gracias por su compra en ${comercio}. Aquí está su factura:`,
     );
-    if (opts.pdfUrl) lines.push("", "Ver comprobante y descargar PDF:", opts.pdfUrl);
-    lines.push("", "Documento demo, sin validez fiscal ante la DGII.");
-  } else if (cls === "ncf") {
-    lines.push(
-      `Hola ${cliente}, gracias por su compra en ${comercio}.`,
-      "",
-      `${saleDocLabelNcf(p)} · ${p.ecfNumber ?? p.number}`,
-      `Total: ${total}`,
-    );
-    if (opts.pdfUrl) lines.push("", "Ver factura y descargar PDF:", opts.pdfUrl);
+  } else if (cls === "proforma") {
+    lines.push(`Hola ${cliente}, le compartimos su proforma de ${comercio}:`);
   } else {
-    lines.push(
-      `Hola ${cliente}, le compartimos su proforma de ${comercio}.`,
-      "",
-      `Proforma · ${p.number}`,
-      `Total: ${total}`,
-    );
-    if (opts.pdfUrl) lines.push("", "Ver proforma:", opts.pdfUrl);
+    lines.push(`Hola ${cliente}, le compartimos su comprobante de ${comercio}:`);
+  }
+
+  if (opts.pdfUrl) lines.push("", opts.pdfUrl);
+
+  if (cls === "proforma") {
     lines.push("", "No tiene validez fiscal hasta ser facturada.");
+  } else if (cls === "ecf") {
+    lines.push("", "Documento demo, sin validez fiscal ante la DGII.");
   }
 
   return lines.join("\n");

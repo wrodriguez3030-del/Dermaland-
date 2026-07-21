@@ -11,6 +11,17 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.88.6] - 2026-07-21
+
+**WhatsApp: mensaje mínimo, sin datos duplicados con la tarjeta de vista previa.**
+
+- El mensaje repetía en el texto el tipo de documento, número y total, que ya
+  aparecen en la **tarjeta Open Graph** que WhatsApp muestra bajo el enlace. Se
+  eliminó esa duplicación: el mensaje ahora es solo **saludo + enlace** (más una
+  línea de aviso en proforma/e-CF por su naturaleza no fiscal). Los detalles
+  viajan en la tarjeta con el logo. Ej. factura: *"Hola {cliente}, gracias por su
+  compra en DermaLand. Aquí está su factura:"* + enlace. build 0, tests OK.
+
 ## [0.88.5] - 2026-07-21
 
 **Factura (vista HTML): el RNC ya no se corta en el encabezado.**
