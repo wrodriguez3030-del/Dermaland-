@@ -20,7 +20,10 @@ import {
   roleDefinitions,
   mockCurrentUser,
 } from "@/lib/mock-data/users";
-import { mockBranches } from "@/lib/mock-data/tenancy";
+import {
+  useBranchesState,
+  getBranchDisplayName,
+} from "@/features/tenancy/branch-store";
 import { relativeTime } from "@/lib/utils/format";
 import {
   useUsersList,
@@ -34,7 +37,13 @@ import type { User } from "@/types";
 export default function UsuariosPage() {
   const { users, loading, error, refresh } = useUsersList();
   const toast = useToast();
-  const branchById = Object.fromEntries(mockBranches.map((b) => [b.id, b]));
+  // Sucursales REALES (Supabase en prod). Puebla el cache de nombres para que
+  // `getBranchDisplayName` nunca exponga el UUID técnico del branch_id.
+  const { list: branches } = useBranchesState();
+  const branchById = React.useMemo(
+    () => Object.fromEntries(branches.map((b) => [b.id, b])),
+    [branches],
+  );
   const roleLabel = Object.fromEntries(
     roleDefinitions.map((r) => [r.key, r.label]),
   );
@@ -160,9 +169,14 @@ export default function UsuariosPage() {
               </TD>
               <TD>
                 <div className="text-xs opacity-80">
-                  {u.branchIds
-                    .map((id) => branchById[id]?.code ?? id)
-                    .join(", ")}
+                  {u.branchIds.length
+                    ? u.branchIds
+                        .map(
+                          (id) =>
+                            branchById[id]?.name ?? getBranchDisplayName(id, "—"),
+                        )
+                        .join(", ")
+                    : "—"}
                 </div>
               </TD>
               <TD>

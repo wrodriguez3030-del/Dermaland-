@@ -11,6 +11,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.89.1] - 2026-07-21
+
+**Nombres legibles (no UUID/códigos) en Usuarios, Auditoría y Catálogo de permisos.**
+
+- **Usuarios:** la columna "Sucursales" mostraba el **UUID** del branch
+  (`00000000-…b001`, `0a1fd664-…`) porque resolvía contra `mockBranches`. Ahora
+  usa las sucursales REALES (`useBranchesState`) y `getBranchDisplayName` — nunca
+  el UUID.
+- **Auditoría:** `action` y `entity` salían como códigos (`sale.whatsapp_share`,
+  `proforma`) y el `branchId` como UUID. Ahora se muestran con etiquetas
+  legibles (`auditActionLabel`/`auditEntityLabel` → "Factura enviada por
+  WhatsApp", "Comprobante") y el branch por su nombre; el `entityId` se acorta a
+  `#xxxxxxxx` (UUID completo en el tooltip). Aplicado en admin y super-admin
+  (incl. export CSV).
+- **Catálogo de permisos:** se quitó la columna "Clave" (código); queda la
+  descripción legible (clave en tooltip) + estado.
+- +10 tests (`audit-labels`, `permission-label`). typecheck 0, build 0.
+
 ## [0.89.0] - 2026-07-21
 
 **Roles: los permisos se muestran con nombres que el usuario entiende.**

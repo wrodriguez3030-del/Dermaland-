@@ -1,14 +1,18 @@
+"use client";
+
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui";
+import { Badge, Card, CardContent } from "@/components/ui";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { mockAuditLogs } from "@/lib/mock-data/users";
+import {
+  useBranchesState,
+  getBranchDisplayName,
+} from "@/features/tenancy/branch-store";
+import {
+  auditActionLabel,
+  auditEntityLabel,
+} from "@/features/admin/audit-labels";
 import { formatDateTime, relativeTime } from "@/lib/utils/format";
 
 const actionTone: Record<string, "success" | "info" | "warning" | "danger" | "neutral"> = {
@@ -23,6 +27,9 @@ const actionTone: Record<string, "success" | "info" | "warning" | "danger" | "ne
 };
 
 export default function AuditoriaPage() {
+  // Carga las sucursales reales para poder mostrar el NOMBRE del branch en vez
+  // del UUID técnico (puebla el cache de `getBranchDisplayName`).
+  useBranchesState();
   const sorted = [...mockAuditLogs].sort(
     (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
   );
@@ -73,8 +80,8 @@ export default function AuditoriaPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={actionTone[log.action] ?? "neutral"}>
-                      {log.action}
+                    <Badge tone={actionTone[log.action] ?? "neutral"} title={log.action}>
+                      {auditActionLabel(log.action)}
                     </Badge>
                     <span className="text-sm font-medium">{log.userName}</span>
                     <span className="text-xs opacity-50">·</span>
@@ -84,15 +91,18 @@ export default function AuditoriaPage() {
                   </div>
                   <div className="mt-1 text-sm">
                     <span className="opacity-60">Entidad </span>
-                    <code className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[11px]">
-                      {log.entity}
-                    </code>{" "}
-                    <code className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[11px]">
-                      {log.entityId}
-                    </code>
+                    <span className="font-medium">{auditEntityLabel(log.entity)}</span>
+                    {log.entityId && (
+                      <span
+                        className="ml-1 text-xs opacity-50"
+                        title={log.entityId}
+                      >
+                        #{String(log.entityId).slice(0, 8)}
+                      </span>
+                    )}
                     {log.branchId && (
-                      <span className="ml-2 text-xs opacity-50">
-                        · {log.branchId}
+                      <span className="ml-2 text-xs opacity-60">
+                        · {getBranchDisplayName(log.branchId, "Sucursal")}
                       </span>
                     )}
                   </div>

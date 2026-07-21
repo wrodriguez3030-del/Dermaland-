@@ -104,8 +104,7 @@ export default function PermisosPage() {
                 <Table>
                   <THead>
                     <TR>
-                      <TH>Clave</TH>
-                      <TH>Descripción</TH>
+                      <TH>Permiso</TH>
                       <TH className="w-24 text-right pr-4">Estado</TH>
                     </TR>
                   </THead>
@@ -114,12 +113,7 @@ export default function PermisosPage() {
                       const pending = DGII_RBAC_PENDING_KEYS.has(p.key);
                       return (
                         <TR key={p.key}>
-                          <TD>
-                            <code className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[11px]">
-                              {p.key}
-                            </code>
-                          </TD>
-                          <TD className="text-xs opacity-80">
+                          <TD className="text-xs opacity-80" title={p.key}>
                             {p.description}
                           </TD>
                           <TD className="pr-4 text-right">

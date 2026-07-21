@@ -1,5 +1,9 @@
 import { mockAuditLogs } from "@/lib/mock-data/users";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
+import {
+  auditActionLabel,
+  auditEntityLabel,
+} from "@/features/admin/audit-labels";
 import { formatDateTime } from "@/lib/utils/format";
 import { SAHeader, SAStat, SACard, SATable } from "@/components/layout/super-admin-ui";
 import { SAExportCsv } from "@/components/layout/super-admin-export-button";
@@ -13,8 +17,8 @@ export default function SuperAdminAuditoria() {
     formatDateTime(l.createdAt),
     mockBusiness.commercialName,
     l.userName,
-    l.action,
-    l.entity,
+    auditActionLabel(l.action),
+    auditEntityLabel(l.entity),
     l.ipAddress ?? "",
   ]);
 
@@ -56,8 +60,8 @@ export default function SuperAdminAuditoria() {
               <td className="px-4 py-2 text-xs text-violet-300 whitespace-nowrap">{formatDateTime(l.createdAt)}</td>
               <td className="px-4 py-2 text-violet-300">{mockBusiness.commercialName}</td>
               <td className="px-4 py-2 font-medium">{l.userName}</td>
-              <td className="px-4 py-2 font-mono text-[11px]">{l.action}</td>
-              <td className="px-4 py-2 text-violet-200">{l.entity}</td>
+              <td className="px-4 py-2" title={l.action}>{auditActionLabel(l.action)}</td>
+              <td className="px-4 py-2 text-violet-200">{auditEntityLabel(l.entity)}</td>
               <td className="px-4 py-2 text-xs text-violet-300">{l.ipAddress ?? "—"}</td>
             </tr>
           ))}
