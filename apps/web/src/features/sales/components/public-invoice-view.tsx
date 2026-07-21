@@ -41,8 +41,10 @@ export function PublicInvoiceView({
     <main className="mx-auto max-w-2xl p-3 sm:p-6">
       <div className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
         <div className="p-4 sm:p-6">
-          {/* Encabezado: logo + negocio / documento */}
-          <div className="flex items-start justify-between gap-4 border-b border-black/10 pb-4">
+          {/* Encabezado: logo + negocio / documento. En móvil se APILA para que
+              el bloque del negocio use todo el ancho y el RNC salga completo en
+              una sola línea (antes se cortaba "1-32-59077-5"). */}
+          <div className="flex flex-col gap-4 border-b border-black/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-3">
               {mockBusiness.logoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -52,12 +54,13 @@ export function PublicInvoiceView({
                   className="h-14 w-14 shrink-0 object-contain"
                 />
               )}
-              <div>
+              <div className="min-w-0">
                 <div className="text-lg font-bold leading-tight">
                   {mockBusiness.commercialName}
                 </div>
-                <div className="text-xs opacity-70">
-                  {mockBusiness.legalName} · RNC {mockBusiness.rnc}
+                <div className="text-xs opacity-70">{mockBusiness.legalName}</div>
+                <div className="whitespace-nowrap text-xs opacity-70">
+                  RNC {mockBusiness.rnc}
                 </div>
                 {mockBusiness.address && (
                   <div className="text-xs opacity-70">{mockBusiness.address}</div>
@@ -67,7 +70,7 @@ export function PublicInvoiceView({
                 )}
               </div>
             </div>
-            <div className="text-right">
+            <div className="shrink-0 text-left sm:text-right">
               <div className="text-sm font-bold leading-tight">{doc.title}</div>
               <div className="text-xs opacity-70">{doc.subtitle}</div>
               <div className="mt-1 text-[10px] uppercase tracking-wider opacity-50">

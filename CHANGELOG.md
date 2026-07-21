@@ -11,6 +11,18 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.88.5] - 2026-07-21
+
+**Factura (vista HTML): el RNC ya no se corta en el encabezado.**
+
+- En la factura enviada por WhatsApp, el RNC se partía en dos líneas
+  ("RNC 1-32-" / "59077-5") porque la columna del negocio quedaba estrecha entre
+  el logo y el bloque FACTURA. Ahora el RNC va en su **propia línea con
+  `whitespace-nowrap`** (nunca se corta el número) y el encabezado **se apila en
+  móvil** (`flex-col sm:flex-row`) para que el bloque del negocio use todo el
+  ancho. Aplicado en la factura pública y en el detalle del documento. build 0,
+  200 tests de ventas OK.
+
 ## [0.88.4] - 2026-07-21
 
 **Impresión/recibo: Subtotal ≠ Total (desglose que suma en TODAS las vistas).**
