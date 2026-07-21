@@ -11,6 +11,19 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.89.0] - 2026-07-21
+
+**Roles: los permisos se muestran con nombres que el usuario entiende.**
+
+- En Administración → Roles, la sección "Permisos clave" mostraba la **clave
+  técnica cruda** (`sales:create`, `dgii:*`, `cash:open|close|...`). Ahora se
+  muestra una **etiqueta legible**: clave exacta → su descripción del catálogo
+  (ej. "Crear ventas/proformas"); comodín `modulo:*` → "Todo: {Módulo}"; patrón
+  `a|b|c` → "{Módulo}: acción, acción". La clave técnica queda como tooltip.
+- Helper central `permissionLabel(key)` en `mock-data/users.ts` (reusa el
+  catálogo `allPermissions`); aplicado también en la vista de super-admin. +6
+  tests. typecheck 0, build 0.
+
 ## [0.88.6] - 2026-07-21
 
 **WhatsApp: mensaje mínimo, sin datos duplicados con la tarjeta de vista previa.**

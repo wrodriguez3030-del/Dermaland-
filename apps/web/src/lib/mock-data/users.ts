@@ -368,6 +368,104 @@ export const allPermissions: Permission[] = [
   { key: "reports:read", module: "Reportes", description: "Ver reportes" },
 ];
 
+// ─── Etiquetas legibles de permisos ─────────────────────────────────────────
+// Las claves de permiso (`sales:create`, `dgii:*`, `cash:open|close`) son
+// técnicas. `permissionLabel` las traduce a texto que un usuario de negocio
+// entienda, para mostrarlas en las tarjetas de rol.
+
+/** Nombre amigable del módulo por prefijo (para comodines y fallback). */
+const PERMISSION_MODULE_NAMES: Record<string, string> = {
+  platform: "Plataforma",
+  business: "Empresa",
+  branch: "Sucursales",
+  branches: "Sucursales",
+  users: "Usuarios",
+  products: "Productos",
+  inventory: "Inventario",
+  inventory_count: "Inventario físico",
+  lots: "Lotes",
+  sales: "Ventas",
+  proformas: "Proformas",
+  payments: "Pagos",
+  cash: "Caja",
+  cash_register: "Caja",
+  purchases: "Compras",
+  dgii: "Facturación electrónica (DGII)",
+  audit: "Auditoría",
+  reports: "Reportes",
+};
+
+/** Nombre amigable de la acción (para patrones `a|b` y claves fuera de catálogo). */
+const PERMISSION_ACTION_NAMES: Record<string, string> = {
+  read: "ver",
+  write: "crear y editar",
+  create: "crear",
+  delete: "eliminar",
+  adjust: "ajustar",
+  transfer: "transferir",
+  open: "abrir",
+  close: "cerrar",
+  submit: "enviar",
+  review: "revisar",
+  approve: "aprobar",
+  reject: "rechazar",
+  receive: "recibir",
+  invite: "invitar",
+  assign_role: "asignar roles",
+  settings: "configurar",
+  quarantine: "cuarentena",
+  recall: "recall",
+  view_differences: "ver diferencias",
+  mobile_scan: "escanear (móvil)",
+  manual_quantity: "cantidad manual",
+  decrement: "restar línea",
+  remove_item: "eliminar línea",
+  change_closing_percentage: "cambiar % de cierre",
+  authorize_below_100_percent: "autorizar cierre bajo 100%",
+  reverse_closing: "reversar cierre",
+  configure: "configurar",
+  manage: "gestionar",
+};
+
+function prettifyToken(t: string): string {
+  const s = t.replace(/_/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function permissionModuleName(prefix: string): string {
+  return PERMISSION_MODULE_NAMES[prefix] ?? prettifyToken(prefix);
+}
+
+function permissionActionName(action: string): string {
+  return PERMISSION_ACTION_NAMES[action] ?? action.replace(/_/g, " ");
+}
+
+/**
+ * Traduce una clave de permiso a una etiqueta legible por el usuario.
+ *  - `*`                         → "Todos los permisos"
+ *  - clave exacta del catálogo   → su `description` (la más precisa)
+ *  - `modulo:*`                  → "Todo: {Módulo}"
+ *  - `modulo:a|b|c`              → "{Módulo}: acción a, acción b, acción c"
+ *  - cualquier otra              → módulo + acción prettificados
+ */
+export function permissionLabel(key: string): string {
+  if (key === "*") return "Todos los permisos";
+
+  const exact = allPermissions.find((p) => p.key === key);
+  if (exact) return exact.description;
+
+  const sep = key.indexOf(":");
+  if (sep < 0) return permissionModuleName(key);
+
+  const prefix = key.slice(0, sep);
+  const rest = key.slice(sep + 1);
+  const modulo = permissionModuleName(prefix);
+  if (rest === "*") return `Todo: ${modulo}`;
+
+  const actions = rest.split("|").map(permissionActionName);
+  return `${modulo}: ${actions.join(", ")}`;
+}
+
 /**
  * Permisos preparados como MOCK / PENDIENTE.
  *

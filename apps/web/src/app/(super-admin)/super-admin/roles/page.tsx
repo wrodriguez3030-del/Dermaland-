@@ -1,4 +1,4 @@
-import { roleDefinitions, allPermissions } from "@/lib/mock-data/users";
+import { roleDefinitions, allPermissions, permissionLabel } from "@/lib/mock-data/users";
 import { SAHeader, SAStat, SACard, SATable, SABadge } from "@/components/layout/super-admin-ui";
 
 export default function SuperAdminRoles() {
@@ -33,8 +33,12 @@ export default function SuperAdminRoles() {
             <p className="mt-1 text-xs text-violet-300">{r.description}</p>
             <div className="mt-3 flex flex-wrap gap-1">
               {r.permissions.map((p) => (
-                <span key={p} className="rounded bg-violet-800/60 px-1.5 py-0.5 font-mono text-[11px] text-violet-200">
-                  {p}
+                <span
+                  key={p}
+                  title={p}
+                  className="rounded bg-violet-800/60 px-1.5 py-0.5 text-[11px] text-violet-200"
+                >
+                  {permissionLabel(p)}
                 </span>
               ))}
             </div>

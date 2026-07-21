@@ -15,6 +15,7 @@ import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
 import {
   mockUsers,
+  permissionLabel,
   roleBadgeTone,
   roleDefinitions,
 } from "@/lib/mock-data/users";
@@ -69,11 +70,9 @@ export default function RolesPage() {
                 </div>
                 <ul className="space-y-1">
                   {role.permissions.slice(0, 6).map((p) => (
-                    <li key={p} className="flex items-center gap-2 text-xs">
-                      <ShieldCheck className="h-3 w-3 text-[color:var(--brand-primary)]" />
-                      <code className="rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px]">
-                        {p}
-                      </code>
+                    <li key={p} className="flex items-start gap-2 text-xs">
+                      <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-[color:var(--brand-primary)]" />
+                      <span title={p}>{permissionLabel(p)}</span>
                     </li>
                   ))}
                   {role.permissions.length > 6 && (
