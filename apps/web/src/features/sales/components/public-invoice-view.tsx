@@ -154,7 +154,7 @@ export function PublicInvoiceView({
               <>
                 <Row
                   label="Subtotal (sin ITBIS)"
-                  value={formatCurrency(totals.total - totals.itbisIncluded)}
+                  value={formatCurrency(totals.baseWithoutItbis)}
                 />
                 <Row label="ITBIS (18%)" value={formatCurrency(totals.itbisIncluded)} />
               </>

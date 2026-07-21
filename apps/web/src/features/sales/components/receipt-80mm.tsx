@@ -202,17 +202,32 @@ export function Receipt80mm({
 
       <Separator />
 
-      {/* RESUMEN — inclusivo y consistente con las líneas (precios con ITBIS). */}
-      <Row label="Subtotal" value={formatCurrency(rcptTotals.grossInclusive)} />
-      {rcptTotals.discountInclusive > 0 && (
-        <Row
-          label={`Descuento${
-            rcptTotals.discountPercent ? ` (${rcptTotals.discountPercent}%)` : ""
-          }`}
-          value={`-${formatCurrency(rcptTotals.discountInclusive)}`}
-        />
+      {/* RESUMEN — desglose que SUMA. Sin descuento: base sin ITBIS + ITBIS =
+          Total (evita que Subtotal repita el Total con precios ITBIS-incluidos).
+          Con descuento: bruto − descuento (ya difieren del total). */}
+      {rcptTotals.discountInclusive > 0 ? (
+        <>
+          <Row label="Subtotal" value={formatCurrency(rcptTotals.grossInclusive)} />
+          <Row
+            label={`Descuento${
+              rcptTotals.discountPercent ? ` (${rcptTotals.discountPercent}%)` : ""
+            }`}
+            value={`-${formatCurrency(rcptTotals.discountInclusive)}`}
+          />
+          <Row
+            label="ITBIS (18% incl.)"
+            value={formatCurrency(rcptTotals.itbisIncluded)}
+          />
+        </>
+      ) : (
+        <>
+          <Row
+            label="Subtotal (s/ITBIS)"
+            value={formatCurrency(rcptTotals.baseWithoutItbis)}
+          />
+          <Row label="ITBIS (18%)" value={formatCurrency(rcptTotals.itbisIncluded)} />
+        </>
       )}
-      <Row label="ITBIS (18% incl.)" value={formatCurrency(rcptTotals.itbisIncluded)} />
       <div className="mt-1 grid grid-cols-[1fr_auto] text-[13px] font-bold">
         <span>TOTAL</span>
         <span className="text-right tabular-nums">

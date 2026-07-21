@@ -30,6 +30,12 @@ export interface InvoiceDisplayTotals {
   discountPercent?: number;
   /** ITBIS ya incluido en el total (informativo). */
   itbisIncluded: number;
+  /**
+   * Base gravada SIN ITBIS del total (= total − ITBIS). Sirve para el desglose
+   * que SUMA en pantalla — `baseWithoutItbis + itbisIncluded = total` — y así
+   * evitar que "Subtotal" repita el "Total" cuando el precio es ITBIS-incluido.
+   */
+  baseWithoutItbis: number;
   /** Total a pagar (inclusivo). */
   total: number;
 }
@@ -52,6 +58,7 @@ export function invoiceDisplayTotals(p: {
     discountInclusive,
     discountPercent: p.discountPercent,
     itbisIncluded: round2(p.itbis),
+    baseWithoutItbis: round2(p.total - p.itbis),
     total: round2(p.total),
   };
 }

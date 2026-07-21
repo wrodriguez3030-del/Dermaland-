@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.88.4] - 2026-07-21
+
+**Impresión/recibo: Subtotal ≠ Total (desglose que suma en TODAS las vistas).**
+
+- Al **imprimir** (recibo 80mm, que usa la vista de impresión) el Subtotal
+  repetía el Total, igual que antes en la vista HTML. Ahora, sin descuento, el
+  recibo muestra **Subtotal (s/ITBIS) + ITBIS (18%) = Total**.
+- Se **centralizó** la base gravada en `invoiceDisplayTotals.baseWithoutItbis`
+  (= total − ITBIS) y se aplica en las 3 vistas que usaban el bruto inclusivo:
+  recibo de impresión, factura pública `/factura/[token]` y detalle del
+  documento. Auditadas el resto de vistas de facturación (DGII facturas/preview,
+  editor de venta, POS, PDF): ya usaban la **base** (`amount`/`subtotal`/
+  `subtotalNeto`), así que ya mostraban el desglose correcto. +2 tests
+  (`invoice-totals`). typecheck 0, build 0, 200 tests de ventas OK.
+
 ## [0.88.3] - 2026-07-21
 
 **Factura pública: ítems apilados (no se corta el Total en el móvil).**
