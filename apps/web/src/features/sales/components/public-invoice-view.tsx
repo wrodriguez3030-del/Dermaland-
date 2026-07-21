@@ -110,21 +110,26 @@ export function PublicInvoiceView({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-black/10 text-left text-xs uppercase tracking-wider opacity-50">
-                  <th className="py-2">Producto</th>
-                  <th className="py-2 text-right">Cant.</th>
-                  <th className="py-2 text-right">Precio</th>
-                  <th className="py-2 text-right">Total</th>
+                  <th className="py-2 pr-3">Producto</th>
+                  <th className="py-2 px-3 text-right">Cant.</th>
+                  <th className="py-2 px-3 text-right">Precio</th>
+                  <th className="py-2 pl-3 text-right">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {proforma.items.map((it, i) => (
-                  <tr key={`${it.productId}_${i}`} className="border-b border-black/5">
-                    <td className="py-2">{it.productName}</td>
-                    <td className="py-2 text-right tabular-nums">{it.quantity}</td>
-                    <td className="py-2 text-right tabular-nums">
+                  <tr
+                    key={`${it.productId}_${i}`}
+                    className="border-b border-black/5 align-top"
+                  >
+                    <td className="py-2 pr-3">{it.productName}</td>
+                    <td className="py-2 px-3 text-right tabular-nums whitespace-nowrap">
+                      {it.quantity}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums whitespace-nowrap">
                       {formatCurrency(it.unitPrice)}
                     </td>
-                    <td className="py-2 text-right tabular-nums">
+                    <td className="py-2 pl-3 text-right tabular-nums whitespace-nowrap">
                       {formatCurrency(it.total)}
                     </td>
                   </tr>
@@ -133,21 +138,34 @@ export function PublicInvoiceView({
             </table>
           </div>
 
-          {/* Totales */}
+          {/* Totales — desglose que SUMA (base sin ITBIS + ITBIS = Total).
+              Con descuento se muestra el bruto y el descuento (ya difiere del
+              total); sin descuento se muestra la base gravada para no repetir
+              el mismo monto en Subtotal y Total. */}
           <div className="mt-4 ml-auto max-w-xs space-y-1 text-sm">
-            <Row label="Subtotal" value={formatCurrency(totals.grossInclusive)} />
-            {totals.discountInclusive > 0 && (
-              <Row
-                label={`Descuento${
-                  totals.discountPercent ? ` (${totals.discountPercent}%)` : ""
-                }`}
-                value={`- ${formatCurrency(totals.discountInclusive)}`}
-              />
+            {totals.discountInclusive > 0 ? (
+              <>
+                <Row label="Subtotal" value={formatCurrency(totals.grossInclusive)} />
+                <Row
+                  label={`Descuento${
+                    totals.discountPercent ? ` (${totals.discountPercent}%)` : ""
+                  }`}
+                  value={`- ${formatCurrency(totals.discountInclusive)}`}
+                />
+                <Row
+                  label="ITBIS (18% incluido)"
+                  value={formatCurrency(totals.itbisIncluded)}
+                />
+              </>
+            ) : (
+              <>
+                <Row
+                  label="Subtotal (sin ITBIS)"
+                  value={formatCurrency(totals.total - totals.itbisIncluded)}
+                />
+                <Row label="ITBIS (18%)" value={formatCurrency(totals.itbisIncluded)} />
+              </>
             )}
-            <Row
-              label="ITBIS (18% incluido)"
-              value={formatCurrency(totals.itbisIncluded)}
-            />
             <div className="flex items-center justify-between border-t border-black/10 pt-1 text-base font-bold">
               <span>Total</span>
               <span className="tabular-nums">{formatCurrency(totals.total)}</span>

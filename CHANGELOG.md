@@ -11,6 +11,20 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.88.2] - 2026-07-21
+
+**Factura (vista HTML): columnas separadas y desglose de totales que suma.**
+
+- **Cant./Precio/Total ya no se pegan:** la tabla de ítems tenía las columnas
+  numéricas sin separación (se leía "1RD$1,990.00RD$1,990.00"). Se agregó
+  padding entre columnas y `whitespace-nowrap` a los montos (página pública
+  `/factura/[token]` y vista de documento del personal).
+- **Subtotal ya no repite el Total:** con ITBIS incluido y sin descuento,
+  "Subtotal" (bruto) daba igual al Total. Ahora, sin descuento, se muestra el
+  desglose que suma: **Subtotal (sin ITBIS) + ITBIS (18%) = Total** — igual que
+  el PDF (`p.subtotal` = base gravada). Con descuento se mantiene el bruto +
+  descuento. typecheck 0, build 0, 198 tests de ventas OK.
+
 ## [0.88.1] - 2026-07-21
 
 **Mensaje de envío más profesional: conciso y con URL corta.**
