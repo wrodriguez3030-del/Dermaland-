@@ -64,16 +64,6 @@ export function whatsappPdfFilename(p: Proforma): string {
 
 // ─── Mensaje de WhatsApp ──────────────────────────────────────────────────────
 
-function businessFooter(business: Business): string[] {
-  const lines = [business.commercialName || "DermaLand"];
-  const wa = business.whatsapp ?? "+1 809-226-5252";
-  if (wa) lines.push(`WhatsApp: ${wa}`);
-  // El handle de Instagram es el de DermaLand; si el negocio define otro URL,
-  // mostramos "Instagram:" igualmente sin exponer la URL completa.
-  lines.push("Instagram: @dermalandrd");
-  return lines;
-}
-
 export interface WhatsappShareOptions {
   /** Enlace público al PDF de la factura/proforma. */
   pdfUrl?: string;
@@ -105,44 +95,33 @@ export function buildWhatsappShareMessage(
   const lines: string[] = [];
 
   if (cls === "ecf") {
-    // e-CF en ambiente demo / no fiscal.
     lines.push(
-      `Hola ${cliente}, le compartimos la representación impresa de su comprobante electrónico en PDF:`,
+      `Hola ${cliente}, le compartimos su comprobante de ${comercio}.`,
       "",
-      `Tipo: ${proformaDocLabel(p)}`,
-      `e-NCF: ${p.ecfNumber ?? p.number}`,
+      `${proformaDocLabel(p)} · ${p.ecfNumber ?? p.number}`,
       `Total: ${total}`,
     );
-    if (opts.pdfUrl) lines.push("", "Descargar documento:", opts.pdfUrl);
-    lines.push(
-      "",
-      "Nota: Documento en ambiente demo/no fiscal. No se emitió comprobante real ante DGII.",
-    );
+    if (opts.pdfUrl) lines.push("", "Ver comprobante y descargar PDF:", opts.pdfUrl);
+    lines.push("", "Documento demo, sin validez fiscal ante la DGII.");
   } else if (cls === "ncf") {
-    // Factura NCF tradicional (B02/B01).
     lines.push(
       `Hola ${cliente}, gracias por su compra en ${comercio}.`,
       "",
-      "Le compartimos su factura en PDF:",
-      "",
-      `Documento: ${saleDocLabelNcf(p)}`,
-      `Comprobante: ${p.ecfNumber ?? p.number}`,
+      `${saleDocLabelNcf(p)} · ${p.ecfNumber ?? p.number}`,
       `Total: ${total}`,
     );
-    if (opts.pdfUrl) lines.push("", "Descargar factura:", opts.pdfUrl);
+    if (opts.pdfUrl) lines.push("", "Ver factura y descargar PDF:", opts.pdfUrl);
   } else {
-    // Proforma — sin validez fiscal.
     lines.push(
-      `Hola ${cliente}, le compartimos su proforma de ${comercio} en PDF:`,
+      `Hola ${cliente}, le compartimos su proforma de ${comercio}.`,
       "",
-      `Proforma: ${p.number}`,
+      `Proforma · ${p.number}`,
       `Total: ${total}`,
     );
-    if (opts.pdfUrl) lines.push("", "Descargar proforma:", opts.pdfUrl);
-    lines.push("", "Esta proforma no tiene validez fiscal hasta ser facturada.");
+    if (opts.pdfUrl) lines.push("", "Ver proforma:", opts.pdfUrl);
+    lines.push("", "No tiene validez fiscal hasta ser facturada.");
   }
 
-  lines.push("", ...businessFooter(business));
   return lines.join("\n");
 }
 
@@ -189,40 +168,34 @@ export function buildEmailShareMessage(
 
   if (cls === "proforma") {
     lines.push(
-      `Le compartimos su proforma de ${comercio}:`,
+      `Le compartimos su proforma de ${comercio}.`,
       "",
-      `Documento: Proforma (no fiscal)`,
-      `Número: ${p.number}`,
+      `Proforma · ${p.number}`,
       `Total: ${total}`,
     );
   } else if (cls === "ncf") {
     lines.push(
-      `Gracias por su compra en ${comercio}. Le compartimos su factura:`,
+      `Gracias por su compra en ${comercio}. Aquí está su factura:`,
       "",
-      `Documento: ${saleDocLabelNcf(p)}`,
-      `Comprobante: ${p.ecfNumber ?? p.number}`,
+      `${saleDocLabelNcf(p)} · ${p.ecfNumber ?? p.number}`,
       `Total: ${total}`,
     );
   } else {
     lines.push(
-      `Le compartimos la representación de su comprobante electrónico:`,
+      `Le compartimos su comprobante de ${comercio}.`,
       "",
-      `Tipo: ${proformaDocLabel(p)}`,
-      `e-NCF: ${p.ecfNumber ?? p.number}`,
+      `${proformaDocLabel(p)} · ${p.ecfNumber ?? p.number}`,
       `Total: ${total}`,
     );
   }
 
-  if (opts.pdfUrl) lines.push("", "Ver o descargar su factura:", opts.pdfUrl);
+  if (opts.pdfUrl) lines.push("", "Ver y descargar su factura:", opts.pdfUrl);
   if (cls === "proforma") {
-    lines.push("", "Esta proforma no tiene validez fiscal hasta ser facturada.");
+    lines.push("", "No tiene validez fiscal hasta ser facturada.");
   } else if (cls === "ecf") {
-    lines.push(
-      "",
-      "Nota: Documento en ambiente demo/no fiscal. No se emitió comprobante real ante DGII.",
-    );
+    lines.push("", "Documento demo, sin validez fiscal ante la DGII.");
   }
-  lines.push("", ...businessFooter(business));
+  lines.push("", `Saludos,`, comercio);
   return lines.join("\n");
 }
 

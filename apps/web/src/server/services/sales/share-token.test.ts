@@ -9,10 +9,11 @@ import {
 // un secreto de prueba fuerte.
 const TEST_SECRET = "test-share-secret-0123456789abcdef";
 
-describe("document share token", () => {
-  const biz = "biz-uuid-1";
-  const id = "doc-uuid-1";
+// businessId e id son UUID (como en la BD real).
+const biz = "11111111-1111-4111-8111-111111111111";
+const id = "22222222-2222-4222-8222-222222222222";
 
+describe("document share token", () => {
   beforeAll(() => {
     process.env.DOCUMENT_SHARE_SECRET = TEST_SECRET;
   });
@@ -28,8 +29,19 @@ describe("document share token", () => {
 
   it("firma y verifica un token válido (round-trip)", () => {
     const token = signDocumentShareToken(biz, id);
-    expect(token).toContain(".");
     expect(verifyDocumentShareToken(token)).toEqual({ businessId: biz, id });
+  });
+
+  it("el token es corto (URL profesional)", () => {
+    const token = signDocumentShareToken(biz, id);
+    // 42 bytes en base64url ≈ 56 caracteres.
+    expect(token.length).toBeLessThanOrEqual(60);
+    expect(token).not.toContain("."); // codificación binaria, sin separador
+  });
+
+  it("exige UUID en businessId e id", () => {
+    expect(() => signDocumentShareToken("biz-1", id)).toThrow();
+    expect(() => signDocumentShareToken(biz, "doc-1")).toThrow();
   });
 
   it("rechaza un token manipulado", () => {
@@ -41,13 +53,14 @@ describe("document share token", () => {
   it("rechaza tokens vacíos o mal formados", () => {
     expect(verifyDocumentShareToken("")).toBeNull();
     expect(verifyDocumentShareToken(undefined)).toBeNull();
-    expect(verifyDocumentShareToken("sin-punto")).toBeNull();
+    expect(verifyDocumentShareToken("no-es-un-token")).toBeNull();
   });
 
-  it("un token de otro negocio no se confunde con el id", () => {
-    const t1 = signDocumentShareToken("biz-A", "doc-1");
-    const claims = verifyDocumentShareToken(t1);
-    expect(claims?.businessId).toBe("biz-A");
-    expect(claims?.id).toBe("doc-1");
+  it("un token de otro negocio conserva su businessId e id", () => {
+    const bizA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const docA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const claims = verifyDocumentShareToken(signDocumentShareToken(bizA, docA));
+    expect(claims?.businessId).toBe(bizA);
+    expect(claims?.id).toBe(docA);
   });
 });

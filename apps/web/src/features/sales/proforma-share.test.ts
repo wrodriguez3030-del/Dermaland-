@@ -121,10 +121,10 @@ describe("buildWhatsappShareMessage", () => {
       business,
       { pdfUrl: "https://x/pdf" },
     );
-    expect(msg).toContain("Le compartimos su factura en PDF");
-    expect(msg).toContain("Descargar factura:");
+    expect(msg).toContain("Ver factura y descargar PDF:");
     expect(msg).toContain("https://x/pdf");
     expect(msg).toContain("DermaLand");
+    expect(msg).toContain("gracias por su compra");
     // Una factura NCF NUNCA debe mencionar e-CF / e-NCF / representación e-CF.
     expect(msg).not.toContain("e-CF");
     expect(msg).not.toContain("e-NCF");
@@ -136,8 +136,8 @@ describe("buildWhatsappShareMessage", () => {
       pdfUrl: "https://x/pdf",
     });
     expect(msg).toContain("proforma");
-    expect(msg).toContain("no tiene validez fiscal");
-    expect(msg).toContain("Descargar proforma:");
+    expect(msg).toMatch(/no tiene validez fiscal/i);
+    expect(msg).toContain("Ver proforma:");
   });
 
   it("e-CF demo: incluye la nota de ambiente demo/no fiscal", () => {
@@ -146,9 +146,8 @@ describe("buildWhatsappShareMessage", () => {
       business,
       { pdfUrl: "https://x/pdf" },
     );
-    expect(msg).toContain("comprobante electrónico");
-    expect(msg).toContain("representación impresa");
-    expect(msg).toContain("demo/no fiscal");
+    expect(msg).toContain("comprobante");
+    expect(msg).toContain("sin validez fiscal");
     expect(msg).toContain("E320000001");
   });
 
@@ -195,7 +194,7 @@ describe("correo — asunto y cuerpo por tipo de documento", () => {
 
   it("13. Proforma dice documento no fiscal y no lleva NCF", () => {
     const msg = buildEmailShareMessage(prof, business);
-    expect(msg).toMatch(/no fiscal/i);
+    expect(msg).toMatch(/no tiene validez fiscal/i);
     expect(msg).not.toMatch(/NCF/);
     expect(buildEmailSubject(prof, business)).toMatch(/^Proforma /);
   });

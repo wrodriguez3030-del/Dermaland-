@@ -1,21 +1,27 @@
 import crypto from "node:crypto";
 
 /**
- * Token firmado para compartir el PDF de un documento de venta sin sesión.
+ * Token firmado para compartir un documento de venta sin sesión.
  *
- * El enlace que viaja por WhatsApp apunta a `/api/proformas/[id]/pdf?t=<token>`.
- * El cliente (sin login) no puede leer la base directamente, así que el token
- * autoriza una lectura acotada por `businessId` (vía service-role en el server).
+ * El enlace público (`/factura/[token]` y `/api/proformas/[id]/pdf?t=<token>`)
+ * lo autoriza este token, no la sesión. Codificación COMPACTA para que la URL
+ * sea corta y el mensaje se vea profesional:
  *
- * Formato: base64url(`${businessId}:${id}`) + "." + base64url(HMAC-SHA256).
- * El secreto NO se imprime nunca.
+ *   token = base64url( bizUuid(16B) ++ idUuid(16B) ++ HMAC-SHA256(payload)[0:10] )
  *
- * SEGURIDAD (SEC-003): el PDF se sirve con service-role (bypassa RLS), acotado
- * solo por el `businessId` DENTRO del token. Por eso el secreto de firma DEBE
- * ser fuerte y único; NUNCA un fallback embebido en el código (permitiría forjar
- * tokens y leer PDFs de cualquier empresa). Si `DOCUMENT_SHARE_SECRET` no está
- * configurado, la función de compartir PDF queda DESHABILITADA (fail-closed).
+ * → 42 bytes ≈ 56 caracteres (antes ~145 con el `businessId:id` en texto).
+ *
+ * SEGURIDAD (SEC-003): el PDF/página se sirven con service-role (bypassa RLS),
+ * acotados por el `businessId` DENTRO del token. Por eso el secreto DEBE ser
+ * fuerte y único; NUNCA un fallback embebido (permitiría forjar tokens). Si
+ * `DOCUMENT_SHARE_SECRET` no está configurado, firmar/verificar fallan cerrado.
+ * El HMAC se trunca a 80 bits: businessId+id ya son UUID (no adivinables), así
+ * que 80 bits de firma son de sobra contra falsificación.
  */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SIG_LEN = 10;
+const PAYLOAD_LEN = 32; // 16 (businessId) + 16 (id)
 
 function getSecret(): string {
   const secret = process.env.DOCUMENT_SHARE_SECRET;
@@ -27,8 +33,8 @@ function getSecret(): string {
   return secret;
 }
 
-function b64url(buf: Buffer | string): string {
-  return Buffer.from(buf)
+function b64url(buf: Buffer): string {
+  return buf
     .toString("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
@@ -40,15 +46,31 @@ function fromB64url(s: string): Buffer {
   return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
 }
 
-function sign(payload: string): string {
-  return b64url(
-    crypto.createHmac("sha256", getSecret()).update(payload).digest(),
-  );
+function uuidToBytes(uuid: string): Buffer {
+  return Buffer.from(uuid.replace(/-/g, ""), "hex");
+}
+
+function bytesToUuid(b: Buffer): string {
+  const h = b.toString("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+function sigFor(payload: Buffer): Buffer {
+  return crypto
+    .createHmac("sha256", getSecret())
+    .update(payload)
+    .digest()
+    .subarray(0, SIG_LEN);
 }
 
 export function signDocumentShareToken(businessId: string, id: string): string {
-  const payload = `${businessId}:${id}`;
-  return `${b64url(payload)}.${sign(payload)}`;
+  if (!UUID_RE.test(businessId) || !UUID_RE.test(id)) {
+    throw new Error(
+      "Enlace compartido inválido: businessId e id deben ser UUID.",
+    );
+  }
+  const payload = Buffer.concat([uuidToBytes(businessId), uuidToBytes(id)]);
+  return b64url(Buffer.concat([payload, sigFor(payload)]));
 }
 
 export interface DocumentShareClaims {
@@ -58,38 +80,40 @@ export interface DocumentShareClaims {
 
 /**
  * Verifica el token y devuelve `{ businessId, id }`, o `null` si la firma no
- * coincide o el formato es inválido. Comparación en tiempo constante.
+ * coincide, el formato es inválido o falta el secreto (fail-closed). El
+ * `timingSafeEqual` protege contra ataques de temporización.
  */
 export function verifyDocumentShareToken(
   token: string | null | undefined,
 ): DocumentShareClaims | null {
-  if (!token || typeof token !== "string" || !token.includes(".")) return null;
-  const [payloadPart, sigPart] = token.split(".", 2);
-  if (!payloadPart || !sigPart) return null;
+  if (!token || typeof token !== "string") return null;
 
-  // Fail-closed: si el secreto no está configurado (o la firma falla), la
-  // verificación RECHAZA (null) en vez de lanzar — así la página pública
-  // muestra "enlace no disponible" y nunca crashea por una mala config.
-  let expected: string;
+  let raw: Buffer;
   try {
-    expected = sign(fromB64url(payloadPart).toString());
+    raw = fromB64url(token);
   } catch {
     return null;
   }
-  const expectedBuf = Buffer.from(expected);
-  const gotBuf = Buffer.from(sigPart);
-  if (
-    expectedBuf.length !== gotBuf.length ||
-    !crypto.timingSafeEqual(expectedBuf, gotBuf)
-  ) {
+  if (raw.length !== PAYLOAD_LEN + SIG_LEN) return null;
+
+  const payload = raw.subarray(0, PAYLOAD_LEN);
+  const sig = raw.subarray(PAYLOAD_LEN);
+
+  // Fail-closed: si el secreto no está configurado (o la firma falla), la
+  // verificación RECHAZA (null) en vez de lanzar — la página pública muestra
+  // "enlace no disponible" y nunca crashea por una mala config.
+  let expected: Buffer;
+  try {
+    expected = sigFor(payload);
+  } catch {
+    return null;
+  }
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(sig, expected)) {
     return null;
   }
 
-  const payload = fromB64url(payloadPart).toString();
-  const sep = payload.indexOf(":");
-  if (sep <= 0) return null;
-  const businessId = payload.slice(0, sep);
-  const id = payload.slice(sep + 1);
-  if (!businessId || !id) return null;
-  return { businessId, id };
+  return {
+    businessId: bytesToUuid(payload.subarray(0, 16)),
+    id: bytesToUuid(payload.subarray(16, 32)),
+  };
 }

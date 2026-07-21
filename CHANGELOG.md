@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.88.1] - 2026-07-21
+
+**Mensaje de envío más profesional: conciso y con URL corta.**
+
+- **Menos texto, más relevante:** el mensaje de WhatsApp/correo se reescribió
+  para quitar la repetición (saludo + "Le compartimos… en PDF" + labels
+  `Documento:/Comprobante:` + pie con nombre/WhatsApp/Instagram que repetía el
+  negocio). Ahora es: saludo → `Documento · Número` + `Total` → una línea con el
+  enlace. El correo cierra con "Saludos, {negocio}".
+- **URL corta:** el token pasó de codificar `businessId:id` en texto (~145
+  caracteres) a **binario compacto** (16B business + 16B id + HMAC 80-bit) →
+  **~56 caracteres**. La URL se ve profesional y sigue firmada/segura (mismo
+  scoping SEC-003 por businessId). `verifyDocumentShareToken` exige UUID y sigue
+  fail-closed. typecheck 0, build 0, 1805 tests OK.
+
 ## [0.88.0] - 2026-07-21
 
 **Factura por WhatsApp: enlace público (sin login) con logo de DermaLand en la vista previa.**
