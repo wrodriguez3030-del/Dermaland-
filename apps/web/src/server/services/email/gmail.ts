@@ -2,17 +2,13 @@ import "server-only";
 import nodemailer from "nodemailer";
 
 /**
- * Envío de correo transaccional DESDE la cuenta Gmail de DermaLand
- * (`dermalandrd@gmail.com`) usando SMTP + "Contraseña de aplicación" de Google.
+ * Envío de correo transaccional DESDE la cuenta Gmail de DermaLand vía SMTP +
+ * "Contraseña de aplicación" de Google. El remitente REAL es la cuenta Gmail,
+ * así que el cliente ve el correo de DermaLand y sus respuestas llegan ahí.
  *
- * El remitente REAL es la cuenta Gmail, así que el cliente ve el correo de
- * DermaLand y sus respuestas llegan ahí. Requiere en el servidor:
- *   - `GMAIL_USER` (por defecto `dermalandrd@gmail.com`)
- *   - `GMAIL_APP_PASSWORD` (16 caracteres, generada en la cuenta de Google con
- *     verificación en 2 pasos activa)
- *
- * Si falta la contraseña, NO lanza: devuelve `{ ok:false, notConfigured:true }`
- * para que la UI ofrezca el respaldo (abrir el cliente de correo del usuario).
+ * Las credenciales se resuelven fuera (ver `resolveGmailCredentials`): primero
+ * la configuración guardada en el sistema (Configuración → Correo, cifrada en la
+ * BD), y como respaldo las variables de entorno. Aquí solo se envía.
  */
 
 export interface SendEmailInput {
@@ -22,26 +18,22 @@ export interface SendEmailInput {
   replyTo?: string;
 }
 
+export interface GmailCredentials {
+  user: string;
+  pass: string;
+}
+
 export type SendEmailResult =
   | { ok: true; id: string }
-  | { ok: false; error: string; notConfigured?: boolean };
+  | { ok: false; error: string };
 
-const DEFAULT_USER = "dermalandrd@gmail.com";
-
-export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const user = process.env.GMAIL_USER || DEFAULT_USER;
-  // La contraseña de aplicación de Google se copia con espacios; se limpian.
-  const pass = (process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+export async function sendEmail(
+  input: SendEmailInput,
+  creds: GmailCredentials,
+): Promise<SendEmailResult> {
+  const user = creds.user;
+  const pass = (creds.pass || "").replace(/\s+/g, "");
   const fromName = process.env.EMAIL_FROM_NAME || "DermaLand";
-
-  if (!pass) {
-    return {
-      ok: false,
-      notConfigured: true,
-      error:
-        "El envío de correo por el sistema no está configurado (falta GMAIL_APP_PASSWORD).",
-    };
-  }
 
   try {
     const transporter = nodemailer.createTransport({

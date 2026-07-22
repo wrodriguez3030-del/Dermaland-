@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.91.0] - 2026-07-22
+
+**Configuración → Correo: pon la clave de Gmail desde el sistema (sin tocar Vercel).**
+
+- Nueva pantalla **Administración → Configuración → Correo** donde el admin pega
+  la **contraseña de aplicación de Gmail** y la guarda; queda **cifrada
+  AES-256-GCM** en la BD (`email_settings`, mig 0034, RLS por negocio; reusa la
+  master key `AI_CREDENTIALS_ENCRYPTION_KEY`). La contraseña nunca se devuelve al
+  cliente (solo `••••abcd`). Incluye **"Enviar correo de prueba"** para validar.
+- El envío de facturas resuelve las credenciales así: **config guardada (BD) →
+  variables de entorno** (respaldo). Ya no hace falta poner `GMAIL_APP_PASSWORD`
+  en Vercel — basta guardarla en Configuración.
+- API `GET/PUT /api/settings/email` + `POST /api/settings/email/test`
+  (admin/manager). typecheck 0, build 0.
+
 ## [0.90.1] - 2026-07-22
 
 **Correo se envía DESDE la cuenta Gmail de DermaLand (Gmail SMTP).**

@@ -5,6 +5,7 @@ import { getRepoContext, getSession } from "@/server/auth/context";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { signDocumentShareToken } from "@/server/services/sales/share-token";
 import { sendEmail } from "@/server/services/email/gmail";
+import { resolveGmailCredentials } from "@/server/services/email/email-settings-service";
 import { buildEmailSubject } from "@/features/sales/proforma-share";
 import { buildInvoiceEmailHtml } from "@/features/sales/invoice-email-html";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
@@ -64,18 +65,28 @@ export async function POST(
       );
     }
 
+    // Credenciales: config guardada en el sistema (cifrada) o variables de entorno.
+    const creds = await resolveGmailCredentials(ctx.businessId);
+    if (!creds) {
+      return NextResponse.json(
+        {
+          error:
+            "El envío por el sistema no está configurado. Ve a Configuración → Correo y agrega la contraseña de aplicación de Gmail.",
+          notConfigured: true,
+        },
+        { status: 503 },
+      );
+    }
+
     const origin = req.nextUrl.origin;
     const viewUrl = `${origin}/factura/${token}`;
     const logoUrl = `${origin}/api/brand/logo`;
     const subject = buildEmailSubject(proforma, mockBusiness);
     const html = buildInvoiceEmailHtml(proforma, mockBusiness, { viewUrl, logoUrl });
 
-    const result = await sendEmail({ to, subject, html });
+    const result = await sendEmail({ to, subject, html }, creds);
     if (!result.ok) {
-      return NextResponse.json(
-        { error: result.error, notConfigured: result.notConfigured ?? false },
-        { status: result.notConfigured ? 503 : 502 },
-      );
+      return NextResponse.json({ error: result.error }, { status: 502 });
     }
 
     // Auditoría (best-effort).

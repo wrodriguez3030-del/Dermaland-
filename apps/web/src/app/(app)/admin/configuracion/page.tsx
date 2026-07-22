@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Mail, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -21,6 +23,23 @@ export default function ConfiguracionPage() {
         breadcrumbs={[{ label: "Administración" }, { label: "Configuración" }]}
         actions={<Button size="sm">Guardar cambios</Button>}
       />
+
+      <Link href="/admin/configuracion/correo" className="mb-4 block">
+        <Card className="transition hover:border-[color:var(--brand-primary)]/40">
+          <CardContent className="flex items-center gap-4 py-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[color:var(--brand-primary)]/10 text-[color:var(--brand-accent)]">
+              <Mail className="h-5 w-5" />
+            </span>
+            <div className="flex-1">
+              <div className="text-sm font-semibold">Correo (envío de facturas)</div>
+              <div className="text-xs opacity-60">
+                Configura la cuenta de Gmail desde la que se envían las facturas.
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 opacity-40" />
+          </CardContent>
+        </Card>
+      </Link>
 
       <Card>
         <CardContent>
