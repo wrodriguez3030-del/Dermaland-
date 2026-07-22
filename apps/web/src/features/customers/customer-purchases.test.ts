@@ -8,6 +8,7 @@ import {
   computeCustomerPurchaseStats,
   collectConvertedSourceIds,
   isFinalCustomerTransaction,
+  purchasesByMonth,
 } from "./customer-purchases";
 import type { Proforma } from "@/types";
 
@@ -234,6 +235,37 @@ describe("proforma convertida en factura — anti doble conteo", () => {
     // La visita más reciente es la proforma (aunque no sume dos veces).
     expect(s.lastVisitAt).toBe("2026-07-05T10:00:00Z");
     expect(s.purchases).toBe(1);
+  });
+});
+
+describe("purchasesByMonth (gráfica del perfil)", () => {
+  const now = new Date("2026-07-15T12:00:00Z");
+
+  it("agrupa el gasto por mes y cuadra con las compras finales", () => {
+    const data = purchasesByMonth(
+      [
+        sale({ id: "a", total: 1000, paid: 1000, createdAt: "2026-07-04T10:00:00Z" }),
+        sale({ id: "b", total: 500, paid: 500, createdAt: "2026-07-20T10:00:00Z" }),
+        sale({ id: "c", total: 300, paid: 300, createdAt: "2026-06-10T10:00:00Z" }),
+        // Anulada → NO cuenta.
+        sale({ id: "d", total: 999, status: "cancelled", createdAt: "2026-07-01T10:00:00Z" }),
+      ],
+      6,
+      now,
+    );
+    expect(data).toHaveLength(6);
+    // Último bucket = julio (mes de `now`).
+    const jul = data[data.length - 1]!;
+    expect(jul.label).toBe("jul");
+    expect(jul.value).toBe(1500); // 1000 + 500 (la anulada no suma)
+    const jun = data[data.length - 2]!;
+    expect(jun.label).toBe("jun");
+    expect(jun.value).toBe(300);
+  });
+
+  it("meses sin compras quedan en 0", () => {
+    const data = purchasesByMonth([], 6, now);
+    expect(data.every((m) => m.value === 0)).toBe(true);
   });
 });
 

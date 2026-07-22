@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.92.0] - 2026-07-22
+
+**Perfil del cliente: gráfica de compras por mes + Conversaciones reales.**
+
+- **Compras por mes:** la tarjeta "Notas pinneadas" se reemplazó por una gráfica
+  del **gasto del cliente por mes** (últimos 6 meses, `BarChart` del design
+  system). Helper puro `purchasesByMonth` que usa la MISMA definición de compra
+  final que el "Total gastado" (cuadra con el KPI). +2 tests.
+- **Conversaciones:** la pestaña dejó de ser un placeholder — ahora lista los
+  **envíos reales** de facturas al cliente por **WhatsApp y correo** (canal,
+  documento, destinatario, fecha, quién lo envió), armados desde la auditoría
+  (`GET /api/customers/[id]/messages`). El WhatsApp del modal (que abre wa.me del
+  lado cliente) ahora también se registra (`/api/proformas/[id]/log-whatsapp`)
+  para que aparezca. typecheck 0, build 0.
+
 ## [0.91.1] - 2026-07-22
 
 **Enviar factura por correo: pre-carga el email registrado del cliente.**

@@ -110,6 +110,12 @@ export function SendInvoiceModal({
     setPhoneErr(false);
     const url = `https://wa.me/${normalized}?text=${encodeURIComponent(waMessage)}`;
     window.open(url, "_blank", "noopener,noreferrer");
+    // Registrar el envío para que aparezca en "Conversaciones" del cliente.
+    void fetch(`/api/proformas/${proforma.id}/log-whatsapp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: phone.trim() }),
+    }).catch(() => {});
     toast.show("Abriendo WhatsApp…", "info");
     onClose();
   };

@@ -45,6 +45,8 @@ import {
 import { StatCard } from "@/components/ui/stat-card";
 import { useCustomerProfile } from "@/features/customers/customer-profile-hooks";
 import { isNewCustomer } from "@/features/customers/customer-flags";
+import { purchasesByMonth } from "@/features/customers/customer-purchases";
+import { BarChart } from "@/components/ui/bar-chart";
 import { getCustomerNotes } from "@/lib/mock-data/customers";
 import {
   comprobanteLabel,
@@ -76,6 +78,15 @@ const SALE_STATUS_BADGE: Record<string, { label: string; tone: "success" | "warn
   expired: { label: "Vencida", tone: "danger" },
 };
 
+interface SentMessage {
+  id: string;
+  channel: "whatsapp" | "email";
+  to: string | null;
+  documentNumber: string | null;
+  sentAt: string;
+  userName: string | null;
+}
+
 export default function ClienteDetallePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
@@ -95,6 +106,22 @@ export default function ClienteDetallePage() {
     proforma: Proforma | null;
     tab: "whatsapp" | "email";
   }>({ proforma: null, tab: "whatsapp" });
+
+  // Historial de envíos (WhatsApp/correo) para la pestaña Conversaciones.
+  const [messages, setMessages] = React.useState<SentMessage[]>([]);
+  React.useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    fetch(`/api/customers/${id}/messages`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { messages: [] }))
+      .then((b: { messages?: SentMessage[] }) => {
+        if (alive) setMessages(b.messages ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   // ── Cargando: skeleton profesional. NUNCA "no encontrado" durante la carga.
   if (loading) {
@@ -276,28 +303,28 @@ export default function ClienteDetallePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Notas pinneadas</CardTitle>
+            <CardTitle>Compras por mes</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {notes.filter((n) => n.pinned).length === 0 && (
-              <p className="text-sm opacity-60">Sin notas pinneadas.</p>
-            )}
-            {notes
-              .filter((n) => n.pinned)
-              .map((n) => (
-                <div
-                  key={n.id}
-                  className="rounded-lg bg-amber-50 border border-amber-200 p-3"
-                >
-                  <div className="flex items-center gap-2 text-xs text-amber-900">
-                    <Pin className="h-3 w-3" />
-                    {n.authorName}
-                    <span className="opacity-60">·</span>
-                    {relativeTime(n.createdAt)}
-                  </div>
-                  <p className="mt-1 text-sm">{n.body}</p>
-                </div>
-              ))}
+          <CardContent>
+            {(() => {
+              const byMonth = purchasesByMonth(proformas);
+              const hasData = byMonth.some((m) => m.value > 0);
+              if (!hasData) {
+                return (
+                  <p className="text-sm opacity-60">
+                    Sin compras en los últimos meses.
+                  </p>
+                );
+              }
+              return (
+                <>
+                  <BarChart data={byMonth} formatter={formatCurrency} />
+                  <p className="mt-3 text-[11px] opacity-50">
+                    Gasto por mes (últimos 6 meses).
+                  </p>
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
@@ -467,15 +494,46 @@ export default function ClienteDetallePage() {
 
         <TabsContent value="conversations">
           <Card>
-            <CardContent className="py-12 text-center text-sm opacity-60">
-              Conversaciones WhatsApp del cliente disponibles en{" "}
-              <Link
-                href="/whatsapp/conversaciones"
-                className="text-[color:var(--brand-accent)] hover:underline"
-              >
-                /whatsapp/conversaciones
-              </Link>
-              .
+            <CardContent className={messages.length === 0 ? "py-12 text-center text-sm opacity-60" : "p-0"}>
+              {messages.length === 0 ? (
+                "Aún no se han enviado facturas a este cliente por WhatsApp o correo."
+              ) : (
+                <ul className="divide-y divide-black/5">
+                  {messages.map((m) => (
+                    <li key={m.id} className="flex items-start gap-3 px-5 py-3">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color:var(--brand-primary)]/10 text-[color:var(--brand-accent)]">
+                        {m.channel === "email" ? (
+                          <Mail className="h-4 w-4" />
+                        ) : (
+                          <MessageSquare className="h-4 w-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1 text-sm">
+                        <div>
+                          <span className="font-medium">
+                            {m.channel === "email"
+                              ? "Factura enviada por correo"
+                              : "Factura enviada por WhatsApp"}
+                          </span>
+                          {m.documentNumber && (
+                            <span className="font-mono text-xs opacity-70">
+                              {" "}
+                              · {m.documentNumber}
+                            </span>
+                          )}
+                        </div>
+                        {m.to && (
+                          <div className="text-xs opacity-70">a {m.to}</div>
+                        )}
+                        <div className="text-xs opacity-50">
+                          {formatDateTime(m.sentAt)} ({relativeTime(m.sentAt)})
+                          {m.userName ? ` · por ${m.userName}` : ""}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

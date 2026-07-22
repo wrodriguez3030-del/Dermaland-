@@ -109,6 +109,44 @@ export interface CustomerPurchaseStats {
   pendingProformas: number;
 }
 
+const MONTH_ABBR = [
+  "ene", "feb", "mar", "abr", "may", "jun",
+  "jul", "ago", "sep", "oct", "nov", "dic",
+];
+
+/**
+ * Gasto del cliente por mes (últimos `months` meses, más antiguo → más nuevo),
+ * para la gráfica "Compras por mes" del perfil. Usa la MISMA definición de
+ * compra final (`isFinalCustomerTransaction`) que el Total gastado, así el
+ * gráfico cuadra con el KPI. `now` es parámetro para tests deterministas.
+ */
+export function purchasesByMonth(
+  purchases: Proforma[],
+  months = 6,
+  now: Date = new Date(),
+): { label: string; value: number }[] {
+  const converted = collectConvertedSourceIds(purchases);
+  const buckets: { key: string; label: string; value: number }[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    buckets.push({
+      key: `${d.getUTCFullYear()}-${d.getUTCMonth()}`,
+      label: MONTH_ABBR[d.getUTCMonth()]!,
+      value: 0,
+    });
+  }
+  const idx = new Map(buckets.map((b, i) => [b.key, i]));
+  for (const p of purchases) {
+    if (!isFinalCustomerTransaction(p, converted)) continue;
+    const d = new Date(p.createdAt);
+    const i = idx.get(`${d.getUTCFullYear()}-${d.getUTCMonth()}`);
+    if (i !== undefined) {
+      buckets[i]!.value += p.status === "partially_paid" ? p.paid : p.total;
+    }
+  }
+  return buckets.map(({ label, value }) => ({ label, value }));
+}
+
 export function computeCustomerPurchaseStats(
   purchases: Proforma[],
   convertedSourceIds?: Set<string>,
