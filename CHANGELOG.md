@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.91.1] - 2026-07-22
+
+**Enviar factura por correo: pre-carga el email registrado del cliente.**
+
+- El campo "Correo del cliente" del modal de envío salía **vacío** aunque el
+  cliente tuviera email en su ficha. Ahora se **pre-carga con el email vigente
+  del cliente** (resuelto por `customerId`, no del snapshot de la venta). Nuevo
+  `resolveCustomerContact` (teléfono + email en un solo fetch). +1 test.
+  typecheck 0, build 0.
+
 ## [0.91.0] - 2026-07-22
 
 **Configuración → Correo: pon la clave de Gmail desde el sistema (sin tocar Vercel).**

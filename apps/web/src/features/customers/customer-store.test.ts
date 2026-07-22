@@ -9,6 +9,7 @@ import {
   getCustomerByIdFromStore,
   listAllCustomers,
   preferredSendPhone,
+  resolveCustomerContact,
 } from "./customer-store";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 
@@ -38,6 +39,23 @@ describe("customer-store (localStorage)", () => {
     expect(preferredSendPhone({ phone: "809-111-1111", whatsapp: "  " })).toBe(
       "809-111-1111",
     );
+  });
+
+  it("resolveCustomerContact devuelve teléfono y email vigentes del cliente", async () => {
+    const r = createCustomer({
+      firstName: "Ana",
+      lastName: "Gómez",
+      email: "ana@correo.com",
+      phone: "809-111-1111",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const contact = await resolveCustomerContact(r.customer.id);
+      expect(contact.email).toBe("ana@correo.com");
+      expect(contact.phone).toBe("809-111-1111");
+    }
   });
 
   it("listAllCustomers incluye seed mock", () => {

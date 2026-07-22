@@ -476,6 +476,33 @@ export async function resolveCustomerSendPhone(
   return c ? preferredSendPhone(c) : null;
 }
 
+/**
+ * Contacto VIGENTE del cliente para envíos — teléfono (WhatsApp preferido) +
+ * email — en un solo fetch. Se usa para pre-cargar el modal "Enviar factura"
+ * con el correo/whatsapp actuales del cliente (nunca el snapshot de la venta).
+ */
+export async function resolveCustomerContact(
+  id: string,
+): Promise<{ phone: string | null; email: string | null }> {
+  const fromCustomer = (c: Customer | undefined) => ({
+    phone: c ? preferredSendPhone(c) : null,
+    email: c?.email?.trim() || null,
+  });
+  if (CUSTOMER_BACKEND === "supabase") {
+    try {
+      const res = await fetch(`/api/customers/${id}`, { cache: "no-store" });
+      if (!res.ok) return { phone: null, email: null };
+      const body = (await res.json().catch(() => ({}))) as {
+        customer?: Customer;
+      };
+      return fromCustomer(body.customer);
+    } catch {
+      return { phone: null, email: null };
+    }
+  }
+  return fromCustomer(getCustomerByIdFromStore(id));
+}
+
 /** Alta de cliente vía API compartida. Devuelve el mismo shape que el local. */
 async function createCustomerOnServer(
   input: CreateCustomerInput,

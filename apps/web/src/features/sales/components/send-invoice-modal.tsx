@@ -14,7 +14,7 @@ import {
   buildEmailSubject,
   normalizeWhatsappPhone,
 } from "@/features/sales/proforma-share";
-import { resolveCustomerSendPhone } from "@/features/customers/customer-store";
+import { resolveCustomerContact } from "@/features/customers/customer-store";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -66,12 +66,14 @@ export function SendInvoiceModal({
     setShareLink(fallbackLink);
     setSubject(buildEmailSubject(proforma, mockBusiness));
     setMessage(buildEmailShareMessage(proforma, mockBusiness, { pdfUrl: fallbackLink }));
-    // Preferir el WhatsApp VIGENTE del cliente (no el snapshot congelado en la
-    // venta). Si el cliente editó su número, el envío usa el actual.
+    // Pre-cargar el contacto VIGENTE del cliente (no el snapshot de la venta):
+    // WhatsApp para el envío por WhatsApp y el EMAIL registrado para el correo.
     let alive = true;
     if (proforma.customerId) {
-      void resolveCustomerSendPhone(proforma.customerId).then((num) => {
-        if (alive && num) setPhone(num);
+      void resolveCustomerContact(proforma.customerId).then((contact) => {
+        if (!alive) return;
+        if (contact.phone) setPhone(contact.phone);
+        if (contact.email) setEmail(contact.email);
       });
     }
     // Enlace PÚBLICO (sin login) con logo/OG. Solo supabase; si falla, se queda
