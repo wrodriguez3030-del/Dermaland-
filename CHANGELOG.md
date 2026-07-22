@@ -11,6 +11,20 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.90.1] - 2026-07-22
+
+**Correo se envía DESDE la cuenta Gmail de DermaLand (Gmail SMTP).**
+
+- Cambiado el proveedor de Resend a **Gmail SMTP** (nodemailer) porque el negocio
+  quiere que las facturas salgan **desde `dermalandrd@gmail.com`** (Resend no
+  puede enviar desde una dirección @gmail.com). El remitente real es la cuenta
+  Gmail, así que las respuestas del cliente llegan ahí.
+- Requiere en el servidor: `GMAIL_USER` (por defecto `dermalandrd@gmail.com`) y
+  `GMAIL_APP_PASSWORD` (contraseña de aplicación de Google, con verificación en
+  2 pasos activa). Sin la contraseña, el botón cae a `mailto:` (fail-safe).
+- Mismo correo HTML branded (logo + doc + total + botón al enlace público).
+  typecheck 0, build 0.
+
 ## [0.90.0] - 2026-07-22
 
 **El sistema envía la factura por correo (mismo branding que WhatsApp).**

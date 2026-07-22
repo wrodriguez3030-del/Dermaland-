@@ -4,7 +4,7 @@ import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { signDocumentShareToken } from "@/server/services/sales/share-token";
-import { sendEmail } from "@/server/services/email/resend";
+import { sendEmail } from "@/server/services/email/gmail";
 import { buildEmailSubject } from "@/features/sales/proforma-share";
 import { buildInvoiceEmailHtml } from "@/features/sales/invoice-email-html";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
