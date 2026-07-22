@@ -21,6 +21,8 @@ const PUBLIC_PATHS = [
   // Comprobante público: página del cliente (`/factura/[token]`) + su imagen OG.
   // Autorización por token firmado, NO por sesión (por eso pasa el middleware).
   "/factura",
+  // Logo PNG para correos (lo carga el proxy de imágenes del cliente de correo).
+  "/api/brand",
   "/_next",
   "/favicon.ico",
 ];

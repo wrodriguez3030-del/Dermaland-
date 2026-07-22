@@ -11,6 +11,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.90.0] - 2026-07-22
+
+**El sistema envía la factura por correo (mismo branding que WhatsApp).**
+
+- El botón "Correo" del modal de envío ahora **envía el correo desde el sistema**
+  (Resend) en vez de solo abrir `mailto:`. Correo HTML branded: encabezado con
+  **logo**, documento + total, y botón "Ver factura y descargar PDF" al enlace
+  público `/factura/[token]` (sin login) — mismo formato que la tarjeta de
+  WhatsApp.
+- Piezas: servicio `sendEmail` (Resend REST, sin dependencia npm); endpoint
+  `POST /api/proformas/[id]/share/email` (sesión, audita `sale.email_share`);
+  `buildInvoiceEmailHtml` (con escape anti-inyección); logo PNG hospedado
+  `GET /api/brand/logo` (público, `next/og`) porque los clientes de correo no
+  renderizan SVG.
+- **Fail-safe:** si `RESEND_API_KEY` no está configurado, el botón cae al cliente
+  de correo del usuario (`mailto:`) con la factura lista. +6 tests. typecheck 0,
+  build 0, 1824 tests OK.
+- **Requiere configurar (para envío real):** `RESEND_API_KEY` + `EMAIL_FROM`
+  (dominio verificado en Resend) en Vercel Production.
+
 ## [0.89.2] - 2026-07-21
 
 **Auditoría: se quitan los últimos códigos (entityId, JSON crudo, entidad sin traducir).**

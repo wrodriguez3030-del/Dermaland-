@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MessageCircle, Mail, Copy, ExternalLink } from "lucide-react";
+import { MessageCircle, Mail, Copy } from "lucide-react";
 import { Button, Input, Label, Textarea } from "@/components/ui";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
@@ -47,6 +47,7 @@ export function SendInvoiceModal({
   const [message, setMessage] = React.useState("");
   const [phoneErr, setPhoneErr] = React.useState(false);
   const [emailErr, setEmailErr] = React.useState(false);
+  const [sendingEmail, setSendingEmail] = React.useState(false);
   // Enlace que viaja en el mensaje. Arranca en la vista imprimible (funciona en
   // local/demo) y, en supabase, se reemplaza por el enlace PÚBLICO firmado
   // (`/factura/[token]`) — sin login y con logo/OG en la vista previa de WhatsApp.
@@ -111,19 +112,54 @@ export function SendInvoiceModal({
     onClose();
   };
 
-  const openEmail = () => {
+  const openMailtoFallback = () => {
+    const url = `mailto:${email.trim()}?subject=${encodeURIComponent(
+      subject,
+    )}&body=${encodeURIComponent(message)}`;
+    window.location.href = url;
+    onClose();
+  };
+
+  const openEmail = async () => {
     if (!EMAIL_RE.test(email.trim())) {
       setEmailErr(true);
       toast.error("Ingresa un correo válido.");
       return;
     }
     setEmailErr(false);
-    const url = `mailto:${email.trim()}?subject=${encodeURIComponent(
-      subject,
-    )}&body=${encodeURIComponent(message)}`;
-    window.location.href = url;
-    toast.success("Abriendo tu correo con la factura…");
-    onClose();
+    if (!proforma) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`/api/proformas/${proforma.id}/share/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: email.trim() }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        notConfigured?: boolean;
+      };
+      if (res.ok) {
+        toast.success("Factura enviada por correo.");
+        onClose();
+        return;
+      }
+      // Respaldo: si el sistema de correo no está configurado (o modo local),
+      // abrimos el cliente de correo del usuario con la factura lista.
+      if (body.notConfigured || res.status === 409) {
+        toast.show(
+          "Envío por el sistema no configurado; abriendo tu correo…",
+          "info",
+        );
+        openMailtoFallback();
+        return;
+      }
+      toast.error(body.error ?? "No se pudo enviar el correo.");
+    } catch {
+      toast.error("No se pudo enviar el correo. Intenta nuevamente.");
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const copyLink = async () => {
@@ -230,8 +266,14 @@ export function SendInvoiceModal({
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" className="flex-1 justify-center" onClick={openEmail}>
-                <ExternalLink className="h-4 w-4" /> Abrir correo
+              <Button
+                type="button"
+                className="flex-1 justify-center"
+                onClick={openEmail}
+                disabled={sendingEmail}
+              >
+                <Mail className="h-4 w-4" />{" "}
+                {sendingEmail ? "Enviando…" : "Enviar por correo"}
               </Button>
               <Button
                 type="button"
@@ -243,8 +285,9 @@ export function SendInvoiceModal({
               </Button>
             </div>
             <p className="text-[11px] opacity-60">
-              El envío automático por correo aún no está configurado; se abre tu
-              cliente de correo con la factura lista, o puedes copiar el enlace.
+              El sistema envía la factura por correo con el logo y el enlace. Si el
+              correo del sistema no está configurado, se abre tu cliente de correo
+              con la factura lista.
             </p>
           </div>
         )}

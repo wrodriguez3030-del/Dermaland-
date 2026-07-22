@@ -39,6 +39,7 @@ const ACTION_LABELS: Record<string, string> = {
   "sale.update": "Venta actualizada",
   "sale.update_full": "Venta actualizada (completa)",
   "sale.whatsapp_share": "Factura enviada por WhatsApp",
+  "sale.email_share": "Factura enviada por correo",
   submit: "Enviado a revisión",
   update: "Actualización",
   update_full: "Actualización completa",
