@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { INVENTORY_MANAGE_ROLES } from "@/features/billing/permissions";
 
 /**
  * Inventario físico — lista de conteos (Fase 1, LECTURA). Fuente de verdad de
@@ -62,6 +64,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400 },
       );
     }
+    const auth = await authorizeRole(INVENTORY_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const count = await getRepositories().inventoryCount.create(ctx, body);
     return NextResponse.json({ count }, { status: 201 });

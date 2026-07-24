@@ -93,4 +93,51 @@ describe("RowActions", () => {
     fireEvent.click(screen.getByText("Eliminar"));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
+
+  describe("variant=menu (dropdown)", () => {
+    it("acción con href navega (enlace interno), href externo abre en pestaña nueva, deshabilitada no ejecuta, y onClick se dispara", () => {
+      const onWhats = vi.fn();
+      render(
+        <RowActions
+          variant="menu"
+          customActions={[
+            { label: "Ver detalle", icon: Printer, href: "/reportes/ventas/1" },
+            {
+              label: "Descargar PDF",
+              icon: Printer,
+              href: "/api/proformas/1/pdf",
+              external: true,
+            },
+            {
+              label: "Editar",
+              icon: Printer,
+              disabled: true,
+              disabledReason: "Este documento no se puede editar.",
+            },
+            { label: "Enviar WhatsApp", icon: Printer, onClick: onWhats },
+          ]}
+        />,
+      );
+      // Abrir el menú de tres puntos.
+      fireEvent.click(screen.getByLabelText("Acciones"));
+
+      // href interno → enlace navegable
+      const ver = screen.getByText("Ver detalle").closest("a");
+      expect(ver).toHaveAttribute("href", "/reportes/ventas/1");
+
+      // href externo → nueva pestaña
+      const pdf = screen.getByText("Descargar PDF").closest("a");
+      expect(pdf).toHaveAttribute("href", "/api/proformas/1/pdf");
+      expect(pdf).toHaveAttribute("target", "_blank");
+
+      // deshabilitada → botón disabled con motivo, no navega
+      const editar = screen.getByText("Editar").closest("button");
+      expect(editar).toBeDisabled();
+      expect(editar).toHaveAttribute("title", "Este documento no se puede editar.");
+
+      // onClick → se ejecuta
+      fireEvent.click(screen.getByText("Enviar WhatsApp"));
+      expect(onWhats).toHaveBeenCalledTimes(1);
+    });
+  });
 });

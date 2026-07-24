@@ -22,7 +22,9 @@ const PUBLIC_PATHS = [
   // Autorización por token firmado, NO por sesión (por eso pasa el middleware).
   "/factura",
   // Logo PNG para correos (lo carga el proxy de imágenes del cliente de correo).
-  "/api/brand",
+  // DL-07: ruta EXACTA. Antes era "/api/brand", que por `startsWith` dejaba
+  // pública también "/api/brands" (CRUD de marcas) y saltaba el 2FA.
+  "/api/brand/logo",
   "/_next",
   "/favicon.ico",
 ];
@@ -31,8 +33,10 @@ const PUBLIC_PATHS = [
 // El endpoint valida el token internamente (service-role acotado por business).
 const PUBLIC_PATH_PATTERNS = [/^\/api\/proformas\/[^/]+\/pdf$/];
 
+// DL-07: match por SEGMENTO (no por prefijo suelto). `startsWith(p)` hacía que
+// "/api/brand" cubriera "/api/brands", "/factura" cubriera "/factura-x", etc.
 const isPublic = (pathname: string) =>
-  PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
+  PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
   PUBLIC_PATH_PATTERNS.some((re) => re.test(pathname));
 
 export async function middleware(request: NextRequest) {

@@ -5,21 +5,30 @@ import { Button, Input, Label } from "@/components/ui";
 import { signIn } from "@/server/auth/actions";
 import { env, isSupabaseConfigured } from "@/lib/env";
 
+/**
+ * DL-12: destino de post-login. Debe ser una ruta INTERNA. `startsWith("/")`
+ * por sí solo NO basta: "//evil.com" y "/\evil.com" (que el navegador normaliza
+ * a "//evil.com") empiezan por "/" y provocarían un open redirect a otro dominio.
+ */
+function safeNext(v: unknown): string {
+  const s = typeof v === "string" ? v : "";
+  return s.startsWith("/") && !s.startsWith("//") && !s.startsWith("/\\") ? s : "/";
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const sp = await searchParams;
-  const nextPath = sp.next && sp.next.startsWith("/") ? sp.next : "/";
+  const nextPath = safeNext(sp.next);
   const demoMode = env.DATA_SOURCE === "mock" || !isSupabaseConfigured();
 
   async function action(formData: FormData): Promise<void> {
     "use server";
     const res = await signIn(formData);
     if (res.ok) {
-      const to = formData.get("next");
-      redirect(typeof to === "string" && to.startsWith("/") ? to : "/");
+      redirect(safeNext(formData.get("next")));
     }
     redirect(`/login?error=${encodeURIComponent(res.error ?? "No se pudo iniciar sesión.")}`);
   }

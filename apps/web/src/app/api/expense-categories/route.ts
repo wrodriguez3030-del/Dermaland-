@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { FINANCE_MANAGE_ROLES } from "@/features/billing/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!body.name?.trim()) {
       return NextResponse.json({ error: "El nombre de la categoría es obligatorio." }, { status: 422 });
     }
+    const auth = await authorizeRole(FINANCE_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const category = await getRepositories().expenseCategory.create(ctx, body);
     return NextResponse.json({ category }, { status: 201 });

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getRepoContext, getSession } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { INVENTORY_MANAGE_ROLES } from "@/features/billing/permissions";
 import { getRepositories } from "@/server/repositories";
 
 /**
@@ -50,6 +52,9 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const auth = await authorizeRole(INVENTORY_MANAGE_ROLES);
+  if (!auth.ok) return auth.res;
 
   let ctx;
   try {

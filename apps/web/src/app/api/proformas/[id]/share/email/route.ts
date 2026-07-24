@@ -78,7 +78,13 @@ export async function POST(
       );
     }
 
-    const origin = req.nextUrl.origin;
+    // DL-20: base absoluta desde config (no del Host de la petición) en prod;
+    // fallback al origin real solo en dev (default localhost).
+    const configuredBase = env.NEXT_PUBLIC_APP_URL;
+    const origin =
+      configuredBase && !configuredBase.includes("localhost")
+        ? configuredBase
+        : req.nextUrl.origin;
     const viewUrl = `${origin}/factura/${token}`;
     const logoUrl = `${origin}/api/brand/logo`;
     const subject = buildEmailSubject(proforma, mockBusiness);

@@ -21,6 +21,32 @@ import type { UserRole } from "@/types";
 
 const ADMIN_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin"];
 
+// ─── Conjuntos de roles para gates server-side de mutación ───────────────────
+//
+// Auditoría 2026-07-24 (DL-01/DL-02): la RLS solo valida `business_id`, NO el
+// rol. Estas constantes centralizan qué roles pueden MUTAR cada módulo y se
+// aplican en los route handlers con `authorizeRole(...)` (server/auth/require-role).
+// `super_admin` / platform admin pasan siempre. Derivadas de la matriz de
+// permisos por rol de `lib/mock-data/users.ts`. Ajustar aquí si cambia la
+// política del negocio.
+
+/** Gestión del negocio: sucursales, usuarios, config. Solo ADMIN. */
+export const BUSINESS_ADMIN_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin"];
+/** Catálogo maestro: productos, marcas, categorías, laboratorios, proveedores. */
+export const CATALOG_MANAGE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager"];
+/** Operaciones de inventario: transferencias, lotes, movimientos, conteos. */
+export const INVENTORY_MANAGE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager", "inventory", "supervisor"];
+/** Finanzas: crear/editar gastos, facturas de proveedor, recurrentes. */
+export const FINANCE_MANAGE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager"];
+/** Finanzas sensibles: anular gasto, pagar/anular factura de proveedor. Solo ADMIN. */
+export const FINANCE_ADMIN_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin"];
+/** Caja: abrir/cerrar/movimientos (rol operativo, incluye cajero). */
+export const CASH_OPERATE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager", "supervisor", "cashier"];
+/** Clientes: crear/editar (front-desk del POS). */
+export const CUSTOMER_MANAGE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager", "supervisor", "cashier", "vendedor"];
+/** Venta en POS (descuento de stock por venta, cobros). Roles que atienden ventas. */
+export const POS_SALE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager", "supervisor", "cashier", "vendedor"];
+
 /** Roles que pueden generar e-CF de cierre (si tienen permiso de caja). */
 const CLOSING_ECF_ROLES: ReadonlyArray<UserRole> = [
   "super_admin",

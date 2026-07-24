@@ -32,11 +32,18 @@ export async function signIn(formData: FormData): Promise<AuthResult> {
     return { ok: false, error: "Email o contraseña inválidos." };
   }
 
+  const isProd = process.env.NODE_ENV === "production";
   if (env.DATA_SOURCE === "mock" || !isSupabaseConfigured()) {
-    // Modo demo: aceptar cualquier credencial
+    // DL-09: fail-closed en producción — nunca aceptar credenciales mock aunque
+    // el entorno quede mal configurado (deploy incompleto, rotación fallida).
+    if (isProd) {
+      return { ok: false, error: "Autenticación no configurada." };
+    }
+    // Modo demo (solo fuera de producción): aceptar cualquier credencial
     const c = await cookies();
     c.set("dl-mock-session", parsed.data.email, {
       httpOnly: true,
+      secure: isProd, // DL-16
       sameSite: "lax",
       maxAge: 60 * 60 * 8,
     });

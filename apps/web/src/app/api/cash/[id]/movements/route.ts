@@ -3,6 +3,8 @@ import { env } from "@/lib/env";
 import type { CashMovementType, PaymentMethod } from "@/types";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { CASH_OPERATE_ROLES } from "@/features/billing/permissions";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -77,6 +79,8 @@ export async function POST(
         { status: 422 },
       );
     }
+    const auth = await authorizeRole(CASH_OPERATE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const movement = await getRepositories().cashRegister.addMovement(ctx, {
       sessionId: id,

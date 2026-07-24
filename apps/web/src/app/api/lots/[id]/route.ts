@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
+import {
+  INVENTORY_MANAGE_ROLES,
+  POS_SALE_ROLES,
+} from "@/features/billing/permissions";
+import type { UserRole } from "@/types";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +40,18 @@ export async function PATCH(
       reason?: string;
       notes?: string;
     };
+
+    // DL-01: gate de rol por modo. El descuento por VENTA (decrementBy) lo hace
+    // el POS (cajero); el ajuste manual / nota es operación de INVENTARIO.
+    const roleOk = (roles: ReadonlyArray<UserRole>) =>
+      session.isPlatformAdmin || roles.includes(session.user.role);
+    const isSale = typeof decrementBy === "number";
+    if (!roleOk(isSale ? POS_SALE_ROLES : INVENTORY_MANAGE_ROLES)) {
+      return NextResponse.json(
+        { error: "No tienes permiso para realizar esta acción." },
+        { status: 403 },
+      );
+    }
 
     const ctx = await getRepoContext();
     const repos = getRepositories();

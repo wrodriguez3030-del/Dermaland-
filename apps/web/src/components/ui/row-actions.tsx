@@ -465,16 +465,64 @@ export function RowActions({
             ))}
             {customActions.map((a) => {
               const Icon = a.icon ?? Ban;
+              const itemCls = cn(
+                "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs",
+                a.destructive
+                  ? "text-rose-700 hover:bg-rose-50"
+                  : "hover:bg-black/[0.04]",
+              );
+              // Deshabilitada: botón inerte con motivo en tooltip.
+              if (a.disabled) {
+                return (
+                  <button
+                    key={a.label}
+                    type="button"
+                    role="menuitem"
+                    disabled
+                    title={a.disabledReason ?? a.label}
+                    className={cn(itemCls, "cursor-not-allowed opacity-40")}
+                  >
+                    <Icon className="h-3.5 w-3.5 opacity-60" />
+                    {a.label}
+                  </button>
+                );
+              }
+              // Con destino: navega (externo en pestaña nueva, interno con Link).
+              if (a.href) {
+                return a.external ? (
+                  <a
+                    key={a.label}
+                    href={a.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                    className={itemCls}
+                  >
+                    <Icon className="h-3.5 w-3.5 opacity-60" />
+                    {a.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={a.label}
+                    href={a.href}
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                    className={itemCls}
+                  >
+                    <Icon className="h-3.5 w-3.5 opacity-60" />
+                    {a.label}
+                  </Link>
+                );
+              }
+              // Imperativa: onClick (con confirmación opcional vía handleCustom).
               return (
                 <button
                   key={a.label}
                   type="button"
                   role="menuitem"
                   onClick={() => handleCustom(a)}
-                  className={cn(
-                    "flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-black/[0.04]",
-                    a.destructive && "text-rose-700",
-                  )}
+                  className={itemCls}
                 >
                   <Icon className="h-3.5 w-3.5 opacity-60" />
                   {a.label}

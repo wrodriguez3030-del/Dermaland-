@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { INVENTORY_MANAGE_ROLES } from "@/features/billing/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,8 @@ export async function POST(
       );
     }
 
+    const auth = await authorizeRole(INVENTORY_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const repos = getRepositories();
 

@@ -12,7 +12,10 @@ import { whatsappService } from "@/server/services/whatsapp/service";
  */
 function verifyMetaSignature(rawBody: string, header: string | null): boolean {
   const secret = env.WHATSAPP_APP_SECRET;
-  if (!secret) return true; // sin secreto no se puede validar (stub)
+  // DL-10: fail-closed en producción. Sin App Secret no se puede validar la
+  // firma; antes se ACEPTABA cualquier POST no firmado. En dev/demo se mantiene
+  // el stub permisivo para pruebas locales.
+  if (!secret) return process.env.NODE_ENV !== "production";
   if (!header || !header.startsWith("sha256=")) return false;
   const expected = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
   const got = header.slice("sha256=".length);

@@ -34,9 +34,15 @@ export function digitsIlikePattern(input: string): string | null {
   return `%${digits.split("").join("%")}%`;
 }
 
-/** Quita `%` y `,` (rompen el CSV de `.or()` de PostgREST) y colapsa espacios. */
+/**
+ * Quita metacaracteres del mini-lenguaje de filtros de `.or()` de PostgREST y
+ * colapsa espacios. `,` separa condiciones y `()` agrupan: sin sanear, un término
+ * con esos caracteres rompe la expresión (400). DL-13: se añaden `()` a `%,`.
+ * (El `.` se deja: dentro del VALOR de un `ilike` no rompe el parseo y es común
+ * en búsquedas reales; el aislamiento no depende del `.or()` — hay `.eq(business_id)`.)
+ */
 export function sanitizeTerm(term: string): string {
-  return (term ?? "").replace(/[%,]/g, " ").replace(/\s+/g, " ").trim();
+  return (term ?? "").replace(/[%,()]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** ¿La consulta tiene el mínimo de caracteres para buscar? */

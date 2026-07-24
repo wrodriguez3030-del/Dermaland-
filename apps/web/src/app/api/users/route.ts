@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
-import { canManageIncentiveRules } from "@/features/billing/permissions";
+import { canManageIncentiveRules, isBillingAdmin } from "@/features/billing/permissions";
 
 /**
  * GET  /api/users → usuarios del negocio (RLS por business_id vía JWT).
@@ -67,6 +67,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Email inválido." }, { status: 422 });
   if (!VALID_ROLES.has(role))
     return NextResponse.json({ error: "Rol inválido." }, { status: 422 });
+  // DL-08: solo un administrador puede asignar roles de administración; el rol
+  // `super_admin` (plataforma) nunca se asigna por esta vía de negocio.
+  const actorIsAdmin = session.isPlatformAdmin || isBillingAdmin(session.user.role);
+  if (role === "super_admin") {
+    return NextResponse.json(
+      { error: "No se puede asignar el rol super administrador." },
+      { status: 403 },
+    );
+  }
+  if ((role === "admin" || role === "manager") && !actorIsAdmin) {
+    return NextResponse.json(
+      { error: "Solo un administrador puede asignar roles de administración (admin/gerente)." },
+      { status: 403 },
+    );
+  }
 
   const sb = await createServer();
   if (!sb) return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });

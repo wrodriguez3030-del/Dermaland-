@@ -1,24 +1,13 @@
 import { NextResponse } from "next/server";
-import {
-  isDgiiConfigured,
-  isOpenAIConfigured,
-  isSupabaseConfigured,
-  isWhatsappConfigured,
-  env,
-} from "@/lib/env";
 
+/**
+ * Liveness público mínimo.
+ *
+ * DL-15: se retiran de la respuesta pública `NODE_ENV`, `APP_BUILD_SHA`,
+ * `DATA_SOURCE` y el estado de integraciones — daban valor de reconocimiento
+ * (p. ej. el build SHA para correlacionar CVEs) sin necesidad. El detalle de
+ * configuración vive ahora solo en la página interna de Salud (autenticada).
+ */
 export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    timestamp: new Date().toISOString(),
-    env: env.NODE_ENV,
-    build: process.env.APP_BUILD_SHA ?? "dev",
-    data_source: env.DATA_SOURCE,
-    integrations: {
-      supabase: isSupabaseConfigured(),
-      dgii: isDgiiConfigured(),
-      whatsapp: isWhatsappConfigured(),
-      openai: isOpenAIConfigured(),
-    },
-  });
+  return NextResponse.json({ ok: true, timestamp: new Date().toISOString() });
 }

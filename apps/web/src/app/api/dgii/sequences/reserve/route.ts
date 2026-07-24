@@ -106,8 +106,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .neq("environment", "produccion")
     .or(`end_date.is.null,end_date.gte.${today}`);
   if (selErr) {
+    // DL-11: no filtrar el detalle interno de Postgres al cliente; loguear server-side.
+    console.error("[dgii/sequences/reserve] error leyendo numeraciones:", selErr.message);
     return NextResponse.json(
-      { error: `No pude leer numeraciones: ${selErr.message}` },
+      { error: "No se pudieron leer las numeraciones. Intenta nuevamente." },
       { status: 500 },
     );
   }

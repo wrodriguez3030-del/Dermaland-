@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getSession } from "@/server/auth/context";
 import { mockElectronicInvoices } from "@/lib/mock-data/integrations";
 import {
   buildEcfXml,
@@ -37,6 +38,12 @@ interface CreateNcBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // DL-25: defensa en profundidad a nivel de ruta (no depender solo del middleware),
+  // consistente con el resto de rutas DGII. Aunque sea demo, firma XML.
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
   let body: CreateNcBody;
   try {
     body = (await req.json()) as CreateNcBody;

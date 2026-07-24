@@ -152,7 +152,9 @@ export function isCertificateUploadEnabled(): boolean {
     env.NEXT_PUBLIC_SUPABASE_URL &&
       env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
       env.DGII_CERT_ENCRYPTION_KEY &&
-      env.DGII_CERT_ENCRYPTION_KEY.length >= 32 &&
+      // DL-24: la key es base64 de 32 bytes (≥ 43 chars). Con < 43 el cert-cipher
+      // decodifica a < 32 bytes y LANZA al cifrar; antes se aceptaba desde 32 chars.
+      env.DGII_CERT_ENCRYPTION_KEY.length >= 43 &&
       env.DATA_SOURCE === "supabase",
   );
 }

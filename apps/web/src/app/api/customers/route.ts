@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { CUSTOMER_MANAGE_ROLES } from "@/features/billing/permissions";
 
 /**
  * Clientes — fuente de verdad del servidor (single source) cuando
@@ -43,6 +45,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
     const body = await req.json();
+    const auth = await authorizeRole(CUSTOMER_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const customer = await getRepositories().customer.create(ctx, body);
     return NextResponse.json({ customer }, { status: 201 });

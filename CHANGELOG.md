@@ -11,6 +11,53 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.93.0] - 2026-07-24
+
+**Endurecimiento de seguridad (auditoría por dominios) + fix de acciones en Detalle de ventas.**
+
+Cierre de los hallazgos de la auditoría de seguridad 2026-07-24 (0 críticos, 2 altos,
+6 medios, 8 bajos, 9 info). Hilo conductor corregido: la RLS solo valida `business_id`,
+no el rol → se añade la barrera de **autorización por rol server-side** que faltaba.
+
+- **Fix — acciones del menú "Detalle de ventas" no funcionaban:** la variante `menu`
+  de `RowActions` renderizaba las `customActions` con `href` como botones sin acción;
+  ahora renderiza `Link`/`<a>` para navegar, botón deshabilitado con motivo, y botón
+  imperativo para `onClick` (igual que la variante `inline`). Con test de regresión.
+- **[ALTA] Autorización por rol en mutaciones (DL-01):** nuevo helper
+  `authorizeRole` (`server/auth/require-role.ts`) + constantes de rol por módulo
+  (`features/billing/permissions.ts`). Aplicado a ~40 route handlers de mutación
+  (sucursales, catálogo, gastos, facturas de proveedor, transferencias, lotes, caja,
+  clientes, conteos…). Antes un `cashier` podía, por `fetch` directo, borrar
+  sucursales, editar precios, anular gastos o pagar facturas. `lots/[id]` se gatea
+  **por modo** (venta=POS vs ajuste=inventario) para no romper el POS.
+- **[ALTA] Numeración fiscal (DL-02):** `dgii/sequences/[id]/deactivate` y `/prefer`
+  ahora exigen `canManageNumberings` y filtran `business_id` (antes cualquier usuario
+  podía desactivar la numeración activa y detener la facturación legal).
+- **[MEDIA] Gestión de usuarios (DL-08):** un `manager` ya no puede asignar rol
+  `admin`/`manager`; `super_admin` nunca se asigna por la vía de negocio.
+- **[MEDIA] Middleware (DL-07):** match por segmento en `PUBLIC_PATHS` — `/api/brand`
+  ya no deja pública `/api/brands` (saltaba el 2FA).
+- **[MEDIA] SSRF (DL-06):** `url-guard` normaliza codificaciones de IPv4
+  (decimal/octal/hex/IPv4-mapped IPv6) antes de bloquear IPs privadas. Con tests.
+- **[MEDIA] CSP (DL-05):** `Content-Security-Policy-Report-Only` en producción.
+- **[BAJA] Varios:** auth fail-closed en prod (DL-09), webhook WhatsApp fail-closed
+  (DL-10), fuga de error Postgres en `reserve` (DL-11), open-redirect en `/login`
+  (DL-12), saneo de búsqueda `.or()` (DL-13), `/api/health` mínimo (DL-15), cookie
+  mock `secure` (DL-16).
+- **[BAJA] BD (DL-14):** `search_path` fijado en 4 RPC (`emit_sale_atomic`,
+  `void_sale_atomic`, `apply_count_adjustments`, `transfer_stock_atomic`) —
+  migración `0035`, aplicada. Advisor de seguridad limpio salvo leaked-password.
+- **[INFO]:** `import "server-only"` en `lib/supabase/server.ts` (DL-23), enlaces
+  de correo desde base fija (DL-20), umbral de longitud de `DGII_CERT_ENCRYPTION_KEY`
+  a ≥43 (DL-24), sesión en `notas-credito/create` (DL-25), `.env.example` alineado (DL-22).
+
+**Pendientes (no incluidos, requieren decisión/feature aparte):** UI que aún usa
+`mockCurrentUser` en gates cosméticos (DL-03; el servidor ya está blindado), expiración/
+revocación del token público de factura (DL-04, cambia el formato del enlace),
+rate-limiting en PDF/correo/reserva (DL-17), flujo de reset de contraseña (DL-18),
+"leaked password protection" (DL-19, toggle en panel Supabase), validación Zod en
+handlers de escritura (DL-21).
+
 ## [0.92.0] - 2026-07-22
 
 **Perfil del cliente: gráfica de compras por mes + Conversaciones reales.**

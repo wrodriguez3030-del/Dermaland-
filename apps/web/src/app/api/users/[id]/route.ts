@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
 import { getRepositories } from "@/server/repositories";
-import { canManageIncentiveRules } from "@/features/billing/permissions";
+import { canManageIncentiveRules, isBillingAdmin } from "@/features/billing/permissions";
 
 /**
  * PATCH /api/users/[id] → edita un registro de personal (nombre, rol,
@@ -38,9 +38,16 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
   if (body.fullName !== undefined) patch.full_name = String(body.fullName).trim();
   if (body.phone !== undefined) patch.phone = (body.phone as string) || null;
   if (body.role !== undefined) {
-    if (!VALID_ROLES.has(String(body.role)))
+    const nextRole = String(body.role);
+    if (!VALID_ROLES.has(nextRole))
       return NextResponse.json({ error: "Rol inválido." }, { status: 422 });
-    patch.role = body.role;
+    // DL-08: solo un administrador puede elevar a admin/gerente; super_admin nunca por esta vía.
+    const actorIsAdmin = session.isPlatformAdmin || isBillingAdmin(session.user.role);
+    if (nextRole === "super_admin")
+      return NextResponse.json({ error: "No se puede asignar el rol super administrador." }, { status: 403 });
+    if ((nextRole === "admin" || nextRole === "manager") && !actorIsAdmin)
+      return NextResponse.json({ error: "Solo un administrador puede asignar roles de administración (admin/gerente)." }, { status: 403 });
+    patch.role = nextRole;
   }
   if (body.branchIds !== undefined)
     patch.branch_ids = Array.isArray(body.branchIds)

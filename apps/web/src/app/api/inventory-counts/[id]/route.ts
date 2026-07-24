@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
+import { INVENTORY_MANAGE_ROLES } from "@/features/billing/permissions";
 
 // SEC-006: aprobar/rechazar un conteo es el gate contable del ajuste de
 // inventario → segregación de funciones (no un cajero cualquiera).
@@ -68,7 +69,13 @@ export async function POST(
     const { action, reason } = await req.json();
     const ctx = await getRepoContext();
     const repo = getRepositories().inventoryCount;
-    if (action === "submit") await repo.submit(ctx, id);
+    if (action === "submit") {
+      // DL-01: enviar un conteo a revisión es operación de inventario, no de cualquiera.
+      const session = await getSession();
+      if (!session || !(session.isPlatformAdmin || INVENTORY_MANAGE_ROLES.includes(session.user.role)))
+        return NextResponse.json({ error: "No tienes permiso para enviar conteos." }, { status: 403 });
+      await repo.submit(ctx, id);
+    }
     else if (action === "approve" || action === "reject") {
       const session = await getSession();
       if (!session || !COUNT_APPROVER_ROLES.has(session.user.role))

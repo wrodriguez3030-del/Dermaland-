@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { FINANCE_MANAGE_ROLES, FINANCE_ADMIN_ROLES } from "@/features/billing/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +39,8 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
+    const auth = await authorizeRole(FINANCE_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const invoice = await getRepositories().supplierInvoice.update(ctx, id, body);
     return NextResponse.json({ invoice });
@@ -52,6 +56,8 @@ export async function DELETE(
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
     const { id } = await params;
+    const auth = await authorizeRole(FINANCE_ADMIN_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     await getRepositories().supplierInvoice.softDelete(ctx, id);
     return NextResponse.json({ ok: true });

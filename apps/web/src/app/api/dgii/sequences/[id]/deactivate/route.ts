@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/server/auth/context";
+import { canManageNumberings } from "@/features/billing/permissions";
 import { createServer } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import {
@@ -24,6 +25,12 @@ export async function POST(
   if (!session) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
+  if (!canManageNumberings(session.user.role)) {
+    return NextResponse.json(
+      { error: "No tienes permiso para administrar numeraciones." },
+      { status: 403 },
+    );
+  }
   const { id } = await ctx.params;
   const current = await getNumberingRow(id).catch(() => null);
   if (!current) {
@@ -37,6 +44,7 @@ export async function POST(
     .from("invoice_numberings")
     .update({ status: "inactive", updated_at: new Date().toISOString() })
     .eq("id", id)
+    .eq("business_id", session.businessId) // SEC-008: filtro de tenant explícito
     .select("*")
     .single();
   if (updErr) {

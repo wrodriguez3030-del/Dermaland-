@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { CATALOG_MANAGE_ROLES } from "@/features/billing/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
     const body = await req.json();
+    const auth = await authorizeRole(CATALOG_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const category = await getRepositories().category.create(ctx, body);
     return NextResponse.json({ category }, { status: 201 });

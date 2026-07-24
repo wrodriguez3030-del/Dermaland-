@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { FINANCE_ADMIN_ROLES } from "@/features/billing/permissions";
 import type { PaymentMethod } from "@/features/purchases/compras-store";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,8 @@ export async function POST(
     if (!(body.amount > 0)) {
       return NextResponse.json({ error: "El monto debe ser mayor a 0." }, { status: 422 });
     }
+    const auth = await authorizeRole(FINANCE_ADMIN_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const invoice = await getRepositories().supplierInvoice.registerPayment(
       ctx,

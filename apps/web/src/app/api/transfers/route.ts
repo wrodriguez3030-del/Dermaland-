@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { INVENTORY_MANAGE_ROLES } from "@/features/billing/permissions";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +49,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
     const body = await req.json();
+    const auth = await authorizeRole(INVENTORY_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const repos = getRepositories();
     const transfer = await repos.inventoryTransfer.create(ctx, body);

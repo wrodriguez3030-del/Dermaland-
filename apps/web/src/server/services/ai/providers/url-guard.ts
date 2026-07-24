@@ -31,6 +31,45 @@ function isPrivateIPv4(host: string): boolean {
   return false;
 }
 
+/**
+ * DL-06: canonicaliza un hostname a IPv4 punteada cuando representa una IPv4 en
+ * forma NO punteada (decimal `2852039166`, octal `0250.0376...`, hex `0xA9FEA9FE`)
+ * o IPv4-mapped IPv6 (`::ffff:a9fe:a9fe`). Antes, `isPrivateIPv4` solo miraba la
+ * forma punteada y estas codificaciones saltaban el guard SSRF. Devuelve null si
+ * el host no es una IPv4 reconocible.
+ */
+function toDottedIPv4(host: string): string | null {
+  const fromInt = (n: number): string | null =>
+    Number.isFinite(n) && n >= 0 && n <= 0xffffffff
+      ? `${(n >>> 24) & 255}.${(n >>> 16) & 255}.${(n >>> 8) & 255}.${n & 255}`
+      : null;
+
+  // IPv4-mapped IPv6: ::ffff:a.b.c.d  o  ::ffff:aabb:ccdd
+  const mapped = host.match(/^::ffff:(.+)$/i);
+  if (mapped) {
+    const inner = mapped[1]!;
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(inner)) return inner;
+    const hx = inner.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+    // `>>> 0`: el OR bit a bit da int32 con signo (negativo para 128.x+); lo pasamos a uint32.
+    if (hx) return fromInt(((parseInt(hx[1]!, 16) << 16) | parseInt(hx[2]!, 16)) >>> 0);
+  }
+
+  // IPv4 empaquetada en un solo número: hex, octal o decimal.
+  if (/^0x[0-9a-f]+$/i.test(host)) return fromInt(parseInt(host, 16));
+  if (/^0[0-7]+$/.test(host)) return fromInt(parseInt(host, 8));
+  if (/^\d+$/.test(host)) return fromInt(parseInt(host, 10));
+
+  // Octetos punteados en octal/hex/decimal mezclados (p. ej. 0250.0376.0251.0376).
+  const parts = host.split(".");
+  if (parts.length === 4 && parts.every((p) => /^(0x[0-9a-f]+|0[0-7]*|\d+)$/i.test(p))) {
+    const octs = parts.map((p) =>
+      /^0x/i.test(p) ? parseInt(p, 16) : /^0[0-7]+$/.test(p) ? parseInt(p, 8) : parseInt(p, 10),
+    );
+    if (octs.every((o) => Number.isFinite(o) && o >= 0 && o <= 255)) return octs.join(".");
+  }
+  return null;
+}
+
 /** Devuelve un mensaje de error si la URL NO es segura, o null si es válida. */
 export function validateProviderBaseUrl(raw: string): string | null {
   let url: URL;
@@ -46,7 +85,10 @@ export function validateProviderBaseUrl(raw: string): string | null {
   if (BLOCKED_HOSTNAMES.has(host) || host.endsWith(".local") || host.endsWith(".internal")) {
     return "La URL base no puede apuntar a un host interno.";
   }
-  if (isPrivateIPv4(host)) {
+  // DL-06: canonicalizar codificaciones de IPv4 (decimal/octal/hex/IPv4-mapped)
+  // antes de comprobar rango privado, para que no salten el guard.
+  const canonical = toDottedIPv4(host) ?? host;
+  if (isPrivateIPv4(canonical)) {
     return "La URL base no puede apuntar a una IP privada o de loopback.";
   }
   // IPv6 loopback / link-local / unique-local.

@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { authorizeRole } from "@/server/auth/require-role";
+import { CASH_OPERATE_ROLES } from "@/features/billing/permissions";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +38,8 @@ export async function PATCH(
         { status: 422 },
       );
     }
+    const auth = await authorizeRole(CASH_OPERATE_ROLES);
+    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const session = await getRepositories().cashRegister.close(ctx, id, countedCash);
     return NextResponse.json({ session });

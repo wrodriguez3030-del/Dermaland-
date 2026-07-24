@@ -27,6 +27,9 @@ export interface AuthSession {
  */
 export async function getSession(): Promise<AuthSession | null> {
   if (env.DATA_SOURCE === "mock" || !isSupabaseConfigured()) {
+    // DL-09: fail-closed en producción — nunca entregar una sesión admin mock si
+    // el entorno queda mal configurado. En dev/demo sí, para trabajar sin Supabase.
+    if (process.env.NODE_ENV === "production") return null;
     // Modo demo: el usuario actual mock
     return {
       user: mockCurrentUser,
@@ -73,18 +76,23 @@ export async function getSession(): Promise<AuthSession | null> {
   };
 }
 
-/** Helper para construir `RepoContext` directo desde la sesión. */
-export async function getRepoContext(): Promise<RepoContext> {
-  const session = await getSession();
-  if (!session) {
-    throw new Error("No autenticado — getRepoContext() requiere sesión activa");
-  }
+/** Construye un `RepoContext` a partir de una sesión ya resuelta (sin re-leer el JWT). */
+export function sessionToRepoContext(session: AuthSession): RepoContext {
   return {
     businessId: session.businessId,
     branchId: session.branchId,
     userId: session.user.id,
     userName: session.user.fullName,
   };
+}
+
+/** Helper para construir `RepoContext` directo desde la sesión. */
+export async function getRepoContext(): Promise<RepoContext> {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("No autenticado — getRepoContext() requiere sesión activa");
+  }
+  return sessionToRepoContext(session);
 }
 
 /**

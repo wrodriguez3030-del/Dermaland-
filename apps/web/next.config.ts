@@ -28,12 +28,28 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/dgii/certificate/**": ["../../docs/dgii/xsd/*.xsd"],
   },
-  // SEGURIDAD (SEC-005): cabeceras de endurecimiento en todas las respuestas.
-  // No incluye Content-Security-Policy estricta a propósito: una CSP debe
-  // probarse en modo report-only primero para no romper Supabase/Vercel/imágenes
-  // (ver docs/security/deployment-security-checklist.md). Permissions-Policy
-  // permite `camera=(self)` porque el conteo físico (PWA) escanea códigos.
+  // SEGURIDAD (SEC-005 + DL-05): cabeceras de endurecimiento en todas las
+  // respuestas. La CSP se despliega en modo REPORT-ONLY (solo en producción):
+  // no bloquea nada, solo reporta violaciones para poder ajustar la política
+  // antes de promoverla a enforcing (ver docs/security/deployment-security-checklist.md).
+  // Permissions-Policy permite `camera=(self)` porque el conteo físico (PWA) escanea.
   async headers() {
+    // Política de partida: `self` + los orígenes que la app realmente usa
+    // (Supabase, Sentry). `script/style` permiten inline por ahora (Next inyecta
+    // bootstrap inline); el objetivo es migrar a nonces antes de pasar a enforcing.
+    const cspReportOnly = [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "img-src 'self' data: blob: https://*.supabase.co",
+      "font-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline'",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://*.ingest.sentry.io",
+      "form-action 'self'",
+    ].join("; ");
+
     return [
       {
         source: "/:path*",
@@ -49,6 +65,9 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
+          ...(process.env.NODE_ENV === "production"
+            ? [{ key: "Content-Security-Policy-Report-Only", value: cspReportOnly }]
+            : []),
         ],
       },
     ];
