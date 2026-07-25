@@ -51,15 +51,28 @@ export function normalizeWhatsappPhone(
 // ─── Nombre de archivo del PDF ───────────────────────────────────────────────
 
 function safeFilePart(s: string): string {
-  return (s || "documento").replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+  return (s || "documento")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // quita acentos: María → Maria
+    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
-/** Nombre sugerido del PDF: `Factura-B02...pdf` / `Proforma-PROF...pdf`. */
+/**
+ * Nombre sugerido del PDF: número de factura + nombre del cliente, p. ej.
+ * `Factura-B0200001306-Willian-Rodriguez.pdf`. Si el cliente no tiene nombre
+ * (walk-in), solo el número.
+ */
 export function whatsappPdfFilename(p: Proforma): string {
   const cls = classifySaleDocument(p);
   const number = p.ecfNumber ?? p.number;
   const prefix = cls === "proforma" ? "Proforma" : "Factura";
-  return `${prefix}-${safeFilePart(number)}.pdf`;
+  const name = (p.customerName ?? "").trim();
+  const namePart =
+    name && !/^(walk-?in|consumidor final)$/i.test(name)
+      ? `-${safeFilePart(name)}`
+      : "";
+  return `${prefix}-${safeFilePart(number)}${namePart}.pdf`;
 }
 
 // ─── Mensaje de WhatsApp ──────────────────────────────────────────────────────

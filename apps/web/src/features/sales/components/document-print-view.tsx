@@ -41,6 +41,23 @@ export function DocumentPrintView({
     }
   }, [mounted, proforma]);
 
+  // El navegador usa el TÍTULO del documento como nombre por defecto al
+  // "Guardar como PDF" / imprimir. Lo fijamos a: número de factura + cliente.
+  React.useEffect(() => {
+    if (!mounted || !proforma) return;
+    const number = proforma.ecfNumber ?? proforma.number;
+    const name = (proforma.customerName ?? "").trim();
+    const title = (name ? `${number} - ${name}` : number)
+      .replace(/[\\/:*?"<>|]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const prev = document.title;
+    document.title = title || number;
+    return () => {
+      document.title = prev;
+    };
+  }, [mounted, proforma]);
+
   if (!mounted || loading) {
     return (
       <div className="mx-auto max-w-[640px] p-6">

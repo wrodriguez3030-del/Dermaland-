@@ -165,13 +165,22 @@ describe("buildWhatsappShareMessage", () => {
 });
 
 describe("whatsappPdfFilename", () => {
-  it("proforma → Proforma-<numero>.pdf", () => {
-    expect(whatsappPdfFilename(makeProforma())).toBe("Proforma-PROF-2026-00001.pdf");
+  it("proforma → Proforma-<numero>-<cliente>.pdf (sin acentos)", () => {
+    expect(whatsappPdfFilename(makeProforma())).toBe(
+      "Proforma-PROF-2026-00001-Maria-Perez.pdf",
+    );
   });
-  it("factura → Factura-<comprobante>.pdf", () => {
+  it("factura → Factura-<comprobante>-<cliente>.pdf", () => {
     expect(
       whatsappPdfFilename(
         makeProforma({ documentKind: "invoice", ecfNumber: "B0200000123" }),
+      ),
+    ).toBe("Factura-B0200000123-Maria-Perez.pdf");
+  });
+  it("sin nombre de cliente (walk-in) → solo el número", () => {
+    expect(
+      whatsappPdfFilename(
+        makeProforma({ documentKind: "invoice", ecfNumber: "B0200000123", customerName: "Walk-in" }),
       ),
     ).toBe("Factura-B0200000123.pdf");
   });

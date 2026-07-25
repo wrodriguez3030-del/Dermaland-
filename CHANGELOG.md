@@ -11,6 +11,17 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.97.3] - 2026-07-25
+
+**El PDF de la factura se guarda con nombre = número + cliente.**
+
+- Al "Guardar como PDF" / imprimir un documento, el nombre del archivo ahora es
+  **`<número de factura> - <nombre del cliente>`** (antes salía un nombre genérico).
+  Se logra fijando el `document.title` de la vista de impresión.
+- El `Content-Disposition` del endpoint PDF (WhatsApp/descarga) también incluye el
+  cliente: `Factura-<número>-<Cliente>.pdf` (sin acentos; solo el número si es
+  walk-in). Con tests.
+
 ## [0.97.2] - 2026-07-25
 
 **"Vista previa e-CF" solo en documentos electrónicos.**
