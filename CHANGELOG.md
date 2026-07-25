@@ -11,6 +11,15 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.97.2] - 2026-07-25
+
+**"Vista previa e-CF" solo en documentos electrónicos.**
+
+- En la pantalla de factura emitida, el botón **"Vista previa e-CF"** ya no aparece
+  cuando el comprobante es **NCF tradicional** (B02/B01) — solo se muestra cuando el
+  documento es realmente un **e-CF** (31/32), es decir cuando la "Forma de facturación
+  principal" es e-CF/Ambos. Se decide por `ecfType` del documento emitido (fiable).
+
 ## [0.97.1] - 2026-07-25
 
 **Enviar por correo en la pantalla de factura emitida.**

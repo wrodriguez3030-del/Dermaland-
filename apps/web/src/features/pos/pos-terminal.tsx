@@ -1427,7 +1427,11 @@ export function PosTerminal({
                   <Mail className="h-4 w-4" /> Correo
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div
+                className={`grid gap-2 ${
+                  issued.proforma.ecfType ? "grid-cols-2" : "grid-cols-1"
+                }`}
+              >
                 <Link
                   href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print`}
                   target="_blank"
@@ -1437,11 +1441,15 @@ export function PosTerminal({
                     <FileText className="h-4 w-4" /> PDF
                   </Button>
                 </Link>
-                <Link href={`/dgii/preview/${issued.id}`} target="_blank" className="block">
-                  <Button size="sm" variant="outline" className="w-full justify-center">
-                    Vista previa e-CF
-                  </Button>
-                </Link>
+                {/* La vista previa e-CF SOLO aplica a comprobantes electrónicos
+                    (e-CF 31/32). En modo NCF tradicional (B02/B01) no se muestra. */}
+                {issued.proforma.ecfType && (
+                  <Link href={`/dgii/preview/${issued.id}`} target="_blank" className="block">
+                    <Button size="sm" variant="outline" className="w-full justify-center">
+                      Vista previa e-CF
+                    </Button>
+                  </Link>
+                )}
               </div>
               <Button
                 size="lg"
