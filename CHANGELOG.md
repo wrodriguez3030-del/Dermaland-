@@ -11,6 +11,19 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.97.0] - 2026-07-25
+
+**Pantalla dedicada de "Factura emitida" tras cobrar (POS).**
+
+- Antes, al cobrar, la confirmación "Factura emitida" aparecía **incrustada** dentro
+  del panel de la venta — confuso. Ahora sale una **pantalla dedicada (modal a
+  pantalla completa)** con el comprobante, el total y acciones grandes y claras:
+  **Imprimir**, **Enviar por WhatsApp**, **PDF** y **Vista previa e-CF**; "Nueva
+  venta" la cierra y deja el POS listo para la siguiente.
+- El botón **"Enviar por WhatsApp"** —que antes no hacía nada— ahora **funciona**:
+  reusa `shareProformaWhatsapp` (abre WhatsApp con el enlace al documento, al número
+  vigente del cliente).
+
 ## [0.96.5] - 2026-07-25
 
 **Vendedor obligatorio al cobrar (bloqueo antes del modal de pago).**

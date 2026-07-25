@@ -15,6 +15,8 @@ import {
   MapPin,
   Star,
   Percent,
+  Printer,
+  Send,
 } from "lucide-react";
 import { Badge, Button, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -38,6 +40,7 @@ import { SellerSelect } from "@/features/sales/components/seller-select";
 import { useSellers, type SellerOption } from "@/features/sales/seller-store";
 import { generateIncentivesForSale } from "@/features/incentives/incentive-store";
 import { QuickCreateCustomerModal } from "./components/quick-create-customer-modal";
+import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
 import {
   CUSTOMER_REQUIRED_MESSAGE,
   SELLER_REQUIRED_MESSAGE,
@@ -249,7 +252,10 @@ export function PosTerminal({
     total: number;
     documentKind: "proforma" | "invoice";
     documentLabel: string;
+    /** Documento completo — para "Enviar por WhatsApp". */
+    proforma: Proforma;
   } | null>(null);
+  const [sendingWhatsapp, setSendingWhatsapp] = React.useState(false);
   const [branchStockModal, setBranchStockModal] = React.useState<{
     productId: string;
     productName: string;
@@ -838,6 +844,7 @@ export function PosTerminal({
       documentLabel: comprobante
         ? `${decision.label} · ${comprobante}`
         : decision.label,
+      proforma: res.proforma ?? { ...newProforma, id: savedId },
     });
     setCart([]);
     setCartBranchId("");
@@ -846,6 +853,15 @@ export function PosTerminal({
     setSeller(null);
     setSellerRequired(false);
     setChargeOpen(false);
+  };
+
+  const handleSendWhatsapp = async () => {
+    if (!issued) return;
+    setSendingWhatsapp(true);
+    const r = await shareProformaWhatsapp(issued.proforma);
+    setSendingWhatsapp(false);
+    if (r.ok) toast.success("Abriendo WhatsApp con el documento…");
+    else toast.error(r.error);
   };
 
   // Sin sucursal válida todavía: no cargar catálogo/stock. Mostrar carga o aviso.
@@ -1152,65 +1168,6 @@ export function PosTerminal({
               </div>
             </div>
           )}
-          {issued && cart.length === 0 && (
-            <div
-              className={`m-4 rounded-xl border p-4 ${
-                issued.documentKind === "invoice"
-                  ? "border-violet-200 bg-violet-50 text-violet-900"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-900"
-              }`}
-            >
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <CheckCircle2 className="h-4 w-4" />
-                {issued.documentKind === "invoice"
-                  ? "Factura emitida"
-                  : "Proforma emitida"}
-              </div>
-              <div className="mt-1 font-mono text-sm">{issued.number}</div>
-              <div className="mt-0.5 text-[11px] opacity-80">
-                {issued.documentLabel}
-              </div>
-              <div className="mt-2 text-2xl font-bold">
-                {formatCurrency(issued.total)}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {/* Facturas → /ventas; proformas → /proformas. */}
-                <Link
-                  href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print?auto=1`}
-                  target="_blank"
-                >
-                  <Button size="sm">Imprimir ticket</Button>
-                </Link>
-                <Link
-                  href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print`}
-                  target="_blank"
-                >
-                  <Button size="sm" variant="outline">
-                    Generar PDF
-                  </Button>
-                </Link>
-                <Link href={`/dgii/preview/${issued.id}`} target="_blank">
-                  <Button size="sm" variant="outline">
-                    <FileText className="h-4 w-4" />
-                    Vista previa e-CF DEMO
-                  </Button>
-                </Link>
-                <Button size="sm" variant="outline">
-                  Enviar WhatsApp
-                </Button>
-                <button
-                  onClick={() => setIssued(null)}
-                  className="text-xs opacity-70 hover:opacity-100"
-                >
-                  Nueva venta
-                </button>
-              </div>
-              <p className="mt-2 text-[10px] opacity-60">
-                Vista previa DGII en modo mock. No es comprobante fiscal
-                válido.
-              </p>
-            </div>
-          )}
           <ul className="divide-y divide-black/5">
             {cart.map((l) => {
               const currentStock = sellableStockForBranch(lots, l.productId, branchId);
@@ -1409,6 +1366,98 @@ export function PosTerminal({
         onConfirm={finalizeCharge}
         creditCustomerName={customer ? `${customer.firstName} ${customer.lastName}`.trim() : null}
       />
+
+      {/* Pantalla dedicada de FACTURA EMITIDA — aparece tras cobrar. El cajero/
+          cliente elige imprimir o enviar; "Nueva venta" la cierra y deja el POS
+          listo para la siguiente venta. */}
+      {issued && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Factura emitida"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+            <div
+              className={`flex flex-col items-center gap-1.5 px-6 pb-6 pt-8 text-center ${
+                issued.documentKind === "invoice"
+                  ? "bg-violet-50 text-violet-900"
+                  : "bg-emerald-50 text-emerald-900"
+              }`}
+            >
+              <span
+                className={`mb-1 flex h-14 w-14 items-center justify-center rounded-full ${
+                  issued.documentKind === "invoice"
+                    ? "bg-violet-100 text-violet-700"
+                    : "bg-emerald-100 text-emerald-700"
+                }`}
+              >
+                <CheckCircle2 className="h-8 w-8" />
+              </span>
+              <h2 className="text-lg font-bold">
+                {issued.documentKind === "invoice"
+                  ? "Factura emitida"
+                  : "Proforma emitida"}
+              </h2>
+              <div className="font-mono text-sm opacity-80">{issued.number}</div>
+              <div className="text-xs opacity-70">{issued.documentLabel}</div>
+              <div className="mt-1 text-3xl font-extrabold tabular-nums">
+                {formatCurrency(issued.total)}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 p-5">
+              <Link
+                href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print?auto=1`}
+                target="_blank"
+                className="block"
+              >
+                <Button size="lg" className="w-full justify-center">
+                  <Printer className="h-4 w-4" /> Imprimir
+                </Button>
+              </Link>
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full justify-center"
+                disabled={sendingWhatsapp}
+                onClick={handleSendWhatsapp}
+              >
+                <Send className="h-4 w-4" />
+                {sendingWhatsapp ? "Enviando…" : "Enviar por WhatsApp"}
+              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Link
+                  href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print`}
+                  target="_blank"
+                  className="block"
+                >
+                  <Button size="sm" variant="outline" className="w-full justify-center">
+                    <FileText className="h-4 w-4" /> PDF
+                  </Button>
+                </Link>
+                <Link href={`/dgii/preview/${issued.id}`} target="_blank" className="block">
+                  <Button size="sm" variant="outline" className="w-full justify-center">
+                    Vista previa e-CF
+                  </Button>
+                </Link>
+              </div>
+              <Button
+                size="lg"
+                variant="ghost"
+                className="mt-1 w-full justify-center"
+                onClick={() => setIssued(null)}
+              >
+                Nueva venta
+              </Button>
+              <p className="text-center text-[10px] opacity-50">
+                Vista previa DGII en modo mock. No es comprobante fiscal válido.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <QuickCreateCustomerModal
         open={quickCreateOpen}
         onClose={() => setQuickCreateOpen(false)}
