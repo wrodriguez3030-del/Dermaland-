@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.97.1] - 2026-07-25
+
+**Enviar por correo en la pantalla de factura emitida.**
+
+- La pantalla dedicada de "Factura emitida" (POS) ahora ofrece **WhatsApp** y
+  **Correo** para enviar el documento. Se reusa el modal común `SendInvoiceModal`
+  (pre-carga el teléfono/email vigente del cliente, arma el mensaje y envía el
+  correo por la API), en vez del envío ad-hoc solo-WhatsApp. Botones: Imprimir ·
+  WhatsApp · Correo · PDF · Vista previa e-CF · Nueva venta.
+
 ## [0.97.0] - 2026-07-25
 
 **Pantalla dedicada de "Factura emitida" tras cobrar (POS).**

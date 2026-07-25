@@ -16,7 +16,8 @@ import {
   Star,
   Percent,
   Printer,
-  Send,
+  MessageCircle,
+  Mail,
 } from "lucide-react";
 import { Badge, Button, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -40,7 +41,7 @@ import { SellerSelect } from "@/features/sales/components/seller-select";
 import { useSellers, type SellerOption } from "@/features/sales/seller-store";
 import { generateIncentivesForSale } from "@/features/incentives/incentive-store";
 import { QuickCreateCustomerModal } from "./components/quick-create-customer-modal";
-import { shareProformaWhatsapp } from "@/features/sales/whatsapp-share.client";
+import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import {
   CUSTOMER_REQUIRED_MESSAGE,
   SELLER_REQUIRED_MESSAGE,
@@ -252,10 +253,11 @@ export function PosTerminal({
     total: number;
     documentKind: "proforma" | "invoice";
     documentLabel: string;
-    /** Documento completo — para "Enviar por WhatsApp". */
+    /** Documento completo — para enviar por WhatsApp / correo. */
     proforma: Proforma;
   } | null>(null);
-  const [sendingWhatsapp, setSendingWhatsapp] = React.useState(false);
+  // Pestaña del modal "Enviar factura" (WhatsApp/correo); null = cerrado.
+  const [sendTab, setSendTab] = React.useState<"whatsapp" | "email" | null>(null);
   const [branchStockModal, setBranchStockModal] = React.useState<{
     productId: string;
     productName: string;
@@ -855,15 +857,6 @@ export function PosTerminal({
     setChargeOpen(false);
   };
 
-  const handleSendWhatsapp = async () => {
-    if (!issued) return;
-    setSendingWhatsapp(true);
-    const r = await shareProformaWhatsapp(issued.proforma);
-    setSendingWhatsapp(false);
-    if (r.ok) toast.success("Abriendo WhatsApp con el documento…");
-    else toast.error(r.error);
-  };
-
   // Sin sucursal válida todavía: no cargar catálogo/stock. Mostrar carga o aviso.
   if (!branchReady) {
     return (
@@ -1416,16 +1409,24 @@ export function PosTerminal({
                   <Printer className="h-4 w-4" /> Imprimir
                 </Button>
               </Link>
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full justify-center"
-                disabled={sendingWhatsapp}
-                onClick={handleSendWhatsapp}
-              >
-                <Send className="h-4 w-4" />
-                {sendingWhatsapp ? "Enviando…" : "Enviar por WhatsApp"}
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full justify-center"
+                  onClick={() => setSendTab("whatsapp")}
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full justify-center"
+                  onClick={() => setSendTab("email")}
+                >
+                  <Mail className="h-4 w-4" /> Correo
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Link
                   href={`/${issued.documentKind === "invoice" ? "ventas" : "proformas"}/${issued.id}/print`}
@@ -1457,6 +1458,14 @@ export function PosTerminal({
           </div>
         </div>
       )}
+
+      {/* Envío por WhatsApp / correo del documento emitido (reusa el modal común). */}
+      <SendInvoiceModal
+        proforma={issued?.proforma ?? null}
+        open={sendTab !== null}
+        onClose={() => setSendTab(null)}
+        initialTab={sendTab ?? "whatsapp"}
+      />
 
       <QuickCreateCustomerModal
         open={quickCreateOpen}
