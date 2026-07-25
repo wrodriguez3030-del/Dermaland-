@@ -11,6 +11,17 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.96.5] - 2026-07-25
+
+**Vendedor obligatorio al cobrar (bloqueo antes del modal de pago).**
+
+- El vendedor ya era obligatorio, pero solo se validaba al FINALIZAR el cobro (tras
+  abrir el modal de pago y completar el importe). Ahora el botón **"Cobrar venta"**
+  exige el vendedor **antes** de abrir el pago —igual que el cliente— con aviso y
+  resaltado del campo. Sigue revalidándose al finalizar (defensa en profundidad).
+- Guard central testeable `sellerChargeBlock`/`isSellerSelected` en `checkout-guards`.
+  Con tests.
+
 ## [0.96.4] - 2026-07-25
 
 **No permitir vender productos sin precio (RD$0.00).**

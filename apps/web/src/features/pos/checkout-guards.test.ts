@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Customer } from "@/types";
 import {
   CUSTOMER_REQUIRED_MESSAGE,
+  SELLER_REQUIRED_MESSAGE,
   customerChargeBlock,
   isRealCustomerSelected,
+  isSellerSelected,
   isValidCustomerId,
+  sellerChargeBlock,
 } from "./checkout-guards";
 
 function customer(over: Partial<Customer> = {}): Customer {
@@ -67,5 +70,20 @@ describe("customerChargeBlock", () => {
   });
   it("el mensaje no contiene jerga técnica", () => {
     expect(CUSTOMER_REQUIRED_MESSAGE).not.toMatch(/uuid|supabase|null|customer_id/i);
+  });
+});
+
+describe("vendedor obligatorio", () => {
+  it("isSellerSelected: true solo con un vendedor de id no vacío", () => {
+    expect(isSellerSelected(null)).toBe(false);
+    expect(isSellerSelected(undefined)).toBe(false);
+    expect(isSellerSelected({ id: "" })).toBe(false);
+    expect(isSellerSelected({ id: "   " })).toBe(false);
+    expect(isSellerSelected({ id: "seller_1" })).toBe(true);
+  });
+
+  it("sellerChargeBlock: bloquea sin vendedor y no bloquea con vendedor", () => {
+    expect(sellerChargeBlock(null)).toBe(SELLER_REQUIRED_MESSAGE);
+    expect(sellerChargeBlock({ id: "seller_1" })).toBeNull();
   });
 });

@@ -46,3 +46,27 @@ export function customerChargeBlock(
 ): string | null {
   return isRealCustomerSelected(customer) ? null : CUSTOMER_REQUIRED_MESSAGE;
 }
+
+// ─── Vendedor OBLIGATORIO ────────────────────────────────────────────────────
+// Toda venta debe atribuirse a un vendedor (base de incentivos/comisiones). Se
+// exige en el botón Cobrar (antes de abrir el pago) y como defensa en profundidad
+// al finalizar.
+
+export const SELLER_REQUIRED_MESSAGE =
+  "Selecciona el vendedor responsable de la venta.";
+
+/** ¿Hay un vendedor real seleccionado? (id no vacío). Type-guard para narrowing. */
+export function isSellerSelected<T extends { id?: unknown }>(
+  seller: T | null | undefined,
+): seller is T & { id: string } {
+  return (
+    !!seller && typeof seller.id === "string" && seller.id.trim().length > 0
+  );
+}
+
+/** Mensaje de bloqueo por vendedor faltante, o `null` si hay vendedor. */
+export function sellerChargeBlock(
+  seller: { id?: unknown } | null | undefined,
+): string | null {
+  return isSellerSelected(seller) ? null : SELLER_REQUIRED_MESSAGE;
+}

@@ -40,7 +40,9 @@ import { generateIncentivesForSale } from "@/features/incentives/incentive-store
 import { QuickCreateCustomerModal } from "./components/quick-create-customer-modal";
 import {
   CUSTOMER_REQUIRED_MESSAGE,
+  SELLER_REQUIRED_MESSAGE,
   isRealCustomerSelected,
+  isSellerSelected,
 } from "./checkout-guards";
 import {
   createProformaAnywhere,
@@ -624,9 +626,9 @@ export function PosTerminal({
       toast.error("Selecciona una sucursal.");
       return;
     }
-    // Vendedor obligatorio (base de incentivos).
-    if (!seller) {
-      toast.error("Selecciona el vendedor responsable de la venta.");
+    // Vendedor obligatorio (base de incentivos) — defensa en profundidad.
+    if (!isSellerSelected(seller)) {
+      toast.error(SELLER_REQUIRED_MESSAGE);
       setSellerRequired(true);
       setChargeOpen(false);
       return;
@@ -1367,6 +1369,14 @@ export function PosTerminal({
                   toast.error(CUSTOMER_REQUIRED_MESSAGE);
                   setCustomerRequired(true);
                   customerSelectRef.current?.focus();
+                  return;
+                }
+                // 1b) Vendedor OBLIGATORIO — antes de abrir el pago (base de
+                // incentivos). Sin esto se llegaba al modal de cobro y recién al
+                // finalizar se rechazaba; ahora se bloquea de entrada.
+                if (!isSellerSelected(seller)) {
+                  toast.error(SELLER_REQUIRED_MESSAGE);
+                  setSellerRequired(true);
                   return;
                 }
                 // 2) Resto de validaciones (carrito, stock, RNC).
