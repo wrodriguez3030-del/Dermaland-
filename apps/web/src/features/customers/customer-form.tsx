@@ -411,7 +411,7 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
           )}
           <div className="flex-1">
             <h3 className="text-sm font-semibold">
-              {duplicateMessage(duplicate.topConfidence)}
+              {duplicateMessage(duplicate.topConfidence, duplicate.matches[0]?.reasons)}
             </h3>
             <ul className="mt-2 space-y-1 text-xs">
               {duplicate.matches.slice(0, 3).map((m) => (
@@ -761,7 +761,7 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
               </span>
               <div className="flex-1">
                 <h2 className="text-base font-semibold">
-                  {duplicateMessage(duplicate.topConfidence)}
+                  {duplicateMessage(duplicate.topConfidence, duplicate.matches[0]?.reasons)}
                 </h2>
                 <p className="mt-1 text-xs opacity-60">
                   Encontramos {duplicate.matches.length}{" "}

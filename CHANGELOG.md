@@ -11,6 +11,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.95.0] - 2026-07-25
+
+**Detección de clientes duplicados confiable (server-side, toda la base).**
+
+- **Nuevo endpoint `POST /api/customers/check-duplicate`:** la comprobación de
+  duplicados ahora recorre **TODA** la base de clientes del negocio server-side
+  (paginado, `business_id` del JWT), en vez de correr en el cliente contra
+  `GET /api/customers` — que topa en **1000 filas** (límite de PostgREST) y hacía
+  que se escaparan duplicados. Detecta por documento, teléfono, WhatsApp, correo,
+  nombre y fecha de nacimiento. `createCustomerOnServer`/`updateCustomerOnServer`
+  usan este endpoint.
+- **Nombre como filtro:** un match exacto de **nombre y apellido** ahora dispara
+  el aviso (antes era "baja" y no avisaba). Sigue siendo override-able.
+- **Mensaje dinámico:** el modal ya lista los **campos reales** que coincidieron
+  ("Coincide por: documento, WhatsApp…") en vez de un texto genérico fijo.
+- Con tests (detección por nombre, +14 en `duplicate-detection`).
+
 ## [0.94.0] - 2026-07-24
 
 **Cierre de los pendientes de la auditoría (DL-03, DL-17, DL-18, DL-21).**

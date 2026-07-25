@@ -177,4 +177,26 @@ describe("Detección de duplicados (R-CRM-01)", () => {
     expect(r.isDuplicate).toBe(false);
     expect(r.matches).toHaveLength(0);
   });
+
+  it("detecta por NOMBRE y apellido exacto aunque el resto difiera (dispara aviso)", () => {
+    const base = mockCustomers.find((c) => c.businessId === BIZ)!;
+    const r = findPotentialDuplicateClients(
+      {
+        firstName: base.firstName,
+        lastName: base.lastName,
+        // Todo lo demás distinto y único → el único punto de contacto es el nombre.
+        documentNumber: "099-9999999-9",
+        phone: "8090001111",
+        whatsapp: "8090002222",
+        email: "correo.unico.dedupe.qa@example.com",
+        birthDate: "1979-02-28",
+        businessId: BIZ,
+      },
+      mockCustomers,
+    );
+    expect(r.isDuplicate).toBe(true); // antes esto era "low" y NO avisaba
+    const m = r.matches.find((x) => x.customer.id === base.id);
+    expect(m).toBeTruthy();
+    expect(m!.reasons.some((rr) => rr.startsWith("nombre"))).toBe(true);
+  });
 });

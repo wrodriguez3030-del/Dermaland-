@@ -438,6 +438,33 @@ export async function fetchCustomersFromServer(search?: string): Promise<Custome
 }
 
 /**
+ * Consulta AUTORITATIVA de duplicados en el servidor: barre TODA la base del
+ * negocio (sin el tope de 1000 de la lista) y corre el matcher por documento,
+ * teléfono, WhatsApp, correo, nombre y fecha de nacimiento. Ver
+ * `/api/customers/check-duplicate`.
+ */
+async function checkDuplicateOnServer(
+  candidate: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    whatsapp?: string;
+    email?: string;
+    documentNumber?: string;
+    birthDate?: string;
+  },
+  excludeClientId?: string,
+): Promise<DuplicateDetectionResult> {
+  const res = await fetch("/api/customers/check-duplicate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...candidate, excludeClientId }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as DuplicateDetectionResult;
+}
+
+/**
  * Número de contacto VIGENTE del cliente para envíos (factura por WhatsApp):
  * WhatsApp preferido, teléfono como respaldo. Devuelve `null` si no hay ninguno.
  *
@@ -515,29 +542,24 @@ async function createCustomerOnServer(
   if (missing.length > 0) {
     return { ok: false, error: "Complete los campos requeridos.", missingFields: missing };
   }
-  // Detección de duplicados client-side contra los datos del servidor.
+  // Detección de duplicados AUTORITATIVA en el servidor (barre toda la base,
+  // sin el tope de 1000; business_id del JWT).
   if (!options.force) {
     try {
-      const existing = await fetchCustomersFromServer();
-      const businessId = input.businessId ?? mockBusiness.id;
-      const dup = findPotentialDuplicateClients(
-        {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          phone: input.phone,
-          whatsapp: input.whatsapp,
-          email: input.email,
-          documentNumber: input.documentNumber,
-          birthDate: input.birthDate,
-          businessId,
-        },
-        existing,
-      );
+      const dup = await checkDuplicateOnServer({
+        firstName: input.firstName,
+        lastName: input.lastName,
+        phone: input.phone,
+        whatsapp: input.whatsapp,
+        email: input.email,
+        documentNumber: input.documentNumber,
+        birthDate: input.birthDate,
+      });
       if (dup.isDuplicate) {
         return { ok: false, error: "Este cliente ya fue registrado.", duplicate: dup };
       }
     } catch {
-      // Si el fetch falla, continuar sin detección de duplicados remota.
+      // Si la verificación falla (red/sesión), continuar sin bloquear el guardado.
     }
   }
   try {
@@ -592,37 +614,40 @@ async function updateCustomerOnServer(
   patch: UpdateCustomerInput,
   options: { force?: boolean } = {},
 ): Promise<UpdateCustomerResult> {
-  // Validación mínima local antes de ir al servidor.
+  // Detección de duplicados AUTORITATIVA (server-side, toda la base). El
+  // candidato = datos actuales del cliente + el patch (los campos no tocados
+  // también deben contar para la comparación).
   if (!options.force) {
     try {
-      const existing = await fetchCustomersFromServer();
-      const base = existing.find((c) => c.id === id);
-      if (base) {
-        const merged = { ...base, ...patch };
-        const dup = findPotentialDuplicateClients(
-          {
-            firstName: merged.firstName ?? "",
-            lastName: merged.lastName ?? "",
-            phone: merged.phone,
-            whatsapp: merged.whatsapp,
-            email: merged.email,
-            documentNumber: merged.documentNumber,
-            birthDate: merged.birthDate,
-            businessId: merged.businessId,
-          },
-          existing,
-          { excludeClientId: id },
-        );
-        if (dup.isDuplicate) {
-          return {
-            ok: false,
-            error: "Hay otro cliente con los mismos datos.",
-            duplicate: dup,
-          };
-        }
+      let base: Customer | undefined;
+      try {
+        const res = await fetch(`/api/customers/${id}`, { cache: "no-store" });
+        if (res.ok) base = ((await res.json()) as { customer?: Customer }).customer;
+      } catch {
+        /* sin base: comparamos solo con los campos del patch */
+      }
+      const merged = { ...(base ?? {}), ...patch } as Partial<Customer>;
+      const dup = await checkDuplicateOnServer(
+        {
+          firstName: merged.firstName ?? "",
+          lastName: merged.lastName ?? "",
+          phone: merged.phone,
+          whatsapp: merged.whatsapp,
+          email: merged.email,
+          documentNumber: merged.documentNumber,
+          birthDate: merged.birthDate,
+        },
+        id,
+      );
+      if (dup.isDuplicate) {
+        return {
+          ok: false,
+          error: "Hay otro cliente con los mismos datos.",
+          duplicate: dup,
+        };
       }
     } catch {
-      // Si el fetch falla, continuar sin detección de duplicados remota.
+      // Si la verificación falla, continuar sin bloquear.
     }
   }
   try {

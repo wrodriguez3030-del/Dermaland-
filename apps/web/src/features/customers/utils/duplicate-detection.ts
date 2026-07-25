@@ -208,6 +208,17 @@ export function findPotentialDuplicateClients(
       // Ya capturado por high si exact email; aquí caso de email distinto pero similares
     }
 
+    // ── Nombre completo exacto → aviso (media): el usuario pidió filtrar por
+    // nombre. Es override-able; dos personas con el mismo nombre son posibles,
+    // por eso NO es "alta". Solo si no hubo ya un match más fuerte por nombre.
+    if (
+      cFull && eFull && cFull === eFull &&
+      !reasons.some((r) => r.startsWith("nombre"))
+    ) {
+      reasons.push("nombre y apellido");
+      confidence = pickHigher(confidence, MEDIUM);
+    }
+
     // ── Baja confianza ──
     if (
       cFirst && eFirst && cFirst === eFirst &&
@@ -250,18 +261,26 @@ export function describeMatch(m: DuplicateMatch): string {
 }
 
 /**
- * Mensaje principal según confianza máxima.
+ * Mensaje principal según confianza máxima. Si se pasan `reasons` (los campos
+ * que coincidieron del match más fuerte), el mensaje los lista — así el modal
+ * dice exactamente por qué (documento, teléfono, WhatsApp, correo, nombre…),
+ * no un texto genérico.
  */
 export function duplicateMessage(
   confidence: DuplicateConfidence | null,
+  reasons?: string[],
 ): string {
+  const by =
+    reasons && reasons.length > 0
+      ? reasons.join(", ")
+      : "documento, teléfono, WhatsApp, correo, nombre o fecha de nacimiento";
   switch (confidence) {
     case "high":
-      return "Este cliente ya fue registrado. Encontramos una coincidencia con el mismo documento, teléfono, correo o fecha de nacimiento.";
+      return `Este cliente ya fue registrado. Coincide por: ${by}.`;
     case "medium":
-      return "Existe un cliente similar registrado. Verifique los datos antes de crear un nuevo perfil.";
+      return `Existe un cliente similar registrado (coincide por: ${by}). Verifique antes de crear un nuevo perfil.`;
     case "low":
-      return "Existe un cliente similar. Verifique antes de guardar.";
+      return `Existe un cliente similar (coincide por: ${by}). Verifique antes de guardar.`;
     default:
       return "";
   }
