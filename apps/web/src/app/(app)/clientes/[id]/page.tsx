@@ -57,10 +57,11 @@ import { RowActions } from "@/components/ui/row-actions";
 import { mockRecommendations } from "@/lib/mock-data/dermatology";
 import type { Proforma } from "@/types";
 import {
-  billingTypeEcf,
   billingTypeLabel,
   skinTypeLabel,
 } from "@/features/customers/billing";
+import { billingComprobanteLabel } from "@/features/billing/auto-billing-rules";
+import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import {
   formatCurrency,
   formatDate,
@@ -90,6 +91,7 @@ interface SentMessage {
 export default function ClienteDetallePage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
+  const billingSettings = useBillingSettings();
   // Estados EXPLÍCITOS: loading (skeleton) / notFound / error / success.
   // El perfil pide SOLO su cliente y SOLO sus compras (filtradas en servidor)
   // — nunca todas las ventas del negocio.
@@ -274,7 +276,7 @@ export default function ClienteDetallePage() {
               <DataRow
                 icon={FileText}
                 label="Tipo de facturación"
-                value={`${billingTypeLabel(c.defaultBillingType)} · ${billingTypeEcf(c.defaultBillingType)}`}
+                value={`${billingTypeLabel(c.defaultBillingType)} · ${billingComprobanteLabel(c.defaultBillingType, billingSettings)}`}
               />
               <DataRow
                 icon={Droplets}

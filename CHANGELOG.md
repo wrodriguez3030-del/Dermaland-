@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.96.3] - 2026-07-25
+
+**Fix: las etiquetas de comprobante se alinean a la "Forma de facturación principal".**
+
+- Con **NCF tradicional** seleccionado, el POS mostraba igual "e-CF 32 (Consumo)" — la
+  etiqueta estaba hardcodeada a e-CF (`billingTypeEcf`), ignorando el modo. El
+  documento emitido YA era correcto (`resolveAutoBilling` es config-aware); el bug era
+  solo visual.
+- Nuevo helper **config-aware** `billingComprobanteLabel(tipo, settings)` (fuente única
+  `resolveAutoBilling`): NCF → **B02/B01**, e-CF/Ambos → **e-CF 32/31**. Aplicado en:
+  POS ("Tipo de facturación"), formulario y ficha de cliente, y los badges "Tipo
+  automático" de Configuración → Facturación (E32/E31 ⇄ B02/B01 según el modo).
+- Etiquetas de "cliente con RNC" ampliadas a "RNC/cédula" (coherente con v0.96.2).
+- Con tests (`billingComprobanteLabel`: ncf→B02/B01, ecf→E32/31, ambos→E32).
+
 ## [0.96.2] - 2026-07-25
 
 **Fix: crédito fiscal ahora acepta clientes con cédula (no solo RNC).**

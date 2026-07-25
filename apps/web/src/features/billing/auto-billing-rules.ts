@@ -224,6 +224,40 @@ export function comprobanteToDocType(
   }
 }
 
+/** Etiqueta legible del comprobante (config-aware) para chips/hints de UI. */
+export function comprobanteTypeLabel(
+  type: AutoBillingDecision["comprobanteType"],
+): string {
+  switch (type) {
+    case "E32":
+      return "e-CF 32 (Consumo)";
+    case "E31":
+      return "e-CF 31 (Crédito Fiscal)";
+    case "B02":
+      return "NCF B02 (Consumo)";
+    case "B01":
+      return "NCF B01 (Crédito Fiscal)";
+    default:
+      return "Proforma";
+  }
+}
+
+/**
+ * Etiqueta del comprobante que corresponde a un tipo de cliente SEGÚN la
+ * "Forma de facturación principal": e-CF 32/31 en modo e-CF/Ambos, o NCF
+ * B02/B01 en modo NCF tradicional. Config-aware — fuente única `resolveAutoBilling`,
+ * para que la UI (POS, ficha de cliente, formulario) siempre muestre el
+ * comprobante alineado a la configuración del negocio.
+ */
+export function billingComprobanteLabel(
+  billingType: DefaultBillingType,
+  settings: BillingSettings,
+): string {
+  return comprobanteTypeLabel(
+    resolveAutoBilling({ billingType, settings }).comprobanteType,
+  );
+}
+
 function proformaDecision(reason: string): AutoBillingDecision {
   return {
     documentKind: "proforma",

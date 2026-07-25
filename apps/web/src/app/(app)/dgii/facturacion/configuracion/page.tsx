@@ -154,14 +154,24 @@ export default function BillingConfigPage() {
             </Field>
             <Field label="Tipo automático consumidor final">
               <div className="flex items-center gap-2">
-                <Badge tone="neutral">E32</Badge>
-                <span className="text-sm opacity-70">e-CF Consumo</span>
+                <Badge tone="neutral">
+                  {draft.defaultBillingMode === "ncf" ? "B02" : "E32"}
+                </Badge>
+                <span className="text-sm opacity-70">
+                  {draft.defaultBillingMode === "ncf" ? "NCF Consumo" : "e-CF Consumo"}
+                </span>
               </div>
             </Field>
-            <Field label="Tipo automático cliente con RNC">
+            <Field label="Tipo automático cliente con RNC/cédula">
               <div className="flex items-center gap-2">
-                <Badge tone="neutral">E31</Badge>
-                <span className="text-sm opacity-70">e-CF Crédito Fiscal</span>
+                <Badge tone="neutral">
+                  {draft.defaultBillingMode === "ncf" ? "B01" : "E31"}
+                </Badge>
+                <span className="text-sm opacity-70">
+                  {draft.defaultBillingMode === "ncf"
+                    ? "NCF Crédito Fiscal"
+                    : "e-CF Crédito Fiscal"}
+                </span>
               </div>
             </Field>
           </CardContent>

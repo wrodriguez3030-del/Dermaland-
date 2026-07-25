@@ -15,11 +15,11 @@ import {
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
 import {
-  billingTypeEcf,
   billingTypeOptions,
   skinTypeOptions,
 } from "@/features/customers/billing";
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
+import { billingComprobanteLabel } from "@/features/billing/auto-billing-rules";
 import {
   formatDominicanPhone,
   formatPassport,
@@ -547,10 +547,10 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
                   ))}
                 </Select>
                 <HelpText>
-                  {billingTypeEcf(billingType)}
+                  {billingComprobanteLabel(billingType, billingSettings)}
                   {billingNeedsRnc && (
                     <span className="ml-1 text-amber-700">
-                      · Para crédito fiscal se recomienda RNC válido.
+                      · Para crédito fiscal se recomienda RNC o cédula válida.
                     </span>
                   )}
                 </HelpText>

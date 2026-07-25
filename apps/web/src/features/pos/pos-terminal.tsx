@@ -50,14 +50,12 @@ import {
 import {
   resolveAutoBilling,
   comprobanteToDocType,
+  billingComprobanteLabel,
 } from "@/features/billing/auto-billing-rules";
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import { reserveNextPreferredAnywhere } from "@/features/dgii/numbering-store";
 import type { DefaultBillingType, Proforma } from "@/types";
-import {
-  billingTypeEcf,
-  billingTypeLabel,
-} from "@/features/customers/billing";
+import { billingTypeLabel } from "@/features/customers/billing";
 import {
   ChargeSaleModal,
   type ChargeSaleResult,
@@ -1105,7 +1103,7 @@ export function PosTerminal({
             <label className="mb-1 flex items-center justify-between text-[11px] font-medium opacity-70">
               <span>Tipo de facturación</span>
               <span className="text-[10px] opacity-60">
-                {billingTypeEcf(billingType)}
+                {billingComprobanteLabel(billingType, billingSettings)}
               </span>
             </label>
             <select

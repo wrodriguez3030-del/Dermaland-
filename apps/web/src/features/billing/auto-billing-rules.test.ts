@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_BILLING_SETTINGS } from "./billing-settings-store";
 import {
+  billingComprobanteLabel,
   comprobanteToDocType,
   resolveAutoBilling,
   summarizeBillingRules,
@@ -9,6 +10,25 @@ import {
 const settings = DEFAULT_BILLING_SETTINGS;
 const ncf = { ...DEFAULT_BILLING_SETTINGS, defaultBillingMode: "ncf" as const };
 const ecf = { ...DEFAULT_BILLING_SETTINGS, defaultBillingMode: "ecf" as const };
+const both = { ...DEFAULT_BILLING_SETTINGS, defaultBillingMode: "both" as const };
+
+describe("billingComprobanteLabel — etiqueta alineada a la forma de facturación", () => {
+  it("modo NCF tradicional → B02 / B01 (nunca e-CF)", () => {
+    expect(billingComprobanteLabel("consumo", ncf)).toBe("NCF B02 (Consumo)");
+    expect(billingComprobanteLabel("credito_fiscal", ncf)).toBe(
+      "NCF B01 (Crédito Fiscal)",
+    );
+  });
+  it("modo e-CF → e-CF 32 / 31", () => {
+    expect(billingComprobanteLabel("consumo", ecf)).toBe("e-CF 32 (Consumo)");
+    expect(billingComprobanteLabel("credito_fiscal", ecf)).toBe(
+      "e-CF 31 (Crédito Fiscal)",
+    );
+  });
+  it("modo Ambos → e-CF por defecto (automático)", () => {
+    expect(billingComprobanteLabel("consumo", both)).toBe("e-CF 32 (Consumo)");
+  });
+});
 
 describe("modo NCF tradicional — nunca Proforma ni e-CF automático", () => {
   it("consumidor final efectivo → B02 inmediato (no proforma, no pendiente)", () => {
