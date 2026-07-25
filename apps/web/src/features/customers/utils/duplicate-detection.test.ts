@@ -7,8 +7,25 @@ import {
   normalizePhone,
 } from "./duplicate-detection";
 import { mockCustomers } from "@/lib/mock-data/customers";
+import type { Customer } from "@/types";
 
 const BIZ = "biz_dermaland";
+
+/** Cliente mínimo sintético para tests de emparejamiento por número. */
+function stubCustomer(over: Partial<Customer>): Customer {
+  return {
+    id: "stub",
+    businessId: BIZ,
+    firstName: "",
+    lastName: "",
+    phone: "",
+    whatsapp: "",
+    email: "",
+    documentNumber: "",
+    birthDate: "",
+    ...over,
+  } as unknown as Customer;
+}
 
 describe("normalizadores", () => {
   it("normaliza nombre con acentos y espacios", () => {
@@ -74,6 +91,30 @@ describe("Detección de duplicados (R-CRM-01)", () => {
     );
     expect(r.isDuplicate).toBe(true);
     expect(r.matches[0]?.reasons).toContain("WhatsApp");
+  });
+
+  it("detecta el MISMO número aunque esté en campos distintos (teléfono ↔ WhatsApp)", () => {
+    // Existente: número solo en TELÉFONO (sin WhatsApp).
+    const existing = [
+      stubCustomer({ id: "e1", firstName: "Ana", lastName: "Gómez", phone: "8090001234" }),
+    ];
+    // Candidato: el mismo número, pero puesto en WhatsApp.
+    const r = findPotentialDuplicateClients(
+      { firstName: "Otra", lastName: "Persona", whatsapp: "809-000-1234", businessId: BIZ },
+      existing,
+    );
+    expect(r.isDuplicate).toBe(true);
+    expect(r.matches[0]?.customer.id).toBe("e1");
+
+    // Y al revés: existente con WhatsApp, candidato con el número en Teléfono.
+    const existing2 = [
+      stubCustomer({ id: "e2", firstName: "Ana", lastName: "Gómez", whatsapp: "8090001234" }),
+    ];
+    const r2 = findPotentialDuplicateClients(
+      { firstName: "Otra", lastName: "Persona", phone: "+1 809-000-1234", businessId: BIZ },
+      existing2,
+    );
+    expect(r2.isDuplicate).toBe(true);
   });
 
   it("detecta duplicado por email — case insensitive", () => {

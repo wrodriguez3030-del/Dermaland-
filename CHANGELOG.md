@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.96.1] - 2026-07-25
+
+**Fix: duplicados no se detectaban cuando el número estaba en campos distintos.**
+
+- La detección comparaba teléfono↔teléfono y WhatsApp↔WhatsApp por separado. Si un
+  cliente tenía el número en **teléfono** y el nuevo lo ponía en **WhatsApp** (o al
+  revés), NO se detectaba el duplicado. Ahora la comparación es **cruzada**: el mismo
+  número dispara el aviso sin importar en qué campo esté (reason "teléfono/WhatsApp").
+  Con test de regresión.
+
 ## [0.96.0] - 2026-07-25
 
 **Tipo de facturación por defecto de clientes, configurable por el admin.**

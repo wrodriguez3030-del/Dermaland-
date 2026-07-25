@@ -160,6 +160,17 @@ export function findPotentialDuplicateClients(
       reasons.push("WhatsApp");
       confidence = pickHigher(confidence, HIGH);
     }
+    // El MISMO número puede estar en `teléfono` en un registro y en `whatsapp`
+    // en otro (la persona lo escribe en cualquier campo). Comparación CRUZADA,
+    // solo si no lo capturó ya un match de mismo campo.
+    if (
+      !reasons.includes("teléfono") &&
+      !reasons.includes("WhatsApp") &&
+      ((cPhone && eWa && cPhone === eWa) || (cWa && ePhone && cWa === ePhone))
+    ) {
+      reasons.push("teléfono/WhatsApp");
+      confidence = pickHigher(confidence, HIGH);
+    }
     if (cEmail && eEmail && cEmail === eEmail) {
       reasons.push("email");
       confidence = pickHigher(confidence, HIGH);
