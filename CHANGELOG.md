@@ -11,6 +11,20 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.96.0] - 2026-07-25
+
+**Tipo de facturación por defecto de clientes, configurable por el admin.**
+
+- Nueva opción en **Configuración → Facturación**: *"Tipo de facturación por
+  defecto (clientes nuevos)"* (consumo / crédito fiscal), editable solo por ADMIN
+  (`defaultCustomerBillingType` en `billing-settings`).
+- Al **crear un cliente**, el campo "Tipo de facturación" ya no arranca fijo en
+  "consumo": toma el valor que el admin configuró. El selector sigue ofreciendo
+  todos los tipos existentes; el usuario puede cambiarlo. En edición se respeta el
+  tipo propio del cliente.
+- Nota: es distinto de "Forma de facturación principal" (NCF/e-CF/ambos, el sistema
+  de numeración) — este ajuste es el tipo del cliente (consumidor vs crédito fiscal).
+
 ## [0.95.0] - 2026-07-25
 
 **Detección de clientes duplicados confiable (server-side, toda la base).**

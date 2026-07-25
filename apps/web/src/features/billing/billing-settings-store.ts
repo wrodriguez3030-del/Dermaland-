@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
+import type { DefaultBillingType } from "@/types";
 
 /**
  * Configuración de facturación por negocio — MVP (localStorage).
@@ -32,8 +33,13 @@ export type RncEcfType = "E31";
 
 export interface BillingSettings {
   businessId: string;
-  /** Forma de facturación principal. */
+  /** Forma de facturación principal (sistema de numeración). */
   defaultBillingMode: BillingMode;
+  /**
+   * Tipo de facturación por defecto para CLIENTES nuevos (consumo /
+   * crédito fiscal). El formulario de cliente lo usa como valor inicial.
+   */
+  defaultCustomerBillingType: DefaultBillingType;
   /** Manual: el usuario elige en cada factura. Automatic: reglas. */
   usageMode: UsageMode;
   /** Ambiente e-CF activo. Arranca en mock. */
@@ -61,6 +67,7 @@ const STAMP = "2026-06-26T12:00:00Z";
 export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   businessId: mockBusiness.id,
   defaultBillingMode: "both",
+  defaultCustomerBillingType: "consumo",
   usageMode: "automatic",
   ecfEnvironment: "mock",
   realEmissionEnabled: false,

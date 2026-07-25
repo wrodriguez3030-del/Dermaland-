@@ -19,6 +19,7 @@ import {
   billingTypeOptions,
   skinTypeOptions,
 } from "@/features/customers/billing";
+import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import {
   formatDominicanPhone,
   formatPassport,
@@ -135,6 +136,7 @@ export interface CustomerFormProps {
 export function CustomerForm({ mode, initial }: CustomerFormProps) {
   const router = useRouter();
   const customers = useCustomers(); // reactivo
+  const billingSettings = useBillingSettings();
 
   const baseState = React.useMemo(
     () => (initial ? stateFromCustomer(initial) : emptyState),
@@ -187,7 +189,11 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
     setLastName(baseState.lastName);
     setDocumentType(baseState.documentType);
     setDocumentNumber(baseState.documentNumber);
-    setBillingType(baseState.billingType);
+    setBillingType(
+      mode === "create"
+        ? billingSettings.defaultCustomerBillingType
+        : baseState.billingType,
+    );
     setBirthDate(baseState.birthDate);
     setPhone(baseState.phone);
     setWhatsapp(baseState.whatsapp);
@@ -203,7 +209,19 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
     setConsentShareHistory(baseState.consentShareHistory);
     setMissingFields(new Set());
     setErrorBanner(null);
-  }, [baseState]);
+  }, [baseState, mode, billingSettings.defaultCustomerBillingType]);
+
+  // Para clientes NUEVOS, el "Tipo de facturación" arranca en el valor que el
+  // admin configuró (Config > Facturación > "Tipo de facturación por defecto").
+  // Se aplica en efecto (no en el estado inicial) para no romper la hidratación
+  // SSR; el ref evita pisar un cambio manual posterior del usuario.
+  const initializedBillingType = React.useRef(false);
+  React.useEffect(() => {
+    if (mode === "create" && !initializedBillingType.current) {
+      initializedBillingType.current = true;
+      setBillingType(billingSettings.defaultCustomerBillingType);
+    }
+  }, [mode, billingSettings.defaultCustomerBillingType]);
 
   const handleDocumentTypeChange = (next: DocumentType) => {
     setDocumentType(next);

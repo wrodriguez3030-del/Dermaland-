@@ -22,6 +22,7 @@ import {
 } from "@/features/billing/billing-settings-store";
 import { canEditBillingSettings } from "@/features/billing/permissions";
 import { useCurrentUser } from "@/features/auth/current-user";
+import { billingTypeOptions } from "@/features/customers/billing";
 
 /**
  * DGII / Facturación → Configuración de facturación.
@@ -119,6 +120,24 @@ export default function BillingConfigPage() {
                 <option value="ncf">NCF tradicional</option>
                 <option value="ecf">e-CF electrónico</option>
                 <option value="both">Ambos</option>
+              </Select>
+            </Field>
+            <Field label="Tipo de facturación por defecto (clientes nuevos)">
+              <Select
+                value={draft.defaultCustomerBillingType}
+                disabled={disabled}
+                onChange={(e) =>
+                  set(
+                    "defaultCustomerBillingType",
+                    e.target.value as BillingSettings["defaultCustomerBillingType"],
+                  )
+                }
+              >
+                {billingTypeOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
               </Select>
             </Field>
             <Field label="Modo de uso">
