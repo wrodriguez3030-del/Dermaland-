@@ -25,7 +25,8 @@ import {
   HandCoins,
   type LucideIcon,
 } from "lucide-react";
-import { mockProformas } from "@/lib/mock-data/sales";
+import { useProformas } from "@/features/sales/proforma-store";
+import { buildSalesReport, EMPTY_FILTERS } from "@/features/sales/sales-report";
 import { formatCurrency } from "@/lib/utils/format";
 
 interface ReportItem {
@@ -139,12 +140,18 @@ function useFavorites() {
 export default function ReportesHub() {
   const { favs, toggle } = useFavorites();
 
-  const totalSales = mockProformas.reduce((s, p) => s + p.total, 0);
-  const itbis = mockProformas.reduce((s, p) => s + p.itbis, 0);
-  const items = mockProformas.reduce(
-    (s, p) => s + p.items.reduce((q, i) => q + i.quantity, 0),
-    0,
+  // KPIs REALES del negocio, agregando TODAS las sucursales (sin filtro de
+  // sucursal/fecha). Misma fuente que el Resumen de ventas (`buildSalesReport`),
+  // que excluye anuladas y cuenta solo ventas válidas.
+  const all = useProformas();
+  const report = React.useMemo(
+    () => buildSalesReport(all, EMPTY_FILTERS),
+    [all],
   );
+  const k = report.kpis;
+  const totalSales = k.totalBilled;
+  const itbis = k.itbis;
+  const items = k.items;
 
   const allItems = CATEGORIES.flatMap((c) => c.items);
   const favItems = allItems.filter((i) => favs.includes(i.href));
@@ -161,7 +168,7 @@ export default function ReportesHub() {
         <StatCard label="Ventas" value={formatCurrency(totalSales)} icon={Coins} tone="primary" />
         <StatCard label="ITBIS recaudado" value={formatCurrency(itbis)} icon={TrendingUp} />
         <StatCard label="Items vendidos" value={items} icon={ShoppingCart} />
-        <StatCard label="Transacciones" value={mockProformas.length} icon={Receipt} />
+        <StatCard label="Transacciones" value={k.transactions} icon={Receipt} />
       </div>
 
       {favItems.length > 0 && (

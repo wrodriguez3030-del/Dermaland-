@@ -11,6 +11,17 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.97.4] - 2026-07-25
+
+**Reportes: los KPIs del dashboard usan datos REALES de todas las sucursales.**
+
+- El tablero de **Reportes** (Ventas, ITBIS, Items, Transacciones) calculaba desde
+  `mockProformas` (datos semilla estáticos) → no reflejaba las ventas reales ni
+  agregaba ambas sucursales. Ahora usa `useProformas()` + `buildSalesReport` (misma
+  fuente que el Resumen de ventas, sin filtro de sucursal), así los números son
+  reales y suman **todas las sucursales**; además excluye anuladas y cuenta solo
+  ventas válidas (antes sumaba todas las proformas).
+
 ## [0.97.3] - 2026-07-25
 
 **El PDF de la factura se guarda con nombre = número + cliente.**
