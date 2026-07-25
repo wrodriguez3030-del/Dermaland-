@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.96.2] - 2026-07-25
+
+**Fix: crédito fiscal ahora acepta clientes con cédula (no solo RNC).**
+
+- El POS bloqueaba "Crédito fiscal" salvo que el cliente tuviera **RNC**. En RD una
+  persona física puede facturar a crédito fiscal (e-CF 31) con su **cédula** — el
+  campo `RNCComprador` del e-CF admite RNC (9 díg.) o cédula (11 díg.), y el pipeline
+  ya lo soportaba. Ahora el POS permite crédito fiscal con RNC **o cédula**; el aviso
+  y el bloqueo se ajustaron. Pasaporte sigue sin aplicar (no es ID fiscal local).
+
 ## [0.96.1] - 2026-07-25
 
 **Fix: duplicados no se detectaban cuando el número estaba en campos distintos.**

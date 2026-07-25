@@ -454,19 +454,22 @@ export function PosTerminal({
     );
   };
 
-  // Validación crédito fiscal: requiere RNC.
-  const creditFiscalNeedsRnc =
+  // Validación crédito fiscal: requiere una identificación fiscal válida del
+  // cliente. En RD el comprobante de crédito fiscal (e-CF 31) admite RNC (9
+  // dígitos, empresas) O cédula (11 dígitos, persona física) — el campo
+  // RNCComprador del e-CF acepta ambos. Pasaporte NO (no es ID fiscal local).
+  const creditFiscalNeedsFiscalId =
     billingType === "credito_fiscal" &&
     (!customer ||
       !customer.documentNumber ||
-      customer.documentType !== "rnc");
+      !(customer.documentType === "rnc" || customer.documentType === "cedula"));
 
   // ── Validación de carrito para Facturar ───────────────────────────────────
   // Calcula la razón de bloqueo del botón Facturar (mensaje claro).
   const chargeBlockReason = React.useMemo((): string | null => {
     if (cart.length === 0) return "El carrito está vacío.";
-    if (creditFiscalNeedsRnc)
-      return "Crédito fiscal requiere un cliente con RNC válido.";
+    if (creditFiscalNeedsFiscalId)
+      return "Crédito fiscal requiere un cliente con RNC o cédula válida.";
     // Verificar cada línea del carrito.
     // Orden: primero razón del lote (cuarentena/recall/vencido/sin-lote/inactiva),
     // luego cantidad vs stock vendible — igual que addProduct.
@@ -481,7 +484,7 @@ export function PosTerminal({
       }
     }
     return null;
-  }, [cart, creditFiscalNeedsRnc, lots, branchId, branchName, activeBranchIds]);
+  }, [cart, creditFiscalNeedsFiscalId, lots, branchId, branchName, activeBranchIds]);
 
   const canCharge = chargeBlockReason === null;
 
@@ -1117,13 +1120,13 @@ export function PosTerminal({
                 {billingTypeLabel("credito_fiscal")}
               </option>
             </select>
-            {creditFiscalNeedsRnc && (
+            {creditFiscalNeedsFiscalId && (
               <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
-                  <strong>Crédito fiscal</strong> requiere datos fiscales
-                  válidos del cliente (RNC). Selecciona un cliente con RNC o
-                  cambia a <em>Consumo</em>.
+                  <strong>Crédito fiscal</strong> requiere una identificación
+                  fiscal del cliente (RNC o cédula). Selecciona un cliente con
+                  RNC o cédula, o cambia a <em>Consumo</em>.
                 </span>
               </div>
             )}

@@ -359,7 +359,8 @@ export interface InventoryCountItem {
 /**
  * Tipo de facturación por defecto del cliente. Mapea a e-CF DGII:
  *   - "consumo"        → e-CF tipo 32 (Factura de Consumo)
- *   - "credito_fiscal" → e-CF tipo 31 (Factura de Crédito Fiscal, requiere RNC)
+ *   - "credito_fiscal" → e-CF tipo 31 (Crédito Fiscal; requiere ID fiscal:
+ *                        RNC de empresa o cédula de persona física)
  *
  * El POS preselecciona este tipo cuando se elige al cliente.
  */
