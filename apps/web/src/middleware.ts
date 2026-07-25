@@ -15,6 +15,9 @@ import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATHS = [
   "/login",
+  // DL-18: flujo de recuperación de contraseña (enlace de un solo uso de Supabase).
+  "/recuperar",
+  "/restablecer",
   "/auth/callback",
   "/api/whatsapp/webhook",
   "/api/health",

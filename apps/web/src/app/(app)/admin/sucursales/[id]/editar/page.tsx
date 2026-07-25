@@ -8,13 +8,15 @@ import { Card, CardContent } from "@/components/ui";
 import { BranchForm } from "@/features/tenancy/branch-form";
 import { useBranch } from "@/features/tenancy/branch-store";
 import { canManageBranches } from "@/features/tenancy/permissions";
+import { useCurrentUser } from "@/features/auth/current-user";
 
 export default function EditarSucursalPage() {
+  const currentUser = useCurrentUser();
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
   const branch = useBranch(id);
 
-  if (!canManageBranches()) {
+  if (!canManageBranches(currentUser.role)) {
     return (
       <Card>
         <CardContent className="py-12 text-center text-sm opacity-70">

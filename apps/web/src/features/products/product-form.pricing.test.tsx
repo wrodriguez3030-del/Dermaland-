@@ -5,6 +5,11 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { ProductForm } from "./product-form";
 
 // El formulario navega con useRouter; en test no hay App Router context.
+vi.mock("@/features/auth/current-user", () => ({
+  useCurrentUser: () => ({ id: "u1", fullName: "Admin", role: "admin", avatarColor: "#000", isPlatformAdmin: false }),
+  useCurrentRole: () => "admin",
+  CurrentUserProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
 }));

@@ -20,10 +20,11 @@ import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { buildCashWorkbookSpec } from "@/features/sales/cash-report-excel";
 import { buildCashPdfSpec } from "@/features/sales/cash-report-pdf";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 
 export default function ReporteCajaPage() {
+  const currentUser = useCurrentUser();
   const { sessions, loading } = useCashSessionHistory();
 
   const [generatedAt, setGeneratedAt] = React.useState("");
@@ -76,7 +77,7 @@ export default function ReporteCajaPage() {
                     periodLabel: "Historial de sesiones",
                     branchLabel: "Todas las sucursales",
                     filtersLabel: "Sin filtros adicionales",
-                    generatedBy: mockCurrentUser.fullName,
+                    generatedBy: currentUser.fullName,
                     generatedAtLabel: formatDateTime(new Date().toISOString()),
                   }),
                 )
@@ -91,7 +92,7 @@ export default function ReporteCajaPage() {
                   rangeLabel: "Historial de sesiones",
                   branchLabel: "Todas las sucursales",
                   filtersLabel: "Sin filtros adicionales",
-                  generatedBy: mockCurrentUser.fullName,
+                  generatedBy: currentUser.fullName,
                   generatedAtLabel: formatDateTime(new Date().toISOString()),
                 })
               }
@@ -106,7 +107,7 @@ export default function ReporteCajaPage() {
           businessName="DermaLand"
           title="Reporte de caja"
           subtitle="Aperturas, cierres y diferencias por sesión y cajero."
-          generatedBy={mockCurrentUser.fullName}
+          generatedBy={currentUser.fullName}
           generatedAt={generatedAt}
         />
 

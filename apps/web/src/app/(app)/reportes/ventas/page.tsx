@@ -65,7 +65,7 @@ import {
 } from "@/features/sales/document-label";
 import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 import { downloadBlob } from "@/lib/utils/download";
 import type { Proforma } from "@/types";
@@ -145,6 +145,7 @@ const STATUS_OPTIONS: SaleStatusKey[] = [
 ];
 
 export default function ReporteVentasPage() {
+  const currentUser = useCurrentUser();
   const toast = useToast();
   const all = useProformas();
   const branches = useBranches();
@@ -153,7 +154,7 @@ export default function ReporteVentasPage() {
 
   const [filters, setFilters] = React.useState<SalesReportFilters>(EMPTY_FILTERS);
   const [paymentsFor, setPaymentsFor] = React.useState<Proforma | null>(null);
-  const canEdit = canEditSales(mockCurrentUser.role);
+  const canEdit = canEditSales(currentUser.role);
 
   const branchNames = React.useMemo(
     () => new Map(branches.map((b) => [b.id, b.name])),
@@ -263,7 +264,7 @@ export default function ReporteVentasPage() {
         periodLabel: m.rangeLabel,
         branchLabel: m.branchLabel,
         filtersLabel: m.filtersLabel,
-        generatedBy: mockCurrentUser.fullName,
+        generatedBy: currentUser.fullName,
         generatedAtLabel: formatDateTime(m.generatedAt),
       }),
     );
@@ -284,7 +285,7 @@ export default function ReporteVentasPage() {
         rangeLabel: m.rangeLabel,
         branchLabel: m.branchLabel,
         filtersLabel: m.filtersLabel,
-        generatedBy: mockCurrentUser.fullName,
+        generatedBy: currentUser.fullName,
         generatedAtLabel: formatDateTime(m.generatedAt),
       });
       await exportProfessionalWorkbook(spec, reportFileName("Reporte_Ventas"));
@@ -434,7 +435,7 @@ export default function ReporteVentasPage() {
         businessName="DermaLand"
         title="Reporte de ventas"
         subtitle="Ventas por rango con desglose por cajero, método de pago, sucursal, producto y comprobante."
-        generatedBy={mockCurrentUser.fullName}
+        generatedBy={currentUser.fullName}
         generatedAt={generatedAt}
       />
 

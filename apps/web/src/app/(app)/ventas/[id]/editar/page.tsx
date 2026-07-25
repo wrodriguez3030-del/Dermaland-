@@ -53,7 +53,7 @@ import {
 } from "@/features/inventory/lot-store";
 import { useProducts } from "@/features/products/product-store";
 import { canEditSales, isBillingAdmin } from "@/features/billing/permissions";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import type { DefaultBillingType, Payment, PaymentMethod, Proforma, ProformaStatus } from "@/types";
 
@@ -102,11 +102,12 @@ function isoToDateInput(iso?: string): string {
  * sensibles exigen motivo (auditoría en el servidor).
  */
 export default function EditarVentaPage() {
+  const currentUser = useCurrentUser();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params?.id ?? "";
   const { proforma, loading } = useProformaDocument(id);
-  const canEdit = canEditSales(mockCurrentUser.role);
+  const canEdit = canEditSales(currentUser.role);
   const toast = useToast();
 
   const lots = useAllLots();
@@ -198,7 +199,7 @@ export default function EditarVentaPage() {
   const blocked = !editability.editable || !canEdit;
   const doc = getDocumentDisplayInfo(proforma);
   const branchId = proforma.branchId;
-  const admin = isBillingAdmin(mockCurrentUser.role);
+  const admin = isBillingAdmin(currentUser.role);
   // Emitido fiscalmente (NCF asignado) → NO se cambia el tipo B02↔B01 aquí.
   const isEmittedFiscal = proforma.documentKind === "invoice";
 

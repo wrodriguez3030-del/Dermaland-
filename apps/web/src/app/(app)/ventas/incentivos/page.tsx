@@ -39,7 +39,7 @@ import {
   canManageIncentiveRules,
   canPayIncentives,
 } from "@/features/billing/permissions";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { rankSellers, summarize } from "@/features/incentives/incentive-report";
 import { getCommissionSummary } from "@/features/commission/central";
 import { downloadBlob } from "@/lib/utils/download";
@@ -57,6 +57,7 @@ const STATUS_TONE: Record<IncentiveStatus, "warning" | "info" | "success" | "neu
 };
 
 export default function IncentivosPage() {
+  const currentUser = useCurrentUser();
   const toast = useToast();
   const { rules, loading: rulesLoading } = useIncentiveRules();
   const [sellerFilter, setSellerFilter] = React.useState("");
@@ -70,8 +71,8 @@ export default function IncentivosPage() {
   });
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [paying, setPaying] = React.useState(false);
-  const canManage = canManageIncentiveRules(mockCurrentUser.role);
-  const canPay = canPayIncentives(mockCurrentUser.role);
+  const canManage = canManageIncentiveRules(currentUser.role);
+  const canPay = canPayIncentives(currentUser.role);
 
   const branches = useBranches();
   const branchName = React.useCallback(

@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import type { Proforma } from "@/types";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
+import { rateLimit } from "@/server/security/rate-limit";
 import { readSharedProforma } from "@/server/services/sales/shared-document";
 import { verifyDocumentShareToken } from "@/server/services/sales/share-token";
 import { generateSaleDocumentPdf } from "@/server/services/sales/document-pdf";
@@ -29,6 +30,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
+    // DL-17: acota el scraping de enlaces filtrados y protege la generación de
+    // PDF (CPU-intensiva). 60/min por IP.
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+    const rl = rateLimit(`pdf:${ip}`, 60, 60_000);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes. Intenta de nuevo en un momento." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
+      );
+    }
+
     const { id } = await params;
     const token = req.nextUrl.searchParams.get("t");
     const claims = verifyDocumentShareToken(token);

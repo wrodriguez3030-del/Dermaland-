@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils/cn";
 import { MobileNav } from "./mobile-nav";
 import { GlobalSearch, GlobalSearchMobile } from "@/features/search/global-search";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { useCurrentBranch } from "@/features/tenancy/branch-store";
 
 export function Header({
@@ -21,6 +21,7 @@ export function Header({
   // filtra por sucursal ("Todas / …") y las operativas eligen su sucursal. Solo
   // conservamos el aviso de reconciliación de la sucursal guardada.
   const { notice, dismissNotice } = useCurrentBranch();
+  const currentUser = useCurrentUser();
 
   return (
     <>
@@ -83,9 +84,9 @@ export function Header({
         >
           <span
             className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
-            style={{ background: mockCurrentUser.avatarColor }}
+            style={{ background: currentUser.avatarColor }}
           >
-            {mockCurrentUser.fullName
+            {currentUser.fullName
               .split(" ")
               .map((n) => n[0])
               .join("")
@@ -94,10 +95,10 @@ export function Header({
           </span>
           <div className="hidden lg:block">
             <div className="text-xs font-medium leading-tight">
-              {mockCurrentUser.fullName}
+              {currentUser.fullName}
             </div>
             <div className="text-[10px] uppercase tracking-wider opacity-50">
-              {mockCurrentUser.role.replace("_", " ")}
+              {currentUser.role.replace("_", " ")}
             </div>
           </div>
           <ChevronDown className="h-3 w-3 opacity-40" />

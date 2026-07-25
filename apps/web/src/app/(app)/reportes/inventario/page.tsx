@@ -30,7 +30,7 @@ import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { buildInventoryWorkbookSpec, type InventoryWorkbookInput } from "@/features/inventory/inventory-report-excel";
 import { buildInventoryPdfSpec } from "@/features/inventory/inventory-report-pdf";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDate, formatDateTime, daysUntil } from "@/lib/utils/format";
 import type { Product, ProductLot } from "@/types";
 
@@ -61,6 +61,7 @@ function isSellableLot(l: ProductLot): boolean {
 }
 
 export default function ReporteInventarioPage() {
+  const currentUser = useCurrentUser();
   const products = useProducts();
   const lots = useAllLots();
   const branches = useActiveBranches();
@@ -196,7 +197,7 @@ export default function ReporteInventarioPage() {
       rangeLabel: "Inventario actual",
       branchLabel: "Todas las sucursales",
       filtersLabel: "Sin filtros adicionales",
-      generatedBy: mockCurrentUser.fullName,
+      generatedBy: currentUser.fullName,
       generatedAtLabel: formatDateTime(new Date().toISOString()),
     });
 
@@ -211,7 +212,7 @@ export default function ReporteInventarioPage() {
         periodLabel: "Inventario actual",
         branchLabel: "Todas las sucursales",
         filtersLabel: "Sin filtros adicionales",
-        generatedBy: mockCurrentUser.fullName,
+        generatedBy: currentUser.fullName,
         generatedAtLabel: formatDateTime(new Date().toISOString()),
       }),
     );
@@ -235,7 +236,7 @@ export default function ReporteInventarioPage() {
           businessName="DermaLand"
           title="Reporte de inventario"
           subtitle="Existencias, valor de inventario, alertas de stock y próximos vencimientos."
-          generatedBy={mockCurrentUser.fullName}
+          generatedBy={currentUser.fullName}
           generatedAt={generatedAt}
         />
 

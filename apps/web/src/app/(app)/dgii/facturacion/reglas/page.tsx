@@ -16,7 +16,7 @@ import { CreditCard, Banknote, ArrowLeftRight, Layers, FileText, Lock, Settings 
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import { summarizeBillingRules } from "@/features/billing/auto-billing-rules";
 import { canEditBillingRules } from "@/features/billing/permissions";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 
 /**
  * DGII / Facturación → Reglas automáticas de e-CF.
@@ -42,9 +42,10 @@ const BADGE: Record<
 };
 
 export default function BillingRulesPage() {
+  const currentUser = useCurrentUser();
   const settings = useBillingSettings();
   const rules = summarizeBillingRules(settings);
-  const isAdmin = canEditBillingRules(mockCurrentUser.role);
+  const isAdmin = canEditBillingRules(currentUser.role);
 
   return (
     <>

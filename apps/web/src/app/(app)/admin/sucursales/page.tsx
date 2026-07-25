@@ -18,11 +18,13 @@ import {
   getDeletedBranches,
 } from "@/features/tenancy/branch-store";
 import { canManageBranches } from "@/features/tenancy/permissions";
+import { useCurrentUser } from "@/features/auth/current-user";
 
 export default function SucursalesPage() {
   const branches = useBranches();
   const toast = useToast();
-  const canManage = canManageBranches();
+  const currentUser = useCurrentUser();
+  const canManage = canManageBranches(currentUser.role);
   const isLocalBackend = BRANCH_BACKEND === "local";
   const [confirmReset, setConfirmReset] = React.useState(false);
   const [showDeleted, setShowDeleted] = React.useState(false);

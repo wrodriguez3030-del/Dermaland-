@@ -30,10 +30,11 @@ import { buildProductsWorkbookSpec, type ProductsWorkbookInput } from "@/feature
 import { buildProductsPdfSpec } from "@/features/products/products-report-pdf";
 import { realMarginPercent, marginAmount } from "@/features/products/pricing";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDateTime, daysUntil } from "@/lib/utils/format";
 
 export default function ReporteProductosPage() {
+  const currentUser = useCurrentUser();
   const allDocs = useProformas();
   const products = useProducts();
   const lots = useAllLots();
@@ -136,7 +137,7 @@ export default function ReporteProductosPage() {
       rangeLabel: "Todo",
       branchLabel: "Todas las sucursales",
       filtersLabel: "Sin filtros adicionales",
-      generatedBy: mockCurrentUser.fullName,
+      generatedBy: currentUser.fullName,
       generatedAtLabel: formatDateTime(new Date().toISOString()),
     });
 
@@ -151,7 +152,7 @@ export default function ReporteProductosPage() {
         periodLabel: "Todo",
         branchLabel: "Todas las sucursales",
         filtersLabel: "Sin filtros adicionales",
-        generatedBy: mockCurrentUser.fullName,
+        generatedBy: currentUser.fullName,
         generatedAtLabel: formatDateTime(new Date().toISOString()),
       }),
       { brands: brands.length, categories: categories.length, laboratories: laboratories.length },
@@ -177,7 +178,7 @@ export default function ReporteProductosPage() {
           businessName="DermaLand"
           title="Reporte de productos"
           subtitle="Productos más vendidos e inventario con baja rotación."
-          generatedBy={mockCurrentUser.fullName}
+          generatedBy={currentUser.fullName}
           generatedAt={generatedAt}
         />
 

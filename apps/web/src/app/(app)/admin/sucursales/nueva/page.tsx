@@ -6,9 +6,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui";
 import { BranchForm } from "@/features/tenancy/branch-form";
 import { canManageBranches } from "@/features/tenancy/permissions";
+import { useCurrentUser } from "@/features/auth/current-user";
 
 export default function NuevaSucursalPage() {
-  if (!canManageBranches()) {
+  const currentUser = useCurrentUser();
+  if (!canManageBranches(currentUser.role)) {
     return (
       <Card>
         <CardContent className="py-12 text-center text-sm opacity-70">

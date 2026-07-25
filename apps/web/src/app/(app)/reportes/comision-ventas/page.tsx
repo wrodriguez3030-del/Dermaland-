@@ -39,7 +39,7 @@ import { useToast } from "@/components/ui/toast";
 import { FileSpreadsheet, HandCoins, Gift } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
 import { useBranches, useActiveBranches } from "@/features/tenancy/branch-store";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import {
   canViewCommissionReport,
   canExportCommissionReport,
@@ -122,6 +122,7 @@ const STATUS_TONE: Record<CommissionStatus, "success" | "warning" | "danger" | "
 };
 
 function ReporteComisionVentasContent() {
+  const currentUser = useCurrentUser();
   const toast = useToast();
   const all = useProformas();
   const branches = useBranches();
@@ -140,9 +141,9 @@ function ReporteComisionVentasContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const canView = canViewCommissionReport(mockCurrentUser.role);
-  const canExport = canExportCommissionReport(mockCurrentUser.role);
-  const canManage = canManageCommission(mockCurrentUser.role);
+  const canView = canViewCommissionReport(currentUser.role);
+  const canExport = canExportCommissionReport(currentUser.role);
+  const canManage = canManageCommission(currentUser.role);
   const exclusions = useCommissionExclusions();
   const exclusionList = React.useMemo(() => excludedComprobantes(exclusions), [exclusions]);
 
@@ -221,7 +222,7 @@ function ReporteComisionVentasContent() {
     const res = await saveExclusion({
       comprobante: excludeTarget.comprobante,
       reason: excludeReason,
-      userName: mockCurrentUser.fullName,
+      userName: currentUser.fullName,
     });
     if (!res.ok) {
       toast.error(res.error);
@@ -322,7 +323,7 @@ function ReporteComisionVentasContent() {
     rangeLabel,
     branchLabel,
     filtersLabel,
-    generatedBy: mockCurrentUser.fullName,
+    generatedBy: currentUser.fullName,
     generatedAtLabel: formatDateTime(new Date().toISOString()),
   });
 
@@ -337,7 +338,7 @@ function ReporteComisionVentasContent() {
         periodLabel: rangeLabel,
         branchLabel,
         filtersLabel,
-        generatedBy: mockCurrentUser.fullName,
+        generatedBy: currentUser.fullName,
         generatedAtLabel: formatDateTime(new Date().toISOString()),
       }),
     );
@@ -447,7 +448,7 @@ function ReporteComisionVentasContent() {
           businessName="DermaLand"
           title="Reporte de Comisión de Ventas"
           subtitle="Comisión 3% (efectivo/transferencia) y 1% (tarjeta) sobre la base antes de impuestos."
-          generatedBy={mockCurrentUser.fullName}
+          generatedBy={currentUser.fullName}
           generatedAt={generatedAt}
         />
 

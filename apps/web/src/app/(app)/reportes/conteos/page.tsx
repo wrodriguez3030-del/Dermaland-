@@ -31,7 +31,7 @@ import {
   useLaboratoriesList,
 } from "@/features/products/catalog-store";
 import { useBranches } from "@/features/tenancy/branch-store";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -48,6 +48,7 @@ const STATUS_TONE: Record<string, ReportBadgeTone> = {
 };
 
 export default function ReporteConteosPage() {
+  const currentUser = useCurrentUser();
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
@@ -116,7 +117,7 @@ export default function ReporteConteosPage() {
                     periodLabel: "Historial de conteos",
                     branchLabel: "Todas las sucursales",
                     filtersLabel: "Sin filtros adicionales",
-                    generatedBy: mockCurrentUser.fullName,
+                    generatedBy: currentUser.fullName,
                     generatedAtLabel: formatDateTime(new Date().toISOString()),
                   }),
                   countLookups,
@@ -136,7 +137,7 @@ export default function ReporteConteosPage() {
                     rangeLabel: "Historial de conteos",
                     branchLabel: "Todas las sucursales",
                     filtersLabel: "Sin filtros adicionales",
-                    generatedBy: mockCurrentUser.fullName,
+                    generatedBy: currentUser.fullName,
                     generatedAtLabel: formatDateTime(new Date().toISOString()),
                   },
                   countLookups,
@@ -159,7 +160,7 @@ export default function ReporteConteosPage() {
           businessName="DermaLand"
           title="Reporte de inventario físico"
           subtitle="Diferencias acumuladas, faltantes, sobrantes y lotes vencidos detectados."
-          generatedBy={mockCurrentUser.fullName}
+          generatedBy={currentUser.fullName}
           generatedAt={generatedAt}
         />
 

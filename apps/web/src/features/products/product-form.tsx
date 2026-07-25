@@ -36,7 +36,7 @@ import {
   type RoundingMode,
 } from "@/features/products/pricing";
 import { recordPriceOverride } from "@/features/products/price-override-audit";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency } from "@/lib/utils/format";
 import {
   saveBrand,
@@ -69,9 +69,6 @@ interface ProductFormProps {
   product?: Product;
 }
 
-/** ¿El usuario actual (rol) puede fijar un precio manual (override)? */
-const CAN_OVERRIDE_PRICE = canOverrideSalePrice(mockCurrentUser.role);
-
 /**
  * Formulario único de producto, usado tanto para crear como para editar.
  *
@@ -81,6 +78,9 @@ const CAN_OVERRIDE_PRICE = canOverrideSalePrice(mockCurrentUser.role);
 export function ProductForm({ mode, product }: ProductFormProps) {
   const router = useRouter();
   const toast = useToast();
+  const currentUser = useCurrentUser();
+  // DL-03: ¿el rol REAL del usuario puede fijar un precio manual (override)?
+  const CAN_OVERRIDE_PRICE = canOverrideSalePrice(currentUser.role);
   const activeBranches = useActiveBranches();
 
   const brands = useBrandsList();
@@ -321,7 +321,7 @@ export function ProductForm({ mode, product }: ProductFormProps) {
         suggestedPrice: autoPrice,
         manualPrice: effectivePrice,
         realMarginPercent: effectiveRealMargin,
-        userName: mockCurrentUser.fullName,
+        userName: currentUser.fullName,
         reason: manualReason.trim() || "Precio manual (override)",
       });
     };

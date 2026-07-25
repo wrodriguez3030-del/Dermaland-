@@ -17,7 +17,7 @@ import { useProformaDocument } from "@/features/sales/proforma-store";
 import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { documentRouteBase, getDocumentDisplayInfo } from "@/features/sales/document-label";
 import { invoiceDisplayTotals } from "@/features/sales/invoice-totals";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
@@ -50,6 +50,7 @@ export function DocumentDetailView({
   backHref: string;
   backLabel: string;
 }) {
+  const currentUser = useCurrentUser();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const [send, setSend] = React.useState<"whatsapp" | "email" | null>(null);
@@ -120,7 +121,7 @@ export function DocumentDetailView({
         <div className="flex flex-wrap gap-2">
           {(() => {
             const edit = documentEditability(proforma);
-            const canEdit = canEditSales(mockCurrentUser.role);
+            const canEdit = canEditSales(currentUser.role);
             if (canEdit && edit.editable) {
               return (
                 <Link href={`/ventas/${proforma.id}/editar`}>

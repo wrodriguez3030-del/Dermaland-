@@ -34,7 +34,7 @@ import {
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import { canEditBillingRules } from "@/features/billing/permissions";
 import { getCurrentSession } from "@/lib/mock-data/sales";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 
 /**
@@ -56,11 +56,12 @@ import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 const APPLIES_TO_METHODS = new Set(["cash", "transfer"]);
 
 export default function CajaCierrePage() {
+  const currentUser = useCurrentUser();
   const router = useRouter();
   const proformas = useProformas();
   const settings = useBillingSettings();
   const currentSession = React.useMemo(() => getCurrentSession(), []);
-  const isAdmin = canEditBillingRules(mockCurrentUser.role);
+  const isAdmin = canEditBillingRules(currentUser.role);
 
   // Solo proformas efectivo/transferencia pendientes (las tarjeta ya tienen e-CF).
   const pending = React.useMemo(

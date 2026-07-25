@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getSession } from "@/server/auth/context";
+import { rateLimit } from "@/server/security/rate-limit";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { sendEmail } from "@/server/services/email/gmail";
 import { resolveGmailCredentials } from "@/server/services/email/email-settings-service";
@@ -32,6 +33,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { error: "Solo un administrador puede enviar la prueba." },
       { status: 403 },
+    );
+  }
+
+  // DL-17: tope anti-spam — el correo de prueba envía a un destinatario arbitrario
+  // desde el Gmail del negocio. 5 por minuto por negocio.
+  const rl = rateLimit(`email-test:${session.businessId}`, 5, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Demasiadas pruebas de correo. Espera un momento e intenta de nuevo." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
     );
   }
 

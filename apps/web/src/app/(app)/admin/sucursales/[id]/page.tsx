@@ -25,6 +25,7 @@ import {
   deleteBranchAnywhere,
 } from "@/features/tenancy/branch-store";
 import { canManageBranches } from "@/features/tenancy/permissions";
+import { useCurrentUser } from "@/features/auth/current-user";
 
 export default function SucursalDetailPage() {
   const params = useParams<{ id: string }>();
@@ -33,7 +34,8 @@ export default function SucursalDetailPage() {
   const toast = useToast();
   const branch = useBranch(id);
   useInventoryTick();
-  const canManage = canManageBranches();
+  const currentUser = useCurrentUser();
+  const canManage = canManageBranches(currentUser.role);
 
   const [confirmInactivate, setConfirmInactivate] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);

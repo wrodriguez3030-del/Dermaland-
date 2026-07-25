@@ -32,13 +32,14 @@ import {
 } from "@/features/sales/document-label";
 import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import type { Proforma } from "@/types";
 import { formatCurrency, formatDateTime, isToday } from "@/lib/utils/format";
 
 const NO_SELLER = "__none__";
 
 function VentasContent() {
+  const currentUser = useCurrentUser();
   // Ventas / Facturas: documentos fiscales emitidos (NCF B02/B01 y e-CF E32/E31).
   // Las proformas pendientes viven en la pantalla Proformas.
   const toast = useToast();
@@ -81,7 +82,7 @@ function VentasContent() {
   }, [scopedSales, sellerFilter]);
 
   const pag = usePagination(sales, { resetKey: `${period}|${sellerFilter}` });
-  const canEdit = canEditSales(mockCurrentUser.role);
+  const canEdit = canEditSales(currentUser.role);
 
   const [sendDoc, setSendDoc] = React.useState<{
     doc: Proforma;

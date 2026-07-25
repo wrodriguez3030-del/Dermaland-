@@ -1,10 +1,21 @@
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
 import { CUSTOMER_MANAGE_ROLES } from "@/features/billing/permissions";
+
+// DL-21: guard de forma mínimo (no rechaza entradas válidas del formulario; el
+// repo ya hace whitelisting de columnas y fuerza business_id). Valida lo
+// imprescindible y deja pasar el resto de campos conocidos.
+const createCustomerSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "El nombre es obligatorio."),
+    lastName: z.string().trim().min(1, "El apellido es obligatorio."),
+  })
+  .passthrough();
 
 /**
  * Clientes — fuente de verdad del servidor (single source) cuando
@@ -47,6 +58,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const body = await req.json();
     const auth = await authorizeRole(CUSTOMER_MANAGE_ROLES);
     if (!auth.ok) return auth.res;
+    const parsed = createCustomerSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message ?? "Datos del cliente inválidos." },
+        { status: 422 },
+      );
+    }
     const ctx = await getRepoContext();
     const customer = await getRepositories().customer.create(ctx, body);
     return NextResponse.json({ customer }, { status: 201 });

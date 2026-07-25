@@ -6,6 +6,11 @@ import type { Proforma } from "@/types";
 
 // useParams varía por test mediante un estado hoisteado.
 const { state } = vi.hoisted(() => ({ state: { id: "" } }));
+vi.mock("@/features/auth/current-user", () => ({
+  useCurrentUser: () => ({ id: "u1", fullName: "Admin", role: "admin", avatarColor: "#000", isPlatformAdmin: false }),
+  useCurrentRole: () => "admin",
+  CurrentUserProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: state.id }),
 }));

@@ -44,7 +44,7 @@ import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { buildCustomersWorkbookSpec } from "@/features/customers/customers-report-excel";
 import { buildCustomersPdfSpec } from "@/features/customers/customers-report-pdf";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDateTime, relativeTime } from "@/lib/utils/format";
 
 /**
@@ -67,6 +67,7 @@ interface ReportFilters {
 }
 
 export default function ReporteClientesPage() {
+  const currentUser = useCurrentUser();
   const [filters, setFilters] = React.useState<ReportFilters>({});
   const set = (key: keyof ReportFilters, value: string) =>
     setFilters((f) => ({ ...f, [key]: value || undefined }));
@@ -173,7 +174,7 @@ export default function ReporteClientesPage() {
       rangeLabel,
       branchLabel,
       filtersLabel,
-      generatedBy: mockCurrentUser.fullName,
+      generatedBy: currentUser.fullName,
       generatedAtLabel: formatDateTime(new Date().toISOString()),
     });
 
@@ -188,7 +189,7 @@ export default function ReporteClientesPage() {
         periodLabel: rangeLabel,
         branchLabel,
         filtersLabel,
-        generatedBy: mockCurrentUser.fullName,
+        generatedBy: currentUser.fullName,
         generatedAtLabel: formatDateTime(new Date().toISOString()),
       }),
     );
@@ -346,7 +347,7 @@ export default function ReporteClientesPage() {
             businessName="DermaLand"
             title="Reporte de clientes"
             subtitle="Clientes frecuentes, segmentación, total gastado y ticket promedio."
-            generatedBy={mockCurrentUser.fullName}
+            generatedBy={currentUser.fullName}
             generatedAt={generatedAt}
           />
 

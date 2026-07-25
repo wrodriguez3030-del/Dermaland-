@@ -18,8 +18,8 @@ import { useToast } from "@/components/ui/toast";
 import {
   roleBadgeTone,
   roleDefinitions,
-  mockCurrentUser,
 } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 import {
   useBranchesState,
   getBranchDisplayName,
@@ -35,6 +35,7 @@ import { canManageIncentiveRules } from "@/features/billing/permissions";
 import type { User } from "@/types";
 
 export default function UsuariosPage() {
+  const currentUser = useCurrentUser();
   const { users, loading, error, refresh } = useUsersList();
   const toast = useToast();
   // Sucursales REALES (Supabase en prod). Puebla el cache de nombres para que
@@ -47,7 +48,7 @@ export default function UsuariosPage() {
   const roleLabel = Object.fromEntries(
     roleDefinitions.map((r) => [r.key, r.label]),
   );
-  const canManage = canManageIncentiveRules(mockCurrentUser.role);
+  const canManage = canManageIncentiveRules(currentUser.role);
   const [modal, setModal] = React.useState<{ open: boolean; user?: User | null }>({
     open: false,
   });

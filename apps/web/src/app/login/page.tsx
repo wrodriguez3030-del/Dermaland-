@@ -85,7 +85,7 @@ export default async function LoginPage({
           </form>
 
           <div className="mt-4 text-center text-xs opacity-60">
-            <Link href="/" className="hover:underline">
+            <Link href="/recuperar" className="hover:underline">
               ¿Olvidaste tu contraseña?
             </Link>
           </div>

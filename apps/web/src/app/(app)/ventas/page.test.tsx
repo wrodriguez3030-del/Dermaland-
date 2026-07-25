@@ -6,6 +6,11 @@ import { render, screen, cleanup } from "@testing-library/react";
 // La pantalla lee `?period=` con useSearchParams: sin router montado hay que
 // mockear next/navigation en el entorno de test.
 const searchParams = new URLSearchParams("");
+vi.mock("@/features/auth/current-user", () => ({
+  useCurrentUser: () => ({ id: "u1", fullName: "Admin", role: "admin", avatarColor: "#000", isPlatformAdmin: false }),
+  useCurrentRole: () => "admin",
+  CurrentUserProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),

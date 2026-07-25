@@ -21,7 +21,7 @@ import {
   type BillingSettings,
 } from "@/features/billing/billing-settings-store";
 import { canEditBillingSettings } from "@/features/billing/permissions";
-import { mockCurrentUser } from "@/lib/mock-data/users";
+import { useCurrentUser } from "@/features/auth/current-user";
 
 /**
  * DGII / Facturación → Configuración de facturación.
@@ -30,8 +30,9 @@ import { mockCurrentUser } from "@/lib/mock-data/users";
  * muestran en sólo lectura. Se guarda por business_id en el store de billing.
  */
 export default function BillingConfigPage() {
+  const currentUser = useCurrentUser();
   const settings = useBillingSettings();
-  const isAdmin = canEditBillingSettings(mockCurrentUser.role);
+  const isAdmin = canEditBillingSettings(currentUser.role);
 
   const [draft, setDraft] = React.useState<BillingSettings>(settings);
   const [saved, setSaved] = React.useState<string | null>(null);
@@ -86,7 +87,7 @@ export default function BillingConfigPage() {
       {!isAdmin && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-black/10 bg-black/[0.03] p-3 text-sm">
           <Lock className="h-4 w-4 opacity-60" />
-          Solo lectura: tu rol (<strong>{mockCurrentUser.role}</strong>) no puede
+          Solo lectura: tu rol (<strong>{currentUser.role}</strong>) no puede
           editar la configuración de facturación.
         </div>
       )}

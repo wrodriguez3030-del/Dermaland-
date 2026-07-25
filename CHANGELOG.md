@@ -11,6 +11,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.94.0] - 2026-07-24
+
+**Cierre de los pendientes de la auditoría (DL-03, DL-17, DL-18, DL-21).**
+
+- **[MEDIA] DL-03 — rol REAL en la UI:** nuevo `CurrentUserProvider` +
+  `useCurrentUser()` (`features/auth/current-user`), poblado por el layout de
+  `(app)` con la sesión real de `getSession()`. Se reemplazó `mockCurrentUser`
+  (siempre admin) en **19 componentes de cliente** (reportes, ventas, DGII, caja,
+  sucursales, header, product-form). Además se **eliminaron los defaults**
+  `= mockCurrentUser.role` de `permissions.ts`/`tenancy/permissions.ts`: ahora el
+  rol es obligatorio (el compilador marca cualquier llamada sin rol), evitando que
+  un caller reciba "admin" en silencio. La UI ya refleja el rol real, alineada con
+  el gate de servidor `authorizeRole`.
+- **[INFO] DL-18 — restablecer contraseña:** flujo de recuperación con Supabase.
+  `/recuperar` (solicita el enlace, anti-enumeración) → correo de Supabase →
+  `/restablecer` (nueva contraseña vía `updateUser`). Enlace "¿Olvidaste tu
+  contraseña?" del login ahora funciona; rutas añadidas a `PUBLIC_PATHS`.
+- **[INFO] DL-17 — rate limiting:** limiter en memoria (`server/security/rate-limit`,
+  misma interfaz para cablear Upstash luego) aplicado a correo de prueba (5/min por
+  negocio), reserva de folios (120/min) y PDF público (60/min por IP). Con tests.
+- **[INFO] DL-21 — validación:** guard Zod mínimo en `POST /api/customers` (patrón;
+  el mass-assignment ya lo cubre el whitelisting de columnas del repo).
+
+Verificado: `tsc` limpio · **1840 tests** · `next build` OK.
+
+Pendiente único: **DL-19** (activar "Leaked password protection" en el panel de
+Supabase Auth — es un toggle del dashboard, sin API por código).
+
 ## [0.93.1] - 2026-07-24
 
 **Expiración del token público de factura (DL-04).**

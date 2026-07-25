@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/server/auth/context";
+import { rateLimit } from "@/server/security/rate-limit";
 import { createServer } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
@@ -68,6 +69,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
+
+  // DL-17: evita agotar el rango de folios en ráfaga. 120/min por negocio
+  // (holgado para un POS real; solo frena abuso automatizado).
+  const rl = rateLimit(`reserve:${session.businessId}`, 120, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Demasiadas reservas de folio en poco tiempo. Espera un momento." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
+    );
   }
 
   const body = (await req.json().catch(() => ({}))) as {
