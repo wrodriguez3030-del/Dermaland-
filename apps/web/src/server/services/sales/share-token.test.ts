@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
+import crypto from "node:crypto";
 import {
   signDocumentShareToken,
   verifyDocumentShareToken,
@@ -34,9 +35,40 @@ describe("document share token", () => {
 
   it("el token es corto (URL profesional)", () => {
     const token = signDocumentShareToken(biz, id);
-    // 42 bytes en base64url ≈ 56 caracteres.
-    expect(token.length).toBeLessThanOrEqual(60);
+    // 47 bytes (versión + biz + id + timestamp + firma) en base64url ≈ 63 chars.
+    expect(token.length).toBeLessThanOrEqual(66);
     expect(token).not.toContain("."); // codificación binaria, sin separador
+  });
+
+  it("DL-04: un token dentro del TTL verifica; uno emitido hace >180 días caduca", () => {
+    const fresh = signDocumentShareToken(biz, id);
+    expect(verifyDocumentShareToken(fresh)).toEqual({ businessId: biz, id });
+
+    // Emitir "hace 200 días" fijando Date.now, luego verificar en tiempo real.
+    const past = Date.now() - 200 * 24 * 60 * 60 * 1000;
+    const spy = vi.spyOn(Date, "now").mockReturnValue(past);
+    const old = signDocumentShareToken(biz, id);
+    spy.mockRestore();
+    expect(verifyDocumentShareToken(old)).toBeNull(); // expirado
+  });
+
+  it("DL-04: acepta tokens LEGACY (42 bytes, sin expiración) por compatibilidad", () => {
+    // Reconstruye el formato viejo: payload(32) + HMAC-SHA256[0:10], base64url.
+    const payload = Buffer.concat([
+      Buffer.from(biz.replace(/-/g, ""), "hex"),
+      Buffer.from(id.replace(/-/g, ""), "hex"),
+    ]);
+    const sig = crypto
+      .createHmac("sha256", TEST_SECRET)
+      .update(payload)
+      .digest()
+      .subarray(0, 10);
+    const legacy = Buffer.concat([payload, sig])
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/g, "");
+    expect(verifyDocumentShareToken(legacy)).toEqual({ businessId: biz, id });
   });
 
   it("exige UUID en businessId e id", () => {

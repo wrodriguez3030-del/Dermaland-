@@ -11,6 +11,17 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.93.1] - 2026-07-24
+
+**Expiración del token público de factura (DL-04).**
+
+- Los enlaces `/factura/[token]` NUEVOS ahora llevan timestamp de emisión firmado
+  y **caducan a los 180 días** (`SHARE_TOKEN_TTL_SECONDS`), acotando la ventana de
+  exposición de PII si un enlace se filtra. Los enlaces LEGACY ya compartidos (42
+  bytes, sin timestamp) se siguen aceptando sin expiración para no romper el acceso
+  de clientes; para forzar su caducidad, rotar `DOCUMENT_SHARE_SECRET`. Con tests
+  de expiración y de compatibilidad legacy.
+
 ## [0.93.0] - 2026-07-24
 
 **Endurecimiento de seguridad (auditoría por dominios) + fix de acciones en Detalle de ventas.**

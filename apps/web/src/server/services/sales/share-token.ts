@@ -23,6 +23,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const SIG_LEN = 10;
 const PAYLOAD_LEN = 32; // 16 (businessId) + 16 (id)
 
+// DL-04: expiración. Los tokens NUEVOS llevan versión + timestamp de emisión y
+// caducan tras `SHARE_TOKEN_TTL_SECONDS`. Los tokens LEGACY (42 bytes, sin
+// timestamp) se siguen aceptando SIN expiración para no romper enlaces ya
+// compartidos con clientes; para forzar su caducidad, rotar DOCUMENT_SHARE_SECRET.
+const TOKEN_VERSION = 1;
+const TS_LEN = 4; // uint32 BE, segundos desde epoch (válido hasta 2106)
+const VERSIONED_LEN = 1 + PAYLOAD_LEN + TS_LEN; // 37 bytes firmados
+export const SHARE_TOKEN_TTL_SECONDS = 180 * 24 * 60 * 60; // 180 días
+
 function getSecret(): string {
   const secret = process.env.DOCUMENT_SHARE_SECRET;
   if (!secret || secret.length < 24) {
@@ -69,7 +78,15 @@ export function signDocumentShareToken(businessId: string, id: string): string {
       "Enlace compartido inválido: businessId e id deben ser UUID.",
     );
   }
-  const payload = Buffer.concat([uuidToBytes(businessId), uuidToBytes(id)]);
+  // DL-04: formato versionado con timestamp de emisión (para caducidad).
+  const ts = Buffer.alloc(TS_LEN);
+  ts.writeUInt32BE(Math.floor(Date.now() / 1000) >>> 0, 0);
+  const payload = Buffer.concat([
+    Buffer.from([TOKEN_VERSION]),
+    uuidToBytes(businessId),
+    uuidToBytes(id),
+    ts,
+  ]);
   return b64url(Buffer.concat([payload, sigFor(payload)]));
 }
 
@@ -94,26 +111,42 @@ export function verifyDocumentShareToken(
   } catch {
     return null;
   }
-  if (raw.length !== PAYLOAD_LEN + SIG_LEN) return null;
 
-  const payload = raw.subarray(0, PAYLOAD_LEN);
-  const sig = raw.subarray(PAYLOAD_LEN);
-
-  // Fail-closed: si el secreto no está configurado (o la firma falla), la
-  // verificación RECHAZA (null) en vez de lanzar — la página pública muestra
-  // "enlace no disponible" y nunca crashea por una mala config.
-  let expected: Buffer;
-  try {
-    expected = sigFor(payload);
-  } catch {
-    return null;
-  }
-  if (sig.length !== expected.length || !crypto.timingSafeEqual(sig, expected)) {
-    return null;
-  }
-
-  return {
-    businessId: bytesToUuid(payload.subarray(0, 16)),
-    id: bytesToUuid(payload.subarray(16, 32)),
+  // Helper de verificación de firma (fail-closed si falta el secreto).
+  const sigOk = (payload: Buffer, sig: Buffer): boolean => {
+    let expected: Buffer;
+    try {
+      expected = sigFor(payload);
+    } catch {
+      return false;
+    }
+    return sig.length === expected.length && crypto.timingSafeEqual(sig, expected);
   };
+
+  // DL-04: formato NUEVO versionado (con expiración).
+  if (raw.length === VERSIONED_LEN + SIG_LEN && raw[0] === TOKEN_VERSION) {
+    const payload = raw.subarray(0, VERSIONED_LEN);
+    const sig = raw.subarray(VERSIONED_LEN);
+    if (!sigOk(payload, sig)) return null;
+    const iat = payload.readUInt32BE(1 + PAYLOAD_LEN);
+    const now = Math.floor(Date.now() / 1000);
+    if (now - iat > SHARE_TOKEN_TTL_SECONDS) return null; // expirado
+    return {
+      businessId: bytesToUuid(payload.subarray(1, 17)),
+      id: bytesToUuid(payload.subarray(17, 33)),
+    };
+  }
+
+  // Formato LEGACY (42 bytes, sin expiración): enlaces ya compartidos siguen válidos.
+  if (raw.length === PAYLOAD_LEN + SIG_LEN) {
+    const payload = raw.subarray(0, PAYLOAD_LEN);
+    const sig = raw.subarray(PAYLOAD_LEN);
+    if (!sigOk(payload, sig)) return null;
+    return {
+      businessId: bytesToUuid(payload.subarray(0, 16)),
+      id: bytesToUuid(payload.subarray(16, 32)),
+    };
+  }
+
+  return null;
 }
