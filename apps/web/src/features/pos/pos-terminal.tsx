@@ -502,6 +502,15 @@ export function PosTerminal({
       return;
     }
 
+    // No permitir agregar productos SIN precio de venta (RD$0.00 o menos): una
+    // venta no puede registrarse con valor 0. El precio se asigna en Productos.
+    if (!(product.price > 0)) {
+      toast.error(
+        `"${product.name}" no tiene precio de venta (RD$0.00). Asígnale un precio en Productos antes de venderlo.`,
+      );
+      return;
+    }
+
     // Helper CENTRAL FEFO: ignora vencidos/cuarentena/recall y elige el lote
     // vigente más próximo. Solo bloquea si NO hay lote vendible.
     const sellable = getSellableLotForProduct(lots, productId, branchId, activeBranchIds);

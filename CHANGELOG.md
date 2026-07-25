@@ -11,6 +11,15 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.96.4] - 2026-07-25
+
+**No permitir vender productos sin precio (RD$0.00).**
+
+- El POS ya no permite agregar a la venta un producto con **precio de venta 0** (o
+  menos). Bloqueo en tres capas: guard central en `addProduct` (cubre botón, escaneo
+  y Enter) con mensaje claro, y en la tarjeta el botón queda deshabilitado como
+  **"Sin precio"** con la nota *"asígnalo en Productos"*. Con test de regresión.
+
 ## [0.96.3] - 2026-07-25
 
 **Fix: las etiquetas de comprobante se alinean a la "Forma de facturación principal".**

@@ -55,11 +55,14 @@ export function ProductCard({
   isFavorite = false,
   onToggleFavorite,
 }: ProductCardProps) {
+  // Sin precio de venta (RD$0.00 o menos): no se puede agregar a la venta.
+  const noPrice = !(price > 0);
   const inStockHere = stockHere > 0;
-  const actionable = inStockHere || availableElsewhere;
+  const canAdd = inStockHere && !noPrice;
+  const actionable = canAdd || availableElsewhere;
 
   const act = () => {
-    if (inStockHere) onAdd();
+    if (canAdd) onAdd();
     else if (availableElsewhere) onViewBranchStock();
   };
 
@@ -148,6 +151,11 @@ export function ProductCard({
         <div className="mt-auto pt-2 text-base font-bold tabular-nums text-[color:var(--brand-accent)]">
           {formatCurrency(price)}
         </div>
+        {noPrice && (
+          <div className="text-[10px] text-orange-700">
+            Sin precio · asígnalo en Productos
+          </div>
+        )}
         {inStockHere && lotNumber && (
           <div className="text-[10px] opacity-60">
             Lote {lotNumber}
@@ -175,14 +183,18 @@ export function ProductCard({
               act();
             }}
             aria-label={
-              inStockHere
-                ? `Agregar ${name} al carrito`
-                : availableElsewhere
-                  ? `Ver stock por sucursal de ${name}`
-                  : `${name} sin stock`
+              noPrice
+                ? `${name} sin precio de venta`
+                : inStockHere
+                  ? `Agregar ${name} al carrito`
+                  : availableElsewhere
+                    ? `Ver stock por sucursal de ${name}`
+                    : `${name} sin stock`
             }
           >
-            {inStockHere ? (
+            {noPrice ? (
+              "Sin precio"
+            ) : inStockHere ? (
               <>
                 <Plus className="h-3.5 w-3.5" /> Agregar
               </>

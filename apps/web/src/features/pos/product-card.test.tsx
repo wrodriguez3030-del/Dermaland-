@@ -93,6 +93,25 @@ describe("ProductCard — POS", () => {
     expect(onViewBranchStock).not.toHaveBeenCalled();
   });
 
+  it("con precio 0 NO permite agregar (botón 'Sin precio' desactivado, aunque haya stock)", () => {
+    const onAdd = vi.fn();
+    render(
+      <ProductCard
+        {...BASE}
+        price={0}
+        onAdd={onAdd}
+        stockHere={130}
+        availableElsewhere={false}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: /sin precio/i });
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+    fireEvent.click(screen.getByText(BASE.name)); // la tarjeta tampoco agrega
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(screen.getByText(/Sin precio · asígnalo/)).toBeInTheDocument();
+  });
+
   it("muestra la razón de bloqueo (cuarentena) cuando aplica", () => {
     render(
       <ProductCard
