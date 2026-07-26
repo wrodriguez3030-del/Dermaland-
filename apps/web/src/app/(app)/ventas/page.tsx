@@ -46,11 +46,12 @@ function VentasContent() {
   const allDocuments = useProformas();
   const allSales = allDocuments.filter(isInvoiceDocument);
 
-  // Deep-link desde el dashboard: `?period=today` abre la lista ya filtrada al
-  // día de hoy. MISMA definición (isInvoiceDocument + isToday) que el KPI
-  // "Ventas hoy" → el total del KPI y el de esta pantalla coinciden.
+  // Por DEFECTO esta pantalla muestra solo las ventas de HOY (operación diaria).
+  // Para ver el histórico completo: `?period=all` (o el botón "Ver todas"). La
+  // definición de "hoy" (isInvoiceDocument + isToday) coincide con el KPI
+  // "Ventas hoy" del dashboard.
   const params = useSearchParams();
-  const period = params.get("period") === "today" ? "today" : "all";
+  const period = params.get("period") === "all" ? "all" : "today";
   const scopedSales = React.useMemo(
     () =>
       period === "today"
@@ -110,18 +111,25 @@ function VentasContent() {
           </Link>
         }
       />
-      {period === "today" && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
-          <span>
-            Mostrando: <strong>ventas de hoy</strong>
-          </span>
-          <Link href="/ventas">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
+        <span>
+          Mostrando:{" "}
+          <strong>{period === "today" ? "ventas de hoy" : "todas las ventas"}</strong>
+        </span>
+        {period === "today" ? (
+          <Link href="/ventas?period=all">
             <Button variant="ghost" size="sm">
-              <X className="h-4 w-4" /> Ver todas las ventas
+              Ver todas las ventas
             </Button>
           </Link>
-        </div>
-      )}
+        ) : (
+          <Link href="/ventas">
+            <Button variant="ghost" size="sm">
+              <X className="h-4 w-4" /> Ver solo hoy
+            </Button>
+          </Link>
+        )}
+      </div>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

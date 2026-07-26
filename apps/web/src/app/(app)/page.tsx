@@ -379,7 +379,7 @@ export default function DashboardPage() {
         <ChartCard title="Cobros por método de pago" href="/reportes/caja">
           <DonutChart data={methodSales} formatValue={formatCurrency} />
         </ChartCard>
-        <ChartCard title="Tendencia mensual (ventas)" href="/ventas" linkLabel="Ver ventas →">
+        <ChartCard title="Tendencia mensual (ventas)" href="/ventas?period=all" linkLabel="Ver ventas →">
           <TrendChart data={trend} />
         </ChartCard>
       </div>

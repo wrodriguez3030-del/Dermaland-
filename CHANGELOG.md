@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.97.5] - 2026-07-26
+
+**Ventas / Facturas: por defecto muestra solo las ventas de HOY.**
+
+- La pantalla **Ventas / Facturas** ahora arranca filtrada a **hoy** (operación
+  diaria), en vez de todo el histórico. Banner con toggle: "Ver todas las ventas"
+  (`?period=all`) ⇄ "Ver solo hoy". El deep-link `?period=today` sigue funcionando.
+- El KPI del inicio "Ventas del período" (hoy) enlaza a la lista de hoy; la
+  "Tendencia mensual" del inicio enlaza a `?period=all` (histórico).
+
 ## [0.97.4] - 2026-07-25
 
 **Reportes: los KPIs del dashboard usan datos REALES de todas las sucursales.**
