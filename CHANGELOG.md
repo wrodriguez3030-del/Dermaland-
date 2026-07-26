@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.0] - 2026-07-26
+
+**Validación de body server-side en handlers de escritura (Regla 2 de seguridad).**
+
+- Nuevo helper `parseJsonBody(req, schema)` (`server/http/parse-body`) + esquemas
+  Zod lenient (`server/http/schemas`): validan **tipo, longitud y presencia de
+  requeridos** de la entrada del usuario en el SERVIDOR, con tope anti-DoS de
+  longitud de strings; `passthrough` para no romper entradas válidas (el repo ya
+  hace whitelisting de columnas). Aplicado a los handlers CRUD de productos,
+  categorías, marcas, laboratorios, proveedores, sucursales, gastos, categorías de
+  gasto, facturas de proveedor y recurrentes (POST/PATCH), además de clientes.
+  En todos, la **autorización de rol corre ANTES** de leer/validar el body.
+- No cambia el aislamiento por `business_id` (siempre del JWT) ni el whitelisting;
+  los complementa. Con tests.
+
 ## [0.97.5] - 2026-07-26
 
 **Ventas / Facturas: por defecto muestra solo las ventas de HOY.**

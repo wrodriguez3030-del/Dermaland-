@@ -5,6 +5,8 @@ import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
 import { BUSINESS_ADMIN_ROLES } from "@/features/billing/permissions";
+import { parseJsonBody } from "@/server/http/parse-body";
+import { catalogEdit } from "@/server/http/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +27,11 @@ export async function PATCH(
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
     const { id } = await params;
-    const body = await req.json();
     const auth = await authorizeRole(BUSINESS_ADMIN_ROLES);
     if (!auth.ok) return auth.res;
+    const parsed = await parseJsonBody(req, catalogEdit);
+    if (!parsed.ok) return parsed.res;
+    const body = parsed.data;
     const ctx = await getRepoContext();
     const branch = await getRepositories().branch.update(ctx, id, body);
     return NextResponse.json({ branch });

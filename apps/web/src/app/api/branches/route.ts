@@ -5,6 +5,8 @@ import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
 import { BUSINESS_ADMIN_ROLES } from "@/features/billing/permissions";
+import { parseJsonBody } from "@/server/http/parse-body";
+import { catalogCreate } from "@/server/http/schemas";
 
 /**
  * Sucursales — fuente de verdad de servidor (single source) cuando
@@ -46,9 +48,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
-    const body = await req.json();
     const auth = await authorizeRole(BUSINESS_ADMIN_ROLES);
     if (!auth.ok) return auth.res;
+    const parsed = await parseJsonBody(req, catalogCreate);
+    if (!parsed.ok) return parsed.res;
+    const body = parsed.data;
     const ctx = await getRepoContext();
     const branch = await getRepositories().branch.create(ctx, body);
     return NextResponse.json({ branch }, { status: 201 });

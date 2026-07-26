@@ -5,6 +5,8 @@ import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
 import { CATALOG_MANAGE_ROLES } from "@/features/billing/permissions";
+import { parseJsonBody } from "@/server/http/parse-body";
+import { catalogCreate } from "@/server/http/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +31,14 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
-    const body = (await req.json()) as { name: string; rnc?: string; phone?: string; email?: string };
+    const auth = await authorizeRole(CATALOG_MANAGE_ROLES);
+    if (!auth.ok) return auth.res;
+    const parsed = await parseJsonBody(req, catalogCreate);
+    if (!parsed.ok) return parsed.res;
+    const body = parsed.data;
     if (!body.name?.trim()) {
       return NextResponse.json({ error: "El nombre del proveedor es obligatorio." }, { status: 422 });
     }
-    const auth = await authorizeRole(CATALOG_MANAGE_ROLES);
-    if (!auth.ok) return auth.res;
     const ctx = await getRepoContext();
     const supplier = await getRepositories().supplier.create(ctx, body);
     return NextResponse.json({ supplier }, { status: 201 });

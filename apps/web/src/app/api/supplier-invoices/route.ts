@@ -5,6 +5,8 @@ import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
 import { FINANCE_MANAGE_ROLES } from "@/features/billing/permissions";
+import { parseJsonBody } from "@/server/http/parse-body";
+import { financeCreate } from "@/server/http/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +33,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
-    const body = await req.json();
     const auth = await authorizeRole(FINANCE_MANAGE_ROLES);
     if (!auth.ok) return auth.res;
+    const parsed = await parseJsonBody(req, financeCreate);
+    if (!parsed.ok) return parsed.res;
+    const body = parsed.data;
     const ctx = await getRepoContext();
     const invoice = await getRepositories().supplierInvoice.create(ctx, body);
     return NextResponse.json({ invoice }, { status: 201 });
