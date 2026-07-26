@@ -11,6 +11,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.1] - 2026-07-26
+
+**Higiene de datos (Punto 2) + respaldo/DR verificado (Punto 3).**
+
+- **Sucursal duplicada eliminada:** se hizo *soft-delete* de la 2ª "DermaLand
+  Principal" fantasma (`9583ab75…`, `deleted_at=now`) y se borró su único lote de
+  prueba. Quedan **solo 2 sucursales activas**: DermaLand Principal (`b001`) y
+  Dermaland Cutis (`0a1fd664…`). Catálogo y precios son a nivel de negocio
+  (compartidos); solo el stock es por sucursal.
+- **Respaldo real de producción tomado y verificado como RESTAURABLE:**
+  `rest-json-backup.mjs` → **57/57 tablas, 3168 filas**;
+  `verify-backup-integrity.mjs` → **11/11 checks, 0 FKs rotas**. El backup vive en
+  `backups/` (gitignored, PII) — debe copiarse a almacenamiento externo cifrado.
+- `docs/backup-and-restore.md` actualizado con el estado y baseline de hoy
+  (products 1358 / product_lots 1371 / proformas 22). Pendiente para DR pleno:
+  Supabase Pro (PITR) **o** activar el backup diario en CI (`SUPABASE_DB_URL`), y
+  1 drill end-to-end a un proyecto destino. Sin cambios de código de la app.
+
 ## [0.98.0] - 2026-07-26
 
 **Validación de body server-side en handlers de escritura (Regla 2 de seguridad).**

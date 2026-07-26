@@ -1,10 +1,20 @@
 # DermaLand · Backup y Restauración (DR)
 
-> **Estado (2026-07-12):** el proyecto Supabase `sntcvyozbhrgicwmtcoh` está en
-> **plan Free** (evidencia: el advisor de seguridad reporta *Leaked Password
-> Protection* como *no activable*, exclusivo de Pro+). **En Free NO hay backups
-> automáticos diarios ni PITR.** Un fallo de la base = pérdida total.
-> **Esto es el bloqueador #1 antes de operar con una empresa real.**
+> **Estado (2026-07-26):** proyecto Supabase `sntcvyozbhrgicwmtcoh` aún en **plan
+> Free** → **sin backups automáticos ni PITR**. PERO se tomó y **verificó un
+> respaldo lógico manual**:
+> - **Backup:** `backups/rest-20260726-1432/` — **57/57 tablas, 3,168 filas**
+>   (`rest-json-backup.mjs`).
+> - **Verificado restaurable:** integridad referencial **11/11 OK, 0 FKs rotas**
+>   (`verify-backup-integrity.mjs`).
+> - ⚠️ **Acción del usuario:** copiar esa carpeta a **almacenamiento EXTERNO
+>   cifrado** (contiene PII); está en `backups/` (gitignored, solo local).
+>
+> **Pendiente para DR pleno (elige uno):** (A) subir a **Supabase Pro** (backups
+> diarios + PITR + desbloquea leaked-password) — recomendado; o (B) activar el
+> **backup diario automático** ya creado en `.github/workflows/backup.yml`
+> (solo falta el secreto `SUPABASE_DB_URL`). Y hacer **1 drill end-to-end** a un
+> proyecto destino (Opción B0 abajo). Hoy el respaldo es manual, no recurrente.
 
 ## RPO / RTO objetivo del piloto
 
@@ -37,8 +47,8 @@ node scripts/backup/rest-json-backup.mjs
 # → backups/rest-YYYYMMDD-HHMM/<tabla>.json + manifest.json  (backups/ está gitignored)
 ```
 
-**Verificado en vivo (2026-07-13): 57/57 tablas, 3081 filas** (1358 productos, 1369
-lotes, 16 ventas, clientes, etc.). Solo imprime conteos; los datos (con PII) van a
+**Verificado en vivo (2026-07-26): 57/57 tablas, 3168 filas** (1358 productos, 1371
+lotes, 22 ventas, 2 clientes, 3 usuarios, 2 sucursales, etc.). Solo imprime conteos; los datos (con PII) van a
 `backups/` (ignorado por git). **Limitaciones vs pg_dump:** no captura `auth.users`
 (cuentas de login), Storage, ni el estado exacto de secuencias — para el piloto
 preserva todos los datos de negocio. **Correr AHORA como respaldo inmediato** y copiar
@@ -47,8 +57,8 @@ la carpeta cifrada a almacenamiento externo (NAS/S3/Backblaze).
 ### Verificar que el backup es RESTAURABLE (sin destino, gratis) ✅ PROBADO
 `scripts/backup/verify-backup-integrity.mjs` comprueba la **integridad referencial**
 del backup (todas las FKs resuelven dentro del export) → garantiza que el import en
-orden de FKs no violará constraints. **Verificado (2026-07-13): 11/11, 0 referencias
-rotas.**
+orden de FKs no violará constraints. **Verificado (2026-07-26): 11/11 checks, 0
+referencias rotas — el último backup ES restaurable.**
 ```bash
 node scripts/backup/verify-backup-integrity.mjs
 ```
@@ -136,9 +146,9 @@ restaura este snapshot.
    ```
 3. Verificar conteos clave contra lo esperado:
    ```sql
-   select count(*) from products;      -- ~1355
-   select count(*) from product_lots;  -- ~1368
-   select count(*) from proformas;
+   select count(*) from products;      -- 1358 (baseline 2026-07-26)
+   select count(*) from product_lots;  -- 1371
+   select count(*) from proformas;     -- 22
    ```
 4. Correr el smoke test de la app apuntando al proyecto restaurado
    (`DATA_SOURCE=supabase`, `NEXT_PUBLIC_SUPABASE_URL` del proyecto nuevo).
@@ -146,7 +156,11 @@ restaura este snapshot.
 6. Documentar tiempo total (mide el RTO real).
 
 > **Regla:** el sistema NO se considera "con backup" hasta que una restauración
-> se haya probado de punta a punta al menos una vez. **Aún pendiente de probar.**
+> se haya probado de punta a punta al menos una vez.
+> **Estado 2026-07-26:** el último backup está **verificado como RESTAURABLE** por
+> integridad referencial (11/11 FKs OK) — validación sin destino. El **drill
+> end-to-end** (importar a un proyecto destino y arrancar la app) sigue pendiente
+> porque necesita que crees el proyecto destino (Opción B0 → paso 1).
 
 ## Reproducibilidad del esquema desde cero
 
