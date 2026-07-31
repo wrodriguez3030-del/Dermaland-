@@ -11,6 +11,22 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.2] - 2026-07-30
+
+**Documentación: módulo de correo portable.**
+
+- **Nuevo `docs/modulo-correo.md`** — documenta el módulo de correo completo
+  (6 archivos, ~738 LOC: transporte nodemailer/Gmail SMTP, servicio de
+  configuración cifrada, cifrado AES-256-GCM, 4 contratos de API, UI de
+  administración) **y** sirve de guía de portabilidad a **PalusaApp**
+  (Supabase self-hosted) y **DoctorApp** (Prisma + Neon).
+- Incluye el SQL real de `email_settings` con su RLS, el equivalente Prisma, el
+  código del cifrador, el orden de resolución de credenciales (BD cifrada →
+  entorno), checklist de implementación, 10 pruebas de aceptación y 10 gotchas
+  reales (contraseña con espacios, 2FA obligatoria para app passwords, tope
+  ~500 correos/día de Gmail, rate limit por instancia, entre otros).
+- Sin cambios de código ni de base de datos.
+
 ## [0.98.1] - 2026-07-26
 
 **Higiene de datos (Punto 2) + respaldo/DR verificado (Punto 3).**
