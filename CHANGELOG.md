@@ -11,6 +11,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.3] - 2026-08-01
+
+**Carga de stock real de Principal desde Alegra (herramienta) + diseño del importador.**
+
+- **Nuevo `scripts/import-stock-principal-from-alegra.mjs`** — unifica por nombre los
+  dos export de Alegra (`CODIGO DE BARRA.xlsx` + `CANTIDAD PRINCIPAL.xlsx`; el de
+  barras solo sirve para emparejar con alta confianza, porque el de cantidad no trae
+  código) y ajusta **solo la cantidad**, **solo en DermaLand Principal**.
+  **DRY-RUN por defecto**: sin `--apply` no escribe nada. NO toca `products` (ni
+  precio, ni costo, ni barcode), NO crea productos, NO inventa vencimientos
+  (`product_lots.expires_at` es NOT NULL) y NO toca Cutis. `business_id`/`branch_id`
+  son constantes del código, nunca del archivo. Reparte el ajuste por FEFO en las
+  bajas y al lote más reciente en las altas, y deja un `inventory_movements`
+  (`adjustment_positive`/`negative`) por producto con referencia `ALEGRA-<stamp>`.
+  Flag `--zero-missing` para tratar el archivo como inventario completo.
+- **Diagnóstico medido contra producción (2026-08-01):** el stock estaba inflado
+  ~15× (40 889 u. sembradas en lotes `INIT-DERM-*` contra 2 655 reales en Alegra);
+  1 339 de 1 355 productos tienen `price = 0` y `cost = 0`, lo que los vuelve
+  invendibles en el POS.
+- **Nuevo `docs/superpowers/specs/2026-08-01-importador-alegra-design.md`** — diseño
+  aprobado de la pantalla *Productos → Importar desde Alegra* (subir → revisar →
+  aplicar, con resolución humana de los casi-duplicados). Queda **PAUSADO** a
+  pedido del usuario; se documenta para retomarlo.
+- Sin cambios en el código de la app ni en la base de datos.
+- La versión de `package.json` estaba en 0.92.0, desalineada del CHANGELOG (0.98.2);
+  se corrige a 0.98.3.
+
 ## [0.98.2] - 2026-07-30
 
 **Documentación: módulo de correo portable.**

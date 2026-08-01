@@ -1,9 +1,18 @@
 # Importador de Alegra (catálogo + inventario) — Diseño
 
 **Fecha:** 2026-08-01
-**Estado:** Diseño aprobado por el usuario ("ok"); ajuste de Cutis aprobado
-("el otro almacen es cutis migrar ahi esos productos"). Pendiente revisión del
-spec escrito.
+**Estado:** ⏸️ **PAUSADO** por el usuario el 2026-08-01 ("quiero pausar menu de
+importacion"). El diseño queda aprobado y vigente para retomarlo más adelante;
+no se implementa por ahora.
+
+En su lugar se hace una **carga directa por script** (una sola vez), con alcance
+reducido: solo **cantidad** y solo a **DermaLand Principal**, a partir de dos
+archivos nuevos que el usuario preparó (`CODIGO DE BARRA.xlsx` +
+`CANTIDAD PRINCIPAL.xlsx`). Ver `docs/superpowers/plans/2026-08-01-carga-stock-principal.md`.
+Lo de Cutis queda fuera de alcance por ahora.
+
+Historial: diseño aprobado por el usuario ("ok"); ajuste de Cutis aprobado
+("el otro almacen es cutis migrar ahi esos productos").
 **Proyecto:** DermaLand (`~/Projects/dermaland`), Supabase `sntcvyozbhrgicwmtcoh`,
 negocio `00000000-0000-0000-0000-00000000d001` (DermaLand SRL).
 
