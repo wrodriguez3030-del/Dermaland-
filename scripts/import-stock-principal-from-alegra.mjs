@@ -55,12 +55,17 @@ const BRANCH_ID = "00000000-0000-0000-0000-00000000b001"; // DermaLand Principal
 const ACTOR_ID = "2f707d5c-65c2-4388-b2b9-592693414b9f";
 const ACTOR_NAME = "Dario";
 
-const args = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+const BACKFILL_IDX = process.argv.indexOf("--backfill-movements");
+const IS_BACKFILL = BACKFILL_IDX !== -1;
+// en modo recuperación el argumento posicional es el directorio del plan, no los xlsx
+const args = process.argv
+  .slice(2)
+  .filter((a, i) => !a.startsWith("--") && (!IS_BACKFILL || i + 2 !== BACKFILL_IDX + 1));
 const APPLY = process.argv.includes("--apply");
 const ZERO_MISSING = process.argv.includes("--zero-missing");
 const [BARCODE_XLSX, QTY_XLSX] = args;
 
-if (!BARCODE_XLSX || !QTY_XLSX) {
+if (!IS_BACKFILL && (!BARCODE_XLSX || !QTY_XLSX)) {
   console.error(
     'Uso: node scripts/import-stock-principal-from-alegra.mjs "<barras.xlsx>" "<cantidad.xlsx>" [--apply] [--zero-missing]',
   );
@@ -129,6 +134,65 @@ async function fetchAllPages(pathAndQuery) {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// MODO RECUPERACIÓN: repone SOLO los `inventory_movements` de una corrida
+// anterior cuyo ajuste de lotes SÍ se aplicó pero cuya bitácora falló.
+// No toca `product_lots`. Es idempotente: omite los movimientos ya presentes.
+//   node scripts/import-stock-principal-from-alegra.mjs --backfill-movements data/stock-import-<stamp>
+const bfIdx = process.argv.indexOf("--backfill-movements");
+if (bfIdx !== -1) {
+  const dir = path.resolve(root, process.argv[bfIdx + 1] ?? "");
+  const plan = JSON.parse(readFileSync(path.join(dir, "plan.json"), "utf8"));
+  const stamp = path.basename(dir).replace("stock-import-", "");
+  const reference = `ALEGRA-${stamp}`;
+  console.log(`\n🔧 Reponiendo bitácora de ${path.basename(dir)} (referencia ${reference})\n`);
+
+  const lotRows = await fetchAllPages(
+    `product_lots?select=id,warehouse_id&branch_id=eq.${BRANCH_ID}`,
+  );
+  const whByLot = new Map(lotRows.map((l) => [l.id, l.warehouse_id]));
+  const existing = await fetchAllPages(
+    `inventory_movements?select=product_id&reference=eq.${reference}`,
+  );
+  const done = new Set(existing.map((m) => m.product_id));
+  console.log(`  plan: ${plan.length} ajustes · ya registrados: ${done.size}`);
+
+  let ok = 0;
+  let fail = 0;
+  for (const p of plan) {
+    if (done.has(p.productId)) continue;
+    const warehouseId = whByLot.get(p.changes[0].lotId);
+    if (!warehouseId) {
+      console.error(`  ❌ ${p.name}: no se encontró el almacén del lote`);
+      fail++;
+      continue;
+    }
+    const res = await fetch(`${URL_}/rest/v1/inventory_movements`, {
+      method: "POST",
+      headers: { ...H, Prefer: "return=minimal" },
+      body: JSON.stringify({
+        business_id: BUSINESS_ID,
+        branch_id: BRANCH_ID,
+        product_id: p.productId,
+        lot_id: p.changes[0].lotId,
+        warehouse_id: warehouseId,
+        type: p.delta > 0 ? "adjustment_positive" : "adjustment_negative",
+        quantity: Math.abs(p.delta),
+        reason: `Importación Alegra ${stamp.slice(0, 8)} — ajuste de inventario a conteo real`,
+        reference,
+        user_id: ACTOR_ID,
+        user_name: ACTOR_NAME,
+      }),
+    });
+    if (res.ok) ok++;
+    else {
+      fail++;
+      console.error(`  ❌ ${p.name}: ${res.status} ${await res.text()}`);
+    }
+  }
+  console.log(`\n✅ Bitácora repuesta: ${ok} movimientos nuevos · ${fail} fallos\n`);
+  process.exit(fail > 0 ? 1 : 0);
+}
+
 console.log(APPLY ? "\n⚠️  MODO APLICAR — se van a escribir cambios\n" : "\n🔍 SIMULACIÓN (dry-run) — no se escribe nada\n");
 
 // 1) leer y unificar los dos archivos
@@ -164,7 +228,7 @@ const products = await fetchAllPages(
   `products?select=id,name,barcode&business_id=eq.${BUSINESS_ID}&deleted_at=is.null`,
 );
 const lots = await fetchAllPages(
-  `product_lots?select=id,product_id,current_quantity,initial_quantity,lot_number,expires_at,received_at&branch_id=eq.${BRANCH_ID}`,
+  `product_lots?select=id,product_id,warehouse_id,current_quantity,initial_quantity,lot_number,expires_at,received_at&branch_id=eq.${BRANCH_ID}`,
 );
 console.log(`Base: ${products.length} productos · ${lots.length} lotes en Principal\n`);
 
@@ -248,7 +312,13 @@ for (const [productId, t] of targets) {
     for (const l of fefo) {
       if (pending <= 0) break;
       const take = Math.min(pending, l.current_quantity);
-      changes.push({ lotId: l.id, lotNumber: l.lot_number, from: l.current_quantity, to: l.current_quantity - take });
+      changes.push({
+        lotId: l.id,
+        lotNumber: l.lot_number,
+        warehouseId: l.warehouse_id,
+        from: l.current_quantity,
+        to: l.current_quantity - take,
+      });
       pending -= take;
     }
     if (pending > 0) {
@@ -264,6 +334,7 @@ for (const [productId, t] of targets) {
     changes.push({
       lotId: newest.id,
       lotNumber: newest.lot_number,
+      warehouseId: newest.warehouse_id,
       from: newest.current_quantity,
       to: newest.current_quantity + delta,
     });
@@ -344,6 +415,7 @@ for (const p of plan) {
         branch_id: BRANCH_ID,
         product_id: p.productId,
         lot_id: p.changes[0].lotId,
+        warehouse_id: p.changes[0].warehouseId, // NOT NULL en inventory_movements
         type: p.delta > 0 ? "adjustment_positive" : "adjustment_negative",
         quantity: Math.abs(p.delta),
         reason: `Importación Alegra ${stamp.slice(0, 8)} — ajuste de inventario a conteo real`,

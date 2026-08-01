@@ -11,6 +11,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.4] - 2026-08-01
+
+**Stock real de Principal cargado + fix de `warehouse_id` en la bitácora.**
+
+- **CARGA APLICADA a producción** (autorizada con `CONFIRMO BORRAR`): el stock de
+  DermaLand Principal pasó de **40 889 u. a 2 312 u.**, que es el conteo real de
+  Alegra. 1 346 productos bajaron, 9 subieron; los 35 productos que no aparecen en
+  el archivo quedaron en 0 (`--zero-missing`). Referencia de auditoría
+  `ALEGRA-2026080115073`, con 1 355 `inventory_movements`. **Cutis intacto**
+  (5 578 u.) y **`products` sin tocar** (precio/costo/barcode iguales).
+  Respaldo previo verificado: `backups/rest-20260801-1050` (57/57 tablas, 0 FKs rotas).
+- **Fix:** el script omitía `warehouse_id` al insertar en `inventory_movements`,
+  que es NOT NULL. En la primera corrida los 1 359 lotes SÍ se ajustaron pero los
+  1 355 movimientos fallaron, dejando el stock correcto sin bitácora. Ahora el
+  `warehouse_id` se toma del lote afectado.
+- **Nuevo modo `--backfill-movements <dir>`**: repone la bitácora de una corrida
+  cuyo ajuste de lotes se aplicó pero cuyos movimientos fallaron. No toca
+  `product_lots` y es idempotente (omite los ya registrados). Usado para reponer
+  los 1 355 movimientos de esta carga.
+- Reporte de la corrida en `data/stock-import-2026080115073/`.
+
 ## [0.98.3] - 2026-08-01
 
 **Carga de stock real de Principal desde Alegra (herramienta) + diseño del importador.**
