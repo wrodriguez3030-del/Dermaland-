@@ -11,6 +11,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.5] - 2026-08-02
+
+**El importador de stock ubica las columnas por cabecera, no por posición.**
+
+- `scripts/import-stock-principal-from-alegra.mjs` ahora busca las columnas por el
+  TEXTO de la cabecera (fila 1), tolerando acentos y mayúsculas. Así acepta sin
+  cambios los dos export de Alegra: el recortado de 2 columnas
+  (`Nombre` | `Cantidad en Principal`) y el completo de 13 donde el nombre va en
+  la columna **B** (`Producto/servicio`) y la cantidad en la **E**
+  (`Cantidad en Principal`). Antes asumía posiciones fijas y fallaba en silencio
+  con el formato completo.
+- Imprime qué columna resolvió para cada campo, y si falta una cabecera lanza un
+  error que lista las columnas que sí trae el archivo.
+- Sin cambios en el código de la app ni en la base de datos.
+
 ## [0.98.4] - 2026-08-01
 
 **Stock real de Principal cargado + fix de `warehouse_id` en la bitácora.**

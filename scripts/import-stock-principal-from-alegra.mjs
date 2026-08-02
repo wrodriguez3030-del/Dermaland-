@@ -105,17 +105,50 @@ function cellText(v) {
   return String(v);
 }
 
-async function readSheet(file, cols) {
+/**
+ * Lee una hoja ubicando las columnas por el TEXTO de la cabecera (fila 1), no
+ * por posición. Así acepta los distintos export de Alegra sin tocar el script:
+ * el de 2 columnas ("Nombre" | "Cantidad…") y el completo de 13 donde el nombre
+ * va en B y la cantidad en E.
+ *
+ * `spec` = { clave: [alias de cabecera aceptados…] }. Si una clave no aparece en
+ * la cabecera, lanza con un mensaje que dice qué columnas SÍ trae el archivo.
+ */
+async function readSheet(file, spec) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(file);
   const ws = wb.worksheets[0];
+
+  const headerKey = (s) =>
+    String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  const headers = [];
+  for (let c = 1; c <= ws.columnCount; c++) headers[c] = headerKey(cellText(ws.getRow(1).getCell(c).value));
+
+  const colOf = {};
+  for (const [key, aliases] of Object.entries(spec)) {
+    const wanted = aliases.map(headerKey);
+    const idx = headers.findIndex((h) => h && wanted.includes(h));
+    if (idx === -1) {
+      throw new Error(
+        `"${path.basename(file)}" no trae la columna ${aliases.map((a) => `"${a}"`).join(" ni ")}.\n` +
+          `        Columnas encontradas: ${headers.filter(Boolean).join(" · ")}`,
+      );
+    }
+    colOf[key] = idx;
+  }
+
   const out = [];
   for (let r = 2; r <= ws.rowCount; r++) {
     const get = (c) => cellText(ws.getRow(r).getCell(c).value).trim();
     const o = { row: r };
-    for (const [key, col] of cols) o[key] = get(col);
+    for (const [key, col] of Object.entries(colOf)) o[key] = get(col);
     if (o.name) out.push(o);
   }
+  console.log(
+    `  ${path.basename(file)} → ${Object.entries(colOf)
+      .map(([k, c]) => `${k}=col ${String.fromCharCode(64 + c)}`)
+      .join(", ")}`,
+  );
   return out;
 }
 
@@ -196,8 +229,15 @@ if (bfIdx !== -1) {
 console.log(APPLY ? "\n⚠️  MODO APLICAR — se van a escribir cambios\n" : "\n🔍 SIMULACIÓN (dry-run) — no se escribe nada\n");
 
 // 1) leer y unificar los dos archivos
-const bcRows = await readSheet(BARCODE_XLSX, [["name", 1], ["bc", 2]]);
-const qtyRows = await readSheet(QTY_XLSX, [["name", 1], ["qty", 2]]);
+console.log("Columnas detectadas por cabecera:");
+const bcRows = await readSheet(BARCODE_XLSX, {
+  name: ["Nombre", "Producto/servicio"],
+  bc: ["Código de barras", "Codigo de barras", "Código de barra"],
+});
+const qtyRows = await readSheet(QTY_XLSX, {
+  name: ["Producto/servicio", "Nombre"],
+  qty: ["Cantidad en Principal"],
+});
 console.log(`Archivos: ${bcRows.length} filas de código de barras · ${qtyRows.length} filas de cantidad`);
 
 const bcByName = new Map();
