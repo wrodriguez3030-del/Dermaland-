@@ -11,6 +11,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.6] - 2026-08-02
+
+**Cerrar sesión: el botón no existía.**
+
+- **Causa raíz:** `signOut()` estaba implementado y correcto en
+  `server/auth/actions.ts`, pero **ningún componente lo llamaba**. El chip de
+  usuario del header era un `<Link>` a `/perfil/seguridad` con un `ChevronDown`
+  que insinuaba un menú que nunca se construyó. Consecuencia: no había forma de
+  salir ni de cambiar de usuario, y las sesiones de Supabase se acumulaban sin
+  cerrarse nunca (9 abiertas para el mismo usuario desde el 1 de julio, todas
+  con `not_after` nulo).
+- **Nuevo `components/layout/user-menu.tsx`**: menú desplegable con la identidad
+  del usuario, acceso a Seguridad de la cuenta y **Cerrar sesión**. El logout es
+  un `<button type="submit">` dentro de un `<form action={signOut}>`, no un
+  enlace: funciona sin JavaScript y evita que un prefetcher dispare el cierre de
+  sesión por su cuenta. Cierra con clic fuera y con Escape; `aria-expanded` y
+  `role="menu"` para lectores de pantalla. 8 tests.
+- `header.tsx` reemplaza el chip inerte por `<UserMenu>`.
+- **Login verificado, no estaba roto:** los logs de Supabase Auth no muestran
+  ningún error (93 respuestas 200), los claims de `app_metadata` del admin son
+  correctos (`role`, `business_id`, `branch_id`) y no hay ningún factor MFA que
+  active el gate de 2FA del middleware. Lo que se percibía como "el login no
+  funciona" era la otra cara de no poder cerrar sesión.
+- **Dato:** `auth.users.raw_app_meta_data.full_name` del admin decía
+  "Preview Admin" (heredado del seed) en vez de su nombre real; corregido a
+  "Dario". Se refleja al volver a iniciar sesión.
+
 ## [0.98.5] - 2026-08-02
 
 **El importador de stock ubica las columnas por cabecera, no por posición.**
