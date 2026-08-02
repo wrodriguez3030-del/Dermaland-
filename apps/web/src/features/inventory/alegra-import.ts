@@ -115,3 +115,268 @@ export function rowTargets(row: AlegraRow): AlegraTargets | AlegraRowError {
   }
   return { rowNumber, name, principal: qtyPrincipal, cutis: qtyTotal - qtyPrincipal };
 }
+
+export interface PlanProduct {
+  id: string;
+  name: string;
+}
+
+export interface PlanLot {
+  id: string;
+  productId: string;
+  warehouseId: string;
+  quantity: number;
+  /** ISO `YYYY-MM-DD`. */
+  expiresAt: string;
+  /** ISO. Para elegir el lote más reciente al SUBIR stock. */
+  receivedAt: string;
+  lotNumber: string;
+}
+
+export interface LotChange {
+  lotId: string;
+  lotNumber: string;
+  warehouseId: string;
+  from: number;
+  to: number;
+}
+
+export interface BranchAdjustment {
+  productId: string;
+  productName: string;
+  current: number;
+  target: number;
+  delta: number;
+  lotChanges: LotChange[];
+  /** Solo cuando hay que CREAR stock donde no existe ningún lote. */
+  newLot?: { expiresAt: string; quantity: number; warehouseId: string };
+}
+
+export interface ImportPlan {
+  principal: BranchAdjustment[];
+  cutis: BranchAdjustment[];
+  skipped: AlegraRowError[];
+  unmatched: Array<{ rowNumber: number; name: string; principal: number; cutis: number }>;
+  collisions: Array<{ productName: string; rows: number[] }>;
+  totals: {
+    principalBefore: number;
+    principalAfter: number;
+    cutisBefore: number;
+    cutisAfter: number;
+  };
+}
+
+function sumQty(lots: PlanLot[]): number {
+  return lots.reduce((acc, l) => acc + l.quantity, 0);
+}
+
+/**
+ * Calcula cómo repartir un delta dentro de los lotes existentes de un producto.
+ *  - delta < 0 → consume por FEFO (primero el que vence antes).
+ *  - delta > 0 → suma al lote recibido más recientemente.
+ */
+function distribute(lots: PlanLot[], delta: number): LotChange[] {
+  if (delta === 0 || lots.length === 0) return [];
+  if (delta > 0) {
+    // `lots.length === 0` ya se descartó arriba: el sort siempre deja un [0].
+    const newest = [...lots].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))[0]!;
+    return [
+      {
+        lotId: newest.id,
+        lotNumber: newest.lotNumber,
+        warehouseId: newest.warehouseId,
+        from: newest.quantity,
+        to: newest.quantity + delta,
+      },
+    ];
+  }
+  let pending = -delta;
+  const changes: LotChange[] = [];
+  const fefo = lots
+    .filter((l) => l.quantity > 0)
+    .sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
+  for (const lot of fefo) {
+    if (pending <= 0) break;
+    const take = Math.min(pending, lot.quantity);
+    changes.push({
+      lotId: lot.id,
+      lotNumber: lot.lotNumber,
+      warehouseId: lot.warehouseId,
+      from: lot.quantity,
+      to: lot.quantity - take,
+    });
+    pending -= take;
+  }
+  return changes;
+}
+
+/**
+ * Arma el plan completo de ajuste para las dos sucursales.
+ *
+ * `products`, `principalLots` y `cutisLots` los provee el SERVIDOR leyendo la
+ * base; `rows` viene del archivo. Nada del archivo decide a qué negocio o
+ * sucursal se escribe.
+ */
+export function buildImportPlan(input: {
+  rows: AlegraRow[];
+  products: PlanProduct[];
+  principalLots: PlanLot[];
+  cutisLots: PlanLot[];
+  cutisWarehouseId: string;
+  zeroMissing: boolean;
+}): ImportPlan {
+  const { rows, products, principalLots, cutisLots, cutisWarehouseId, zeroMissing } = input;
+
+  const byName = new Map<string, PlanProduct[]>();
+  for (const p of products) {
+    const key = normalizeProductName(p.name);
+    const list = byName.get(key);
+    if (list) list.push(p);
+    else byName.set(key, [p]);
+  }
+
+  const lotsOf = (lots: PlanLot[]): Map<string, PlanLot[]> => {
+    const m = new Map<string, PlanLot[]>();
+    for (const l of lots) {
+      const list = m.get(l.productId);
+      if (list) list.push(l);
+      else m.set(l.productId, [l]);
+    }
+    return m;
+  };
+  const prinByProduct = lotsOf(principalLots);
+  const cutisByProduct = lotsOf(cutisLots);
+
+  const skipped: AlegraRowError[] = [];
+  const unmatched: ImportPlan["unmatched"] = [];
+  const targets = new Map<
+    string,
+    { product: PlanProduct; principal: number; cutis: number; rows: number[] }
+  >();
+
+  for (const row of rows) {
+    const t = rowTargets(row);
+    if ("error" in t) {
+      skipped.push(t);
+      continue;
+    }
+    const hits = byName.get(normalizeProductName(row.name)) ?? [];
+    if (hits.length !== 1) {
+      unmatched.push({
+        rowNumber: t.rowNumber,
+        name: row.name,
+        principal: t.principal,
+        cutis: t.cutis,
+      });
+      continue;
+    }
+    // `hits.length !== 1` ya se descartó arriba: queda exactamente un match.
+    const product = hits[0]!;
+    const acc = targets.get(product.id);
+    if (acc) {
+      acc.principal += t.principal;
+      acc.cutis += t.cutis;
+      acc.rows.push(t.rowNumber);
+    } else {
+      targets.set(product.id, {
+        product,
+        principal: t.principal,
+        cutis: t.cutis,
+        rows: [t.rowNumber],
+      });
+    }
+  }
+
+  const collisions = [...targets.values()]
+    .filter((t) => t.rows.length > 1)
+    .map((t) => ({ productName: t.product.name, rows: t.rows }));
+
+  if (zeroMissing) {
+    for (const p of products) {
+      if (!targets.has(p.id)) {
+        targets.set(p.id, { product: p, principal: 0, cutis: 0, rows: [] });
+      }
+    }
+  }
+
+  const principal: BranchAdjustment[] = [];
+  const cutis: BranchAdjustment[] = [];
+
+  for (const t of targets.values()) {
+    const prinLots = prinByProduct.get(t.product.id) ?? [];
+    const prinCurrent = sumQty(prinLots);
+    const prinDelta = t.principal - prinCurrent;
+    if (prinDelta !== 0) {
+      if (prinLots.length === 0) {
+        skipped.push({
+          rowNumber: t.rows[0] ?? 0,
+          name: t.product.name,
+          error:
+            "No tiene lote en Principal, así que no hay vencimiento del cual heredar. Recíbelo manualmente.",
+        });
+      } else {
+        principal.push({
+          productId: t.product.id,
+          productName: t.product.name,
+          current: prinCurrent,
+          target: t.principal,
+          delta: prinDelta,
+          lotChanges: distribute(prinLots, prinDelta),
+        });
+      }
+    }
+
+    const cLots = cutisByProduct.get(t.product.id) ?? [];
+    const cCurrent = sumQty(cLots);
+    const cDelta = t.cutis - cCurrent;
+    if (cDelta !== 0) {
+      if (cLots.length > 0) {
+        cutis.push({
+          productId: t.product.id,
+          productName: t.product.name,
+          current: cCurrent,
+          target: t.cutis,
+          delta: cDelta,
+          lotChanges: distribute(cLots, cDelta),
+        });
+      } else {
+        // Hay que CREAR el lote en Cutis: hereda el vencimiento de Principal.
+        const donor = [...prinLots].sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0];
+        if (!donor) {
+          skipped.push({
+            rowNumber: t.rows[0] ?? 0,
+            name: t.product.name,
+            error:
+              "Necesita stock en Cutis pero no tiene lote en Principal del cual heredar el vencimiento.",
+          });
+        } else {
+          cutis.push({
+            productId: t.product.id,
+            productName: t.product.name,
+            current: 0,
+            target: t.cutis,
+            delta: cDelta,
+            lotChanges: [],
+            newLot: { expiresAt: donor.expiresAt, quantity: t.cutis, warehouseId: cutisWarehouseId },
+          });
+        }
+      }
+    }
+  }
+
+  const principalBefore = sumQty(principalLots);
+  const cutisBefore = sumQty(cutisLots);
+  return {
+    principal,
+    cutis,
+    skipped,
+    unmatched,
+    collisions,
+    totals: {
+      principalBefore,
+      principalAfter: principalBefore + principal.reduce((a, x) => a + x.delta, 0),
+      cutisBefore,
+      cutisAfter: cutisBefore + cutis.reduce((a, x) => a + x.delta, 0),
+    },
+  };
+}
