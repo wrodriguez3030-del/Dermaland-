@@ -14,6 +14,10 @@ const base = {
   products: [P("p1", "Crema 30 ML")],
   cutisWarehouseId: "wh-cutis",
   zeroMissing: false,
+  // Anterior a todos los `expiresAt` usados en los tests de este archivo,
+  // salvo donde un test la sobreescribe a propósito para forzar un
+  // vencimiento ya pasado.
+  today: "2026-01-01",
 };
 
 describe("buildImportPlan · Principal", () => {
@@ -106,6 +110,61 @@ describe("buildImportPlan · Cutis", () => {
     });
     expect(plan.cutis[0]!.delta).toBe(-6);
     expect(plan.cutis[0]!.newLot).toBeUndefined();
+  });
+});
+
+describe("buildImportPlan · Cutis - elección del lote donante (con/sin existencias, vencido)", () => {
+  it("con un lote agotado que vence antes y otro CON stock que vence después, hereda el que tiene stock", () => {
+    const plan = buildImportPlan({
+      ...base,
+      rows: [{ rowNumber: 2, name: "CREMA 30ML", qtyPrincipal: 5, qtyTotal: 9 }],
+      principalLots: [
+        L("a", "p1", 0, "2026-02-01"), // agotado, vence antes
+        L("b", "p1", 5, "2026-05-01"), // con stock, vence después
+      ],
+      cutisLots: [],
+    });
+    expect(plan.cutis[0]!.newLot).toMatchObject({ expiresAt: "2026-05-01" });
+  });
+
+  it("sin ningún lote con stock, hereda del agotado más recientemente recibido", () => {
+    const plan = buildImportPlan({
+      ...base,
+      rows: [{ rowNumber: 2, name: "CREMA 30ML", qtyPrincipal: 0, qtyTotal: 5 }],
+      principalLots: [
+        L("a", "p1", 0, "2026-02-01", "2026-01-01"), // agotado, recibido antes
+        L("b", "p1", 0, "2026-03-01", "2026-04-01"), // agotado, recibido después
+      ],
+      cutisLots: [],
+    });
+    expect(plan.cutis[0]!.newLot).toMatchObject({ expiresAt: "2026-03-01" });
+  });
+
+  it("si la fecha a heredar ya está vencida respecto a hoy, no crea el lote y lo reporta en skipped", () => {
+    const plan = buildImportPlan({
+      ...base,
+      today: "2026-06-01",
+      rows: [{ rowNumber: 2, name: "CREMA 30ML", qtyPrincipal: 3, qtyTotal: 5 }],
+      principalLots: [L("a", "p1", 3, "2026-01-15")], // vencido respecto a today
+      cutisLots: [],
+    });
+    expect(plan.cutis).toEqual([]);
+    expect(plan.skipped).toHaveLength(1);
+    expect(plan.skipped[0]!.error).toMatch(/vencid/i);
+  });
+
+  it("el mensaje de skipped por vencimiento es legible en español y no expone UUID ni JSON", () => {
+    const plan = buildImportPlan({
+      ...base,
+      today: "2026-06-01",
+      rows: [{ rowNumber: 2, name: "CREMA 30ML", qtyPrincipal: 3, qtyTotal: 5 }],
+      principalLots: [L("a", "p1", 3, "2026-01-15")],
+      cutisLots: [],
+    });
+    const error = plan.skipped[0]!.error;
+    expect(error).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    expect(error).not.toMatch(/[{}[\]]/);
+    expect(error.length).toBeGreaterThan(10);
   });
 });
 

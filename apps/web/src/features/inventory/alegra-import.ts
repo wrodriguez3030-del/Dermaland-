@@ -216,6 +216,10 @@ function distribute(lots: PlanLot[], delta: number): LotChange[] {
  * `products`, `principalLots` y `cutisLots` los provee el SERVIDOR leyendo la
  * base; `rows` viene del archivo. Nada del archivo decide a qué negocio o
  * sucursal se escribe.
+ *
+ * `today` (ISO `YYYY-MM-DD`) lo calcula el LLAMADOR (server), no este módulo:
+ * el motor sigue siendo puro y no puede usar `new Date()` internamente, o los
+ * tests quedarían atados al reloj del sistema.
  */
 export function buildImportPlan(input: {
   rows: AlegraRow[];
@@ -224,8 +228,9 @@ export function buildImportPlan(input: {
   cutisLots: PlanLot[];
   cutisWarehouseId: string;
   zeroMissing: boolean;
+  today: string;
 }): ImportPlan {
-  const { rows, products, principalLots, cutisLots, cutisWarehouseId, zeroMissing } = input;
+  const { rows, products, principalLots, cutisLots, cutisWarehouseId, zeroMissing, today } = input;
 
   const byName = new Map<string, PlanProduct[]>();
   for (const p of products) {
@@ -341,13 +346,31 @@ export function buildImportPlan(input: {
         });
       } else {
         // Hay que CREAR el lote en Cutis: hereda el vencimiento de Principal.
-        const donor = [...prinLots].sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0];
+        // Prioridad del donante:
+        //  1. Entre los lotes CON existencias (quantity > 0), el que vence antes
+        //     (mismo criterio FEFO que `distribute`; nunca un lote agotado si hay
+        //     uno con stock real del cual heredar).
+        //  2. Si todos están agotados, el recibido más recientemente.
+        const withStock = prinLots.filter((l) => l.quantity > 0);
+        const donor =
+          withStock.length > 0
+            ? [...withStock].sort((a, b) => a.expiresAt.localeCompare(b.expiresAt))[0]
+            : [...prinLots].sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))[0];
         if (!donor) {
           skipped.push({
             rowNumber: t.rows[0] ?? 0,
             name: t.product.name,
             error:
               "Necesita stock en Cutis pero no tiene lote en Principal del cual heredar el vencimiento.",
+          });
+        } else if (donor.expiresAt.localeCompare(today) < 0) {
+          // No crear inventario que nace vencido (el sistema lo bloquearía
+          // para venta de inmediato): se reporta para revisión manual.
+          skipped.push({
+            rowNumber: t.rows[0] ?? 0,
+            name: t.product.name,
+            error:
+              "Necesita stock en Cutis, pero el único vencimiento disponible en Principal ya está vencido. Revisa el vencimiento a mano antes de recibirlo.",
           });
         } else {
           cutis.push({
