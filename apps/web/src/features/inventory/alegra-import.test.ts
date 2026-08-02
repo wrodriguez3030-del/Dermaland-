@@ -27,6 +27,20 @@ describe("resolveColumns", () => {
     expect(() => resolveColumns(["Producto/servicio", "Cantidad total"]))
       .toThrow(/Cantidad en Principal/);
   });
+  it("ubica las columnas aunque la cabecera venga toda en mayúsculas", () => {
+    const header = [
+      "CATEGORÍA", "PRODUCTO/SERVICIO", "REFERENCIA", "DESCRIPCIÓN",
+      "CANTIDAD EN PRINCIPAL", "CANTIDAD TOTAL",
+    ];
+    expect(resolveColumns(header)).toEqual({ name: 1, qtyPrincipal: 4, qtyTotal: 5 });
+  });
+  it("ubica las columnas con acentos y espacios que no trae la cabecera canónica", () => {
+    // Escenario real: alguien retipeó la cabecera a mano (copiar/pegar entre
+    // hojas) y el autocorrector agregó acentos y espacios de más; debe
+    // resolver igual que la forma canónica sin acentos.
+    const header = ["Nómbre", "  Cantidad én Principal  ", "Cantidad Tótal"];
+    expect(resolveColumns(header)).toEqual({ name: 0, qtyPrincipal: 1, qtyTotal: 2 });
+  });
 });
 
 describe("rowTargets", () => {
