@@ -176,4 +176,44 @@ describe("loadImportSources", () => {
     const repos = makeRepos({ warehouses: [] });
     await expect(loadImportSources(ctx, repos)).rejects.toThrow(/almacén/i);
   });
+
+  it("trae también productos INACTIVOS (activeOnly: false) — no deben desaparecer del plan por estar descontinuados en DermaLand", async () => {
+    const products = [
+      { id: "p1", name: "Crema activa", active: true },
+      { id: "p2", name: "Serum descontinuado", active: false },
+    ];
+    const calls: Array<{ activeOnly?: boolean; limit?: number; offset?: number } | undefined> = [];
+    // El fake replica el comportamiento REAL de `product.list` (mock y
+    // Supabase): si no se pasa `activeOnly`, el default del repo es `true` y
+    // filtra los inactivos. Así, si la implementación dejara de mandar
+    // `activeOnly: false`, este fake SÍ empieza a excluir a "p2" y el test
+    // revienta — no es un test que pase con cualquier implementación.
+    const productList = vi.fn(
+      async (
+        _c: RepoContext,
+        opts?: { activeOnly?: boolean; limit?: number; offset?: number },
+      ) => {
+        calls.push(opts);
+        const activeOnly = opts?.activeOnly ?? true;
+        const offset = opts?.offset ?? 0;
+        const limit = opts?.limit ?? 50;
+        return products
+          .filter((p) => !activeOnly || p.active !== false)
+          .slice(offset, offset + limit);
+      },
+    );
+    const repos = makeRepos({ productListImpl: productList });
+
+    const sources = await loadImportSources(ctx, repos);
+
+    // Comportamiento: el producto inactivo SÍ aparece en el plan.
+    expect(sources.products).toEqual([
+      { id: "p1", name: "Crema activa" },
+      { id: "p2", name: "Serum descontinuado" },
+    ]);
+    // Contrato explícito (defensa adicional): toda llamada pidió
+    // explícitamente `activeOnly: false`, nunca lo dejó en el default.
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) expect(call?.activeOnly).toBe(false);
+  });
 });
