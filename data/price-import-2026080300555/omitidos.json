@@ -1,0 +1,1159 @@
+{
+ "sinMatch": [
+  {
+   "excelRow": 102,
+   "tipo": "Producto",
+   "name": "REGENER CREMA",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 684.61,
+   "itbis": 0,
+   "price": 890,
+   "bc": "7467851053266"
+  },
+  {
+   "excelRow": 252,
+   "tipo": "Servicio",
+   "name": "DELIVERY 2",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 150,
+   "bc": ""
+  },
+  {
+   "excelRow": 253,
+   "tipo": "Servicio",
+   "name": "DELIVERY 3",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 200,
+   "bc": ""
+  },
+  {
+   "excelRow": 257,
+   "tipo": "Servicio",
+   "name": "COMBO 1 PIEL GRASA",
+   "desc": "- DUCRAY KERACNYL MAT 30ML\n- EUCERIN PROTECTOR SOLAR FACIAL OIL CONTROL TOQUE SECO ANTI-BRILLO",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": 18,
+   "price": 2000.01,
+   "bc": ""
+  },
+  {
+   "excelRow": 258,
+   "tipo": "Servicio",
+   "name": "COMBO 11 PIEL GRASA",
+   "desc": "KERACNYL GLYCOLIC+, FOTOPROTECTOR FACIAL OIL FRE, IDCP JABON DE MANZANILLA",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": 18,
+   "price": 2700.01,
+   "bc": ""
+  },
+  {
+   "excelRow": 266,
+   "tipo": "Servicio",
+   "name": "DELIVERY 4",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 160,
+   "bc": ""
+  },
+  {
+   "excelRow": 341,
+   "tipo": "Servicio",
+   "name": "DELIVERY 6",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 60,
+   "bc": ""
+  },
+  {
+   "excelRow": 342,
+   "tipo": "Servicio",
+   "name": "DELIVERY 7",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 70,
+   "bc": ""
+  },
+  {
+   "excelRow": 349,
+   "tipo": "Servicio",
+   "name": "DELIVERY 8",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 50,
+   "bc": ""
+  },
+  {
+   "excelRow": 350,
+   "tipo": "Servicio",
+   "name": "DELIVERY 9",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 65,
+   "bc": ""
+  },
+  {
+   "excelRow": 400,
+   "tipo": "Servicio",
+   "name": "DELIVERY 10",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 125,
+   "bc": ""
+  },
+  {
+   "excelRow": 401,
+   "tipo": "Servicio",
+   "name": "DELIVERY 11",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 250,
+   "bc": ""
+  },
+  {
+   "excelRow": 451,
+   "tipo": "Servicio",
+   "name": "DELIVERY 13",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 0,
+   "itbis": null,
+   "price": 75,
+   "bc": ""
+  },
+  {
+   "excelRow": 452,
+   "tipo": "Servicio",
+   "name": "DELIVERY 12",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 130,
+   "bc": ""
+  },
+  {
+   "excelRow": 534,
+   "tipo": "Servicio",
+   "name": "RUTINA HIDRA MOM",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 0,
+   "itbis": 18,
+   "price": 3520,
+   "bc": ""
+  },
+  {
+   "excelRow": 590,
+   "tipo": "Servicio",
+   "name": "DELIVERY 12",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 350,
+   "bc": ""
+  },
+  {
+   "excelRow": 822,
+   "tipo": "Servicio",
+   "name": "KIT BRILLO CONTROL MAMA",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 0,
+   "itbis": 18,
+   "price": 4300,
+   "bc": ""
+  },
+  {
+   "excelRow": 823,
+   "tipo": "Servicio",
+   "name": "KIT HIDRATACION MAMA",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 0,
+   "itbis": 18,
+   "price": 4900,
+   "bc": ""
+  },
+  {
+   "excelRow": 824,
+   "tipo": "Servicio",
+   "name": "KIT GLOW EXPRESS MAMA",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 0,
+   "itbis": 18,
+   "price": 6100,
+   "bc": ""
+  },
+  {
+   "excelRow": 825,
+   "tipo": "Servicio",
+   "name": "KIT PIEL PERFECTA MAMA",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 0,
+   "itbis": 18,
+   "price": 5200,
+   "bc": ""
+  },
+  {
+   "excelRow": 939,
+   "tipo": "Producto",
+   "name": "PEP UP COLLAGEN BOOST FACE & NECK TREATMENT",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 10614.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 940,
+   "tipo": "Producto",
+   "name": "EVEN UP CLINICAL PIGMENT PERFECTOR SPF 50",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 9191.5,
+   "bc": ""
+  },
+  {
+   "excelRow": 941,
+   "tipo": "Producto",
+   "name": "EVEN UP MULTI-CORRECTION SERUM",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 5870.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 942,
+   "tipo": "Producto",
+   "name": "ALL CALM CLINICAL REDNESS CORRECTOR SPF 50",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 9191.5,
+   "bc": ""
+  },
+  {
+   "excelRow": 943,
+   "tipo": "Producto",
+   "name": "ALL CALM MULTI-CORRECTION SERUM",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 5870.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 944,
+   "tipo": "Producto",
+   "name": "BARRIER PRO 1-STEP CLEANSER",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2727.8,
+   "bc": ""
+  },
+  {
+   "excelRow": 945,
+   "tipo": "Producto",
+   "name": "BARRIER PRO ESSENTIAL MOISTURIZER",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 4625.4,
+   "bc": ""
+  },
+  {
+   "excelRow": 946,
+   "tipo": "Producto",
+   "name": "HYDRATING SETTING MIST",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2372,
+   "bc": ""
+  },
+  {
+   "excelRow": 947,
+   "tipo": "Producto",
+   "name": "SUNFORGETTABLE TOTAL PROTECTION FACE SHIELD FLEX SUNSCREEN SPF 50 - MEDIUM",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 3202.2,
+   "bc": ""
+  },
+  {
+   "excelRow": 948,
+   "tipo": "Producto",
+   "name": "TINT DU SOLEIL SPF 30 - LIGHT",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 3498.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 949,
+   "tipo": "Producto",
+   "name": "TINT DU SOLEIL SPF 30 - MEDIUM",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 3498.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 950,
+   "tipo": "Producto",
+   "name": "TINT DU SOLEIL SPF 30 - TAN",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 3498.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 951,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - CHAMPAGNE",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 952,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - CORAL",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 953,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - PINK",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 954,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - ROSE",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 955,
+   "tipo": "Producto",
+   "name": "PEP UP COLLAGEN BOOST FACE & NECK TREATMENT",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 10614.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 956,
+   "tipo": "Producto",
+   "name": "EVEN UP CLINICAL PIGMENT PERFECTOR SPF 50",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 9191.5,
+   "bc": ""
+  },
+  {
+   "excelRow": 957,
+   "tipo": "Producto",
+   "name": "EVEN UP MULTI-CORRECTION SERUM",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 5870.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 958,
+   "tipo": "Producto",
+   "name": "ALL CALM CLINICAL REDNESS CORRECTOR SPF 50",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 9191.5,
+   "bc": ""
+  },
+  {
+   "excelRow": 959,
+   "tipo": "Producto",
+   "name": "ALL CALM MULTI-CORRECTION SERUM",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 5870.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 960,
+   "tipo": "Producto",
+   "name": "BARRIER PRO 1-STEP CLEANSER",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2727.8,
+   "bc": ""
+  },
+  {
+   "excelRow": 961,
+   "tipo": "Producto",
+   "name": "BARRIER PRO ESSENTIAL MOISTURIZER",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 4625.4,
+   "bc": ""
+  },
+  {
+   "excelRow": 962,
+   "tipo": "Producto",
+   "name": "HYDRATING SETTING MIST",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2372,
+   "bc": ""
+  },
+  {
+   "excelRow": 963,
+   "tipo": "Producto",
+   "name": "TINT DU SOLEIL SPF 30 - LIGHT",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 3498.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 964,
+   "tipo": "Producto",
+   "name": "TINT DU SOLEIL SPF 30 - MEDIUM",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 3498.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 965,
+   "tipo": "Producto",
+   "name": "TINT DU SOLEIL SPF 30 - TAN",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 3498.7,
+   "bc": ""
+  },
+  {
+   "excelRow": 966,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - CHAMPAGNE",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 967,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - CORAL",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 968,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - PINK",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 969,
+   "tipo": "Producto",
+   "name": "LIP SHINE SPF 35 - ROSE",
+   "desc": "",
+   "unidad": "Litro",
+   "costo": 0,
+   "itbis": null,
+   "price": 2490.6,
+   "bc": ""
+  },
+  {
+   "excelRow": 1110,
+   "tipo": "Producto",
+   "name": "APG DESODORANTE SPRAY LENITIVO 150 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1180,
+   "itbis": 18,
+   "price": 1815,
+   "bc": "8022297052465"
+  },
+  {
+   "excelRow": 1111,
+   "tipo": "Producto",
+   "name": "APG FLUIDO LENITIVO ROSTRO 50 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 756,
+   "itbis": 18,
+   "price": 1160,
+   "bc": "8022297025476"
+  },
+  {
+   "excelRow": 1225,
+   "tipo": "Servicio",
+   "name": "TANIT DESPIGMENTANTE FLUIDO SPF 40 50 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 0,
+   "itbis": 18,
+   "price": 2200,
+   "bc": "8470001635877"
+  },
+  {
+   "excelRow": 1250,
+   "tipo": "Producto",
+   "name": "PRIMADERM XPERTSUN URBAN NATURAL COLOR HIGH SPF 50 50 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1290,
+   "itbis": 18,
+   "price": 1980,
+   "bc": "8436564666949"
+  },
+  {
+   "excelRow": 1251,
+   "tipo": "Producto",
+   "name": "PRIMADERM XPERTSUN URBAN NATURAL COLOR LIGHT SPF 50 50 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1290,
+   "itbis": 18,
+   "price": 1980,
+   "bc": "8436564666932"
+  },
+  {
+   "excelRow": 1405,
+   "tipo": "Producto",
+   "name": "FILLERINA GRADO 5 INTENSIVE FILLER",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 5552.07,
+   "itbis": 18,
+   "price": 8520,
+   "bc": "8051417824767"
+  },
+  {
+   "excelRow": 1406,
+   "tipo": "Producto",
+   "name": "EUCERIN UREA 10% LOCION CORPORAL INTENSIVA 400 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 897.2,
+   "itbis": 18,
+   "price": 1380,
+   "bc": "4005800164361"
+  },
+  {
+   "excelRow": 1407,
+   "tipo": "Producto",
+   "name": "MARTIDERM DSP SPECIFIC BODY AREAS",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2305.08,
+   "itbis": 18,
+   "price": 3540,
+   "bc": ""
+  },
+  {
+   "excelRow": 1408,
+   "tipo": "Producto",
+   "name": "FILORGA GLOBAL REPAIR ADVANCED EYES & LIPS",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2898.31,
+   "itbis": 18,
+   "price": 5700,
+   "bc": "35405500169552"
+  },
+  {
+   "excelRow": 1409,
+   "tipo": "Producto",
+   "name": "B-33 JABON PASTA 80G",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 269.23,
+   "itbis": 0,
+   "price": 350,
+   "bc": "7467851050142"
+  },
+  {
+   "excelRow": 1410,
+   "tipo": "Producto",
+   "name": "TOTAL EYE DEEP",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1,
+   "itbis": 18,
+   "price": 5110,
+   "bc": ""
+  },
+  {
+   "excelRow": 1411,
+   "tipo": "Producto",
+   "name": "TOTAL BRUSH TAN",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1,
+   "itbis": 18,
+   "price": 4465,
+   "bc": ""
+  },
+  {
+   "excelRow": 1412,
+   "tipo": "Producto",
+   "name": "SUNFORGETTABLE TAN",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1,
+   "itbis": 18,
+   "price": 3745,
+   "bc": ""
+  },
+  {
+   "excelRow": 1413,
+   "tipo": "Producto",
+   "name": "TOTAL BALM GOLDEN HOUR",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1,
+   "itbis": 18,
+   "price": 2715,
+   "bc": ""
+  },
+  {
+   "excelRow": 1414,
+   "tipo": "Producto",
+   "name": "LIP SHINE SAVANNA",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1,
+   "itbis": 18,
+   "price": 2715,
+   "bc": ""
+  },
+  {
+   "excelRow": 1415,
+   "tipo": "Producto",
+   "name": "SESDERMA DAESES SERUM 30 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2182.97,
+   "itbis": 18,
+   "price": 3350,
+   "bc": "8429979439529"
+  },
+  {
+   "excelRow": 1416,
+   "tipo": "Producto",
+   "name": "SESDERMA OCEANSKIN GEL LIMPIADOR 200 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1099.56,
+   "itbis": 18,
+   "price": 1690,
+   "bc": "8429979459732"
+  },
+  {
+   "excelRow": 1417,
+   "tipo": "Producto",
+   "name": "MARTIDERM DROPPER ABSOLUTE LIFT 30 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 3703.39,
+   "itbis": 18,
+   "price": 5685,
+   "bc": "8436589052574"
+  },
+  {
+   "excelRow": 1418,
+   "tipo": "Producto",
+   "name": "GENOVE PREVIRIT CREMA DE AFEITAR SENSITIVE 50 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 248.64,
+   "itbis": 18,
+   "price": 385,
+   "bc": "8423372000652"
+  },
+  {
+   "excelRow": 1419,
+   "tipo": "Producto",
+   "name": "TRICOCAPS 60 CAPSULAS",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2115.38,
+   "itbis": 0,
+   "price": 2750,
+   "bc": "8030082002304"
+  },
+  {
+   "excelRow": 1420,
+   "tipo": "Producto",
+   "name": "NEOSTRATA SUERO VITAMINA C 15 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2112.22,
+   "itbis": 18,
+   "price": 3245,
+   "bc": "0732013302511"
+  },
+  {
+   "excelRow": 1421,
+   "tipo": "Producto",
+   "name": "DUCRAY KELUAL DS INTENSIVE 100 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 977.84,
+   "itbis": 18,
+   "price": 1500,
+   "bc": "3282770400786"
+  },
+  {
+   "excelRow": 1422,
+   "tipo": "Producto",
+   "name": "TRICOVIT WNT SHAMPOO 250 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1108.22,
+   "itbis": 18,
+   "price": 1700,
+   "bc": "8030082001765"
+  },
+  {
+   "excelRow": 1423,
+   "tipo": "Producto",
+   "name": "ZK-INA LIDOCAINA 10% SPRAY CEREZA 115 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 750,
+   "itbis": 0,
+   "price": 975,
+   "bc": "7501567700714"
+  },
+  {
+   "excelRow": 1424,
+   "tipo": "Producto",
+   "name": "ZK-INA LIDOCAINA 10%SPRAY SIN SABOR 115 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 712.5,
+   "itbis": 0,
+   "price": 805.08,
+   "bc": "7501567700707"
+  },
+  {
+   "excelRow": 1425,
+   "tipo": "Producto",
+   "name": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO CLARO",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 977.84,
+   "itbis": 18,
+   "price": 1500,
+   "bc": "7703281002468"
+  },
+  {
+   "excelRow": 1426,
+   "tipo": "Producto",
+   "name": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO OSCURO",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 977.84,
+   "itbis": 18,
+   "price": 1500,
+   "bc": "7703281002475"
+  },
+  {
+   "excelRow": 1427,
+   "tipo": "Producto",
+   "name": "AVENE CLEANANCE GEL 400 ML- OFERTA",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2086.05,
+   "itbis": 18,
+   "price": 3200,
+   "bc": "7460840592289"
+  },
+  {
+   "excelRow": 1428,
+   "tipo": "Producto",
+   "name": "URIAGE PRURICED SOS",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 527.44,
+   "itbis": 18,
+   "price": 810,
+   "bc": "3661434009693"
+  },
+  {
+   "excelRow": 1429,
+   "tipo": "Producto",
+   "name": "MARTIDERM MINERAL D FLUID SPF 50",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1516.95,
+   "itbis": 18,
+   "price": 2330,
+   "bc": "8436589051720"
+  },
+  {
+   "excelRow": 1430,
+   "tipo": "Producto",
+   "name": "AVENE PROTECTOR SOLAR ALTA PROTECCION 200 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1326,
+   "itbis": 18,
+   "price": 2035,
+   "bc": "3282770100617"
+  },
+  {
+   "excelRow": 1431,
+   "tipo": "Producto",
+   "name": "TENSODERM GLICOLICO 50 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2110.02,
+   "itbis": 18,
+   "price": 3240,
+   "bc": "8470002628816"
+  },
+  {
+   "excelRow": 1432,
+   "tipo": "Producto",
+   "name": "SIMPLEVIR 400MG * DETALLE",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 45,
+   "itbis": 0,
+   "price": 60,
+   "bc": "7460828547898"
+  },
+  {
+   "excelRow": 1433,
+   "tipo": "Producto",
+   "name": "AVENE SOLAR ANTI-PIGMENTACION SPF 50",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1401.56,
+   "itbis": 18,
+   "price": 2150,
+   "bc": "3282770397451"
+  },
+  {
+   "excelRow": 1434,
+   "tipo": "Producto",
+   "name": "AVENE SOLAR ANTI-IMPERFECCION SPF 50",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1401.56,
+   "itbis": 18,
+   "price": 2150,
+   "bc": "3282770397437"
+  },
+  {
+   "excelRow": 1435,
+   "tipo": "Producto",
+   "name": "AVENE DERMABSOLU CREMA REMODELADORA DE NOCHE 40 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 2421.77,
+   "itbis": 18,
+   "price": 3715,
+   "bc": "3282770395990"
+  },
+  {
+   "excelRow": 1436,
+   "tipo": "Producto",
+   "name": "AVENE DERMABSOLU CONTORNO DE OJOS RELLENADOR 15 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1809,
+   "itbis": 18,
+   "price": 2780,
+   "bc": "3282770396072"
+  },
+  {
+   "excelRow": 1437,
+   "tipo": "Producto",
+   "name": "AVENE DERMABSOLU SERUM REMODELADOR 30 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1988.27,
+   "itbis": 18,
+   "price": 3055,
+   "bc": "3282770395952"
+  },
+  {
+   "excelRow": 1438,
+   "tipo": "Producto",
+   "name": "URIAGE GYN-8 GEL 100 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 730,
+   "itbis": 18,
+   "price": 960,
+   "bc": "3661434001062"
+  },
+  {
+   "excelRow": 1439,
+   "tipo": "Producto",
+   "name": "ISISPHARMA SECALIA ATO SHOWER CREAM 500ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 400,
+   "itbis": 18,
+   "price": 850,
+   "bc": ""
+  },
+  {
+   "excelRow": 1440,
+   "tipo": "Producto",
+   "name": "COLORESCIENCE TOTAL EYE 3-IN-1 RENEWAL COLOR FAIR SPF 35",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 3328.81,
+   "itbis": 18,
+   "price": 5110,
+   "bc": "0813419027090"
+  },
+  {
+   "excelRow": 1441,
+   "tipo": "Producto",
+   "name": "AVENE CLEANANCE COMEDOMED PLUS 30 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1365.71,
+   "itbis": 18,
+   "price": 2095,
+   "bc": "3282770399226"
+  },
+  {
+   "excelRow": 1443,
+   "tipo": "Producto",
+   "name": "BABE STOP AKN FLUIDO MATIFICANTE 50 ML",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 1202.74,
+   "itbis": 18,
+   "price": 1845,
+   "bc": "8436571632289"
+  },
+  {
+   "excelRow": 1444,
+   "tipo": "Producto",
+   "name": "EUCERIN OIL CONTROL TOQUE SECO SERUM SPF 50",
+   "desc": "",
+   "unidad": "Unidad",
+   "costo": 947.82,
+   "itbis": 18,
+   "price": 1455,
+   "bc": "4006000242729"
+  }
+ ],
+ "datosMalos": [
+  {
+   "excelRow": 1393,
+   "tipo": "Servicio",
+   "name": "Venta simple",
+   "desc": "",
+   "unidad": "Barril",
+   "costo": 0,
+   "itbis": null,
+   "price": 0,
+   "bc": "",
+   "motivo": "Precio total ausente o no numérico"
+  }
+ ],
+ "colision": [
+  {
+   "producto": "Delivery",
+   "filas": [
+    251,
+    436
+   ]
+  },
+  {
+   "producto": "Sesderma C-vit Contorno DE Ojos 15 ML",
+   "filas": [
+    195,
+    455
+   ]
+  },
+  {
+   "producto": "ZO Leukoplast",
+   "filas": [
+    493,
+    624
+   ]
+  },
+  {
+   "producto": "Toalla DE Microfibra Secado DE Cara",
+   "filas": [
+    828,
+    829
+   ]
+  },
+  {
+   "producto": "Tarjeta DE Certificado",
+   "filas": [
+    997,
+    998
+   ]
+  },
+  {
+   "producto": "Delivery",
+   "filas": [
+    251,
+    1000
+   ]
+  },
+  {
+   "producto": "Delivery",
+   "filas": [
+    251,
+    1010
+   ]
+  },
+  {
+   "producto": "Delivery",
+   "filas": [
+    251,
+    1039
+   ]
+  },
+  {
+   "producto": "Sesderma DR. Serrano Revertage Ovalo Facial",
+   "filas": [
+    1125,
+    1126
+   ]
+  },
+  {
+   "producto": "Heliocare 360 MD A-R Emulsion 50ML",
+   "filas": [
+    1153,
+    1442
+   ]
+  }
+ ],
+ "conflictoPrecio": [
+  {
+   "producto": "Radiocare Ultra Crema Reparadora",
+   "bd": 1500,
+   "archivo": 1455
+  },
+  {
+   "producto": "Vichy Dercos Shampoo 390 ML",
+   "bd": 1300,
+   "archivo": 2240
+  },
+  {
+   "producto": "A-derma Crema DE Ducha Hidratante 500 ML",
+   "bd": 1687.4,
+   "archivo": 2085
+  }
+ ],
+ "conflictoBarcode": [
+  {
+   "producto": "Heliocare 360 MD A-R Emulsion 50ML",
+   "bd": "8470002061705",
+   "archivo": "84700020617"
+  }
+ ]
+}
