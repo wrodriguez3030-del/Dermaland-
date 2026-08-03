@@ -11,6 +11,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.98.7] - 2026-08-02
+
+### Fixed
+- **Ningún botón mostraba el cursor de mano.** Tailwind v4 eliminó el `button { cursor: pointer }` que traía el preflight de v3, así que desde la migración a v4 **todos** los botones de la app mostraban la flecha por defecto; solo 13 de 257 archivos `.tsx` lo compensaban a mano y el primitivo `src/components/ui/button.tsx` tampoco lo traía. Se restaura en `apps/web/src/app/globals.css` para `button`, `[role="button"]`, `label[for]`, `summary` y `select`, con `not-allowed` en los deshabilitados. Verificado en el CSS compilado, no solo en la fuente.
+- **Sin soporte de `prefers-reduced-motion`**: el repo no tenía **ninguna** referencia a la preferencia del sistema, así que animaciones y transiciones se ejecutaban igual para quien pide movimiento reducido. Se añade el bloque que las neutraliza (WCAG 2.3.3).
+- Se añade `touch-action: manipulation` en elementos interactivos para quitar el retardo de 300 ms al tocar en móvil.
+
+> Detectado al auditar AlojaControl con el skill `ui-ux-pro-max`: es la misma
+> regresión de Tailwind v4 y afecta por igual a todo proyecto migrado a v4.
+
 ## [0.98.6] - 2026-08-02
 
 **Cerrar sesión: el botón no existía.**
