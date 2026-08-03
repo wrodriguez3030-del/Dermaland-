@@ -9,11 +9,17 @@ import {
   alegraImportBodySchema,
   INVENTORY_IMPORT_ROLES,
 } from "@/features/inventory/alegra-import-schema";
-import { buildImportPlan } from "@/features/inventory/alegra-import";
+import { buildImportPlan, zeroMissingRiskMessage } from "@/features/inventory/alegra-import";
 import { loadImportSources } from "@/features/inventory/alegra-import-sources";
 import { applyImportPlan, importReference } from "@/features/inventory/alegra-import-apply";
 
 export const dynamic = "force-dynamic";
+// ~2 llamadas por producto, ~2700 productos en serie con el archivo real:
+// aun con el pool de 8 en `applyImportPlan`, la corrida puede acercarse al
+// límite por defecto (10s en Hobby / Fluid). Sube el presupuesto del
+// endpoint para no cortar la escritura a mitad de camino (504 con inventario
+// aplicado a medias y sin `reference` para el operador).
+export const maxDuration = 300;
 
 /**
  * Fecha de hoy en calendario de RD (ISO `YYYY-MM-DD`), NO UTC: el motor
@@ -63,6 +69,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       zeroMissing: parsed.data.zeroMissing,
       today: todayISO(),
     });
+
+    // Mismo gate que `preview`: con `zeroMissing`, `unmatched`/`skipped` no
+    // vacíos significan que el barrido borraría stock de productos que el
+    // archivo SÍ declara con existencias. Rechazar ANTES de escribir nada —
+    // nunca aplicar el import a medias.
+    if (parsed.data.zeroMissing) {
+      const risk = zeroMissingRiskMessage(plan);
+      if (risk) return NextResponse.json({ error: risk }, { status: 422 });
+    }
+
     const result = await applyImportPlan(
       ctx,
       repos,

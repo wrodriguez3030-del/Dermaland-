@@ -9,7 +9,7 @@ import {
   alegraImportBodySchema,
   INVENTORY_IMPORT_ROLES,
 } from "@/features/inventory/alegra-import-schema";
-import { buildImportPlan } from "@/features/inventory/alegra-import";
+import { buildImportPlan, zeroMissingRiskMessage } from "@/features/inventory/alegra-import";
 import { loadImportSources } from "@/features/inventory/alegra-import-sources";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +60,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       zeroMissing: parsed.data.zeroMissing,
       today: todayISO(),
     });
+
+    // Con `zeroMissing`, el barrido borraría el stock de productos que el
+    // archivo SÍ declara con existencias pero que no se pudieron emparejar
+    // (`unmatched`) u omitieron por un dato inválido (`skipped`). El preview
+    // tiene que fallar por la MISMA razón que `apply`, para que el usuario lo
+    // vea ANTES de confirmar — nunca aplicarlo a medias.
+    if (parsed.data.zeroMissing) {
+      const risk = zeroMissingRiskMessage(plan);
+      if (risk) return NextResponse.json({ error: risk }, { status: 422 });
+    }
+
     return NextResponse.json(
       { plan, branches: { principal: sources.principalName, cutis: sources.cutisName } },
       { headers: { "Cache-Control": "no-store" } },

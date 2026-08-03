@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { buildImportPlan, type PlanLot, type PlanProduct } from "./alegra-import";
+import {
+  buildImportPlan,
+  zeroMissingRiskMessage,
+  type ImportPlan,
+  type PlanLot,
+  type PlanProduct,
+} from "./alegra-import";
 
 const P = (id: string, name: string): PlanProduct => ({ id, name });
 const L = (
@@ -232,5 +238,52 @@ describe("buildImportPlan · casos que no se aplican", () => {
       cutisBefore: 0,
       cutisAfter: 4,
     });
+  });
+});
+
+describe("zeroMissingRiskMessage", () => {
+  const emptyPlan: ImportPlan = {
+    principal: [],
+    cutis: [],
+    skipped: [],
+    unmatched: [],
+    collisions: [],
+    totals: { principalBefore: 0, principalAfter: 0, cutisBefore: 0, cutisAfter: 0 },
+  };
+
+  it("no hay riesgo si unmatched y skipped están vacíos", () => {
+    expect(zeroMissingRiskMessage(emptyPlan)).toBeNull();
+  });
+
+  it("rechaza si hay filas sin emparejar: el barrido las borraría por error", () => {
+    const plan: ImportPlan = {
+      ...emptyPlan,
+      unmatched: [{ rowNumber: 3, name: "Crema Rara", principal: 5, cutis: 0 }],
+    };
+    const msg = zeroMissingRiskMessage(plan);
+    expect(msg).not.toBeNull();
+    expect(msg).toMatch(/no emparejados/i);
+    expect(msg).toMatch(/1/); // cuenta la fila afectada
+  });
+
+  it("rechaza también si hay filas omitidas por dato inválido", () => {
+    const plan: ImportPlan = {
+      ...emptyPlan,
+      skipped: [{ rowNumber: 7, name: "Serum X", error: "Cantidad negativa en el archivo." }],
+    };
+    const msg = zeroMissingRiskMessage(plan);
+    expect(msg).not.toBeNull();
+    expect(msg).toMatch(/omitidos/i);
+  });
+
+  it("el mensaje es legible: sin UUID ni JSON crudo", () => {
+    const plan: ImportPlan = {
+      ...emptyPlan,
+      unmatched: [{ rowNumber: 3, name: "Crema Rara", principal: 5, cutis: 0 }],
+      skipped: [{ rowNumber: 7, name: "Serum X", error: "Cantidad negativa en el archivo." }],
+    };
+    const msg = zeroMissingRiskMessage(plan);
+    expect(msg).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i); // UUID
+    expect(msg).not.toMatch(/[{[]"/); // JSON crudo
   });
 });

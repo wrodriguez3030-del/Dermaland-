@@ -403,3 +403,43 @@ export function buildImportPlan(input: {
     },
   };
 }
+
+/**
+ * Con `zeroMissing: true`, el barrido pone en 0 (en las dos sucursales) todo
+ * producto del catálogo que NO quedó en `targets` — es decir, que el motor
+ * interpreta como "ausente del archivo". Pero una fila SÍ presente en el
+ * archivo cuyo nombre no empareja con exactamente un producto (`unmatched`)
+ * o que se descartó por un dato inválido (`skipped`) TAMPOCO llega a
+ * `targets`, así que el barrido la trata igual que si no viniera en el
+ * archivo — y le borra el stock a un producto que el archivo declara CON
+ * existencias. Con nombres libres (~1355 productos), `unmatched` casi nunca
+ * está vacío, así que `zeroMissing` nunca es seguro sin revisar antes estas
+ * dos listas.
+ *
+ * Devuelve el mensaje de riesgo (para rechazar la operación) o `null` si es
+ * seguro aplicar el barrido.
+ */
+export function zeroMissingRiskMessage(plan: ImportPlan): string | null {
+  const { unmatched, skipped } = plan;
+  if (unmatched.length === 0 && skipped.length === 0) return null;
+
+  const detalles: string[] = [];
+  if (unmatched.length > 0) {
+    detalles.push(
+      `${unmatched.length} fila(s) del archivo no se pudieron emparejar con un único producto del catálogo ("No emparejados")`,
+    );
+  }
+  if (skipped.length > 0) {
+    detalles.push(
+      `${skipped.length} fila(s) se omitieron por un dato inválido ("Omitidos")`,
+    );
+  }
+
+  return (
+    `No se puede usar "Poner en 0 lo que falta" todavía: ${detalles.join(" y ")}. ` +
+    `Esos productos SÍ tienen existencias declaradas en el archivo de Alegra; si continúas, el sistema los ` +
+    `interpretaría como ausentes y les pondría el stock en 0 por error, en las dos sucursales. ` +
+    `Revisa esas filas, corrige el nombre del producto en DermaLand o en el archivo (o desactívalo si ya no ` +
+    `se vende), y vuelve a intentar.`
+  );
+}

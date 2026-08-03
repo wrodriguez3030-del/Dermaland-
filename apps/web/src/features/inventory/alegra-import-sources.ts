@@ -8,6 +8,7 @@
 import "server-only";
 import type { ProductLot } from "@/types";
 import type { RepoContext, Repositories } from "@/server/repositories";
+import { UserFacingRepositoryError } from "@/server/repositories/supabase/client";
 import type { PlanLot, PlanProduct } from "./alegra-import";
 
 export interface ImportSources {
@@ -40,14 +41,14 @@ export function pickImportBranches(
   const find = (needle: string, label: string) => {
     const hits = branches.filter((b) => key(b.name).includes(needle));
     if (hits.length === 0) {
-      throw new Error(
+      throw new UserFacingRepositoryError(
         `No se encontró la sucursal "${label}". Sucursales disponibles: ${branches
           .map((b) => b.name)
           .join(" · ")}`,
       );
     }
     if (hits.length > 1) {
-      throw new Error(
+      throw new UserFacingRepositoryError(
         `Hay más de una sucursal que coincide con "${label}": ${hits
           .map((b) => b.name)
           .join(" · ")}. Renombra una para poder importar.`,
@@ -128,7 +129,7 @@ export async function loadImportSources(
   const cutisWarehouse =
     cutisWarehouses.find((w) => w.isMain) ?? cutisWarehouses[0];
   if (!cutisWarehouse) {
-    throw new Error(
+    throw new UserFacingRepositoryError(
       `La sucursal "${cutis.name}" no tiene un almacén configurado, así que no se puede crear existencia ahí. Contacta a soporte antes de importar.`,
     );
   }
