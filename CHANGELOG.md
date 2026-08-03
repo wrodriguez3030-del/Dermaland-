@@ -10,6 +10,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.102.0] - 2026-08-03
+
+**197 productos con foto (14,5 %) y la infraestructura para llegar más lejos.**
+
+- Nuevo `scripts/fetch-product-images.mjs`: descarga fotos desde una lista de URLs
+  (`{sku, name, imageUrl}`), las optimiza a WebP igual que las de Carol y deja el
+  paquete listo para `import-product-images-from-carol.mjs --approved`. Deduplica
+  por SKU, descarta lo que no devuelva `image/*` o pese menos de 4 KB, exige al
+  menos 200 px de lado y aplana la transparencia sobre blanco.
+- Nuevo `--out <sufijo>` en el importador. **Corrige un riesgo real:** el modo
+  automático seguía escribiendo en `data/product-images-<fecha>/`, así que una
+  segunda corrida habría pisado el `image-affected.json` del primer lote, que es
+  el registro para revertir.
+- +34 fotos de un segundo barrido del catálogo de Carol. La búsqueda por
+  categoría se agotaba en 423 productos; el buscador avanzado
+  (`advancedsearch.aspx` con `searchtype=name`) rinde 637 más.
+- Confirmado que **IDCP, Medihealth, Primaderm y EltaMD no existen en el catálogo
+  de Carol** (131 productos): esas marcas necesitan otra fuente o foto propia.
+
 ## [0.101.0] - 2026-08-03
 
 **112 fotos más: el catálogo pasa de 38 a 150 productos con imagen.**

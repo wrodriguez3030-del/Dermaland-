@@ -191,7 +191,11 @@ const stamp = new Date().toISOString().slice(0, 10);
 // Cada modo escribe en su propia carpeta: si compartieran una, un dry-run
 // posterior pisaría el plan y las sugerencias de la corrida anterior (y en
 // modo aprobados, el CSV de sugerencias que aún está por revisar).
-const outDir = path.join(root, `data/product-images-${stamp}${APPROVED_MODE ? "-aprobados" : ""}`);
+const outArg = process.argv.indexOf("--out");
+const suffix = outArg !== -1 && process.argv[outArg + 1]
+  ? `-${process.argv[outArg + 1]}`
+  : APPROVED_MODE ? "-aprobados" : "";
+const outDir = path.join(root, `data/product-images-${stamp}${suffix}`);
 mkdirSync(outDir, { recursive: true });
 const summary = {
   fecha: stamp, aplicado: APPLY,
