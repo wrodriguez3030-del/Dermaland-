@@ -23,7 +23,14 @@ import {
   getScansForCount,
 } from "@/lib/mock-data/inventory-counts";
 
-export type CountsSource = "supabase" | "mock";
+/**
+ * De dónde salieron los datos que se están mostrando.
+ * - `supabase`: reales.
+ * - `mock`: de demostración, porque la API respondió 409 (backend en modo local).
+ * - `error`: no se pudieron cargar. NUNCA se rellena con demo: enseñar
+ *   inventarios de ejemplo como si fueran reales es peor que no enseñar nada.
+ */
+export type CountsSource = "supabase" | "mock" | "error";
 
 const CHANGE_EVENT = "dermaland:counts-changed";
 function notifyChanged() {
@@ -103,9 +110,10 @@ export function useCounts(): { counts: InventoryCount[]; loading: boolean; sourc
       })
       .catch(() => {
         if (!alive) return;
-        // Red caída → demo, no romper la pantalla.
-        setCounts(mockInventoryCounts);
-        setSource("mock");
+        // Red caída ≠ backend en modo local: no hay demo que valga, o el
+        // usuario vería conteos que no existen como si fueran suyos.
+        setCounts([]);
+        setSource("error");
       })
       .finally(() => alive && setLoading(false));
     return () => {
@@ -169,7 +177,14 @@ export function useCount(id: string | null | undefined): {
         else setState({ count: r.count, items: r.items, scans: r.scans, source: "supabase", notFound: false });
       })
       .catch(() => {
-        if (alive) fallbackToMock();
+        if (!alive) return;
+        setState({
+          count: null,
+          items: [],
+          scans: [],
+          source: "error",
+          notFound: false,
+        });
       })
       .finally(() => alive && setLoading(false));
     return () => {
@@ -213,6 +228,10 @@ export function useCountsReport(): {
     const fallback = () => {
       if (alive) setState({ counts: mockInventoryCounts, items: mockCountItems, source: "mock" });
     };
+    // Falló la carga: se muestra vacío y se avisa. Nunca demo (ver CountsSource).
+    const fallo = () => {
+      if (alive) setState({ counts: [], items: [], source: "error" });
+    };
     (async () => {
       const list = await fetchCountsFromServer();
       if (!alive) return;
@@ -220,7 +239,8 @@ export function useCountsReport(): {
         fallback();
         return;
       }
-      // Fan-out de ítems por conteo (lista corta). Un 409/red → demo.
+      // Fan-out de ítems por conteo (lista corta). Un 409 → demo; una petición
+      // suelta que falle solo pierde los ítems de ese conteo, no la pantalla.
       const details = await Promise.all(list.map((c) => fetchCountDetailFromServer(c.id).catch(() => null)));
       if (!alive) return;
       if (details.some((d) => d === MOCK_409)) {
@@ -230,7 +250,7 @@ export function useCountsReport(): {
       const items = details.flatMap((d) => (d && d !== MOCK_409 ? d.items : []));
       setState({ counts: list, items, source: "supabase" });
     })()
-      .catch(fallback)
+      .catch(fallo)
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;

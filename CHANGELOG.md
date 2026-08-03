@@ -10,6 +10,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.111.0] - 2026-08-03
+
+**Fase 2b cerrada: el inventario físico ya no enseña datos de ejemplo por error.**
+
+- **Un fallo de red dejó de mostrar conteos de demostración.** `counts-store`
+  caía a los datos de ejemplo tanto con un **409** (que sí significa "backend en
+  modo local") como ante un error de red o un 5xx. Con datos reales en
+  producción eso es enseñar inventarios que no existen como si fueran de la
+  farmacia. Ahora el 409 sigue dando demo y el fallo devuelve vacío con
+  `source: "error"`; la lista, el detalle y el reporte lo dicen en pantalla.
+  6 pruebas nuevas cubren los tres hooks.
+- **Nombres de sucursal reales en todo el módulo.** La lista y la pantalla de
+  escaneo resolvían con `getBranchById` del mock, cuyos ids (`br_santiago`,
+  `br_sd_naco`…) no existen en Supabase —los reales son UUID—, así que se veía
+  "—" o "Sucursal" y los Excel salían con la columna vacía. Ahora usan
+  `getBranchDisplayName`, que nunca devuelve un UUID.
+- Se quitó el subtítulo de almacén de la lista de conteos: era siempre vacío con
+  datos reales, no hay API de almacenes y el usuario opera por sucursal — el
+  `warehouse_id` es un detalle interno del stock.
+- `typecheck` ✅ · `test` **1976** ✅ · `build` ✅ (133 páginas).
+
 ## [0.110.0] - 2026-08-03
 
 **Un conteo físico ya no vive solo en el navegador donde se hizo.**

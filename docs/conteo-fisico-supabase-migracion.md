@@ -76,7 +76,27 @@ best-effort). El ajuste de stock FEFO al aprobar ya existía client-side. Los
 escaneos individuales aún no se persisten por conteo (los KPIs de escaneo del
 reporte quedarán vacíos hasta cablearlo).
 
-### Fase 2b — Stores de cliente + páginas de lectura (PENDIENTE)
+### Fase 2b — Stores de cliente + páginas de lectura (HECHA, v0.111.0 2026-08-03)
+
+Cerrada. Lo descrito abajo se implementó por partes y el remanente se cerró en
+v0.111.0:
+
+- Las 4 páginas ya leen por hooks (`useCounts`, `useCount`, `useCountsReport`) y
+  el detalle es Client Component. Los lookups del detalle y de Reportes ya usan
+  `useProducts`, `catalog-store` y `useBranches` reales.
+- **v0.111.0 — nombres de sucursal reales:** la lista y la pantalla de escaneo
+  seguían resolviendo con `getBranchById` del mock, cuyos ids (`br_santiago`…)
+  no existen en Supabase (ids reales son UUID) → mostraban "—"/"Sucursal" y
+  salían vacíos en los Excel. Ahora usan `getBranchDisplayName`. Se quitó el
+  subtítulo de almacén de la lista: el usuario opera por SUCURSAL y no hay API
+  de almacenes (ver `branch-store.ts`).
+- **v0.111.0 — el fallo de red ya no muestra demo:** `counts-store` solo cae a
+  datos de demostración con **409** (backend en modo local, que es su
+  significado documentado). Ante red caída o 5xx devuelve vacío con
+  `source: "error"` y la pantalla lo dice. Con datos reales en producción,
+  rellenar con conteos de ejemplo era enseñar inventarios que no existen.
+
+Diseño original (referencia):
 - `features/inventory-counts/counts-store.ts`: hooks `useCounts()`,
   `useCount(id)` que hacen fetch a las API con **fallback a mock** (patrón de
   `product-store`/`branch-store`).

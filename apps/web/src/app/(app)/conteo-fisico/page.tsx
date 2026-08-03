@@ -23,9 +23,8 @@ import { useLocalSoftDelete } from "@/components/ui/use-local-soft-delete";
 import { useToast } from "@/components/ui/toast";
 import { formatDateTime, relativeTime } from "@/lib/utils/format";
 import { isPendingInventoryCount } from "@/lib/mock-data/inventory-counts";
-import { getBranchById, getWarehouseById } from "@/lib/mock-data/tenancy";
 import { useCounts } from "@/features/inventory-counts/counts-store";
-import { useBranches } from "@/features/tenancy/branch-store";
+import { useBranches, getBranchDisplayName } from "@/features/tenancy/branch-store";
 import { buildCountsList, buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 import { downloadBlob } from "@/lib/utils/download";
@@ -93,8 +92,10 @@ function InventarioFisicoContent() {
     () => new Map(branchesList.map((b) => [b.id, b])),
     [branchesList],
   );
+  // Nunca el UUID: `getBranchDisplayName` resuelve por store, seed y cache de
+  // Supabase, en ese orden. `branchMap` va primero por ser lo ya cargado aquí.
   const branchNameOf = (id?: string) =>
-    (id ? branchMap.get(id)?.name ?? getBranchById(id)?.name ?? "" : "");
+    (id ? branchMap.get(id)?.name ?? getBranchDisplayName(id, "—") : "—");
   const { visible, hide } = useLocalSoftDelete(counts);
   const scopedCounts = React.useMemo(
     () => (pendingOnly ? visible.filter(isPendingInventoryCount) : visible),
@@ -127,7 +128,7 @@ function InventarioFisicoContent() {
       const { physicalCountXlsxBytes, physicalCountFilename } = await import(
         "@/features/inventory/physical-count-export"
       );
-      const branchName = getBranchById(session.branchId)?.name ?? "Sucursal";
+      const branchName = branchNameOf(session.branchId);
       const systemQuantityFor = (pid: string) => sellableStockForBranch(lots, pid, session.branchId);
       const { count, items, scans } = sessionToCountData(session, { systemQuantityFor });
       const report = buildPhysicalCountReport({
@@ -143,7 +144,7 @@ function InventarioFisicoContent() {
           brandName: () => "",
           categoryName: () => "",
           labName: () => "",
-          branchName: (brid) => (brid ? getBranchById(brid)?.name ?? "" : ""),
+          branchName: (brid) => branchNameOf(brid),
           userName: () => session.startedByName ?? "",
         },
       });
@@ -227,7 +228,7 @@ function InventarioFisicoContent() {
                           <div className="text-xs opacity-60">{s.name}</div>
                         </Link>
                       </TD>
-                      <TD className="text-sm">{getBranchById(s.branchId)?.name ?? "—"}</TD>
+                      <TD className="text-sm">{branchNameOf(s.branchId)}</TD>
                       <TD>
                         <Badge tone="neutral" outlined>{typeLabel(s.type)}</Badge>
                       </TD>
@@ -319,7 +320,6 @@ function InventarioFisicoContent() {
             <TBody>
               {pag.pageItems.map((c) => {
                 const branchLabel = branchNameOf(c.branchId);
-                const warehouse = getWarehouseById(c.warehouseId);
                 const meta = statusMeta[c.status] ?? statusMeta.draft!;
                 const cancellable = c.status === "draft" || c.status === "in_progress" || c.status === "paused";
                 return (
@@ -331,9 +331,10 @@ function InventarioFisicoContent() {
                         {c.notes && <div className="mt-0.5 text-xs opacity-60">{c.notes}</div>}
                       </Link>
                     </TD>
+                    {/* Solo la sucursal: el usuario opera por sucursal y el
+                        almacén es un detalle interno del stock (ver branch-store). */}
                     <TD>
                       <div className="text-sm">{branchLabel}</div>
-                      <div className="text-xs opacity-60">{warehouse?.name}</div>
                     </TD>
                     <TD>
                       <Badge tone="neutral" outlined>{typeLabel(c.countType)}</Badge>

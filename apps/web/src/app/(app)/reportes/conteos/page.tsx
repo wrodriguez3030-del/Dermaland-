@@ -155,6 +155,13 @@ export default function ReporteConteosPage() {
         </div>
       )}
 
+      {source === "error" && (
+        <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+          No se pudieron cargar los inventarios. El reporte sale vacío a
+          propósito: es preferible a imprimir cifras que no son reales.
+        </div>
+      )}
+
       <ReportLayout>
         <ReportHeader
           businessName="DermaLand"

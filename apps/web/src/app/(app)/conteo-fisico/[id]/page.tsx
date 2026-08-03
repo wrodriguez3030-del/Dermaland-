@@ -154,6 +154,13 @@ export default function ConteoDetalle() {
         </div>
       )}
 
+      {source === "error" && (
+        <div className="mb-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+          No se pudo cargar este inventario. Revisa tu conexión y vuelve a
+          intentarlo — no se muestra nada para no confundirte con datos que no son.
+        </div>
+      )}
+
       <PageHeader
         title={count.countNumber}
         description={`${branchName} · ${typeLabel(count.countType)}`}

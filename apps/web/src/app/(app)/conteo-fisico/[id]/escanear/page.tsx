@@ -46,7 +46,7 @@ import {
 import type { Product } from "@/types";
 import { useAllLots, sellableStockForBranch, adjustStockAnywhere } from "@/features/inventory/lot-store";
 import { useLaboratoriesList, useCategoriesList } from "@/features/products/catalog-store";
-import { getBranchById } from "@/lib/mock-data/tenancy";
+import { useBranches, getBranchDisplayName } from "@/features/tenancy/branch-store";
 import {
   useScanSession,
   findProductByCode,
@@ -94,6 +94,9 @@ export default function EscanearPage() {
   const session = useScanSession(id);
   const toast = useToast();
   const products = useProducts();
+  // Carga las sucursales reales: llena el cache que usa `getBranchDisplayName`
+  // para no mostrar nunca el UUID ni un "Sucursal" genérico.
+  useBranches();
   const lots = useAllLots();
   const laboratories = useLaboratoriesList();
   const categories = useCategoriesList();
@@ -181,7 +184,7 @@ export default function EscanearPage() {
     );
   }
 
-  const branchName = getBranchById(session.branchId)?.name ?? "Sucursal";
+  const branchName = getBranchDisplayName(session.branchId, "—");
 
   // Lógica ÚNICA de escaneo (lector físico + cámara del celular). Busca por
   // barcode/SKU, suma +1 (applyScan agrupa duplicados incrementando la cantidad
@@ -347,7 +350,7 @@ export default function EscanearPage() {
         brandName: () => "",
         categoryName: (cid) => (cid ? catById.get(cid) ?? "" : ""),
         labName: (lid) => (lid ? labById.get(lid) ?? "" : ""),
-        branchName: (brid) => (brid ? getBranchById(brid)?.name ?? "" : ""),
+        branchName: (brid) => (brid ? getBranchDisplayName(brid, "") : ""),
         userName: () => session.startedByName ?? "",
       },
     });
@@ -838,7 +841,9 @@ function ManualAddModal({
           <Label>Cantidad contada</Label>
           <Input type="number" min="1" value={qty} onChange={(e) => setQty(e.target.value)} />
         </div>
-        <p className="text-xs opacity-60">Sucursal: {getBranchById(session.branchId)?.name ?? "—"}</p>
+        <p className="text-xs opacity-60">
+          Sucursal: {getBranchDisplayName(session.branchId, "—")}
+        </p>
       </div>
     </Modal>
   );
