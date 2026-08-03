@@ -10,6 +10,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.109.0] - 2026-08-03
+
+**El inventario visible es ahora únicamente el que carga el archivo de Alegra.**
+
+- Nuevo `scripts/zero-warehouse-stock.mjs`: pone a 0 el stock de un almacén dejando
+  constancia en la bitácora. **No borra filas**: el stock vive en
+  `product_lots.current_quantity` y el lote sobrevive con su número y su
+  vencimiento, porque en una farmacia la trazabilidad de lotes es obligatoria.
+  Cada lote ajustado deja un `adjustment_negative` con la cantidad exacta.
+  DRY-RUN por defecto y respaldo `stock-antes.json` antes de escribir.
+- **Limpiado el almacén "Inventario"**: 11 lotes con 5578 unidades de pruebas,
+  con números tecleados al azar (`WWWWWWW` con 3433 u., `asdfasd` con 1000 u.,
+  `DSFSDF` con 995 u.) y varios ya vencidos. Eran el **71 % de las unidades
+  totales** y distorsionaban cualquier informe.
+- Aplicado el archivo de Alegra con `--zero-missing` sobre DermaLand Principal:
+  2311 → **2309 u. en 700 lotes**, y 35 productos ausentes del archivo puestos a 0.
+- Resultado: `Inventario Santiago` 2309 u. · `Inventario` 0 u.
+- **Pendiente, no resuelto por el importador:** 44 filas del archivo (344 u.) no
+  emparejan con ningún producto del catálogo, casi todas por diferencias de nombre
+  (`REGENER CREMA`, `APG DESODORANTE SPRAY LENITIVO`, `PRIMADERM XPERTSUN URBAN
+  NATURAL COLOR`, `FILLERINA GRADO 5`). Una fila viene con cantidad negativa
+  (`GUANTES DE TELA MEDIEUM`). Detalle en `data/stock-import-2026080314332/omitidos.json`.
+
 ## [0.108.1] - 2026-08-03
 
 **652 productos con foto (48,1 %). Auditoría de la tanda por EAN completa.**

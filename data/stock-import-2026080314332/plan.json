@@ -1,0 +1,70 @@
+[
+ {
+  "productId": "bb62267d-ba65-4b3f-ac76-8ecebd5ce328",
+  "name": "Sodermix 1.0 OZ",
+  "current": 3,
+  "target": 2,
+  "delta": -1,
+  "zeroed": false,
+  "changes": [
+   {
+    "lotId": "3fbce383-78ae-42a6-8642-0b26078af6ed",
+    "lotNumber": "INIT-DERM-I01175",
+    "warehouseId": "c1c90936-7b35-44af-8f86-74d209a576a0",
+    "from": 3,
+    "to": 2
+   }
+  ]
+ },
+ {
+  "productId": "612c8d18-988f-4505-b0b1-4a49a8627740",
+  "name": "Akun 1 Barra",
+  "current": 2,
+  "target": 1,
+  "delta": -1,
+  "zeroed": false,
+  "changes": [
+   {
+    "lotId": "8bc6a4bc-53bd-412b-8e1a-51d6e7b190c9",
+    "lotNumber": "INIT-DERM-I00078",
+    "warehouseId": "c1c90936-7b35-44af-8f86-74d209a576a0",
+    "from": 2,
+    "to": 1
+   }
+  ]
+ },
+ {
+  "productId": "7b7c8059-6b63-4c6c-bd34-1d2a4a391fa7",
+  "name": "ACM Azeane Crema 30 ML",
+  "current": 6,
+  "target": 5,
+  "delta": -1,
+  "zeroed": false,
+  "changes": [
+   {
+    "lotId": "22624f3e-332c-435a-9755-a68b425dbb0d",
+    "lotNumber": "INIT-DERM-I00006",
+    "warehouseId": "c1c90936-7b35-44af-8f86-74d209a576a0",
+    "from": 6,
+    "to": 5
+   }
+  ]
+ },
+ {
+  "productId": "057ebf75-6202-4155-8551-d614b71aca20",
+  "name": "A-derma Crema DE Ducha Hidratante 500 ML",
+  "current": 3,
+  "target": 4,
+  "delta": 1,
+  "zeroed": false,
+  "changes": [
+   {
+    "lotId": "84dc4437-4c7c-42c7-89dc-7417a299de0d",
+    "lotNumber": "dfdefd",
+    "warehouseId": "c1c90936-7b35-44af-8f86-74d209a576a0",
+    "from": 0,
+    "to": 1
+   }
+  ]
+ }
+]

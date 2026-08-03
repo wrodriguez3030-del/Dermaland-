@@ -1,0 +1,360 @@
+{
+ "sinMatch": [
+  {
+   "row": 102,
+   "name": "REGENER CREMA",
+   "key": "REGENER CREMA",
+   "barcode": "7467851053266",
+   "qty": 2
+  },
+  {
+   "row": 1039,
+   "name": "APG DESODORANTE SPRAY LENITIVO 150 ML",
+   "key": "APG DESODORANTE SPRAY LENITIVO 150ML",
+   "barcode": "8022297052465",
+   "qty": 0
+  },
+  {
+   "row": 1040,
+   "name": "APG FLUIDO LENITIVO ROSTRO 50 ML",
+   "key": "APG FLUIDO LENITIVO ROSTRO 50ML",
+   "barcode": "8022297025476",
+   "qty": 2
+  },
+  {
+   "row": 1178,
+   "name": "PRIMADERM XPERTSUN URBAN NATURAL COLOR HIGH SPF 50 50 ML",
+   "key": "PRIMADERM XPERTSUN URBAN NATURAL COLOR HIGH SPF50 50ML",
+   "barcode": "8436564666949",
+   "qty": 2
+  },
+  {
+   "row": 1179,
+   "name": "PRIMADERM XPERTSUN URBAN NATURAL COLOR LIGHT SPF 50 50 ML",
+   "key": "PRIMADERM XPERTSUN URBAN NATURAL COLOR LIGHT SPF50 50ML",
+   "barcode": "8436564666932",
+   "qty": 2
+  },
+  {
+   "row": 1332,
+   "name": "FILLERINA GRADO 5 INTENSIVE FILLER",
+   "key": "FILLERINA GRADO 5 INTENSIVE FILLER",
+   "barcode": "8051417824767",
+   "qty": 0
+  },
+  {
+   "row": 1333,
+   "name": "EUCERIN UREA 10% LOCION CORPORAL INTENSIVA 400 ML",
+   "key": "EUCERIN UREA 10% LOCION CORPORAL INTENSIVA 400ML",
+   "barcode": "4005800164361",
+   "qty": 2
+  },
+  {
+   "row": 1334,
+   "name": "MARTIDERM DSP SPECIFIC BODY AREAS",
+   "key": "MARTIDERM DSP SPECIFIC BODY AREAS",
+   "barcode": null,
+   "qty": 0
+  },
+  {
+   "row": 1335,
+   "name": "FILORGA GLOBAL REPAIR ADVANCED EYES & LIPS",
+   "key": "FILORGA GLOBAL REPAIR ADVANCED EYES LIPS",
+   "barcode": "35405500169552",
+   "qty": 2
+  },
+  {
+   "row": 1336,
+   "name": "B-33 JABON PASTA 80G",
+   "key": "B 33 JABON PASTA 80G",
+   "barcode": "7467851050142",
+   "qty": 0
+  },
+  {
+   "row": 1337,
+   "name": "TOTAL EYE DEEP",
+   "key": "TOTAL EYE DEEP",
+   "barcode": null,
+   "qty": 0
+  },
+  {
+   "row": 1338,
+   "name": "TOTAL BRUSH TAN",
+   "key": "TOTAL BRUSH TAN",
+   "barcode": null,
+   "qty": 0
+  },
+  {
+   "row": 1339,
+   "name": "SUNFORGETTABLE TAN",
+   "key": "SUNFORGETTABLE TAN",
+   "barcode": null,
+   "qty": 0
+  },
+  {
+   "row": 1340,
+   "name": "TOTAL BALM GOLDEN HOUR",
+   "key": "TOTAL BALM GOLDEN HOUR",
+   "barcode": null,
+   "qty": 1
+  },
+  {
+   "row": 1341,
+   "name": "LIP SHINE SAVANNA",
+   "key": "LIP SHINE SAVANNA",
+   "barcode": null,
+   "qty": 0
+  },
+  {
+   "row": 1342,
+   "name": "SESDERMA DAESES SERUM 30 ML",
+   "key": "SESDERMA DAESES SERUM 30ML",
+   "barcode": "8429979439529",
+   "qty": 2
+  },
+  {
+   "row": 1343,
+   "name": "SESDERMA OCEANSKIN GEL LIMPIADOR 200 ML",
+   "key": "SESDERMA OCEANSKIN GEL LIMPIADOR 200ML",
+   "barcode": "8429979459732",
+   "qty": 5
+  },
+  {
+   "row": 1344,
+   "name": "MARTIDERM DROPPER ABSOLUTE LIFT 30 ML",
+   "key": "MARTIDERM DROPPER ABSOLUTE LIFT 30ML",
+   "barcode": "8436589052574",
+   "qty": 0
+  },
+  {
+   "row": 1345,
+   "name": "GENOVE PREVIRIT CREMA DE AFEITAR SENSITIVE 50 ML",
+   "key": "GENOVE PREVIRIT CREMA DE AFEITAR SENSITIVE 50ML",
+   "barcode": "8423372000652",
+   "qty": 1
+  },
+  {
+   "row": 1346,
+   "name": "TRICOCAPS 60 CAPSULAS",
+   "key": "TRICOCAPS 60 CAPSULAS",
+   "barcode": "8030082002304",
+   "qty": 1
+  },
+  {
+   "row": 1347,
+   "name": "NEOSTRATA SUERO VITAMINA C 15 ML",
+   "key": "NEOSTRATA SUERO VITAMINA C 15ML",
+   "barcode": "0732013302511",
+   "qty": 3
+  },
+  {
+   "row": 1348,
+   "name": "DUCRAY KELUAL DS INTENSIVE 100 ML",
+   "key": "DUCRAY KELUAL DS INTENSIVE 100ML",
+   "barcode": "3282770400786",
+   "qty": 2
+  },
+  {
+   "row": 1349,
+   "name": "TRICOVIT WNT SHAMPOO 250 ML",
+   "key": "TRICOVIT WNT SHAMPOO 250ML",
+   "barcode": "8030082001765",
+   "qty": 1
+  },
+  {
+   "row": 1350,
+   "name": "ZK-INA LIDOCAINA 10% SPRAY CEREZA 115 ML",
+   "key": "ZK INA LIDOCAINA 10% SPRAY CEREZA 115ML",
+   "barcode": "7501567700714",
+   "qty": 280
+  },
+  {
+   "row": 1351,
+   "name": "ZK-INA LIDOCAINA 10%SPRAY SIN SABOR 115 ML",
+   "key": "ZK INA LIDOCAINA 10%SPRAY SIN SABOR 115ML",
+   "barcode": "7501567700707",
+   "qty": 0
+  },
+  {
+   "row": 1352,
+   "name": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO CLARO",
+   "key": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO CLARO",
+   "barcode": "7703281002468",
+   "qty": 0
+  },
+  {
+   "row": 1353,
+   "name": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO OSCURO",
+   "key": "MEDIHEALTH UMBRELLA PERFECT SKIN TONO OSCURO",
+   "barcode": "7703281002475",
+   "qty": 1
+  },
+  {
+   "row": 1354,
+   "name": "AVENE CLEANANCE GEL 400 ML- OFERTA",
+   "key": "AVENE CLEANANCE GEL 400ML OFERTA",
+   "barcode": "7460840592289",
+   "qty": 2
+  },
+  {
+   "row": 1355,
+   "name": "URIAGE PRURICED SOS",
+   "key": "URIAGE PRURICED SOS",
+   "barcode": "3661434009693",
+   "qty": 1
+  },
+  {
+   "row": 1356,
+   "name": "MARTIDERM MINERAL D FLUID SPF 50",
+   "key": "MARTIDERM MINERAL D FLUID SPF50",
+   "barcode": "8436589051720",
+   "qty": 0
+  },
+  {
+   "row": 1357,
+   "name": "AVENE PROTECTOR SOLAR ALTA PROTECCION 200 ML",
+   "key": "AVENE PROTECTOR SOLAR ALTA PROTECCION 200ML",
+   "barcode": "3282770100617",
+   "qty": 1
+  },
+  {
+   "row": 1358,
+   "name": "TENSODERM GLICOLICO 50 ML",
+   "key": "TENSODERM GLICOLICO 50ML",
+   "barcode": "8470002628816",
+   "qty": 1
+  },
+  {
+   "row": 1359,
+   "name": "SIMPLEVIR 400MG * DETALLE",
+   "key": "SIMPLEVIR 400MG DETALLE",
+   "barcode": "7460828547898",
+   "qty": 10
+  },
+  {
+   "row": 1360,
+   "name": "AVENE SOLAR ANTI-PIGMENTACION SPF 50",
+   "key": "AVENE SOLAR ANTI PIGMENTACION SPF50",
+   "barcode": "3282770397451",
+   "qty": 3
+  },
+  {
+   "row": 1361,
+   "name": "AVENE SOLAR ANTI-IMPERFECCION SPF 50",
+   "key": "AVENE SOLAR ANTI IMPERFECCION SPF50",
+   "barcode": "3282770397437",
+   "qty": 3
+  },
+  {
+   "row": 1362,
+   "name": "AVENE DERMABSOLU CREMA REMODELADORA DE NOCHE 40 ML",
+   "key": "AVENE DERMABSOLU CREMA REMODELADORA DE NOCHE 40ML",
+   "barcode": "3282770395990",
+   "qty": 1
+  },
+  {
+   "row": 1363,
+   "name": "AVENE DERMABSOLU CONTORNO DE OJOS RELLENADOR 15 ML",
+   "key": "AVENE DERMABSOLU CONTORNO DE OJOS RELLENADOR 15ML",
+   "barcode": "3282770396072",
+   "qty": 1
+  },
+  {
+   "row": 1364,
+   "name": "AVENE DERMABSOLU SERUM REMODELADOR 30 ML",
+   "key": "AVENE DERMABSOLU SERUM REMODELADOR 30ML",
+   "barcode": "3282770395952",
+   "qty": 1
+  },
+  {
+   "row": 1365,
+   "name": "URIAGE GYN-8 GEL 100 ML",
+   "key": "URIAGE GYN 8 GEL 100ML",
+   "barcode": "3661434001062",
+   "qty": 0
+  },
+  {
+   "row": 1366,
+   "name": "ISISPHARMA SECALIA ATO SHOWER CREAM 500ML",
+   "key": "ISISPHARMA SECALIA ATO SHOWER CREAM 500ML",
+   "barcode": null,
+   "qty": 1
+  },
+  {
+   "row": 1367,
+   "name": "COLORESCIENCE TOTAL EYE 3-IN-1 RENEWAL COLOR FAIR SPF 35",
+   "key": "COLORESCIENCE TOTAL EYE 3 IN 1 RENEWAL COLOR FAIR SPF35",
+   "barcode": "0813419027090",
+   "qty": 0
+  },
+  {
+   "row": 1368,
+   "name": "AVENE CLEANANCE COMEDOMED PLUS 30 ML",
+   "key": "AVENE CLEANANCE COMEDOMED PLUS 30ML",
+   "barcode": "3282770399226",
+   "qty": 2
+  },
+  {
+   "row": 1370,
+   "name": "BABE STOP AKN FLUIDO MATIFICANTE 50 ML",
+   "key": "BABE STOP AKN FLUIDO MATIFICANTE 50ML",
+   "barcode": "8436571632289",
+   "qty": 6
+  },
+  {
+   "row": 1371,
+   "name": "EUCERIN OIL CONTROL TOQUE SECO SERUM SPF 50",
+   "key": "EUCERIN OIL CONTROL TOQUE SECO SERUM SPF50",
+   "barcode": "4006000242729",
+   "qty": 2
+  }
+ ],
+ "negativas": [
+  {
+   "row": 577,
+   "name": "GUANTES DE TELA MEDIEUM ** DOS UNIDADES **",
+   "key": "GUANTES DE TELA MEDIEUM DOS UNIDADES",
+   "barcode": null,
+   "qty": -1
+  }
+ ],
+ "sinCantidad": [],
+ "noLot": [],
+ "missing": [
+  "Hiposudol Desodorante Roll-on 50 ML",
+  "Sesderma C-VIT Sérum Liposomal 30 ml",
+  "Avène Cleanance Gel Limpiador 200 ml",
+  "APG Fluido Lenitivo Cara Laser",
+  "La Roche-Posay Toleriane Sensitive Crema 40 ml",
+  "Eucerin Sun Protection Pigment Control SPF 50+ 50 ml",
+  "Regener Crema..",
+  "ACM Duolys Riche",
+  "CeraVe Limpiador Hidratante 236 ml",
+  "Primaderm Xpertsun Urban Antural Color High SPF 50 50 ML",
+  "Guantes DE Tela Medieum ** DOS Unidades **",
+  "Uriage Bariéderm Cica-Crema reparadora 100 ml",
+  "Vichy Mineral 89 Booster hidratante 50 ml",
+  "Uriage AGE Lift Instan Filler 30 ML",
+  "APG Desodorante Spray Laser",
+  "Endocare Aquafoam Limp. Facial 125ML",
+  "Iraltone Shampoo Fortificante 200ML",
+  "Avene Solar Antiedad SPF 50+ 50ML",
+  "Neoretin Discrom Ultra Emulsion 30ML",
+  "ISDIN Fotoprotector Fusion Water SPF 50 50 ml",
+  "Endocare Contorno DE Ojos Y Labios 15ML.",
+  "Avene Solar MAT Perfect CON Color 50+ 50 ML",
+  "Babe Jabon DE Aceite Pediatrico 200ML",
+  "Genove Fluidbase K CR Antiojeras 20ML",
+  "ACM Depiwhite GEL Contorno DE Ojos",
+  "Bioderma Sensibio H2O Agua micelar 500 ml",
+  "Elta MD UV Clear Tinted SPF 46",
+  "Primaderm Xpertsun Urban Antural Color Light SPF 50 50 ML",
+  "BIRETIX",
+  "Isispharma Ruboril Expert Sérum Anti-Rojeces 30 ml",
+  "Heliocare 360º Oral Cápsulas 30 unid.",
+  "Iraltone DS Shampoo 200 ML",
+  "Glinderm Al 4%",
+  "Biretix Mask 25ML",
+  "ACM Sebionex Gel limpiador 200 ml"
+ ]
+}
