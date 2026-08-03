@@ -1,0 +1,828 @@
+[
+  {
+    "id": "131d1054-13bc-4172-b47b-bacb477651db",
+    "sku": "DERM-I00973",
+    "dbName": "Nous 10",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/131d1054-13bc-4172-b47b-bacb477651db/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/131d1054-13bc-4172-b47b-bacb477651db/image.webp"
+  },
+  {
+    "id": "0bf5bf48-69b2-48b3-980f-abb5e2f8c9f7",
+    "sku": "DERM-I01053",
+    "dbName": "Seda Jarabe 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/0bf5bf48-69b2-48b3-980f-abb5e2f8c9f7/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0bf5bf48-69b2-48b3-980f-abb5e2f8c9f7/image.webp"
+  },
+  {
+    "id": "61db87a0-c7cf-4ab3-bab4-c30294ebf879",
+    "sku": "DERM-I01023",
+    "dbName": "Regaxidil 5% 50MG 60 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/61db87a0-c7cf-4ab3-bab4-c30294ebf879/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/61db87a0-c7cf-4ab3-bab4-c30294ebf879/image.webp"
+  },
+  {
+    "id": "d00db662-ce55-496f-aa5f-40da802e4f52",
+    "sku": "DERM-I00985",
+    "dbName": "Pilopeptan Cabellos Y Uñas Intensive 15 Sobres",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d00db662-ce55-496f-aa5f-40da802e4f52/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d00db662-ce55-496f-aa5f-40da802e4f52/image.webp"
+  },
+  {
+    "id": "0e92e43a-c22b-4a9b-b69c-b19eecbbefe9",
+    "sku": "DERM-I00990",
+    "dbName": "Pilopeptan Mascarilla Capilar Restauradora 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/0e92e43a-c22b-4a9b-b69c-b19eecbbefe9/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0e92e43a-c22b-4a9b-b69c-b19eecbbefe9/image.webp"
+  },
+  {
+    "id": "a608b0c9-2108-4d22-b1d9-65c978d33692",
+    "sku": "DERM-I00994",
+    "dbName": "Pilopeptan Serum Reparador Capilar Woman 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/a608b0c9-2108-4d22-b1d9-65c978d33692/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a608b0c9-2108-4d22-b1d9-65c978d33692/image.webp"
+  },
+  {
+    "id": "bbe5cb1d-3344-4a4a-9b57-ce395d1b4d28",
+    "sku": "DERM-I01000",
+    "dbName": "Prefex NS X 10 Comprimido",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/bbe5cb1d-3344-4a4a-9b57-ce395d1b4d28/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bbe5cb1d-3344-4a4a-9b57-ce395d1b4d28/image.webp"
+  },
+  {
+    "id": "d0431fa4-0ec6-4db6-b47d-bb0ade875771",
+    "sku": "DERM-I00974",
+    "dbName": "Nous 5",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d0431fa4-0ec6-4db6-b47d-bb0ade875771/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d0431fa4-0ec6-4db6-b47d-bb0ade875771/image.webp"
+  },
+  {
+    "id": "981e8646-be33-4e2a-afca-ad68bf848118",
+    "sku": "DERM-I01025",
+    "dbName": "Regener Plus",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/981e8646-be33-4e2a-afca-ad68bf848118/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/981e8646-be33-4e2a-afca-ad68bf848118/image.webp"
+  },
+  {
+    "id": "ec22991c-4848-4093-b175-861c335da50c",
+    "sku": "DERM-I01141",
+    "dbName": "Sesderma Retises Facial 0.50% GEL 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/ec22991c-4848-4093-b175-861c335da50c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ec22991c-4848-4093-b175-861c335da50c/image.webp"
+  },
+  {
+    "id": "7ee53145-868d-465d-a26c-d162c611ce10",
+    "sku": "DERM-I01051",
+    "dbName": "Roacutane 20MG Caja 30 Comprimidos",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7ee53145-868d-465d-a26c-d162c611ce10/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7ee53145-868d-465d-a26c-d162c611ce10/image.webp"
+  },
+  {
+    "id": "429a703f-3a8c-4773-9776-81f66a59e897",
+    "sku": "DERM-I01105",
+    "dbName": "Sesderma Dryses Desodorante Mujer 75 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/429a703f-3a8c-4773-9776-81f66a59e897/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/429a703f-3a8c-4773-9776-81f66a59e897/image.webp"
+  },
+  {
+    "id": "8968d5b5-f5d3-4570-a2f9-9abb3e0ef045",
+    "sku": "DERM-I00999",
+    "dbName": "Prefex NS Jarabe X 60 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/8968d5b5-f5d3-4570-a2f9-9abb3e0ef045/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8968d5b5-f5d3-4570-a2f9-9abb3e0ef045/image.webp"
+  },
+  {
+    "id": "8a19c67f-2cb2-4d3a-88f0-ebb264e5096c",
+    "sku": "DERM-I01080",
+    "dbName": "Serenus 25 MG ** Detalle **",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/8a19c67f-2cb2-4d3a-88f0-ebb264e5096c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8a19c67f-2cb2-4d3a-88f0-ebb264e5096c/image.webp"
+  },
+  {
+    "id": "d258383e-73b8-4fd5-9921-2b40a481a1c4",
+    "sku": "DERM-I01159",
+    "dbName": "Sesderma Seskavel Shampoo 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d258383e-73b8-4fd5-9921-2b40a481a1c4/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d258383e-73b8-4fd5-9921-2b40a481a1c4/image.webp"
+  },
+  {
+    "id": "13b571f1-0da6-4cb8-9d48-2166c86a766b",
+    "sku": "DERM-I01104",
+    "dbName": "Sesderma Dryses Desodorante Hombre 75 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/13b571f1-0da6-4cb8-9d48-2166c86a766b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/13b571f1-0da6-4cb8-9d48-2166c86a766b/image.webp"
+  },
+  {
+    "id": "aa86484e-a4c3-4d53-88be-ddc04b53699c",
+    "sku": "DERM-I01200",
+    "dbName": "Terbix Spray 90 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/aa86484e-a4c3-4d53-88be-ddc04b53699c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/aa86484e-a4c3-4d53-88be-ddc04b53699c/image.webp"
+  },
+  {
+    "id": "396b860a-47ab-4d46-add9-05933106441b",
+    "sku": "DERM-I01199",
+    "dbName": "Terbix Crema",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/396b860a-47ab-4d46-add9-05933106441b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/396b860a-47ab-4d46-add9-05933106441b/image.webp"
+  },
+  {
+    "id": "e76314b6-01ca-4c78-9f4a-d38305681676",
+    "sku": "DERM-I01196",
+    "dbName": "Terbicip Solucion 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e76314b6-01ca-4c78-9f4a-d38305681676/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e76314b6-01ca-4c78-9f4a-d38305681676/image.webp"
+  },
+  {
+    "id": "8e66ec2a-0397-4c70-8e3c-2c7b51aae983",
+    "sku": "DERM-I01177",
+    "dbName": "Soolantra 1% Crema 30GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/8e66ec2a-0397-4c70-8e3c-2c7b51aae983/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8e66ec2a-0397-4c70-8e3c-2c7b51aae983/image.webp"
+  },
+  {
+    "id": "3415a0ef-4bc6-49f4-b850-3feffe73e2a6",
+    "sku": "DERM-I01186",
+    "dbName": "Talgraf 0.1% 20 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/3415a0ef-4bc6-49f4-b850-3feffe73e2a6/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3415a0ef-4bc6-49f4-b850-3feffe73e2a6/image.webp"
+  },
+  {
+    "id": "c7a9bc74-22e7-4095-83c2-5f948fc10a1b",
+    "sku": "DERM-I01215",
+    "dbName": "Tirizin Jarabe 10 MG 60 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c7a9bc74-22e7-4095-83c2-5f948fc10a1b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c7a9bc74-22e7-4095-83c2-5f948fc10a1b/image.webp"
+  },
+  {
+    "id": "56c1670d-ab61-43d8-bf2d-a3572593a9ea",
+    "sku": "DERM-I01214",
+    "dbName": "Thrombocid Crema 60 Gramos",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/56c1670d-ab61-43d8-bf2d-a3572593a9ea/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/56c1670d-ab61-43d8-bf2d-a3572593a9ea/image.webp"
+  },
+  {
+    "id": "5981ee5b-0f83-4dce-b6d5-ca14c38c8755",
+    "sku": "DERM-I01192",
+    "dbName": "Tanit Serum Intensivo Despigmentante 30ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/5981ee5b-0f83-4dce-b6d5-ca14c38c8755/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/5981ee5b-0f83-4dce-b6d5-ca14c38c8755/image.webp"
+  },
+  {
+    "id": "cade2a0e-190e-47ec-8bfc-5a887eb15734",
+    "sku": "DERM-I01235",
+    "dbName": "Tricovit WNT Spray 60ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/cade2a0e-190e-47ec-8bfc-5a887eb15734/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/cade2a0e-190e-47ec-8bfc-5a887eb15734/image.webp"
+  },
+  {
+    "id": "f75912d4-6a15-4005-89a7-428d917d20d4",
+    "sku": "DERM-I01232",
+    "dbName": "Tricotabs X 60 Tabletas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f75912d4-6a15-4005-89a7-428d917d20d4/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f75912d4-6a15-4005-89a7-428d917d20d4/image.webp"
+  },
+  {
+    "id": "1bcf994a-e859-4122-a4e1-8a411a037220",
+    "sku": "DERM-I01266",
+    "dbName": "Uriage Desodorante Roll-on 50 ML.",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/1bcf994a-e859-4122-a4e1-8a411a037220/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1bcf994a-e859-4122-a4e1-8a411a037220/image.webp"
+  },
+  {
+    "id": "ab088fce-9836-4d2f-88e8-e6391243af78",
+    "sku": "DERM-I01237",
+    "dbName": "Truvera 0.5 MG 30 Capsulas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/ab088fce-9836-4d2f-88e8-e6391243af78/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ab088fce-9836-4d2f-88e8-e6391243af78/image.webp"
+  },
+  {
+    "id": "469dd99e-6afb-4950-a771-e649a2b46c6a",
+    "sku": "DERM-I01231",
+    "dbName": "Trederma Crema 20 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/469dd99e-6afb-4950-a771-e649a2b46c6a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/469dd99e-6afb-4950-a771-e649a2b46c6a/image.webp"
+  },
+  {
+    "id": "97b71f5f-e212-4d49-836d-377f86b04888",
+    "sku": "DERM-I01267",
+    "dbName": "Uriage DS Emulsion Reguladora 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/97b71f5f-e212-4d49-836d-377f86b04888/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/97b71f5f-e212-4d49-836d-377f86b04888/image.webp"
+  },
+  {
+    "id": "9dfd7d0e-f0fd-4eee-86d1-daa6ac4a80a9",
+    "sku": "DERM-I01268",
+    "dbName": "Uriage DS GEL Moussant Regulador 150 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9dfd7d0e-f0fd-4eee-86d1-daa6ac4a80a9/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9dfd7d0e-f0fd-4eee-86d1-daa6ac4a80a9/image.webp"
+  },
+  {
+    "id": "bb612c66-02d8-4d77-90f9-28919313c6c3",
+    "sku": "DERM-I01202",
+    "dbName": "Tetralisal 300 MG / 20 Capsulas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/bb612c66-02d8-4d77-90f9-28919313c6c3/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bb612c66-02d8-4d77-90f9-28919313c6c3/image.webp"
+  },
+  {
+    "id": "b4a6e373-7317-45c2-9196-06f8e783a135",
+    "sku": "DERM-I00407",
+    "dbName": "Ducray Melascreen UV Crema Ligera SPF 50 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b4a6e373-7317-45c2-9196-06f8e783a135/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b4a6e373-7317-45c2-9196-06f8e783a135/image.webp"
+  },
+  {
+    "id": "750d8885-e3ca-4b95-afa0-ab940665f82d",
+    "sku": "DERM-I01300",
+    "dbName": "Vadun Ungüento 30G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/750d8885-e3ca-4b95-afa0-ab940665f82d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/750d8885-e3ca-4b95-afa0-ab940665f82d/image.webp"
+  },
+  {
+    "id": "34424176-290f-4ac4-b6a0-dac99feae918",
+    "sku": "DERM-I00445",
+    "dbName": "Etibeta 0.25 / 5 MG 10 Comprimidos",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/34424176-290f-4ac4-b6a0-dac99feae918/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/34424176-290f-4ac4-b6a0-dac99feae918/image.webp"
+  },
+  {
+    "id": "20dab27d-c65f-4ed9-ad16-5b40ef8d32e3",
+    "sku": "DERM-I01284",
+    "dbName": "Uriage GYN PHY Bruma Spray",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/20dab27d-c65f-4ed9-ad16-5b40ef8d32e3/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/20dab27d-c65f-4ed9-ad16-5b40ef8d32e3/image.webp"
+  },
+  {
+    "id": "40b023a5-8692-4467-bc29-ac8c3c010388",
+    "sku": "DERM-I00544",
+    "dbName": "Fusibact Crema 20 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/40b023a5-8692-4467-bc29-ac8c3c010388/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/40b023a5-8692-4467-bc29-ac8c3c010388/image.webp"
+  },
+  {
+    "id": "5169ed42-9121-4deb-8907-aa5f7d44370b",
+    "sku": "DERM-I00386",
+    "dbName": "Drysol Desodorante 35 CC",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/5169ed42-9121-4deb-8907-aa5f7d44370b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/5169ed42-9121-4deb-8907-aa5f7d44370b/image.webp"
+  },
+  {
+    "id": "04e29d11-aefb-4486-8609-23c5c0374944",
+    "sku": "DERM-I00344",
+    "dbName": "Cutivate Crema 15MG",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/04e29d11-aefb-4486-8609-23c5c0374944/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/04e29d11-aefb-4486-8609-23c5c0374944/image.webp"
+  },
+  {
+    "id": "8ebcfe49-6016-4f2e-aa59-502089cdda42",
+    "sku": "DERM-I00382",
+    "dbName": "Dexalocal Crema 20 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/8ebcfe49-6016-4f2e-aa59-502089cdda42/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8ebcfe49-6016-4f2e-aa59-502089cdda42/image.webp"
+  },
+  {
+    "id": "d2b8217d-299d-4208-b965-a2b50a90b77e",
+    "sku": "DERM-I00410",
+    "dbName": "Ecoven Solucion Topica 20 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d2b8217d-299d-4208-b965-a2b50a90b77e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d2b8217d-299d-4208-b965-a2b50a90b77e/image.webp"
+  },
+  {
+    "id": "3e5f9c10-33c6-45be-a672-e56cf07417bc",
+    "sku": "DERM-I00548",
+    "dbName": "Galderma Nutracort Locion 120 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/3e5f9c10-33c6-45be-a672-e56cf07417bc/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3e5f9c10-33c6-45be-a672-e56cf07417bc/image.webp"
+  },
+  {
+    "id": "7653da12-679b-41f2-91bc-e68f1b90ac9a",
+    "sku": "DERM-I00550",
+    "dbName": "Genove Fluidbase K Crema Antiojeras 20 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7653da12-679b-41f2-91bc-e68f1b90ac9a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7653da12-679b-41f2-91bc-e68f1b90ac9a/image.webp"
+  },
+  {
+    "id": "70826290-0304-42b9-91eb-19f7559b36fe",
+    "sku": "DERM-I00545",
+    "dbName": "Galderma Adaferin GEL Tubo 0.1% 30 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/70826290-0304-42b9-91eb-19f7559b36fe/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/70826290-0304-42b9-91eb-19f7559b36fe/image.webp"
+  },
+  {
+    "id": "ea9b795e-c0c6-454b-b7fa-928e746db893",
+    "sku": "DERM-I00556",
+    "dbName": "Genove Genocutan GEL Dermatologico 250 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/ea9b795e-c0c6-454b-b7fa-928e746db893/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ea9b795e-c0c6-454b-b7fa-928e746db893/image.webp"
+  },
+  {
+    "id": "999cc1bd-30f5-4463-b238-66009beaac9e",
+    "sku": "DERM-I00490",
+    "dbName": "Eucerin Locion Solar Para Ninos SPF 50+",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/999cc1bd-30f5-4463-b238-66009beaac9e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/999cc1bd-30f5-4463-b238-66009beaac9e/image.webp"
+  },
+  {
+    "id": "c1487d0e-66bb-4a48-bcbc-505ec429ed23",
+    "sku": "DERM-I00554",
+    "dbName": "Genove Fluidbase Rederm Retinol + VIT C 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c1487d0e-66bb-4a48-bcbc-505ec429ed23/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c1487d0e-66bb-4a48-bcbc-505ec429ed23/image.webp"
+  },
+  {
+    "id": "eac869bd-6060-4da5-9255-bc231780f36c",
+    "sku": "DERM-I00552",
+    "dbName": "Genove Fluidbase Rederm 15% AHA GEL Forte 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/eac869bd-6060-4da5-9255-bc231780f36c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/eac869bd-6060-4da5-9255-bc231780f36c/image.webp"
+  },
+  {
+    "id": "d2a6b101-0a88-4563-adca-8f36335a1a66",
+    "sku": "DERM-I00568",
+    "dbName": "GV Jabon DE Manzanilla 235 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d2a6b101-0a88-4563-adca-8f36335a1a66/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d2a6b101-0a88-4563-adca-8f36335a1a66/image.webp"
+  },
+  {
+    "id": "056f0214-e316-4a01-a5d1-780881e0dc4b",
+    "sku": "DERM-I00384",
+    "dbName": "Dicron C",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/056f0214-e316-4a01-a5d1-780881e0dc4b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/056f0214-e316-4a01-a5d1-780881e0dc4b/image.webp"
+  },
+  {
+    "id": "34db7d30-6a4b-4162-8443-38f25a47c359",
+    "sku": "DERM-I00566",
+    "dbName": "GV Crema Glicofitica 30 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/34db7d30-6a4b-4162-8443-38f25a47c359/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/34db7d30-6a4b-4162-8443-38f25a47c359/image.webp"
+  },
+  {
+    "id": "85f0f48c-5f37-4c96-ac5f-aead2808b98d",
+    "sku": "DERM-I00546",
+    "dbName": "Galderma Benzac AC GEL 5% 60G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/85f0f48c-5f37-4c96-ac5f-aead2808b98d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/85f0f48c-5f37-4c96-ac5f-aead2808b98d/image.webp"
+  },
+  {
+    "id": "2db2e07c-f6ea-4f7a-bd92-75cf8d6edf5a",
+    "sku": "DERM-I00565",
+    "dbName": "GV Crema Blanqueadora 30 GR.",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2db2e07c-f6ea-4f7a-bd92-75cf8d6edf5a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2db2e07c-f6ea-4f7a-bd92-75cf8d6edf5a/image.webp"
+  },
+  {
+    "id": "d6385ab0-2113-4abd-88a9-0cf0316a0c9e",
+    "sku": "DERM-I00601",
+    "dbName": "Hidrisage Lumed Base Fluida Tono Claro 40 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d6385ab0-2113-4abd-88a9-0cf0316a0c9e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d6385ab0-2113-4abd-88a9-0cf0316a0c9e/image.webp"
+  },
+  {
+    "id": "a1cdb69b-f1dc-4fcf-bf8a-d4371edce218",
+    "sku": "DERM-I00590",
+    "dbName": "Heliocare Advanced GEL SPF 50",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/a1cdb69b-f1dc-4fcf-bf8a-d4371edce218/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a1cdb69b-f1dc-4fcf-bf8a-d4371edce218/image.webp"
+  },
+  {
+    "id": "7c0c4274-9d5a-4e15-b484-50ed671d412c",
+    "sku": "DERM-I00596",
+    "dbName": "Heliocare Spray SPF 50 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7c0c4274-9d5a-4e15-b484-50ed671d412c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7c0c4274-9d5a-4e15-b484-50ed671d412c/image.webp"
+  },
+  {
+    "id": "2110a8fd-b1cb-4307-939b-34617bc10918",
+    "sku": "DERM-I00770",
+    "dbName": "Kalm Jarabe 120 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2110a8fd-b1cb-4307-939b-34617bc10918/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2110a8fd-b1cb-4307-939b-34617bc10918/image.webp"
+  },
+  {
+    "id": "fa61c9fa-7040-4288-9f6b-9d5b051d1cd4",
+    "sku": "DERM-I00667",
+    "dbName": "Inmunoferon 500MG ** Detalle **",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/fa61c9fa-7040-4288-9f6b-9d5b051d1cd4/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/fa61c9fa-7040-4288-9f6b-9d5b051d1cd4/image.webp"
+  },
+  {
+    "id": "71ce95da-5180-4a0c-9f5e-48b0f9323ed3",
+    "sku": "DERM-I00763",
+    "dbName": "Isox 15-D 100 MG",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/71ce95da-5180-4a0c-9f5e-48b0f9323ed3/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/71ce95da-5180-4a0c-9f5e-48b0f9323ed3/image.webp"
+  },
+  {
+    "id": "f4ba7b3f-b75c-403e-852f-20235026a523",
+    "sku": "DERM-I00570",
+    "dbName": "GV Triblanq Crema 25 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f4ba7b3f-b75c-403e-852f-20235026a523/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f4ba7b3f-b75c-403e-852f-20235026a523/image.webp"
+  },
+  {
+    "id": "2c008674-0b39-4129-89d0-d024b7fab459",
+    "sku": "DERM-I00614",
+    "dbName": "Ibertobar 100 MG 15 Capsulas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2c008674-0b39-4129-89d0-d024b7fab459/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2c008674-0b39-4129-89d0-d024b7fab459/image.webp"
+  },
+  {
+    "id": "9dc60ce6-a824-42b6-b792-0d81bb616fbe",
+    "sku": "DERM-I00772",
+    "dbName": "Ketzole Jabon Pasta AL 2% 100 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9dc60ce6-a824-42b6-b792-0d81bb616fbe/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9dc60ce6-a824-42b6-b792-0d81bb616fbe/image.webp"
+  },
+  {
+    "id": "b0207ad1-e090-4a72-9232-a8ebe722de60",
+    "sku": "DERM-I00612",
+    "dbName": "Iberdo Jabon Intimo 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b0207ad1-e090-4a72-9232-a8ebe722de60/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b0207ad1-e090-4a72-9232-a8ebe722de60/image.webp"
+  },
+  {
+    "id": "2944b6d5-f1d1-42e8-8b0c-0aa0d69d6031",
+    "sku": "DERM-I00766",
+    "dbName": "Ivexterm 6 MG 2 Tabletas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2944b6d5-f1d1-42e8-8b0c-0aa0d69d6031/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2944b6d5-f1d1-42e8-8b0c-0aa0d69d6031/image.webp"
+  },
+  {
+    "id": "ad3405dc-96e3-483f-a467-41f107f75733",
+    "sku": "DERM-I00773",
+    "dbName": "Kexili - 0.1 Barra",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/ad3405dc-96e3-483f-a467-41f107f75733/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ad3405dc-96e3-483f-a467-41f107f75733/image.webp"
+  },
+  {
+    "id": "6e021225-370a-4381-b5c4-feda2b24144e",
+    "sku": "DERM-I00765",
+    "dbName": "Ivermectina 6MG X 6 Tabletas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/6e021225-370a-4381-b5c4-feda2b24144e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6e021225-370a-4381-b5c4-feda2b24144e/image.webp"
+  },
+  {
+    "id": "30db3235-463b-4f24-8d30-a1250865646a",
+    "sku": "DERM-I00761",
+    "dbName": "Isoface 40 MG X 20 Capsulas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/30db3235-463b-4f24-8d30-a1250865646a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/30db3235-463b-4f24-8d30-a1250865646a/image.webp"
+  },
+  {
+    "id": "6ec3ec82-bc33-448e-aa03-05af0e426f08",
+    "sku": "DERM-I00872",
+    "dbName": "Martiderm Pigment Zero Dsp-crema SPF 50 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/6ec3ec82-bc33-448e-aa03-05af0e426f08/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6ec3ec82-bc33-448e-aa03-05af0e426f08/image.webp"
+  },
+  {
+    "id": "8e179ce7-31bc-48e5-a2b3-304da02d4c8e",
+    "sku": "DERM-I00760",
+    "dbName": "Isoface 20 MG X 30 Capsulas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/8e179ce7-31bc-48e5-a2b3-304da02d4c8e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8e179ce7-31bc-48e5-a2b3-304da02d4c8e/image.webp"
+  },
+  {
+    "id": "281b25b9-c627-4757-996c-c02ba01f8661",
+    "sku": "DERM-I00897",
+    "dbName": "Medihealth Aquatop Limpiador Liquido 400 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/281b25b9-c627-4757-996c-c02ba01f8661/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/281b25b9-c627-4757-996c-c02ba01f8661/image.webp"
+  },
+  {
+    "id": "0845a4cf-219d-4a7e-aff8-d9c68b9867d8",
+    "sku": "DERM-I00896",
+    "dbName": "Medihealth Aquatop Crema Reparadora Intensiva 250 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/0845a4cf-219d-4a7e-aff8-d9c68b9867d8/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0845a4cf-219d-4a7e-aff8-d9c68b9867d8/image.webp"
+  },
+  {
+    "id": "9b65b504-6865-44fb-926f-f13e3a246f9e",
+    "sku": "DERM-I00901",
+    "dbName": "Medihealth Dermacortine Crema 15 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9b65b504-6865-44fb-926f-f13e3a246f9e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9b65b504-6865-44fb-926f-f13e3a246f9e/image.webp"
+  },
+  {
+    "id": "7744c76e-55c2-4921-89d7-22a0dc9669b9",
+    "sku": "DERM-I00855",
+    "dbName": "Levaler Jarabe 120 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7744c76e-55c2-4921-89d7-22a0dc9669b9/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7744c76e-55c2-4921-89d7-22a0dc9669b9/image.webp"
+  },
+  {
+    "id": "8acf53c8-f003-40f5-bf40-fc93f2ab196b",
+    "sku": "DERM-I00860",
+    "dbName": "Marabea Crema 15 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/8acf53c8-f003-40f5-bf40-fc93f2ab196b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8acf53c8-f003-40f5-bf40-fc93f2ab196b/image.webp"
+  },
+  {
+    "id": "903bb8ba-1035-4183-887b-24e1bad07951",
+    "sku": "DERM-I00061",
+    "dbName": "A-derma Dermalibour Barrier Crema 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/903bb8ba-1035-4183-887b-24e1bad07951/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/903bb8ba-1035-4183-887b-24e1bad07951/image.webp"
+  },
+  {
+    "id": "4454356b-7b9a-4697-b953-c7196b007ba3",
+    "sku": "DERM-I00909",
+    "dbName": "Medihealth Glicolic Crema Hidratante 60 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/4454356b-7b9a-4697-b953-c7196b007ba3/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4454356b-7b9a-4697-b953-c7196b007ba3/image.webp"
+  },
+  {
+    "id": "ce88e20b-04a1-4273-ae38-1a8e2600aa38",
+    "sku": "DERM-I00002",
+    "dbName": "Abravia Jarabe 60 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/ce88e20b-04a1-4273-ae38-1a8e2600aa38/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ce88e20b-04a1-4273-ae38-1a8e2600aa38/image.webp"
+  },
+  {
+    "id": "f01cb26c-b8fc-4328-9441-8711ad3a63a8",
+    "sku": "DERM-I00069",
+    "dbName": "A-derma Exomega Control Emoliente Defi 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f01cb26c-b8fc-4328-9441-8711ad3a63a8/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f01cb26c-b8fc-4328-9441-8711ad3a63a8/image.webp"
+  },
+  {
+    "id": "0b56d813-a3b8-40d3-975f-618f48b2511c",
+    "sku": "DERM-I00013",
+    "dbName": "ACM Cicastim Crema Reparadora Tubo 20 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/0b56d813-a3b8-40d3-975f-618f48b2511c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0b56d813-a3b8-40d3-975f-618f48b2511c/image.webp"
+  },
+  {
+    "id": "c09c83d5-b4f6-446d-b6a6-be55febdcdc2",
+    "sku": "DERM-I00903",
+    "dbName": "Medihealth Dermacortine Espuma 50 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c09c83d5-b4f6-446d-b6a6-be55febdcdc2/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c09c83d5-b4f6-446d-b6a6-be55febdcdc2/image.webp"
+  },
+  {
+    "id": "6e664f7b-842f-422d-b6fa-432e9e54cfbd",
+    "sku": "DERM-I00052",
+    "dbName": "ACM Sensitelial Ultra Rich Dermatological Barra 100 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/6e664f7b-842f-422d-b6fa-432e9e54cfbd/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6e664f7b-842f-422d-b6fa-432e9e54cfbd/image.webp"
+  },
+  {
+    "id": "97bbd3ca-798a-41f4-8d8f-653b7b87ef25",
+    "sku": "DERM-I00082",
+    "dbName": "Alercet 10 MG ** Detalle **",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/97bbd3ca-798a-41f4-8d8f-653b7b87ef25/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/97bbd3ca-798a-41f4-8d8f-653b7b87ef25/image.webp"
+  },
+  {
+    "id": "46c17345-9b36-4cd3-8e43-9537834a8c28",
+    "sku": "DERM-I00079",
+    "dbName": "Akun 2 Barra",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/46c17345-9b36-4cd3-8e43-9537834a8c28/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/46c17345-9b36-4cd3-8e43-9537834a8c28/image.webp"
+  },
+  {
+    "id": "3467993c-7b43-45f9-a6da-dc0f62de37b5",
+    "sku": "DERM-I00083",
+    "dbName": "Alucal Sobres",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/3467993c-7b43-45f9-a6da-dc0f62de37b5/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3467993c-7b43-45f9-a6da-dc0f62de37b5/image.webp"
+  },
+  {
+    "id": "a92be2c7-67d5-4601-a0d1-8dc57449fadf",
+    "sku": "DERM-I00001",
+    "dbName": "Abravia Cetirizina 10 MG 10 Tabletas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/a92be2c7-67d5-4601-a0d1-8dc57449fadf/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a92be2c7-67d5-4601-a0d1-8dc57449fadf/image.webp"
+  },
+  {
+    "id": "c2566cbd-805f-47f0-91d9-d5ad976b2da8",
+    "sku": "DERM-I00077",
+    "dbName": "AID Unguento 30 MG",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c2566cbd-805f-47f0-91d9-d5ad976b2da8/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c2566cbd-805f-47f0-91d9-d5ad976b2da8/image.webp"
+  },
+  {
+    "id": "32c91460-20aa-42e5-b223-f8f8d8caeae2",
+    "sku": "DERM-I00080",
+    "dbName": "Akun 5 Barra",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/32c91460-20aa-42e5-b223-f8f8d8caeae2/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/32c91460-20aa-42e5-b223-f8f8d8caeae2/image.webp"
+  },
+  {
+    "id": "496e5d48-b5fb-4166-84be-b20e479d8572",
+    "sku": "DERM-I00147",
+    "dbName": "Avene Physiolift Noche",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/496e5d48-b5fb-4166-84be-b20e479d8572/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/496e5d48-b5fb-4166-84be-b20e479d8572/image.webp"
+  },
+  {
+    "id": "5ebf5774-367d-4332-9084-55ff4f392682",
+    "sku": "DERM-I00084",
+    "dbName": "Amplibiotic 500 MG",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/5ebf5774-367d-4332-9084-55ff4f392682/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/5ebf5774-367d-4332-9084-55ff4f392682/image.webp"
+  },
+  {
+    "id": "eef6ed33-5712-41d0-85c8-1d83850ecfb1",
+    "sku": "DERM-I00167",
+    "dbName": "B-33 Jabon Liquido 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/eef6ed33-5712-41d0-85c8-1d83850ecfb1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/eef6ed33-5712-41d0-85c8-1d83850ecfb1/image.webp"
+  },
+  {
+    "id": "b9f55079-eb66-406c-a0fd-f3fa3aa2e5f1",
+    "sku": "DERM-I00189",
+    "dbName": "Babe GEL Micelar 240 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b9f55079-eb66-406c-a0fd-f3fa3aa2e5f1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b9f55079-eb66-406c-a0fd-f3fa3aa2e5f1/image.webp"
+  },
+  {
+    "id": "ed680558-9755-4990-8345-60fc113ee0c0",
+    "sku": "DERM-I00182",
+    "dbName": "Babe Fotoprotector Facial Oil-free 50+ 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/ed680558-9755-4990-8345-60fc113ee0c0/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ed680558-9755-4990-8345-60fc113ee0c0/image.webp"
+  },
+  {
+    "id": "9b607c88-b46a-48dc-9c7e-01f821de704c",
+    "sku": "DERM-I00148",
+    "dbName": "Avene Physiolift Yeux - Ojos",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9b607c88-b46a-48dc-9c7e-01f821de704c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9b607c88-b46a-48dc-9c7e-01f821de704c/image.webp"
+  },
+  {
+    "id": "135b8b6c-be60-4ca8-b52c-739dfebb7bdc",
+    "sku": "DERM-I00198",
+    "dbName": "Babe Hydra-calm Fluido Locion Corporal 500 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/135b8b6c-be60-4ca8-b52c-739dfebb7bdc/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/135b8b6c-be60-4ca8-b52c-739dfebb7bdc/image.webp"
+  },
+  {
+    "id": "f0f76682-f1aa-4e18-8f5c-d1d959a36ce6",
+    "sku": "DERM-I00095",
+    "dbName": "Argental Plus 15 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f0f76682-f1aa-4e18-8f5c-d1d959a36ce6/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f0f76682-f1aa-4e18-8f5c-d1d959a36ce6/image.webp"
+  },
+  {
+    "id": "c59bfc81-a251-48dd-b7e6-7edc0c5cea22",
+    "sku": "DERM-I00208",
+    "dbName": "Babe Urea 10% Locion Reparadora 500 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c59bfc81-a251-48dd-b7e6-7edc0c5cea22/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c59bfc81-a251-48dd-b7e6-7edc0c5cea22/image.webp"
+  },
+  {
+    "id": "b7cf972f-aadf-455f-a80e-54adbcd54e9b",
+    "sku": "DERM-I00248",
+    "dbName": "Bioderma Sebium GEL Moussant Pompa 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b7cf972f-aadf-455f-a80e-54adbcd54e9b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b7cf972f-aadf-455f-a80e-54adbcd54e9b/image.webp"
+  },
+  {
+    "id": "aeb1a578-e5c2-40b2-a76a-c81fb2dec2e7",
+    "sku": "DERM-I00214",
+    "dbName": "Betnovate Locion Capilar 60 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/aeb1a578-e5c2-40b2-a76a-c81fb2dec2e7/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/aeb1a578-e5c2-40b2-a76a-c81fb2dec2e7/image.webp"
+  },
+  {
+    "id": "cd1bbc71-2233-43de-bf73-24f762b6dcaf",
+    "sku": "DERM-I00212",
+    "dbName": "Becloderm-plus 25 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/cd1bbc71-2233-43de-bf73-24f762b6dcaf/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/cd1bbc71-2233-43de-bf73-24f762b6dcaf/image.webp"
+  },
+  {
+    "id": "2ca278c8-8a93-4d5a-b33c-3897e574a8e1",
+    "sku": "DERM-I00217",
+    "dbName": "Biocortone Crema 20 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2ca278c8-8a93-4d5a-b33c-3897e574a8e1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2ca278c8-8a93-4d5a-b33c-3897e574a8e1/image.webp"
+  },
+  {
+    "id": "493e91e7-792a-4f7c-ad13-ab44bef07e32",
+    "sku": "DERM-I00271",
+    "dbName": "Biretix Tri-active GEL Anti-imperfecciones 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/493e91e7-792a-4f7c-ad13-ab44bef07e32/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/493e91e7-792a-4f7c-ad13-ab44bef07e32/image.webp"
+  },
+  {
+    "id": "96c2f159-513c-4465-9a0c-9cd3b1cc1869",
+    "sku": "DERM-I00156",
+    "dbName": "Avene Trixera Pain 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/96c2f159-513c-4465-9a0c-9cd3b1cc1869/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/96c2f159-513c-4465-9a0c-9cd3b1cc1869/image.webp"
+  },
+  {
+    "id": "4887511d-7a6f-4a9e-b226-14dd2acf4984",
+    "sku": "DERM-I00220",
+    "dbName": "Biocortone Unguento 20 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/4887511d-7a6f-4a9e-b226-14dd2acf4984/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4887511d-7a6f-4a9e-b226-14dd2acf4984/image.webp"
+  },
+  {
+    "id": "57202015-b870-4f6a-a1e5-420388bbd67f",
+    "sku": "DERM-I00267",
+    "dbName": "Biretix Cleanser 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/57202015-b870-4f6a-a1e5-420388bbd67f/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/57202015-b870-4f6a-a1e5-420388bbd67f/image.webp"
+  },
+  {
+    "id": "6d21ed06-2cd5-4f15-b16f-2b2b467b699b",
+    "sku": "DERM-I00318",
+    "dbName": "Clorexin 4% 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/6d21ed06-2cd5-4f15-b16f-2b2b467b699b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6d21ed06-2cd5-4f15-b16f-2b2b467b699b/image.webp"
+  },
+  {
+    "id": "f212fc8f-b992-4ca5-a01f-6374bd4b193d",
+    "sku": "DERM-I00215",
+    "dbName": "BIO OIL 125 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f212fc8f-b992-4ca5-a01f-6374bd4b193d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f212fc8f-b992-4ca5-a01f-6374bd4b193d/image.webp"
+  },
+  {
+    "id": "25f4e159-f000-4b30-9ded-1869545dda9c",
+    "sku": "DERM-I00282",
+    "dbName": "Celecoxib IF 400 MG X 30CAPS ** Detalle **",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/25f4e159-f000-4b30-9ded-1869545dda9c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/25f4e159-f000-4b30-9ded-1869545dda9c/image.webp"
+  },
+  {
+    "id": "2b2e27d4-5d54-4be8-a417-ff79e2504757",
+    "sku": "DERM-I00319",
+    "dbName": "Clorexin 4% 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2b2e27d4-5d54-4be8-a417-ff79e2504757/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2b2e27d4-5d54-4be8-a417-ff79e2504757/image.webp"
+  },
+  {
+    "id": "1386cc04-6779-4325-a0ac-6ab4ccc0d3d8",
+    "sku": "DERM-I00321",
+    "dbName": "Clozol Crema",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/1386cc04-6779-4325-a0ac-6ab4ccc0d3d8/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1386cc04-6779-4325-a0ac-6ab4ccc0d3d8/image.webp"
+  },
+  {
+    "id": "afe664ea-0a59-496c-bacc-10cf70dc0322",
+    "sku": "DERM-I00249",
+    "dbName": "Bioderma Sebium GEL Moussant Tubo 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/afe664ea-0a59-496c-bacc-10cf70dc0322/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/afe664ea-0a59-496c-bacc-10cf70dc0322/image.webp"
+  },
+  {
+    "id": "33864617-29e7-47b4-b463-bbbc98212e10",
+    "sku": "DERM-I00341",
+    "dbName": "Cromus 0.1% Unguento 30 MG",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/33864617-29e7-47b4-b463-bbbc98212e10/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/33864617-29e7-47b4-b463-bbbc98212e10/image.webp"
+  },
+  {
+    "id": "2e71347b-f2c3-4075-b763-c9e318580fc6",
+    "sku": "DERM-I00340",
+    "dbName": "Cromus 0.03% Unguento Tubo 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2e71347b-f2c3-4075-b763-c9e318580fc6/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2e71347b-f2c3-4075-b763-c9e318580fc6/image.webp"
+  },
+  {
+    "id": "06f0be7c-138b-41ff-b90f-7f802e9a59f7",
+    "sku": "DERM-I00376",
+    "dbName": "Dermovate Crema 0.05 % 30 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/06f0be7c-138b-41ff-b90f-7f802e9a59f7/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/06f0be7c-138b-41ff-b90f-7f802e9a59f7/image.webp"
+  },
+  {
+    "id": "d2140f9f-9185-4ba2-a6c1-ee9ff9fd0d4e",
+    "sku": "DERM-I00283",
+    "dbName": "Cepha 500 MG",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d2140f9f-9185-4ba2-a6c1-ee9ff9fd0d4e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d2140f9f-9185-4ba2-a6c1-ee9ff9fd0d4e/image.webp"
+  },
+  {
+    "id": "63c8ff75-6c34-4bb6-9e00-bc2e65442953",
+    "sku": "DERM-I00381",
+    "dbName": "Desowen Crema 30 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/63c8ff75-6c34-4bb6-9e00-bc2e65442953/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/63c8ff75-6c34-4bb6-9e00-bc2e65442953/image.webp"
+  },
+  {
+    "id": "cbdd142d-3d78-48d7-9702-c2811ae7742e",
+    "sku": "DERM-I00379",
+    "dbName": "Derovit 7000 UI X 16 CAP",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/cbdd142d-3d78-48d7-9702-c2811ae7742e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/cbdd142d-3d78-48d7-9702-c2811ae7742e/image.webp"
+  },
+  {
+    "id": "6dba3de3-6878-4b39-9c48-8759794fc71f",
+    "sku": "DERM-I00383",
+    "dbName": "Dexasalyl Unguento 20 GR",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/6dba3de3-6878-4b39-9c48-8759794fc71f/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6dba3de3-6878-4b39-9c48-8759794fc71f/image.webp"
+  },
+  {
+    "id": "19110d91-6f59-46f3-83da-c1171a860fad",
+    "sku": "DERM-I00165",
+    "dbName": "Avexa 30 MG 10 Tabletas",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/19110d91-6f59-46f3-83da-c1171a860fad/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/19110d91-6f59-46f3-83da-c1171a860fad/image.webp"
+  }
+]

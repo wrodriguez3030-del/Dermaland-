@@ -1,0 +1,595 @@
+{
+  "review": [
+    {
+      "file": "DERM-I00973.webp",
+      "sku": "DERM-I00973",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00974.webp",
+      "sku": "DERM-I00974",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00994.webp",
+      "sku": "DERM-I00994",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00990.webp",
+      "sku": "DERM-I00990",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00985.webp",
+      "sku": "DERM-I00985",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01023.webp",
+      "sku": "DERM-I01023",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01000.webp",
+      "sku": "DERM-I01000",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01053.webp",
+      "sku": "DERM-I01053",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01025.webp",
+      "sku": "DERM-I01025",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01080.webp",
+      "sku": "DERM-I01080",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01104.webp",
+      "sku": "DERM-I01104",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00999.webp",
+      "sku": "DERM-I00999",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01141.webp",
+      "sku": "DERM-I01141",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01105.webp",
+      "sku": "DERM-I01105",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01051.webp",
+      "sku": "DERM-I01051",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01159.webp",
+      "sku": "DERM-I01159",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01200.webp",
+      "sku": "DERM-I01200",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01192.webp",
+      "sku": "DERM-I01192",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01199.webp",
+      "sku": "DERM-I01199",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01196.webp",
+      "sku": "DERM-I01196",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01186.webp",
+      "sku": "DERM-I01186",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01177.webp",
+      "sku": "DERM-I01177",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01214.webp",
+      "sku": "DERM-I01214",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01215.webp",
+      "sku": "DERM-I01215",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01235.webp",
+      "sku": "DERM-I01235",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01232.webp",
+      "sku": "DERM-I01232",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01266.webp",
+      "sku": "DERM-I01266",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01202.webp",
+      "sku": "DERM-I01202",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01237.webp",
+      "sku": "DERM-I01237",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01267.webp",
+      "sku": "DERM-I01267",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01268.webp",
+      "sku": "DERM-I01268",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01231.webp",
+      "sku": "DERM-I01231",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01300.webp",
+      "sku": "DERM-I01300",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I01284.webp",
+      "sku": "DERM-I01284",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00407.webp",
+      "sku": "DERM-I00407",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00386.webp",
+      "sku": "DERM-I00386",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00344.webp",
+      "sku": "DERM-I00344",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00445.webp",
+      "sku": "DERM-I00445",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00544.webp",
+      "sku": "DERM-I00544",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00382.webp",
+      "sku": "DERM-I00382",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00410.webp",
+      "sku": "DERM-I00410",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00548.webp",
+      "sku": "DERM-I00548",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00545.webp",
+      "sku": "DERM-I00545",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00550.webp",
+      "sku": "DERM-I00550",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00490.webp",
+      "sku": "DERM-I00490",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00556.webp",
+      "sku": "DERM-I00556",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00554.webp",
+      "sku": "DERM-I00554",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00552.webp",
+      "sku": "DERM-I00552",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00568.webp",
+      "sku": "DERM-I00568",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00566.webp",
+      "sku": "DERM-I00566",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00590.webp",
+      "sku": "DERM-I00590",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00384.webp",
+      "sku": "DERM-I00384",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00546.webp",
+      "sku": "DERM-I00546",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00601.webp",
+      "sku": "DERM-I00601",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00596.webp",
+      "sku": "DERM-I00596",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00565.webp",
+      "sku": "DERM-I00565",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00570.webp",
+      "sku": "DERM-I00570",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00614.webp",
+      "sku": "DERM-I00614",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00667.webp",
+      "sku": "DERM-I00667",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00763.webp",
+      "sku": "DERM-I00763",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00766.webp",
+      "sku": "DERM-I00766",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00612.webp",
+      "sku": "DERM-I00612",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00770.webp",
+      "sku": "DERM-I00770",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00772.webp",
+      "sku": "DERM-I00772",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00773.webp",
+      "sku": "DERM-I00773",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00765.webp",
+      "sku": "DERM-I00765",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00761.webp",
+      "sku": "DERM-I00761",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00760.webp",
+      "sku": "DERM-I00760",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00872.webp",
+      "sku": "DERM-I00872",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00897.webp",
+      "sku": "DERM-I00897",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00896.webp",
+      "sku": "DERM-I00896",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00901.webp",
+      "sku": "DERM-I00901",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00855.webp",
+      "sku": "DERM-I00855",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00860.webp",
+      "sku": "DERM-I00860",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00903.webp",
+      "sku": "DERM-I00903",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00909.webp",
+      "sku": "DERM-I00909",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00061.webp",
+      "sku": "DERM-I00061",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00069.webp",
+      "sku": "DERM-I00069",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00013.webp",
+      "sku": "DERM-I00013",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00002.webp",
+      "sku": "DERM-I00002",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00052.webp",
+      "sku": "DERM-I00052",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00082.webp",
+      "sku": "DERM-I00082",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00079.webp",
+      "sku": "DERM-I00079",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00080.webp",
+      "sku": "DERM-I00080",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00083.webp",
+      "sku": "DERM-I00083",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00001.webp",
+      "sku": "DERM-I00001",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00147.webp",
+      "sku": "DERM-I00147",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00077.webp",
+      "sku": "DERM-I00077",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00084.webp",
+      "sku": "DERM-I00084",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00148.webp",
+      "sku": "DERM-I00148",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00167.webp",
+      "sku": "DERM-I00167",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00182.webp",
+      "sku": "DERM-I00182",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00189.webp",
+      "sku": "DERM-I00189",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00095.webp",
+      "sku": "DERM-I00095",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00198.webp",
+      "sku": "DERM-I00198",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00208.webp",
+      "sku": "DERM-I00208",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00214.webp",
+      "sku": "DERM-I00214",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00217.webp",
+      "sku": "DERM-I00217",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00212.webp",
+      "sku": "DERM-I00212",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00156.webp",
+      "sku": "DERM-I00156",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00248.webp",
+      "sku": "DERM-I00248",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00267.webp",
+      "sku": "DERM-I00267",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00220.webp",
+      "sku": "DERM-I00220",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00271.webp",
+      "sku": "DERM-I00271",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00215.webp",
+      "sku": "DERM-I00215",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00318.webp",
+      "sku": "DERM-I00318",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00282.webp",
+      "sku": "DERM-I00282",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00321.webp",
+      "sku": "DERM-I00321",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00319.webp",
+      "sku": "DERM-I00319",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00249.webp",
+      "sku": "DERM-I00249",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00340.webp",
+      "sku": "DERM-I00340",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00341.webp",
+      "sku": "DERM-I00341",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00376.webp",
+      "sku": "DERM-I00376",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00381.webp",
+      "sku": "DERM-I00381",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00283.webp",
+      "sku": "DERM-I00283",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00379.webp",
+      "sku": "DERM-I00379",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00165.webp",
+      "sku": "DERM-I00165",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00383.webp",
+      "sku": "DERM-I00383",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    }
+  ],
+  "noMatch": []
+}

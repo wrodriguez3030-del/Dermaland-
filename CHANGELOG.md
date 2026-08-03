@@ -10,6 +10,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.108.0] - 2026-08-03
+
+**609 productos con foto (44,9 %). Emparejamiento por código de barras: cero errores.**
+
+- Nueva fuente, farmaciasvip.com, con una propiedad que ninguna otra tenía: su API
+  expone el **código de barras** de cada producto y sus imágenes están **nombradas
+  con ese mismo EAN** (`.../{EAN}-1.png`). Eso permite emparejar por identificador
+  exacto en vez de adivinar por nombre.
+- De los 752 productos sin foto que tienen código de barras, **165 tienen imagen
+  allí (21,9 %)**. Descargadas y optimizadas: 50,96 MB → 4,00 MB (−92,1 %).
+- **La auditoría visual del primer lote salió 42/42 sin un solo error**, incluidos
+  los pares que siempre se confundían al emparejar por nombre: Akun 2 % vs 5 %,
+  Biocortone crema vs ungüento, Clorexin 100 vs 200 ml, Sébium pompa vs tubo,
+  Cromus 0,03 % vs 0,1 %. El EAN es un identificador mucho más fuerte que el nombre.
+- Hallazgo de datos, sin tocar: **4 productos tienen la unidad equivocada en su
+  nombre** (el envase dice gramos y la ficha dice ML o MG) — DERM-I00077,
+  DERM-I00156, DERM-I00340 y DERM-I00341. La foto es correcta; el nombre no.
+- El sitio no bloquea peticiones automatizadas, así que la vía es reutilizable sin
+  navegador: `dealvipapi.azurewebsites.net/api/Productos/`.
+
 ## [0.107.0] - 2026-08-03
 
 **491 productos con foto (36,2 %). Nueva fuente: Farmacias Los Hidalgos.**

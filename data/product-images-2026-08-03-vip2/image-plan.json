@@ -1,0 +1,262 @@
+[
+  {
+    "id": "9f21c49f-d051-4488-bd1f-4a93d0c0f51a",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01304",
+    "dbName": "Vanece Plus GEL 15G",
+    "carolName": "Vanece Plus GEL 15G",
+    "file": "DERM-I01304.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9f21c49f-d051-4488-bd1f-4a93d0c0f51a/image.webp"
+  },
+  {
+    "id": "dfa9ee84-e897-4939-893e-246e09841c90",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01341",
+    "dbName": "Xaltax 40 MG",
+    "carolName": "Xaltax 40 MG",
+    "file": "DERM-I01341.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/dfa9ee84-e897-4939-893e-246e09841c90/image.webp"
+  },
+  {
+    "id": "bf54f229-8b34-4172-bc3e-ce85a42cbe41",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01233",
+    "dbName": "Tricovit Forte Locion 10 Viales X 8 ML",
+    "carolName": "Tricovit Forte Locion 10 Viales X 8 ML",
+    "file": "DERM-I01233.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bf54f229-8b34-4172-bc3e-ce85a42cbe41/image.webp"
+  },
+  {
+    "id": "0b74255f-e5e1-4a00-b96a-1c8adef8786f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01340",
+    "dbName": "Xaltax 20 MG Caja",
+    "carolName": "Xaltax 20 MG Caja",
+    "file": "DERM-I01340.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0b74255f-e5e1-4a00-b96a-1c8adef8786f/image.webp"
+  },
+  {
+    "id": "4f835ea1-4b96-4d3e-b009-f61f0521e5e8",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00811",
+    "dbName": "LA Roche-posay Clarifying Solution 200 ML",
+    "carolName": "LA Roche-posay Clarifying Solution 200 ML",
+    "file": "DERM-I00811.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4f835ea1-4b96-4d3e-b009-f61f0521e5e8/image.webp"
+  },
+  {
+    "id": "8421d8b5-8582-4d48-8a2d-1640e11c9faf",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00775",
+    "dbName": "Kitoscell GEL PFD 30 GR",
+    "carolName": "Kitoscell GEL PFD 30 GR",
+    "file": "DERM-I00775.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8421d8b5-8582-4d48-8a2d-1640e11c9faf/image.webp"
+  },
+  {
+    "id": "1cd9a12d-2d2e-47c2-a944-dff132dc5fa7",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00771",
+    "dbName": "Keto Plus Shampoo 120 ML",
+    "carolName": "Keto Plus Shampoo 120 ML",
+    "file": "DERM-I00771.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1cd9a12d-2d2e-47c2-a944-dff132dc5fa7/image.webp"
+  },
+  {
+    "id": "5bd0df97-4064-40aa-adcd-06c29f57ef75",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00799",
+    "dbName": "LA Roche-posay Anthelios 60 Face Clear Skin Sunscreen DRY Touch 50 ML",
+    "carolName": "LA Roche-posay Anthelios 60 Face Clear Skin Sunscreen DRY Touch 50 ML",
+    "file": "DERM-I00799.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/5bd0df97-4064-40aa-adcd-06c29f57ef75/image.webp"
+  },
+  {
+    "id": "1b1e0350-468f-44a0-8b15-26223b1eb8c4",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00837",
+    "dbName": "LA Roche-posay Redermic R 30 ML",
+    "carolName": "LA Roche-posay Redermic R 30 ML",
+    "file": "DERM-I00837.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1b1e0350-468f-44a0-8b15-26223b1eb8c4/image.webp"
+  },
+  {
+    "id": "8889ff97-2492-4a48-a8ea-440e57e2128c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00802",
+    "dbName": "LA Roche-posay Anthelios AOX SPF 50",
+    "carolName": "LA Roche-posay Anthelios AOX SPF 50",
+    "file": "DERM-I00802.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8889ff97-2492-4a48-a8ea-440e57e2128c/image.webp"
+  },
+  {
+    "id": "a760a221-6835-4859-9c7c-b5f6e22b0fed",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00854",
+    "dbName": "Levaler 5MG 10 Capsulas",
+    "carolName": "Levaler 5MG 10 Capsulas",
+    "file": "DERM-I00854.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a760a221-6835-4859-9c7c-b5f6e22b0fed/image.webp"
+  },
+  {
+    "id": "1291a65b-9eb7-4401-8549-d0a8955b4a3e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00902",
+    "dbName": "Medihealth Dermacortine Emulsion 60 ML.",
+    "carolName": "Medihealth Dermacortine Emulsion 60 ML.",
+    "file": "DERM-I00902.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1291a65b-9eb7-4401-8549-d0a8955b4a3e/image.webp"
+  },
+  {
+    "id": "02674c93-6b93-4e8a-aed7-7133dc0260ea",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00911",
+    "dbName": "Medihealth Hidribet Locion 10 % 125 ML",
+    "carolName": "Medihealth Hidribet Locion 10 % 125 ML",
+    "file": "DERM-I00911.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/02674c93-6b93-4e8a-aed7-7133dc0260ea/image.webp"
+  },
+  {
+    "id": "9d19f467-9dc9-42e7-acff-0cd3713e5c6c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00904",
+    "dbName": "Medihealth Dermacortine Locion 0.1% 30 ML",
+    "carolName": "Medihealth Dermacortine Locion 0.1% 30 ML",
+    "file": "DERM-I00904.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9d19f467-9dc9-42e7-acff-0cd3713e5c6c/image.webp"
+  },
+  {
+    "id": "229f7195-1591-473c-b37b-784dacfffbda",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00906",
+    "dbName": "Medihealth Farbicil 250 MG 28 Tabletas",
+    "carolName": "Medihealth Farbicil 250 MG 28 Tabletas",
+    "file": "DERM-I00906.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/229f7195-1591-473c-b37b-784dacfffbda/image.webp"
+  },
+  {
+    "id": "784c3342-5f90-44c9-a68a-9d3f7faa8002",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00910",
+    "dbName": "Medihealth Glicolic Lotion 60 G",
+    "carolName": "Medihealth Glicolic Lotion 60 G",
+    "file": "DERM-I00910.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/784c3342-5f90-44c9-a68a-9d3f7faa8002/image.webp"
+  },
+  {
+    "id": "7adeb1d1-a8d8-4511-8cc1-48cf1ccc33af",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00915",
+    "dbName": "Medihealth Pirimed Champu 120 ML",
+    "carolName": "Medihealth Pirimed Champu 120 ML",
+    "file": "DERM-I00915.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7adeb1d1-a8d8-4511-8cc1-48cf1ccc33af/image.webp"
+  },
+  {
+    "id": "d714c4c2-b87c-4feb-9167-01a64864ccf4",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00907",
+    "dbName": "Medihealth Farbicil Crema 15 G",
+    "carolName": "Medihealth Farbicil Crema 15 G",
+    "file": "DERM-I00907.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d714c4c2-b87c-4feb-9167-01a64864ccf4/image.webp"
+  },
+  {
+    "id": "801e507e-d90c-4705-946b-daee61c63e15",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00914",
+    "dbName": "Medihealth Micolis Solucion AL 1% Gota",
+    "carolName": "Medihealth Micolis Solucion AL 1% Gota",
+    "file": "DERM-I00914.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/801e507e-d90c-4705-946b-daee61c63e15/image.webp"
+  },
+  {
+    "id": "1a1cfb9b-a8d8-486a-8e60-fe6963006d3f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00912",
+    "dbName": "Medihealth Lactibon FEM Locion 240 ML",
+    "carolName": "Medihealth Lactibon FEM Locion 240 ML",
+    "file": "DERM-I00912.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1a1cfb9b-a8d8-486a-8e60-fe6963006d3f/image.webp"
+  },
+  {
+    "id": "e4c953a7-0c3d-46db-891b-e3b8078fbfc1",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00916",
+    "dbName": "Medihealth Poviral 400 X 10 Comprimidos",
+    "carolName": "Medihealth Poviral 400 X 10 Comprimidos",
+    "file": "DERM-I00916.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e4c953a7-0c3d-46db-891b-e3b8078fbfc1/image.webp"
+  },
+  {
+    "id": "8761e338-18b9-431f-a3ef-637c396a0b53",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00913",
+    "dbName": "Medihealth Micolis Crema 30 G",
+    "carolName": "Medihealth Micolis Crema 30 G",
+    "file": "DERM-I00913.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8761e338-18b9-431f-a3ef-637c396a0b53/image.webp"
+  },
+  {
+    "id": "04f6eb08-a01c-4328-b9f0-85a467b72f6f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00917",
+    "dbName": "Medihealth Poviral 800 X 10 Comprimidos",
+    "carolName": "Medihealth Poviral 800 X 10 Comprimidos",
+    "file": "DERM-I00917.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/04f6eb08-a01c-4328-b9f0-85a467b72f6f/image.webp"
+  },
+  {
+    "id": "aec90ff2-241f-4177-af87-f44e85ef8d65",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00921",
+    "dbName": "Medihealth Procikel GEL Para Cicatrices SPF30 30 GR",
+    "carolName": "Medihealth Procikel GEL Para Cicatrices SPF30 30 GR",
+    "file": "DERM-I00921.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/aec90ff2-241f-4177-af87-f44e85ef8d65/image.webp"
+  },
+  {
+    "id": "a8e2e932-e03b-4a24-bd10-0d1200e9f329",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00919",
+    "dbName": "Medihealth Presiderm Unguento 15 G",
+    "carolName": "Medihealth Presiderm Unguento 15 G",
+    "file": "DERM-I00919.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a8e2e932-e03b-4a24-bd10-0d1200e9f329/image.webp"
+  },
+  {
+    "id": "8a59a84f-d4e3-45a2-ae26-0fcb6bd6bf65",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00926",
+    "dbName": "Medihealth Umbrella GEL SPF 50+ 60 G",
+    "carolName": "Medihealth Umbrella GEL SPF 50+ 60 G",
+    "file": "DERM-I00926.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8a59a84f-d4e3-45a2-ae26-0fcb6bd6bf65/image.webp"
+  }
+]
