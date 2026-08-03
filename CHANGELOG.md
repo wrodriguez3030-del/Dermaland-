@@ -10,6 +10,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.112.0] - 2026-08-03
+
+**Tienda en línea, E0: el núcleo puro. Nada toca la base ni las rutas todavía.**
+
+- Nuevo `features/storefront/` con cuatro módulos **sin dependencias**, probados
+  enteros sin base de datos: `types` (contrato público), `slug`, `availability` y
+  `catalog-query`. 33 pruebas nuevas.
+- **La búsqueda entiende "avene" como "AVÈNE".** Con `ILIKE` no lo hacía, y buena
+  parte de la clientela escribe sin acentos. Se resuelve en memoria porque
+  hacerlo en Postgres exigiría instalar `unaccent`/`pg_trgm` (no instaladas) y
+  añadir una columna generada a `products`, la tabla que usan POS, DGII e
+  inventario. Tolera **una** errata por palabra, y solo cuando no hay ninguna
+  coincidencia exacta, para no meter ruido.
+- **La disponibilidad nunca revela la cantidad.** `availabilityFrom` devuelve
+  estado + etiqueta y nada más; hay una prueba que falla si el número se cuela.
+  Lo agotado se muestra, pero la relevancia lo manda al final.
+- **El slug es estable y su desempate determinista.** Se calcula una vez al
+  publicar y no se regenera al renombrar el producto: si lo hiciera, cada
+  corrección de nombre rompería los enlaces de WhatsApp y la indexación. Ante
+  colisión usa 6 hexadecimales del id, no un contador (que daría resultados
+  distintos en cada reejecución del sembrado).
+- Una prueba encontró un defecto antes de llegar a la base: un nombre de una sola
+  letra producía un slug de 1 carácter, que habría violado la restricción de
+  longitud mínima de la columna.
+- `docs/tienda-en-linea.md` registra las decisiones y **cinco correcciones al
+  diagnóstico previo**, entre ellas que los campos comerciales del producto
+  (`benefits`, `modeOfUse`, `keywords`…) **no existen en la base** —solo en el
+  tipo de TypeScript— y que el bloqueante de la auditoría de marca (precios en 0)
+  ya se resolvió: ahora son las 704 fichas sin foto.
+- `typecheck` ✅ · `test` **2018** ✅.
+
 ## [0.111.0] - 2026-08-03
 
 **Fase 2b cerrada: el inventario físico ya no enseña datos de ejemplo por error.**
