@@ -1,0 +1,85 @@
+{
+  "review": [
+    {
+      "file": "DERM-I00126.webp",
+      "sku": "DERM-I00126",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00144.webp",
+      "sku": "DERM-I00144",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00120.webp",
+      "sku": "DERM-I00120",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00122.webp",
+      "sku": "DERM-I00122",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00132.webp",
+      "sku": "DERM-I00132",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00143.webp",
+      "sku": "DERM-I00143",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00123.webp",
+      "sku": "DERM-I00123",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00145.webp",
+      "sku": "DERM-I00145",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00160.webp",
+      "sku": "DERM-I00160",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00140.webp",
+      "sku": "DERM-I00140",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00303.webp",
+      "sku": "DERM-I00303",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00389.webp",
+      "sku": "DERM-I00389",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00406.webp",
+      "sku": "DERM-I00406",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00402.webp",
+      "sku": "DERM-I00402",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00399.webp",
+      "sku": "DERM-I00399",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "DERM-I00408.webp",
+      "sku": "DERM-I00408",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    }
+  ],
+  "noMatch": []
+}

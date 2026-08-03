@@ -10,6 +10,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.104.0] - 2026-08-03
+
+**329 productos con foto (24,3 %), todas las nuevas verificadas mirando el envase.**
+
+- +45 fotos de sitios oficiales de marca, tras pasar la auditoría visual.
+- Revertidas 2 más que estaban mal publicadas: "Uriage Eau Thermale 150 ML" tenía
+  la foto de un envase que imprime **300 ml**, y "Heliocare 360 Compacto Beige"
+  tenía la caja de **"Heliocare COLOR Compact LIGHT"** (ni la línea ni el tono).
+- Balance del método: sobre **319 fotos verificadas visualmente, 18 estaban mal
+  (5,6 %)**. El porcentaje se mantiene estable entre tandas y entre fuentes, así
+  que el paso de auditoría no es opcional: sin él, del orden de 1 de cada 18
+  productos acabaría con la foto de otro artículo.
+- Patrones de error confirmados, útiles para el trabajo que queda: (1) tamaño
+  distinto al declarado (50 ml vendido como 30 ml, 12 oz como 3 oz); (2) variante
+  equivocada dentro de la misma gama (franja "Invisible" en el "Ultra Mat", tono 3
+  en el tono 2); (3) ocasionalmente una foto de otra línea de la marca.
+
 ## [0.103.0] - 2026-08-03
 
 **286 productos con foto (21,1 %), y ahora cada foto se mira antes de entrar.**
