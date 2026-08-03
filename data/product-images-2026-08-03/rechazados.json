@@ -1,0 +1,1082 @@
+[
+  {
+    "file": "a-derma-exomega-control-leche-emoliente-400-ml-105521.webp",
+    "sku": "DERM-I00067",
+    "carolName": "A-DERMA EXOMEGA CONTROL LECHE EMOLIENTE 400 ML",
+    "dbName": "A-derma Exomega Control Crema Emoliente 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: leche emoliente vs crema emoliente"
+  },
+  {
+    "file": "sesderma-c-vit-facial-liposomal-serum-30-ml-21605.webp",
+    "sku": "DERM-I01092",
+    "carolName": "SESDERMA C-VIT FACIAL LIPOSOMAL SERUM 30 ML",
+    "dbName": "Sesderma C-vit 5 Liposomal Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "C-vit 5 es una referencia distinta del C-vit clasico; el nombre de Carol no lleva el 5"
+  },
+  {
+    "file": "bioderma-sebium-gel-moussant-200-ml-6-7-oz-21276.webp",
+    "sku": "DERM-I00248",
+    "carolName": "BIODERMA SEBIUM GEL MOUSSANT 200 ML 6.7 OZ",
+    "dbName": "Bioderma Sebium GEL Moussant Pompa 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "hay tres presentaciones de Sebium gel moussant 200 ML (Pompa, Tubo, Actif) y el nombre de Carol no permite distinguirlas"
+  },
+  {
+    "file": "bioderma-sebium-gel-moussant-200-ml-6-7-oz-21276.webp",
+    "sku": "DERM-I00249",
+    "carolName": "BIODERMA SEBIUM GEL MOUSSANT 200 ML 6.7 OZ",
+    "dbName": "Bioderma Sebium GEL Moussant Tubo 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "hay tres presentaciones de Sebium gel moussant 200 ML (Pompa, Tubo, Actif) y el nombre de Carol no permite distinguirlas"
+  },
+  {
+    "file": "bioderma-sebium-gel-moussant-200-ml-6-7-oz-21276.webp",
+    "sku": "DERM-I00247",
+    "carolName": "BIODERMA SEBIUM GEL MOUSSANT 200 ML 6.7 OZ",
+    "dbName": "Bioderma Sebium GEL Moussant Actif 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "hay tres presentaciones de Sebium gel moussant 200 ML (Pompa, Tubo, Actif) y el nombre de Carol no permite distinguirlas"
+  },
+  {
+    "file": "eucerin-anti-pigment-dual-serum-facial-30-ml-116982.webp",
+    "sku": "DERM-I00453",
+    "carolName": "EUCERIN ANTI-PIGMENT DUAL SERUM FACIAL 30 ML",
+    "dbName": "Eucerin Anti-pigment Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el Dual Serum es una referencia distinta del Anti-pigment Serum"
+  },
+  {
+    "file": "aceite-de-rosa-de-mosqueta-15-ml-19241.webp",
+    "sku": "DERM-I00615",
+    "carolName": "ACEITE DE ROSA DE MOSQUETA 15 ML",
+    "dbName": "Idcp Aceite DE Rosa Mosqueta",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el nombre de Carol no trae marca (producto generico) y el registro es de marca IDCP; no se puede confirmar que sea el mismo articulo"
+  },
+  {
+    "file": "bioderma-sensibio-crema-apaisante-40-ml-116752.webp",
+    "sku": "DERM-I00258",
+    "carolName": "BIODERMA SENSIBIO CREMA APAISANTE 40 ML",
+    "dbName": "Bioderma Sensibio DS+ Crema 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: la crema apaisante de Sensibio no es la Sensibio DS+"
+  },
+  {
+    "file": "bioderma-sensibio-forte-40-ml-crema-16574.webp",
+    "sku": "DERM-I00258",
+    "carolName": "BIODERMA SENSIBIO FORTE 40 ML CREMA",
+    "dbName": "Bioderma Sensibio DS+ Crema 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: Sensibio Forte no es Sensibio DS+"
+  },
+  {
+    "file": "eucerin-hyaluron-contorno-de-ojos-15-ml-20053.webp",
+    "sku": "DERM-I00474",
+    "carolName": "EUCERIN HYALURON CONTORNO DE OJOS 15 ML",
+    "dbName": "Eucerin Hyaluron Filler + Elasticity Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Eucerin vende el contorno Hyaluron-Filler y el Hyaluron-Filler + Elasticity como referencias distintas; el nombre de Carol dice solo Hyaluron y no permite decidir"
+  },
+  {
+    "file": "la-roche-posay-toleriane-ultra-intense-soothing-40-ml-22665.webp",
+    "sku": "DERM-I00841",
+    "carolName": "LA ROCHE-POSAY TOLERIANE ULTRA INTENSE SOOTHING 40 ML",
+    "dbName": "LA Roche-posay Toleriane Dermallergo Ultra 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Toleriane Ultra Intense y Toleriane Dermallergo Ultra son referencias distintas de la gama"
+  },
+  {
+    "file": "sesderma-repaskin-tacto-seda-facial-spf50-50-ml-108068.webp",
+    "sku": "DERM-I01132",
+    "carolName": "SESDERMA REPASKIN TACTO SEDA FACIAL SPF50 50 ML",
+    "dbName": "Sesderma Repaskin Toque Tacto Seda Facial Color SPF 50",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "la foto es la version sin color; este producto es la version Color"
+  },
+  {
+    "file": "uriage-thermale-crema-ligera-40-ml-23272.webp",
+    "sku": "DERM-I01278",
+    "carolName": "URIAGE THERMALE CREMA LIGERA 40 ML",
+    "dbName": "Uriage EAU Thermale Crema 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Uriage vende la Creme d Eau y la Creme d Eau Legere por separado; el registro no dice ligera"
+  },
+  {
+    "file": "heliocare-360-gel-oil-free-spf50-50-ml-protector-solar-21366.webp",
+    "sku": "DERM-I00574",
+    "carolName": "HELIOCARE 360 GEL OIL-FREE SPF50 50 ML PROTECTOR SOLAR",
+    "dbName": "Heliocare 360 Color Beige GEL OIL Free SPF 50 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el nombre de Carol no indica color; este producto es el Color Beige"
+  },
+  {
+    "file": "heliocare-360-gel-oil-free-spf50-50-ml-protector-solar-21366.webp",
+    "sku": "DERM-I00575",
+    "carolName": "HELIOCARE 360 GEL OIL-FREE SPF50 50 ML PROTECTOR SOLAR",
+    "dbName": "Heliocare 360 Color Bronze GEL OIL Free SPF 50 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el nombre de Carol no indica color; este producto es el Color Bronze"
+  },
+  {
+    "file": "a-derma-exomega-control-leche-emoliente-400-ml-105521.webp",
+    "sku": "DERM-I00068",
+    "carolName": "A-DERMA EXOMEGA CONTROL LECHE EMOLIENTE 400 ML",
+    "dbName": "A-derma Exomega Control Emoliente 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 400 ML vs 200 ML"
+  },
+  {
+    "file": "avene-cicalfate-reparador-de-labios-12-ml-balsamo-105489.webp",
+    "sku": "DERM-I00116",
+    "carolName": "AVENE CICALFATE REPARADOR DE LABIOS 12 ML BALSAMO",
+    "dbName": "Avene Cicalfate Balsamo Reparador Labios 10ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 12 ML vs 10 ML"
+  },
+  {
+    "file": "babe-stop-akn-crema-hidratante-reparadora-50-ml-23356.webp",
+    "sku": "DERM-I00206",
+    "carolName": "BABE STOP AKN CREMA HIDRATANTE REPARADORA 50 ML",
+    "dbName": "Babe Stop AKN Hidratante Matificante 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: la foto es la Hidratante Reparadora y el producto es la Matificante"
+  },
+  {
+    "file": "effaclar-mouss-la-roche-posay-200-ml-gel-19573.webp",
+    "sku": "DERM-I00786",
+    "carolName": "EFFACLAR MOUSS LA ROCHE POSAY 200 ML GEL",
+    "dbName": "LA Roche Posay Effaclar Adapalene GEL",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: gel espumoso purificante vs gel de adapaleno"
+  },
+  {
+    "file": "eucerin-hyaluron-contorno-de-ojos-15-ml-20053.webp",
+    "sku": "DERM-I00455",
+    "carolName": "EUCERIN HYALURON CONTORNO DE OJOS 15 ML",
+    "dbName": "Eucerin Anti-pigmento Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hyaluron vs Anti-pigmento"
+  },
+  {
+    "file": "sesderma-reti-age-anti-edad-serum-30-ml-22603.webp",
+    "sku": "DERM-I01140",
+    "carolName": "SESDERMA RETI-AGE ANTI-EDAD SERUM 30 ML",
+    "dbName": "Sesderma Reti AGE Serum Rejuvenecedor 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el archivo ya se asigna a DERM-I01137 (Anti-aging Serum), traduccion literal de anti-edad; este registro parece un duplicado"
+  },
+  {
+    "file": "acm-depiwhite-m-40-ml-crema-protectora-spf50-104227.webp",
+    "sku": "DERM-I00022",
+    "carolName": "ACM DEPIWHITE. M 40 ML CREMA PROTECTORA SPF50+",
+    "dbName": "ACM Depiwhite. M Crema Protectora CON Color 50+ 40ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el nombre de Carol no indica color; este producto es la version CON color"
+  },
+  {
+    "file": "ducray-anaphase-shampoo-200-ml-18621.webp",
+    "sku": "DERM-I00390",
+    "carolName": "DUCRAY ANAPHASE SHAMPOO 200 ML",
+    "dbName": "Ducray Elution Shampoo 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: Anaphase+ vs Elution"
+  },
+  {
+    "file": "endocare-tensage-crema-30-ml-23250.webp",
+    "sku": "DERM-I00435",
+    "carolName": "ENDOCARE TENSAGE CREMA 30 ML",
+    "dbName": "Endocare GEL Crema 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea y formato distintos: Tensage crema vs Endocare gel crema"
+  },
+  {
+    "file": "endocare-tensage-serum-30-ml-20141.webp",
+    "sku": "DERM-I00438",
+    "carolName": "ENDOCARE TENSAGE SERUM 30 ML",
+    "dbName": "Endocare Retinol Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Tensage vs Retinol"
+  },
+  {
+    "file": "eucerin-hyaluron-filler-crema-de-noche-50-ml-20052.webp",
+    "sku": "DERM-I00483",
+    "carolName": "EUCERIN HYALURON-FILLER CREMA DE NOCHE 50 ML",
+    "dbName": "Eucerin Hyaluron-filler + Elasticity Crema Facial Noche 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hyaluron-Filler y Hyaluron-Filler + Elasticity son sub-lineas distintas; el nombre de Carol no dice Elasticity"
+  },
+  {
+    "file": "la-roche-posay-lipikar-ap-balm-intense-repair-400-ml-106715.webp",
+    "sku": "DERM-I00831",
+    "carolName": "LA ROCHE-POSAY LIPIKAR AP+ BALM INTENSE REPAIR 400 ML",
+    "dbName": "LA Roche-posay Lipikar Wash AP+ 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: balsamo AP+ vs Lipikar Wash (gel de bano)"
+  },
+  {
+    "file": "la-roche-posay-micellar-water-ultra-400-ml-105427.webp",
+    "sku": "DERM-I00816",
+    "carolName": "LA ROCHE-POSAY MICELLAR WATER ULTRA 400 ML",
+    "dbName": "LA Roche-posay Effaclar EAU Micelar Water Ultra 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "LRP vende Micellar Water Ultra para piel sensible, reactiva y grasa (Effaclar); el nombre de Carol no indica cual"
+  },
+  {
+    "file": "uriage-depiderm-spf50-30-ml-20180.webp",
+    "sku": "DERM-I01261",
+    "carolName": "URIAGE DEPIDERM SPF50 30 ML",
+    "dbName": "Uriage Depiderm Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: protector SPF 50 vs serum Depiderm"
+  },
+  {
+    "file": "eucerin-hyaluron-filler-elasticity-crema-facial-dia-fps-15-116980.webp",
+    "sku": "DERM-I00483",
+    "carolName": "EUCERIN HYALURON-FILLER + ELASTICITY CREMA FACIAL DIA FPS 15",
+    "dbName": "Eucerin Hyaluron-filler + Elasticity Crema Facial Noche 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: crema de dia FPS 15 vs crema de noche"
+  },
+  {
+    "file": "babe-4538-jabon-de-aceite-500-ml-20076.webp",
+    "sku": "DERM-I00171",
+    "carolName": "BABE 4538 JABON DE ACEITE 500 ML",
+    "dbName": "Babe Balsamo DE Aceite 500 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: jabon de aceite vs balsamo de aceite"
+  },
+  {
+    "file": "bioderma-atoderm-intensive-gel-moussant-200-ml-104778.webp",
+    "sku": "DERM-I00262",
+    "carolName": "BIODERMA ATODERM INTENSIVE GEL MOUSSANT 200 ML",
+    "dbName": "Bioderma Sensibio GEL Moussant 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Atoderm vs Sensibio"
+  },
+  {
+    "file": "bioderma-atoderm-intensive-gel-moussant-200-ml-104778.webp",
+    "sku": "DERM-I00222",
+    "carolName": "BIODERMA ATODERM INTENSIVE GEL MOUSSANT 200 ML",
+    "dbName": "Bioderma Atoderm GEL Douche 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: Atoderm Intensive Gel Moussant vs Atoderm Gel Douche"
+  },
+  {
+    "file": "heliocare-360-oil-free-compactobeige-20292.webp",
+    "sku": "DERM-I00579",
+    "carolName": "HELIOCARE 360 OIL-FREE COMPACTOBEIGE",
+    "dbName": "Heliocare 360 GEL Oil-free SPF 50",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: compacto en polvo vs gel oil-free"
+  },
+  {
+    "file": "la-roche-posay-tolerain-200-ml-19562.webp",
+    "sku": "DERM-I00811",
+    "carolName": "LA ROCHE-POSAY TOLERAIN 200 ML",
+    "dbName": "LA Roche-posay Clarifying Solution 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: Clarifying Solution no es Toleriane"
+  },
+  {
+    "file": "sesderma-acglicolic-8-gel-hidratante-50-ml-15355.webp",
+    "sku": "DERM-I01087",
+    "carolName": "SESDERMA ACGLICOLIC 8% GEL HIDRATANTE 50 ML",
+    "dbName": "Sesderma Azelac GEL Hidratante 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Acglicolic vs Azelac"
+  },
+  {
+    "file": "sesderma-acglicolic-8-gel-hidratante-50-ml-15355.webp",
+    "sku": "DERM-I01124",
+    "carolName": "SESDERMA ACGLICOLIC 8% GEL HIDRATANTE 50 ML",
+    "dbName": "Sesderma Mandelac GEL Hidratante 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Acglicolic vs Mandelac"
+  },
+  {
+    "file": "sesderma-acglicolic-8-gel-hidratante-50-ml-15355.webp",
+    "sku": "DERM-I01144",
+    "carolName": "SESDERMA ACGLICOLIC 8% GEL HIDRATANTE 50 ML",
+    "dbName": "Sesderma Salises GEL Hidratante 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Acglicolic vs Salises"
+  },
+  {
+    "file": "sesderma-dryses-desodorante-de-hombre-80-ml-20040.webp",
+    "sku": "DERM-I01104",
+    "carolName": "SESDERMA DRYSES DESODORANTE DE HOMBRE 80 ML",
+    "dbName": "Sesderma Dryses Desodorante Hombre 75 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 80 ML vs 75 ML"
+  },
+  {
+    "file": "sesderma-dryses-desodorante-de-mujer-80-ml-20039.webp",
+    "sku": "DERM-I01105",
+    "carolName": "SESDERMA DRYSES DESODORANTE DE MUJER 80 ML",
+    "dbName": "Sesderma Dryses Desodorante Mujer 75 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 80 ML vs 75 ML"
+  },
+  {
+    "file": "sesderma-estryses-body-locion-antiestrias-200-ml-116971.webp",
+    "sku": "DERM-I01107",
+    "carolName": "SESDERMA ESTRYSES BODY LOCION ANTIESTRIAS 200 ML",
+    "dbName": "Sesderma Estryses Locion Antiestrias 2X1",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "presentacion distinta: frasco de 200 ML vs pack promocional 2X1"
+  },
+  {
+    "file": "sesderma-hidraderm-hyal-serum-facial-30-ml-88305.webp",
+    "sku": "DERM-I01082",
+    "carolName": "SESDERMA HIDRADERM HYAL SERUM FACIAL 30 ML",
+    "dbName": "Sesderma Acglicolic Facial Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hidraderm Hyal vs Acglicolic"
+  },
+  {
+    "file": "uriage-bariederm-100-ml-cica-creme-reparadora-23345.webp",
+    "sku": "DERM-I01242",
+    "carolName": "URIAGE BARIEDERM 100 ML CICA-CREME REPARADORA",
+    "dbName": "Uriage Bariederm Cica Spray 100 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: crema vs spray"
+  },
+  {
+    "file": "a-derma-exomega-control-crema-emollient-400-ml-21529.webp",
+    "sku": "DERM-I00066",
+    "carolName": "A-DERMA EXOMEGA CONTROL CREMA EMOLLIENT 400 ML",
+    "dbName": "A-derma Exomega Control Crema Emoliente 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 400 ML vs 200 ML"
+  },
+  {
+    "file": "a-derma-exomega-control-leche-emoliente-400-ml-105521.webp",
+    "sku": "DERM-I00070",
+    "carolName": "A-DERMA EXOMEGA CONTROL LECHE EMOLIENTE 400 ML",
+    "dbName": "A-derma Exomega Control Emoliente Spray 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato y tamano distintos: leche 400 ML vs spray 200 ML"
+  },
+  {
+    "file": "avene-a-oxitive-aqua-antioxidante-30-ml-crema-23379.webp",
+    "sku": "DERM-I00115",
+    "carolName": "AVENE A-OXITIVE AQUA ANTIOXIDANTE 30 ML CREMA",
+    "dbName": "Avene A-oxitive Serum Defensa Antioxidante 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: crema Aqua vs serum Defense"
+  },
+  {
+    "file": "avene-dermabsolu-contorno-de-ojos-15-ml-crema-116816.webp",
+    "sku": "DERM-I00029",
+    "carolName": "AVENE DERMABSOLU CONTORNO DE OJOS 15 ML CREMA",
+    "dbName": "ACM Duolys Contorno DE Ojos Crema 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "marca distinta: la foto es Avene Dermabsolu y el producto es ACM Duolys"
+  },
+  {
+    "file": "bioderma-photoderm-max-aquafluide-spf50-40-ml-invisible-22040.webp",
+    "sku": "DERM-I00237",
+    "carolName": "BIODERMA PHOTODERM MAX AQUAFLUIDE SPF50+ 40 ML INVISIBLE",
+    "dbName": "Bioderma Photoderm MAX Fluido Invisible SPF 1OO 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "SPF distinto en la ficha: la foto es SPF 50+ y el registro es SPF 100"
+  },
+  {
+    "file": "bioderma-photoderm-max-aquafluide-spf50-40-ml-invisible-22040.webp",
+    "sku": "DERM-I00230",
+    "carolName": "BIODERMA PHOTODERM MAX AQUAFLUIDE SPF50+ 40 ML INVISIBLE",
+    "dbName": "Bioderma Photoderm Aquafluide Claire Light SPF 50+ 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "la foto es la version invisible sin color; este producto es la Claire/Light con color"
+  },
+  {
+    "file": "endocare-contorno-de-ojos-y-labios-15-ml-85912.webp",
+    "sku": "DERM-I00437",
+    "carolName": "ENDOCARE CONTORNO DE OJOS Y LABIOS 15 ML",
+    "dbName": "Endocare Radiance Contorno DE Ojos Antiojeras 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: contorno de ojos y labios vs Radiance antiojeras"
+  },
+  {
+    "file": "endocare-tensage-contorno-de-ojos-iluminador-15-ml-23267.webp",
+    "sku": "DERM-I00437",
+    "carolName": "ENDOCARE TENSAGE CONTORNO DE OJOS ILUMINADOR 15 ML",
+    "dbName": "Endocare Radiance Contorno DE Ojos Antiojeras 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Tensage iluminador vs Radiance antiojeras"
+  },
+  {
+    "file": "la-roche-posay-anthelios-daily-antioxidant-serum-30-ml-22608.webp",
+    "sku": "DERM-I00821",
+    "carolName": "LA ROCHE POSAY ANTHELIOS DAILY ANTIOXIDANT SERUM 30 ML",
+    "dbName": "LA Roche-posay Effaclar Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Anthelios vs Effaclar"
+  },
+  {
+    "file": "sesderma-azelac-ru-fluido-luminoso-spf50-50-ml-crema-116958.webp",
+    "sku": "DERM-I01089",
+    "carolName": "SESDERMA AZELAC RU FLUIDO LUMINOSO SPF50 50 ML CREMA",
+    "dbName": "Sesderma Azelac RU GEL Crema 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: fluido luminoso SPF 50 vs gel crema Azelac RU"
+  },
+  {
+    "file": "sesderma-repaskin-tacto-seda-color-spf50-50-ml-118006.webp",
+    "sku": "DERM-I01133",
+    "carolName": "SESDERMA REPASKIN TACTO SEDA COLOR SPF50 50 ML",
+    "dbName": "Sesderma Repaskin Toque Tacto Seda Facial SPF 50",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "la foto es la version CON color; este producto es la version sin color"
+  },
+  {
+    "file": "uriage-roseliane-cc-spf30-teinte-40-ml-crema-86595.webp",
+    "sku": "DERM-I01296",
+    "carolName": "URIAGE ROSELIANE CC SPF30 TEINTE 40 ML CREMA",
+    "dbName": "Uriage Roseliane Crema Anti-rougeurs SPF 30 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "la foto es la CC con color (teinte); este producto es la crema anti-rougeurs sin color"
+  },
+  {
+    "file": "eucerin-anti-pigmento-cr-facial-de-noche-50ml-50gr-21389.webp",
+    "sku": "DERM-I00450",
+    "carolName": "EUCERIN ANTI-PIGMENTO CR. FACIAL DE NOCHE 50ML/50GR.",
+    "dbName": "Eucerin Anti-pigment Crema Facial DE Noche 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el SKU ya recibe la foto de eucerin-anti-pigment-crema-facial-noche-...-105579.webp; ambos archivos de Carol son el mismo producto y un SKU solo admite una foto"
+  },
+  {
+    "file": "la-roche-posay-lipikar-ap-balm-intense-repair-400-ml-106715.webp",
+    "sku": "DERM-I00792",
+    "carolName": "LA ROCHE-POSAY LIPIKAR AP+ BALM INTENSE REPAIR 400 ML",
+    "dbName": "LA Roche Posay Lipikar Daily Repair Lotion 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: balsamo AP+ vs locion Daily Repair"
+  },
+  {
+    "file": "eucerin-hyaluron-filler-crema-facial-dia-anti-edad-fps-30-50-104416.webp",
+    "sku": "DERM-I00451",
+    "carolName": "EUCERIN HYALURON-FILLER CREMA FACIAL DIA ANTI EDAD FPS 30 50",
+    "dbName": "Eucerin Anti-pigment Crema Facial DIA FPS 30 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hyaluron-Filler vs Anti-pigment"
+  },
+  {
+    "file": "a-derma-dermalibour-crema-reparadora-50-ml-108170.webp",
+    "sku": "DERM-I00061",
+    "carolName": "A-DERMA DERMALIBOUR CREMA REPARADORA 50 ML",
+    "dbName": "A-derma Dermalibour Barrier Crema 100 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto y tamano distintos: Dermalibour Barrier 100 ML vs crema reparadora 50 ML"
+  },
+  {
+    "file": "a-derma-epitheliale-ha-ultra-reapair-40-ml-86603.webp",
+    "sku": "DERM-I00064",
+    "carolName": "A-DERMA EPITHELIALE HA ULTRA REAPAIR 40 ML",
+    "dbName": "A-derma Epitheliale A.H Ultra Reparador SPF 50 40ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: sin SPF vs con SPF 50"
+  },
+  {
+    "file": "a-derma-exomega-control-emolliente-aceite-de-bano-200-ml-11937.webp",
+    "sku": "DERM-I00068",
+    "carolName": "A-DERMA EXOMEGA CONTROL EMOLLIENTE ACEITE DE BANO 200 ML",
+    "dbName": "A-derma Exomega Control Emoliente 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el archivo se asigna a DERM-I00073 (Jabon Aceite 200 ML), que si corresponde al aceite de bano; este registro es el emoliente generico"
+  },
+  {
+    "file": "aceite-de-rosa-de-mosqueta-15-ml-19241.webp",
+    "sku": "DERM-I00003",
+    "carolName": "ACEITE DE ROSA DE MOSQUETA 15 ML",
+    "dbName": "Aceite Rosa Mosqueta 118 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 15 ML vs 118 ML"
+  },
+  {
+    "file": "acm-depiwhite-m-40-ml-crema-protectora-spf50-104227.webp",
+    "sku": "DERM-I00038",
+    "carolName": "ACM DEPIWHITE. M 40 ML CREMA PROTECTORA SPF50+",
+    "dbName": "ACM Medisun Crema SPF 50+ 40ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Depiwhite.M vs Medisun"
+  },
+  {
+    "file": "avene-a-oxitive-defense-antioxidante-30-ml-serum-113061.webp",
+    "sku": "DERM-I00114",
+    "carolName": "AVENE A-OXITIVE DEFENSE ANTIOXIDANTE 30 ML SERUM",
+    "dbName": "Avene A-oxitive DIA 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: serum Defense vs crema de dia A-oxitive"
+  },
+  {
+    "file": "avene-agua-thermale-150-ml-spray-19576.webp",
+    "sku": "DERM-I00113",
+    "carolName": "AVENE AGUA THERMALE 150 ML SPRAY",
+    "dbName": "Avene Agua Thermale 300 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 150 ML vs 300 ML"
+  },
+  {
+    "file": "avene-agua-thermale-300-ml-spray-19577.webp",
+    "sku": "DERM-I00112",
+    "carolName": "AVENE AGUA THERMALE 300 ML SPRAY",
+    "dbName": "Avene Agua Thermale 150 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 300 ML vs 150 ML"
+  },
+  {
+    "file": "avene-agua-thermale-50-ml-spray-108300.webp",
+    "sku": "DERM-I00113",
+    "carolName": "AVENE AGUA THERMALE 50 ML SPRAY",
+    "dbName": "Avene Agua Thermale 300 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 50 ML vs 300 ML"
+  },
+  {
+    "file": "avene-agua-thermale-50-ml-spray-108300.webp",
+    "sku": "DERM-I00112",
+    "carolName": "AVENE AGUA THERMALE 50 ML SPRAY",
+    "dbName": "Avene Agua Thermale 150 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 50 ML vs 150 ML"
+  },
+  {
+    "file": "avene-cleanance-limpiador-100-ml-gel-108118.webp",
+    "sku": "DERM-I00129",
+    "carolName": "AVENE CLEANANCE LIMPIADOR 100 ML GEL",
+    "dbName": "Avene Cleanance GEL 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 100 ML vs 200 ML"
+  },
+  {
+    "file": "avene-cleanance-limpiador-100-ml-gel-108118.webp",
+    "sku": "DERM-I00130",
+    "carolName": "AVENE CLEANANCE LIMPIADOR 100 ML GEL",
+    "dbName": "Avene Cleanance GEL 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 100 ML vs 400 ML"
+  },
+  {
+    "file": "avene-cleanance-limpiador-200-ml-gel-19591.webp",
+    "sku": "DERM-I00130",
+    "carolName": "AVENE CLEANANCE LIMPIADOR 200 ML GEL",
+    "dbName": "Avene Cleanance GEL 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 200 ML vs 400 ML"
+  },
+  {
+    "file": "babe-4538-jabon-de-aceite-500-ml-20076.webp",
+    "sku": "DERM-I00201",
+    "carolName": "BABE 4538 JABON DE ACEITE 500 ML",
+    "dbName": "Babe Jabon DE Aceite Pediatrico 200ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "version pediatrica y tamano distinto: 500 ML vs 200 ML"
+  },
+  {
+    "file": "babe-4541-250-ml-gel-higiene-intima-20070.webp",
+    "sku": "DERM-I00188",
+    "carolName": "BABE 4541 250 ML GEL HIGIENE INTIMA",
+    "dbName": "Babe GEL Higiene Intima Pediatrico 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "version pediatrica y tamano distinto: 250 ML vs 200 ML"
+  },
+  {
+    "file": "bioderma-atoderm-intensive-baume-200-ml-104780.webp",
+    "sku": "DERM-I00221",
+    "carolName": "BIODERMA ATODERM INTENSIVE BAUME 200 ML",
+    "dbName": "Bioderma Atoderm Crema 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: Atoderm Intensive Baume vs Atoderm Creme"
+  },
+  {
+    "file": "bioderma-atoderm-intensive-gel-moussant-200-ml-104778.webp",
+    "sku": "DERM-I00248",
+    "carolName": "BIODERMA ATODERM INTENSIVE GEL MOUSSANT 200 ML",
+    "dbName": "Bioderma Sebium GEL Moussant Pompa 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Atoderm vs Sebium"
+  },
+  {
+    "file": "bioderma-photoderm-max-aquafluide-teinte-golden-spf50-40-ml-22041.webp",
+    "sku": "DERM-I00230",
+    "carolName": "BIODERMA PHOTODERM MAX AQUAFLUIDE TEINTE GOLDEN SPF50+ 40 ML",
+    "dbName": "Bioderma Photoderm Aquafluide Claire Light SPF 50+ 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tono distinto: Golden vs Claire/Light"
+  },
+  {
+    "file": "bioderma-sensibio-crema-apaisante-40-ml-116752.webp",
+    "sku": "DERM-I00257",
+    "carolName": "BIODERMA SENSIBIO CREMA APAISANTE 40 ML",
+    "dbName": "Bioderma Sensibio AR 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: la crema apaisante de Sensibio no es la Sensibio AR (anti-rojeces)"
+  },
+  {
+    "file": "bioderma-sensibio-forte-40-ml-crema-16574.webp",
+    "sku": "DERM-I00257",
+    "carolName": "BIODERMA SENSIBIO FORTE 40 ML CREMA",
+    "dbName": "Bioderma Sensibio AR 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: Sensibio Forte no es Sensibio AR"
+  },
+  {
+    "file": "cerave-resurfacing-retinol-30-ml-serum-118314.webp",
+    "sku": "DERM-I00438",
+    "carolName": "CERAVE RESURFACING RETINOL 30 ML SERUM",
+    "dbName": "Endocare Retinol Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "marca distinta: CeraVe vs Endocare"
+  },
+  {
+    "file": "cicaplast-baume-la-roche-posay-b5-5-40-ml-balsamo-12150.webp",
+    "sku": "DERM-I00783",
+    "carolName": "CICAPLAST BAUME LA ROCHE-POSAY B5 5% 40 ML BALSAMO",
+    "dbName": "LA Roche Posay Cicaplast Balm B5 UV SPF 50 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: Cicaplast Baume B5 vs Cicaplast Baume B5 UV SPF 50"
+  },
+  {
+    "file": "cicatricure-gel-30-g-13166.webp",
+    "sku": "DERM-I00317",
+    "carolName": "CICATRICURE GEL 30 G",
+    "dbName": "Clindaris GEL 30 G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "marca distinta: Cicatricure vs Clindaris"
+  },
+  {
+    "file": "ducray-keracnyl-pp-anti-imperfecciones-30-ml-crema-21952.webp",
+    "sku": "DERM-I00395",
+    "carolName": "DUCRAY KERACNYL PP ANTI-IMPERFECCIONES 30 ML CREMA",
+    "dbName": "Ducray Keracnyl Glycolic+ Crema 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: Keracnyl PP vs Keracnyl Glycolic+"
+  },
+  {
+    "file": "effaclar-mouss-la-roche-posay-200-ml-gel-19573.webp",
+    "sku": "DERM-I00819",
+    "carolName": "EFFACLAR MOUSS LA ROCHE POSAY 200 ML GEL",
+    "dbName": "LA Roche-posay Effaclar Purifying Foaming GEL 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 200 ML vs 400 ML"
+  },
+  {
+    "file": "endocare-contorno-de-ojos-y-labios-15-ml-85912.webp",
+    "sku": "DERM-I00193",
+    "carolName": "ENDOCARE CONTORNO DE OJOS Y LABIOS 15 ML",
+    "dbName": "Babe Healthyaging Tensor DE Ojos Y Labios 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "marca distinta: Endocare vs Babe"
+  },
+  {
+    "file": "eucerin-anti-pigment-crema-facial-noche-50-ml-50-g-anti-man-105579.webp",
+    "sku": "DERM-I00451",
+    "carolName": "EUCERIN ANTI-PIGMENT CREMA FACIAL NOCHE 50 ML 50 G ANTI-MAN",
+    "dbName": "Eucerin Anti-pigment Crema Facial DIA FPS 30 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "la foto es la crema de noche; este producto es la crema de dia FPS 30"
+  },
+  {
+    "file": "eucerin-hyaluron-contorno-de-ojos-15-ml-20053.webp",
+    "sku": "DERM-I00053",
+    "carolName": "EUCERIN HYALURON CONTORNO DE OJOS 15 ML",
+    "dbName": "ACM Skintsugi Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "marca distinta: Eucerin vs ACM Skintsugi"
+  },
+  {
+    "file": "eucerin-hyaluron-filler-elasticity-50-ml-crema-facial-noche-116984.webp",
+    "sku": "DERM-I00450",
+    "carolName": "EUCERIN HYALURON FILLER+ELASTICITY 50 ML CREMA FACIAL NOCHE",
+    "dbName": "Eucerin Anti-pigment Crema Facial DE Noche 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hyaluron-Filler + Elasticity vs Anti-pigment"
+  },
+  {
+    "file": "eucerin-hyaluron-filler-crema-de-noche-50-ml-20052.webp",
+    "sku": "DERM-I00450",
+    "carolName": "EUCERIN HYALURON-FILLER CREMA DE NOCHE 50 ML",
+    "dbName": "Eucerin Anti-pigment Crema Facial DE Noche 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hyaluron-Filler vs Anti-pigment"
+  },
+  {
+    "file": "heliocare-360-mineral-fluid-spf50-50-ml-23333.webp",
+    "sku": "DERM-I00585",
+    "carolName": "HELIOCARE 360 MINERAL FLUID SPF50+ 50 ML",
+    "dbName": "Heliocare 360 Pigment Solution Fluid SPF 50+",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: 360 Mineral Fluid vs 360 Pigment Solution Fluid"
+  },
+  {
+    "file": "heliocare-360-oil-free-compact-pearl-23281.webp",
+    "sku": "DERM-I00579",
+    "carolName": "HELIOCARE 360 OIL FREE COMPACT PEARL",
+    "dbName": "Heliocare 360 GEL Oil-free SPF 50",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: compacto en polvo vs gel oil-free"
+  },
+  {
+    "file": "heliocare-360-oil-free-compact-bronze-10gr-19713.webp",
+    "sku": "DERM-I00578",
+    "carolName": "HELIOCARE 360 OIL-FREE COMPACT BRONZE 10GR",
+    "dbName": "Heliocare 360 GEL OIL Free Color Bronze Intense",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: compacto en polvo 10 G vs gel oil-free color bronze"
+  },
+  {
+    "file": "isispharma-uveblock-spf50-fluido-invisible-40-ml-16660.webp",
+    "sku": "DERM-I00753",
+    "carolName": "ISISPHARMA UVEBLOCK SPF50+ FLUIDO INVISIBLE 40 ML",
+    "dbName": "Isispharma Uveblock SPF 50+ DRY Touch 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: Fluid Invisible vs Dry Touch"
+  },
+  {
+    "file": "la-roche-posay-redermic-r-15-ml-ojos-correcteur-dermatolog-22730.webp",
+    "sku": "DERM-I00837",
+    "carolName": "LA ROCHE - POSAY REDERMIC R 15 ML OJOS CORRECTEUR DERMATOLOG",
+    "dbName": "LA Roche-posay Redermic R 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "presentacion distinta: contorno de ojos 15 ML vs tratamiento facial 30 ML"
+  },
+  {
+    "file": "la-roche-posay-anthelios-daily-antioxidant-serum-30-ml-22608.webp",
+    "sku": "DERM-I00824",
+    "carolName": "LA ROCHE POSAY ANTHELIOS DAILY ANTIOXIDANT SERUM 30 ML",
+    "dbName": "LA Roche-posay Hyalu Serum B5 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Anthelios vs Hyalu B5"
+  },
+  {
+    "file": "la-roche-posay-anthelios-daily-antioxidant-serum-30-ml-22608.webp",
+    "sku": "DERM-I00822",
+    "carolName": "LA ROCHE POSAY ANTHELIOS DAILY ANTIOXIDANT SERUM 30 ML",
+    "dbName": "LA Roche-posay Glycolic B5 Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Anthelios vs Glycolic B5"
+  },
+  {
+    "file": "la-roche-posay-effaclar-solucion-aclaradora-200-ml-89076.webp",
+    "sku": "DERM-I00818",
+    "carolName": "LA ROCHE POSAY EFFACLAR SOLUCION ACLARADORA 200 ML",
+    "dbName": "LA Roche-posay Effaclar Purifying Foaming GEL 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "producto distinto: solucion aclaradora vs gel espumoso purificante (ademas el SKU ya recibe otra foto)"
+  },
+  {
+    "file": "la-roche-posay-lipikar-ap-balm-intense-repair-400-ml-106715.webp",
+    "sku": "DERM-I00791",
+    "carolName": "LA ROCHE-POSAY LIPIKAR AP+ BALM INTENSE REPAIR 400 ML",
+    "dbName": "LA Roche Posay Lipikar Aceite 400 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: balsamo vs aceite Lipikar"
+  },
+  {
+    "file": "la-roche-posay-pure-vitamin-c-tratamiento-relleno-anti-arru-12520.webp",
+    "sku": "DERM-I00836",
+    "carolName": "LA ROCHE-POSAY PURE VITAMIN C TRATAMIENTO RELLENO ANTI-ARRU",
+    "dbName": "LA Roche-posay Pure Vitamin C Yeux 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: tratamiento facial vs contorno de ojos (Yeux) 15 ML"
+  },
+  {
+    "file": "la-roche-posay-tolerain-200-ml-19562.webp",
+    "sku": "DERM-I00842",
+    "carolName": "LA ROCHE-POSAY TOLERAIN 200 ML",
+    "dbName": "LA Roche-posay Toleriane Dermo-cleanser 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "el nombre de Carol (TOLERAIN 200 ML) es demasiado vago para confirmar que sea el Dermo-cleanser"
+  },
+  {
+    "file": "sesderma-acglicolic-crema-gel-forte-50-ml-15351.webp",
+    "sku": "DERM-I01089",
+    "carolName": "SESDERMA ACGLICOLIC CREMA GEL FORTE 50 ML",
+    "dbName": "Sesderma Azelac RU GEL Crema 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Acglicolic vs Azelac RU"
+  },
+  {
+    "file": "sesderma-acglicolic-crema-gel-forte-50-ml-15351.webp",
+    "sku": "DERM-I01101",
+    "carolName": "SESDERMA ACGLICOLIC CREMA GEL FORTE 50 ML",
+    "dbName": "Sesderma Daeses Crema GEL Facial 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Acglicolic vs Daeses"
+  },
+  {
+    "file": "sesderma-azelac-ru-gel-cream-trx-50-ml-116960.webp",
+    "sku": "DERM-I01087",
+    "carolName": "SESDERMA AZELAC RU GEL CREAM TRX 50 ML",
+    "dbName": "Sesderma Azelac GEL Hidratante 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Azelac RU vs Azelac"
+  },
+  {
+    "file": "sesderma-azelac-ru-liposomal-serum-despigmentante-30-ml-85898.webp",
+    "sku": "DERM-I01114",
+    "carolName": "SESDERMA AZELAC RU LIPOSOMAL SERUM DESPIGMENTANTE 30 ML",
+    "dbName": "Sesderma Ferulac Liposomal Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Azelac RU vs Ferulac"
+  },
+  {
+    "file": "sesderma-azelac-ru-liposomal-serum-despigmentante-30-ml-85898.webp",
+    "sku": "DERM-I01145",
+    "carolName": "SESDERMA AZELAC RU LIPOSOMAL SERUM DESPIGMENTANTE 30 ML",
+    "dbName": "Sesderma Salises Liposomal Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Azelac RU vs Salises"
+  },
+  {
+    "file": "sesderma-c-vit-facial-liposomal-serum-30-ml-21605.webp",
+    "sku": "DERM-I01082",
+    "carolName": "SESDERMA C-VIT FACIAL LIPOSOMAL SERUM 30 ML",
+    "dbName": "Sesderma Acglicolic Facial Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: C-vit vs Acglicolic"
+  },
+  {
+    "file": "sesderma-hidraderm-hyal-serum-facial-30-ml-88305.webp",
+    "sku": "DERM-I01117",
+    "carolName": "SESDERMA HIDRADERM HYAL SERUM FACIAL 30 ML",
+    "dbName": "Sesderma Hidraderm Hyal Crema Facial 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato y tamano distintos: serum 30 ML vs crema facial 50 ML"
+  },
+  {
+    "file": "sesderma-hidraloe-crema-contorno-ojos-15-ml-81311.webp",
+    "sku": "DERM-I01111",
+    "carolName": "SESDERMA HIDRALOE CREMA CONTORNO OJOS 15 ML",
+    "dbName": "Sesderma Factor G Renew Crema Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hidraloe vs Factor G Renew"
+  },
+  {
+    "file": "sesderma-hidraloe-crema-facial-hidratante-50-ml-81314.webp",
+    "sku": "DERM-I01117",
+    "carolName": "SESDERMA HIDRALOE CREMA FACIAL HIDRATANTE 50 ML",
+    "dbName": "Sesderma Hidraderm Hyal Crema Facial 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hidraloe vs Hidraderm Hyal"
+  },
+  {
+    "file": "sesderma-hidraloe-crema-facial-hidratante-50-ml-81314.webp",
+    "sku": "DERM-I01101",
+    "carolName": "SESDERMA HIDRALOE CREMA FACIAL HIDRATANTE 50 ML",
+    "dbName": "Sesderma Daeses Crema GEL Facial 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hidraloe vs Daeses"
+  },
+  {
+    "file": "sesderma-hidraven-300-ml-crema-espumosa-16193.webp",
+    "sku": "DERM-I01143",
+    "carolName": "SESDERMA HIDRAVEN 300 ML CREMA ESPUMOSA",
+    "dbName": "Sesderma Salises Crema Espumosa SIN Jabon 300 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "linea distinta: Hidraven vs Salises"
+  },
+  {
+    "file": "sesderma-repaskin-facial-corporal-cream-gel-spf50-200-ml-22412.webp",
+    "sku": "DERM-I01129",
+    "carolName": "SESDERMA REPASKIN FACIAL CORPORAL CREAM GEL SPF50 200 ML",
+    "dbName": "Sesderma Repaskin Aerosol Corporal Transparente SPF 50 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: crema-gel facial/corporal vs aerosol corporal transparente"
+  },
+  {
+    "file": "sesderma-salises-crema-espumosa-250-ml-19543.webp",
+    "sku": "DERM-I01143",
+    "carolName": "SESDERMA SALISES CREMA ESPUMOSA 250 ML",
+    "dbName": "Sesderma Salises Crema Espumosa SIN Jabon 300 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 250 ML vs 300 ML"
+  },
+  {
+    "file": "sesderma-seskavel-mascarilla-keratina-200ml-108038.webp",
+    "sku": "DERM-I01159",
+    "carolName": "SESDERMA SESKAVEL MASCARILLA KERATINA 200ML",
+    "dbName": "Sesderma Seskavel Shampoo 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: mascarilla de keratina vs shampoo"
+  },
+  {
+    "file": "uriage-bariederm-cica-spray-assechant-reparateur-100-ml-105335.webp",
+    "sku": "DERM-I01246",
+    "carolName": "URIAGE BARIEDERM CICA-SPRAY ASSECHANT REPARATEUR 100 ML",
+    "dbName": "Uriage Bariederm-cica Crema 100 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "formato distinto: spray vs crema"
+  },
+  {
+    "file": "uriage-eau-agua-thermale-300-ml-20183.webp",
+    "sku": "DERM-I00113",
+    "carolName": "URIAGE EAU AGUA THERMALE 300 ML",
+    "dbName": "Avene Agua Thermale 300 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "marca distinta: Uriage vs Avene"
+  },
+  {
+    "file": "uriage-eau-agua-thermale-300-ml-20183.webp",
+    "sku": "DERM-I01274",
+    "carolName": "URIAGE EAU AGUA THERMALE 300 ML",
+    "dbName": "Uriage EAU Thermale 150 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 300 ML vs 150 ML"
+  },
+  {
+    "file": "uriage-eau-thermale-water-150-ml-21996.webp",
+    "sku": "DERM-I01275",
+    "carolName": "URIAGE EAU THERMALE WATER 150 ML",
+    "dbName": "Uriage EAU Thermale 300 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "tamano distinto: 150 ML vs 300 ML"
+  },
+  {
+    "file": "vichy-mineral-89-hydrate-repulpe-fortifie-30-ml-108941.webp",
+    "sku": "DERM-I01329",
+    "carolName": "VICHY MINERAL 89 HYDRATE REPULPE FORTIFIE 30 ML",
+    "dbName": "Vichy Mineral 89 Prebiotic 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "variante distinta: Mineral 89 vs Mineral 89 Prebiotic"
+  },
+  {
+    "file": "vichy-purete-thermale-gel-limpiador-3-en-1-200-ml-105425.webp",
+    "sku": "DERM-I01335",
+    "carolName": "VICHY PURETE THERMALE GEL LIMPIADOR 3 EN 1 200 ML",
+    "dbName": "Vichy Purete Thermale GEL Fresh Cleansing GEL 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "hay dos registros de gel limpiador Purete Thermale 200 ML y el nombre de Carol (3 en 1) no permite elegir entre ellos"
+  },
+  {
+    "file": "vichy-purete-thermale-gel-limpiador-3-en-1-200-ml-105425.webp",
+    "sku": "DERM-I01021",
+    "carolName": "VICHY PURETE THERMALE GEL LIMPIADOR 3 EN 1 200 ML",
+    "dbName": "Purete Thermale GEL 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "hay dos registros de gel limpiador Purete Thermale 200 ML y el nombre de Carol (3 en 1) no permite elegir entre ellos"
+  }
+]

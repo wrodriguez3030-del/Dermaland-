@@ -10,6 +10,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.101.0] - 2026-08-03
+
+**112 fotos más: el catálogo pasa de 38 a 150 productos con imagen.**
+
+- Nuevo modo `--approved <lista.json>` en `import-product-images-from-carol.mjs`:
+  aplica emparejamientos ya revisados (`{file, sku}`) en lugar de deducirlos. Las
+  guardas no cambian: solo productos sin foto, una foto por SKU y un SKU por foto.
+  Rechaza archivos que no estén en el manifiesto y SKU inexistentes.
+- Las 232 candidatas que el emparejador automático no se atrevió a aplicar se
+  revisaron una por una: **112 aprobadas, 120 rechazadas** (con razón por fila en
+  `rechazados.json`). El juicio semántico resuelve lo que la similitud de tokens no
+  puede: "Yeux" es contorno de ojos, `anti-edad` = `anti-aging`, Cicalfate+ es el
+  renombre de Cicalfate reparadora, y "1.7 OZ" = "50 ML".
+  Los rechazos siguen mandando el tamaño (agua termal 50/150/300 ML), la variante
+  con o sin color/SPF (Cicaplast B5 vs B5 UV) y las líneas de una misma marca que
+  comparten formato y tamaño (Sensibio vs Atoderm vs Sebium).
+- **Corregido: el script pisaba sus propios resultados.** Escribía siempre en
+  `data/product-images-<fecha>/`, así que una segunda corrida machacaba el plan, las
+  sugerencias pendientes de revisar y —lo grave— `image-affected.json`, que es el
+  registro para revertir. Ahora el modo aprobados escribe en su propia carpeta.
+
 
 ## [0.100.2] - 2026-08-03
 
