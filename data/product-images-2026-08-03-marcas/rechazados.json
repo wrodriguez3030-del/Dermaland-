@@ -1,0 +1,965 @@
+[
+  {
+    "file": "sesderma-factor-g-contorno-de-ojos-15-ml-105006.webp",
+    "sku": "DERM-I01110",
+    "carolName": "SESDERMA FACTOR G CONTORNO DE OJOS 15 ML",
+    "dbName": "Sesderma Factor G Renew Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "Hay dos registros de Factor G Renew contorno de ojos 15 ML (I01110 e I01111) igual de plausibles; no se puede decidir cual."
+  },
+  {
+    "file": "sesderma-factor-g-contorno-de-ojos-15-ml-105006.webp",
+    "sku": "DERM-I01111",
+    "carolName": "SESDERMA FACTOR G CONTORNO DE OJOS 15 ML",
+    "dbName": "Sesderma Factor G Renew Crema Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "Hay dos registros de Factor G Renew contorno de ojos 15 ML (I01110 e I01111) igual de plausibles; no se puede decidir cual."
+  },
+  {
+    "file": "vichy-mineral-89-crema-hidratante-72h-textura-rica-50-ml-129125.webp",
+    "sku": "DERM-I01327",
+    "carolName": "VICHY MINERAL 89 CREMA HIDRATANTE 72H TEXTURA RICA 50 ML",
+    "dbName": "Vichy Mineral 89 Crema Hidratante 72H Textura",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "El nombre en DermaLand se corta en \"Textura\"; no permite confirmar si es Textura Rica o Ligera."
+  },
+  {
+    "file": "isdin-fotoultra-100-active-unify-color-spf50-122455.webp",
+    "sku": "DERM-I00686",
+    "carolName": "ISDIN FOTOULTRA 100 ACTIVE UNIFY COLOR SPF50+",
+    "dbName": "Isdin Fotoultra 100 Active Unify Corrige SPF 50+",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "El registro no lleva \"Color\": es la variante sin color de la misma gama."
+  },
+  {
+    "file": "darrow-actine-oil-control-gel-140-gr-131217.webp",
+    "sku": "DERM-I00356",
+    "carolName": "DARROW ACTINE OIL CONTROL GEL 140 GR",
+    "dbName": "Darrow Actine OIL Control GEL 400 G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "400 G no es 140 G."
+  },
+  {
+    "file": "darrow-actine-oil-control-gel-140-gr-131217.webp",
+    "sku": "DERM-I00355",
+    "carolName": "DARROW ACTINE OIL CONTROL GEL 140 GR",
+    "dbName": "Darrow Actine OIL Control GEL 240 G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "240 G no es 140 G."
+  },
+  {
+    "file": "darrow-actine-oil-control-gel-240-gr-131248.webp",
+    "sku": "DERM-I00356",
+    "carolName": "DARROW ACTINE OIL CONTROL GEL 240 GR",
+    "dbName": "Darrow Actine OIL Control GEL 400 G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "400 G no es 240 G."
+  },
+  {
+    "file": "darrow-actine-oil-control-gel-240-gr-131248.webp",
+    "sku": "DERM-I00354",
+    "carolName": "DARROW ACTINE OIL CONTROL GEL 240 GR",
+    "dbName": "Darrow Actine OIL Control GEL 140 G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "140 G no es 240 G."
+  },
+  {
+    "file": "darrow-actine-oil-control-gel-400-gr-131231.webp",
+    "sku": "DERM-I00355",
+    "carolName": "DARROW ACTINE OIL CONTROL GEL 400 GR",
+    "dbName": "Darrow Actine OIL Control GEL 240 G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "240 G no es 400 G."
+  },
+  {
+    "file": "darrow-actine-oil-control-gel-400-gr-131231.webp",
+    "sku": "DERM-I00354",
+    "carolName": "DARROW ACTINE OIL CONTROL GEL 400 GR",
+    "dbName": "Darrow Actine OIL Control GEL 140 G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "140 G no es 400 G."
+  },
+  {
+    "file": "sesderma-reti-age-5-serum-30-ml-156638.webp",
+    "sku": "DERM-I01140",
+    "carolName": "SESDERMA RETI-AGE 5 SERUM 30 ML",
+    "dbName": "Sesderma Reti AGE Serum Rejuvenecedor 30 ML",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "Carol indica la variante \"5\" (Reti-Age 5) y el registro de DermaLand no la incluye; podria ser el Reti Age clasico."
+  },
+  {
+    "file": "la-roche-posay-double-repair-2-5-oz-matte-moisturizer-123424.webp",
+    "sku": "DERM-I00845",
+    "carolName": "LA ROCHE POSAY DOUBLE REPAIR 2.5 OZ MATTE MOISTURIZER",
+    "dbName": "LA Roche-posay Toleriane Double Repair Matte Moisturizer 100 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "100 ML no es 75 ML (2.5 OZ)."
+  },
+  {
+    "file": "acm-medisun-crema-spf-50-40-ml-protector-solar-124885.webp",
+    "sku": "DERM-I00037",
+    "carolName": "ACM MEDISUN CREMA SPF 50+ 40 ML PROTECTOR SOLAR",
+    "dbName": "ACM Medisun Crema Solar SPF50+ Tinte Ligero 40ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Con tinte ligero, no la crema sin color."
+  },
+  {
+    "file": "avene-cleanance-aqua-gel-50-ml-131152.webp",
+    "sku": "DERM-I00144",
+    "carolName": "AVENE CLEANANCE AQUA GEL 50 ML",
+    "dbName": "Avene Hydrance Aqua GEL 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hydrance no es Cleanance (lineas distintas)."
+  },
+  {
+    "file": "darrow-actine-fps-50-tono-3-medio-oscuro-40-gr-131268.webp",
+    "sku": "DERM-I00359",
+    "carolName": "DARROW ACTINE FPS 50 TONO 3 MEDIO OSCURO 40 GR",
+    "dbName": "Darrow Actine Tono Medio FPS 50",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "El registro es tono medio; la foto es tono 3 medio oscuro."
+  },
+  {
+    "file": "ducray-keracnyl-matificante-30-ml-crema-122451.webp",
+    "sku": "DERM-I00395",
+    "carolName": "DUCRAY KERACNYL MATIFICANTE 30 ML CREMA",
+    "dbName": "Ducray Keracnyl Glycolic+ Crema 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Keracnyl Glycolic+ no es el matificante (MAT)."
+  },
+  {
+    "file": "filorga-hydra-aox-30-ml-serum-129730.webp",
+    "sku": "DERM-I00513",
+    "carolName": "FILORGA HYDRA-AOX 30 ML SERUM",
+    "dbName": "Filorga Hydra-hyal Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hydra-Hyal no es Hydra-AOX; son dos sueros distintos de Filorga."
+  },
+  {
+    "file": "la-roche-posay-anthelios-mineral-tinted-spf-40-deep-50-ml-154031.webp",
+    "sku": "DERM-I00806",
+    "carolName": "LA ROCHE POSAY ANTHELIOS MINERAL TINTED SPF 40 DEEP 50 ML",
+    "dbName": "LA Roche-posay Anthelios Tinted Mineral Medium Light Fluid SPF 40 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "El registro es tono Medium; la foto es tono Deep."
+  },
+  {
+    "file": "la-roche-posay-hyalu-b5-eyes-serum-15-ml-154033.webp",
+    "sku": "DERM-I00824",
+    "carolName": "LA ROCHE POSAY HYALU B5 EYES SERUM 15 ML",
+    "dbName": "LA Roche-posay Hyalu Serum B5 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Suero facial 30 ML, no el contorno de ojos 15 ML."
+  },
+  {
+    "file": "la-roche-posay-hyalu-b5-eyes-serum-15-ml-154033.webp",
+    "sku": "DERM-I00823",
+    "carolName": "LA ROCHE POSAY HYALU B5 EYES SERUM 15 ML",
+    "dbName": "LA Roche-posay Hyalu B5 Serum 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Suero facial 50 ML, no el contorno de ojos 15 ML."
+  },
+  {
+    "file": "la-roche-posay-hyalu-b5-serum-1-0-fl-oz-120733.webp",
+    "sku": "DERM-I00789",
+    "carolName": "LA ROCHE POSAY HYALU B5 SERUM 1.0 FL.OZ.",
+    "dbName": "LA Roche Posay Hyalu B5 EYE Serum",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Contorno de ojos, no el suero facial."
+  },
+  {
+    "file": "la-roche-posay-hyalu-b5-serum-1-0-fl-oz-120733.webp",
+    "sku": "DERM-I00823",
+    "carolName": "LA ROCHE POSAY HYALU B5 SERUM 1.0 FL.OZ.",
+    "dbName": "LA Roche-posay Hyalu B5 Serum 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "50 ML no es 30 ML (1.0 FL OZ)."
+  },
+  {
+    "file": "sesderma-sensyses-cleanser-hyaluronic-200-ml-108022.webp",
+    "sku": "DERM-I01150",
+    "carolName": "SESDERMA SENSYSES CLEANSER HYALURONIC 200 ML",
+    "dbName": "Sesderma Sensyses Cleanser Sebum 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Variante Sebum, no Hyaluronic."
+  },
+  {
+    "file": "sesderma-sensyses-cleanser-hyaluronic-200-ml-108022.webp",
+    "sku": "DERM-I01149",
+    "carolName": "SESDERMA SENSYSES CLEANSER HYALURONIC 200 ML",
+    "dbName": "Sesderma Sensyses Cleanser Ovalis 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Variante Ovalis, no Hyaluronic."
+  },
+  {
+    "file": "sesderma-sensyses-cleanser-lightening-200-ml-80660.webp",
+    "sku": "DERM-I01150",
+    "carolName": "SESDERMA SENSYSES CLEANSER LIGHTENING 200 ML",
+    "dbName": "Sesderma Sensyses Cleanser Sebum 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Variante Sebum, no Lightening."
+  },
+  {
+    "file": "sesderma-sensyses-cleanser-lightening-200-ml-80660.webp",
+    "sku": "DERM-I01149",
+    "carolName": "SESDERMA SENSYSES CLEANSER LIGHTENING 200 ML",
+    "dbName": "Sesderma Sensyses Cleanser Ovalis 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Variante Ovalis, no Lightening."
+  },
+  {
+    "file": "avene-hyaluron-activ-b3-crema-regeneradora-celular-50-ml-129020.webp",
+    "sku": "DERM-I00141",
+    "carolName": "AVENE HYALURON ACTIV B3 CREMA REGENERADORA CELULAR 50 ML",
+    "dbName": "Avene Hyaluron Activ B3 Crema Regeneradora Celular DE DIA 30 ML.",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "30 ML no es 50 ML (ademas el registro precisa \"de dia\")."
+  },
+  {
+    "file": "la-roche-posay-effaclar-duo-m-patch-22-parches-154065.webp",
+    "sku": "DERM-I00788",
+    "carolName": "LA ROCHE POSAY EFFACLAR DUO + M PATCH 22 PARCHES",
+    "dbName": "LA Roche Posay Effaclar DUO + M 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Parches (22 uds) no son la crema Effaclar Duo+M 40 ML."
+  },
+  {
+    "file": "la-roche-posay-toleriane-double-repair-moisturizer-uv-spf30-105848.webp",
+    "sku": "DERM-I00846",
+    "carolName": "LA ROCHE-POSAY TOLERIANE DOUBLE REPAIR MOISTURIZER UV SPF30",
+    "dbName": "LA Roche-posay Toleriane Double Repair Matte Moisturizer 75 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Matte Moisturizer sin filtro no es el UV Moisturizer SPF 30."
+  },
+  {
+    "file": "la-roche-posay-toleriane-double-repair-moisturizer-uv-spf30-105848.webp",
+    "sku": "DERM-I00845",
+    "carolName": "LA ROCHE-POSAY TOLERIANE DOUBLE REPAIR MOISTURIZER UV SPF30",
+    "dbName": "LA Roche-posay Toleriane Double Repair Matte Moisturizer 100 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Matte Moisturizer sin filtro no es el UV Moisturizer SPF 30."
+  },
+  {
+    "file": "acm-novophane-shampoo-anti-caspa-moderada-125-ml-104233.webp",
+    "sku": "DERM-I00044",
+    "carolName": "ACM NOVOPHANE SHAMPOO ANTI-CASPA MODERADA 125 ML",
+    "dbName": "ACM Novophane K Anti Caspa 125 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Novophane K (caspa severa/queratorreductor) no es el anticaspa moderada."
+  },
+  {
+    "file": "isdin-fusion-water-magic-spf50-50-ml-122458.webp",
+    "sku": "DERM-I00695",
+    "carolName": "ISDIN FUSION WATER MAGIC SPF50 50 ML",
+    "dbName": "Isdin Fusion Water Magic Glow SPF 30 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "SPF 30 (Magic Glow) no es SPF 50."
+  },
+  {
+    "file": "isispharma-uveblock-spf-50-kids-spray-enfanats-200-ml-prot-121864.webp",
+    "sku": "DERM-I00756",
+    "carolName": "ISISPHARMA UVEBLOCK SPF 50+ KIDS SPRAY ENFANATS 200 ML (PROT",
+    "dbName": "Isispharma Uveblock SPF 50+ Spray 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Version adulto, no Kids."
+  },
+  {
+    "file": "la-roche-posay-anthelios-mineral-tinted-spf40-medium-deep-50-154057.webp",
+    "sku": "DERM-I00806",
+    "carolName": "LA ROCHE POSAY ANTHELIOS MINERAL TINTED SPF40 MEDIUM DEEP 50",
+    "dbName": "LA Roche-posay Anthelios Tinted Mineral Medium Light Fluid SPF 40 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "El registro es tono Medium; la foto es tono Medium Deep."
+  },
+  {
+    "file": "avene-cleanance-serum-30-ml-130746.webp",
+    "sku": "DERM-I00125",
+    "carolName": "AVENE CLEANANCE SERUM 30 ML",
+    "dbName": "Avene Cleanance Comedomed 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Comedomed es otro producto de la linea Cleanance."
+  },
+  {
+    "file": "sensilis-skin-delight-mask-vit-c-mascarilla-vitamina-c-150-125374.webp",
+    "sku": "DERM-I01069",
+    "carolName": "SENSILIS SKIN DELIGHT MASK VIT C (MASCARILLA VITAMINA C) 150",
+    "dbName": "Sensilis Skin Delight Mascarilla Vitamina C 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "50 ML en el registro frente a 150 en la foto: tamanos distintos."
+  },
+  {
+    "file": "vichy-mineral-89-crema-hidratante-72h-sin-fragancia-50-ml-129126.webp",
+    "sku": "DERM-I01327",
+    "carolName": "VICHY MINERAL 89 CREMA HIDRATANTE 72H SIN FRAGANCIA 50 ML",
+    "dbName": "Vichy Mineral 89 Crema Hidratante 72H Textura",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "El registro habla de una variante de \"Textura\", no de la version sin fragancia; nombre incompleto, no se puede confirmar."
+  },
+  {
+    "file": "la-roche-posay-anthelios-mineral-tinted-spf-40-deep-50-ml-154031.webp",
+    "sku": "DERM-I00805",
+    "carolName": "LA ROCHE POSAY ANTHELIOS MINERAL TINTED SPF 40 DEEP 50 ML",
+    "dbName": "LA Roche-posay Anthelios Tinted Mineral Light Fluid SPF 50 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "SPF 50 sin tono no es SPF 40 tono Deep."
+  },
+  {
+    "file": "la-roche-posay-anthelios-mineral-tinted-spf-40-medium-50-ml-154047.webp",
+    "sku": "DERM-I00805",
+    "carolName": "LA ROCHE POSAY ANTHELIOS MINERAL TINTED SPF 40 MEDIUM 50 ML",
+    "dbName": "LA Roche-posay Anthelios Tinted Mineral Light Fluid SPF 50 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "SPF 50 sin tono no es SPF 40 tono Medium."
+  },
+  {
+    "file": "acm-medisun-gel-matificante-spf50-40-ml-128217.webp",
+    "sku": "DERM-I00038",
+    "carolName": "ACM MEDISUN GEL MATIFICANTE SPF50+ 40 ML",
+    "dbName": "ACM Medisun Crema SPF 50+ 40ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Crema distinta de gel matificante."
+  },
+  {
+    "file": "avene-cleanance-solar-spf50-trsb-50-ml-125476.webp",
+    "sku": "DERM-I00150",
+    "carolName": "AVENE CLEANANCE SOLAR SPF50+ TRSB 50 ML",
+    "dbName": "Avene Solar Antiedad SPF 50+ 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Solar Antiedad no es Cleanance Solar (lineas distintas)."
+  },
+  {
+    "file": "darrow-actine-sabonete-barra-70-g-131241.webp",
+    "sku": "DERM-I00353",
+    "carolName": "DARROW ACTINE SABONETE BARRA 70 G",
+    "dbName": "Darrow Actine OIL Control Barra 70 G",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "El registro es la barra Oil Control (ya asignada a su propia foto); el jabon Actine simple es otro articulo."
+  },
+  {
+    "file": "eucerin-espuma-micelar-dermatoclean-15-ml-120973.webp",
+    "sku": "DERM-I00472",
+    "carolName": "EUCERIN ESPUMA MICELAR DERMATOCLEAN 15 ML",
+    "dbName": "Eucerin Espuma Micelar Dermatoclean Hyaluron 150 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "150 ML no es 15 ML."
+  },
+  {
+    "file": "filorga-ncef-night-mask-50-ml-crema-129719.webp",
+    "sku": "DERM-I00518",
+    "carolName": "FILORGA NCEF-NIGHT MASK 50 ML CREMA",
+    "dbName": "Filorga Ncef-revitalize Crema 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "NCEF-Revitalize crema no es NCEF-Night Mask."
+  },
+  {
+    "file": "isdin-hyaluronic-moisture-normal-50-g-135316.webp",
+    "sku": "DERM-I00700",
+    "carolName": "ISDIN HYALURONIC MOISTURE NORMAL 50 G",
+    "dbName": "Isdin Hyaluronic Moisture Piel Sensible 50G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Piel sensible no es piel normal."
+  },
+  {
+    "file": "isdin-hyaluronic-moisture-oily-50-g-135318.webp",
+    "sku": "DERM-I00699",
+    "carolName": "ISDIN HYALURONIC MOISTURE OILY 50 G",
+    "dbName": "Isdin Hyaluronic Moisture Piel Normal 50G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Piel normal no es piel grasa (oily)."
+  },
+  {
+    "file": "isdin-hyaluronic-moisture-oily-50-g-135318.webp",
+    "sku": "DERM-I00700",
+    "carolName": "ISDIN HYALURONIC MOISTURE OILY 50 G",
+    "dbName": "Isdin Hyaluronic Moisture Piel Sensible 50G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Piel sensible no es piel grasa (oily)."
+  },
+  {
+    "file": "isdin-hyaluronic-moisture-sensitive-50-g-135308.webp",
+    "sku": "DERM-I00699",
+    "carolName": "ISDIN HYALURONIC MOISTURE SENSITIVE 50 G",
+    "dbName": "Isdin Hyaluronic Moisture Piel Normal 50G",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Piel normal no es piel sensible."
+  },
+  {
+    "file": "sesderma-acglicolic-s-gel-hidratante-50-ml-125032.webp",
+    "sku": "DERM-I01124",
+    "carolName": "SESDERMA ACGLICOLIC S GEL HIDRATANTE 50 ML",
+    "dbName": "Sesderma Mandelac GEL Hidratante 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Mandelac no es Acglicolic (lineas distintas)."
+  },
+  {
+    "file": "uriage-bariesun-100-fluido-spf-50-50-ml-119498.webp",
+    "sku": "DERM-I01290",
+    "carolName": "URIAGE BARIESUN 100 FLUIDO SPF 50+ 50 ML",
+    "dbName": "Uriage Hyseac Fluido SPF 50+ 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hyseac no es Bariesun."
+  },
+  {
+    "file": "acm-medisun-crema-spf-50-40-ml-protector-solar-124885.webp",
+    "sku": "DERM-I00039",
+    "carolName": "ACM MEDISUN CREMA SPF 50+ 40 ML PROTECTOR SOLAR",
+    "dbName": "ACM Medisun GEL Matificante Solar SPF50+ 40ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Gel matificante, no crema."
+  },
+  {
+    "file": "avene-vitamin-activ-cg-serum-vitamina-c-30-ml-131103.webp",
+    "sku": "DERM-I00159",
+    "carolName": "AVENE VITAMIN ACTIV CG SERUM VITAMINA C 30 ML",
+    "dbName": "Avene Vitamina Activ CG Crema 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Crema, no serum."
+  },
+  {
+    "file": "babe-healthyaging-multi-accion-crema-pieles-maduras-50-ml-122517.webp",
+    "sku": "DERM-I00192",
+    "carolName": "BABE HEALTHYAGING MULTI ACCIÓN CREMA PIELES MADURAS 50 ML",
+    "dbName": "Babe Healthyaging Multi Reparadora Crema 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Multi Reparadora no es Multi Accion pieles maduras."
+  },
+  {
+    "file": "darrow-actine-fps-50-tono-1-claro-40-gr-131266.webp",
+    "sku": "DERM-I00359",
+    "carolName": "DARROW ACTINE FPS 50 TONO 1 CLARO 40 GR",
+    "dbName": "Darrow Actine Tono Medio FPS 50",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "El registro es tono medio; la foto es tono 1 claro."
+  },
+  {
+    "file": "la-roche-posay-retinol-b3-serum-1-0-oz-120736.webp",
+    "sku": "DERM-I00833",
+    "carolName": "LA ROCHE POSAY RETINOL B3 SERUM 1.0 OZ",
+    "dbName": "LA Roche-posay Mela B3 Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Mela B3 no es Retinol B3."
+  },
+  {
+    "file": "la-roche-posay-vitamin-c12-serum-antiarrugas-30-ml-120734.webp",
+    "sku": "DERM-I00821",
+    "carolName": "LA ROCHE-POSAY VITAMIN C12 SERUM ANTIARRUGAS 30 ML",
+    "dbName": "LA Roche-posay Effaclar Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Effaclar Serum no es Vitamin C12."
+  },
+  {
+    "file": "sesderma-c-vit-crema-facial-hidratante-50-ml-19540.webp",
+    "sku": "DERM-I01095",
+    "carolName": "SESDERMA C-VIT CREMA FACIAL HIDRATANTE 50 ML",
+    "dbName": "Sesderma C-vit Crema GEL Revitalizante 50 ML",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "Crema-gel revitalizante frente a crema facial hidratante: formato y variante no coinciden."
+  },
+  {
+    "file": "sesderma-factor-g-contorno-de-ojos-15-ml-105006.webp",
+    "sku": "DERM-I01094",
+    "carolName": "SESDERMA FACTOR G CONTORNO DE OJOS 15 ML",
+    "dbName": "Sesderma C-vit Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "C-Vit es otra linea distinta de Factor G."
+  },
+  {
+    "file": "la-roche-posay-double-repair-2-5-oz-matte-moisturizer-123424.webp",
+    "sku": "DERM-I00843",
+    "carolName": "LA ROCHE POSAY DOUBLE REPAIR 2.5 OZ MATTE MOISTURIZER",
+    "dbName": "LA Roche-posay Toleriane Double Repair Face Moisturizer 100 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Face Moisturizer no es Matte Moisturizer."
+  },
+  {
+    "file": "la-roche-posay-lipikar-eczema-200-ml-cream-123426.webp",
+    "sku": "DERM-I00828",
+    "carolName": "LA ROCHE POSAY LIPIKAR ECZEMA 200 ML CREAM",
+    "dbName": "LA Roche-posay Lipikar Ap+m Triple Repair Moisturizer Cream 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Lipikar AP+M Triple Repair no es Lipikar Eczema."
+  },
+  {
+    "file": "la-roche-posay-pure-vitamin-c12-oil-control-serum-30-ml-154048.webp",
+    "sku": "DERM-I00851",
+    "carolName": "LA ROCHE POSAY PURE VITAMIN C12 OIL CONTROL SERUM 30 ML",
+    "dbName": "LA Roche-posay Vitamin C Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "El registro no lleva \"Oil Control\": es el suero de vitamina C regular."
+  },
+  {
+    "file": "vichy-mineral-89-crema-hidratante-72h-textura-rica-50-ml-129125.webp",
+    "sku": "DERM-I01326",
+    "carolName": "VICHY MINERAL 89 CREMA HIDRATANTE 72H TEXTURA RICA 50 ML",
+    "dbName": "Vichy Mineral 89 Crema Hidratante 100H Textura Riche",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "100H no es 72H."
+  },
+  {
+    "file": "la-roche-posay-anthelios-50-mineral-sunscreen-gentle-lotio-127566.webp",
+    "sku": "DERM-I00798",
+    "carolName": "LA ROCHE POSAY ANTHELIOS 50 MINERAL SUNSCREEN - GENTLE LOTIO",
+    "dbName": "LA Roche-posay Anthelios 50 Face Mineral Light Fluid Sunscreen 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Face Mineral Light Fluid no es la Gentle Lotion: dos formatos distintos de Anthelios 50 mineral."
+  },
+  {
+    "file": "la-roche-posay-lipikar-ap-gentle-foaming-cleansing-oil-400-129134.webp",
+    "sku": "DERM-I00827",
+    "carolName": "LA ROCHE POSAY LIPIKAR AP+ GENTLE FOAMING CLEANSING OIL 400",
+    "dbName": "LA Roche-posay Lipikar AP+ Gentle Foaming Moisturizing Wash 400ML",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "Moisturizing Wash frente a Gentle Foaming Cleansing Oil (aceite lavante): formato distinto."
+  },
+  {
+    "file": "avene-aqua-gel-hyaluron-activ-b3-50-ml-131115.webp",
+    "sku": "DERM-I00144",
+    "carolName": "AVENE AQUA GEL HYALURON ACTIV B3 50 ML",
+    "dbName": "Avene Hydrance Aqua GEL 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hydrance no es Hyaluron Activ B3 (lineas distintas)."
+  },
+  {
+    "file": "avene-aqua-gel-hyaluron-activ-b3-50-ml-131115.webp",
+    "sku": "DERM-I00142",
+    "carolName": "AVENE AQUA GEL HYALURON ACTIV B3 50 ML",
+    "dbName": "Avene Hyaluron Activ B3 Ojos",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Contorno de ojos, no el aqua gel facial."
+  },
+  {
+    "file": "avene-cleanance-serum-30-ml-130746.webp",
+    "sku": "DERM-I00133",
+    "carolName": "AVENE CLEANANCE SERUM 30 ML",
+    "dbName": "Avene Cleanance Women Noche 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Cleanance Women cuidado de noche no es el Cleanance Serum."
+  },
+  {
+    "file": "avene-cleanance-solar-tintado-spf50-50-ml-trsb-125466.webp",
+    "sku": "DERM-I00150",
+    "carolName": "AVENE CLEANANCE SOLAR TINTADO SPF50+ 50 ML TRSB",
+    "dbName": "Avene Solar Antiedad SPF 50+ 50ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Solar Antiedad sin tinte no es Cleanance Solar tintado."
+  },
+  {
+    "file": "avene-solar-fluide-ultra-light-50-ml-125475.webp",
+    "sku": "DERM-I00153",
+    "carolName": "AVENE SOLAR FLUIDE ULTRA LIGHT 50 ML",
+    "dbName": "Avene Solar Ultra MAT 50+ 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Solar Ultra MAT no es el fluido Ultra Light (variantes distintas)."
+  },
+  {
+    "file": "cerave-moisturizing-cream-1-89-oz-154270.webp",
+    "sku": "DERM-I00299",
+    "carolName": "CERAVE MOISTURIZING CREAM 1.89 OZ",
+    "dbName": "Cerave Moisturizing Cream 12OZ (340G)",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "12 OZ (340 G) no es 1.89 OZ."
+  },
+  {
+    "file": "cerave-moisturizing-lotion-3-oz-154295.webp",
+    "sku": "DERM-I00289",
+    "carolName": "CERAVE MOISTURIZING LOTION 3 OZ",
+    "dbName": "Cerave Daily Moisturizing Lotion 8 OZ",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "8 OZ no es 3 OZ."
+  },
+  {
+    "file": "cerave-moisturizing-lotion-3-oz-154295.webp",
+    "sku": "DERM-I00288",
+    "carolName": "CERAVE MOISTURIZING LOTION 3 OZ",
+    "dbName": "Cerave Daily Moisturizing Lotion 12 OZ",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "12 OZ no es 3 OZ."
+  },
+  {
+    "file": "ducray-keracnyl-glycolic-crema-30-ml-124707.webp",
+    "sku": "DERM-I00396",
+    "carolName": "DUCRAY KERACNYL GLYCOLIC CREMA 30 ML",
+    "dbName": "Ducray Keracnyl MAT 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Keracnyl MAT no es Keracnyl Glycolic+."
+  },
+  {
+    "file": "ducray-keracnyl-glycolic-crema-30-ml-124707.webp",
+    "sku": "DERM-I00397",
+    "carolName": "DUCRAY KERACNYL GLYCOLIC CREMA 30 ML",
+    "dbName": "Ducray Keracnyl PP+ 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Keracnyl PP+ no es Keracnyl Glycolic+."
+  },
+  {
+    "file": "ducray-keracnyl-matificante-30-ml-crema-122451.webp",
+    "sku": "DERM-I00397",
+    "carolName": "DUCRAY KERACNYL MATIFICANTE 30 ML CREMA",
+    "dbName": "Ducray Keracnyl PP+ 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Keracnyl PP+ no es el matificante (MAT)."
+  },
+  {
+    "file": "eucerin-hydro-fluid-spf50-50-ml-127793.webp",
+    "sku": "DERM-I00486",
+    "carolName": "EUCERIN HYDRO FLUID SPF50+ 50 ML",
+    "dbName": "Eucerin Hydro Fluid Color Claro SPF 50 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Con color claro, no la version sin color."
+  },
+  {
+    "file": "eucerin-hydro-fluid-spf50-50-ml-127793.webp",
+    "sku": "DERM-I00487",
+    "carolName": "EUCERIN HYDRO FLUID SPF50+ 50 ML",
+    "dbName": "Eucerin Hydro Fluid Color Medio SPF 50 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Con color medio, no la version sin color."
+  },
+  {
+    "file": "eucerin-sun-toque-seco-fps50-gel-crema-corporal-200-ml-119207.webp",
+    "sku": "DERM-I00508",
+    "carolName": "EUCERIN SUN TOQUE SECO FPS50+ GEL CREMA CORPORAL 200 ML",
+    "dbName": "Eucerin SUN Spray Corporal Transparente Toque Seco FPS50 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Spray transparente, no gel-crema corporal."
+  },
+  {
+    "file": "filorga-lift-structure-crema-50-ml-129728.webp",
+    "sku": "DERM-I00524",
+    "carolName": "FILORGA LIFT-STRUCTURE CREMA 50 ML",
+    "dbName": "Filorga Sleep & Lift Crema DE Noche 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Sleep & Lift no es Lift-Structure; son dos cremas distintas de Filorga."
+  },
+  {
+    "file": "filorga-ncef-reverse-crema-50-ml-129747.webp",
+    "sku": "DERM-I00515",
+    "carolName": "FILORGA NCEF-REVERSE CREMA 50 ML",
+    "dbName": "Filorga Ncef Reverse MAT",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "NCEF Reverse MAT (crema-gel matificante) no es la crema NCEF-Reverse."
+  },
+  {
+    "file": "filorga-ncef-reverse-mat-crema-gel-50-ml-129718.webp",
+    "sku": "DERM-I00518",
+    "carolName": "FILORGA NCEF-REVERSE MAT CREMA GEL 50 ML",
+    "dbName": "Filorga Ncef-revitalize Crema 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "NCEF-Revitalize crema no es NCEF Reverse MAT."
+  },
+  {
+    "file": "filorga-oxygen-glow-eye-contour-15-ml-crema-129720.webp",
+    "sku": "DERM-I00522",
+    "carolName": "FILORGA OXYGEN GLOW EYE CONTOUR 15 ML CREMA",
+    "dbName": "Filorga Oxygen-glow Crema 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Crema facial 50 ML, no el contorno de ojos 15 ML."
+  },
+  {
+    "file": "filorga-time-filler-5-xp-crema-50-ml-129721.webp",
+    "sku": "DERM-I00527",
+    "carolName": "FILORGA TIME-FILLER 5-XP CREMA 50 ML",
+    "dbName": "Filorga Time-filler Night Crema",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Time-Filler Night no es Time-Filler 5-XP (dia)."
+  },
+  {
+    "file": "filorga-time-filler-eyes-5xp-15-ml-crema-129723.webp",
+    "sku": "DERM-I00527",
+    "carolName": "FILORGA TIME-FILLER EYES 5XP 15 ML CREMA",
+    "dbName": "Filorga Time-filler Night Crema",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Time-Filler Night crema facial no es Time-Filler Eyes 5XP 15 ML."
+  },
+  {
+    "file": "filorga-time-filler-intensive-30-ml-serum-129724.webp",
+    "sku": "DERM-I00512",
+    "carolName": "FILORGA TIME-FILLER INTENSIVE 30 ML SERUM",
+    "dbName": "Filorga Hyalu-filler Serum Hidratante 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hyalu-Filler no es Time-Filler Intensive."
+  },
+  {
+    "file": "heliocare-360-compacto-beige-123651.webp",
+    "sku": "DERM-I00577",
+    "carolName": "HELIOCARE 360 COMPACTO BEIGE",
+    "dbName": "Heliocare 360 Compacto Color Perla",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Color Perla no es Beige."
+  },
+  {
+    "file": "heliocare-360-invisible-spray-200-ml-121036.webp",
+    "sku": "DERM-I00596",
+    "carolName": "HELIOCARE 360 INVISIBLE SPRAY 200 ML",
+    "dbName": "Heliocare Spray SPF 50 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Heliocare (sin 360) no es Heliocare 360."
+  },
+  {
+    "file": "isdin-fotoprotector-fusion-water-magic-bronce-spf50-129985.webp",
+    "sku": "DERM-I00696",
+    "carolName": "ISDIN FOTOPROTECTOR FUSION WATER MAGIC BRONCE SPF50",
+    "dbName": "Isdin Fusion Water Magic SPF 50.",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "El registro es Fusion Water Magic sin tono; la foto es el tono Bronce."
+  },
+  {
+    "file": "isdin-fotoprotector-fusion-water-medium-spf50-129984.webp",
+    "sku": "DERM-I00694",
+    "carolName": "ISDIN FOTOPROTECTOR FUSION WATER MEDIUM SPF50",
+    "dbName": "Isdin Fusion Water Magic Color Medium",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Fusion Water Magic Color Medium no es Fusion Water Color Medium (sin \"Magic\")."
+  },
+  {
+    "file": "isdin-fotoultra-age-repair-fusion-water-color-spf50-50-ml-pr-128802.webp",
+    "sku": "DERM-I00688",
+    "carolName": "ISDIN FOTOULTRA AGE REPAIR FUSION WATER COLOR SPF50 50 ML PR",
+    "dbName": "Isdin Fusion Water AGE Repair",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Version sin color, no la version Color."
+  },
+  {
+    "file": "isdin-fotoultra-age-repair-fusion-water-spf50-protector-so-124634.webp",
+    "sku": "DERM-I00689",
+    "carolName": "ISDIN FOTOULTRA AGE REPAIR FUSION WATER SPF50 ( PROTECTOR SO",
+    "dbName": "Isdin Fusion Water AGE Repair Color",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Version Color, no la version sin color."
+  },
+  {
+    "file": "isdin-fusion-water-magic-spf50-50-ml-122458.webp",
+    "sku": "DERM-I00691",
+    "carolName": "ISDIN FUSION WATER MAGIC SPF50 50 ML",
+    "dbName": "Isdin Fusion Water Color Medium 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Fusion Water Color Medium no es Fusion Water Magic sin tono."
+  },
+  {
+    "file": "isispharma-glyco-a-peeling-crema-de-noche-al-12-de-acido-gl-129499.webp",
+    "sku": "DERM-I00722",
+    "carolName": "ISISPHARMA GLYCO-A PEELING CREMA DE NOCHE AL 12% DE ACIDO GL",
+    "dbName": "Isispharma Glyco-a Intense Peeling Crema DE Noche 25% 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "25% no es 12%."
+  },
+  {
+    "file": "isispharma-glyco-a-peeling-crema-de-noche-al-5-5-de-acido-g-129497.webp",
+    "sku": "DERM-I00722",
+    "carolName": "ISISPHARMA GLYCO-A PEELING CREMA DE NOCHE AL 5.5% DE ACIDO G",
+    "dbName": "Isispharma Glyco-a Intense Peeling Crema DE Noche 25% 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "25% no es 5.5%."
+  },
+  {
+    "file": "isispharma-neotone-intenso-serum-30-ml-121884.webp",
+    "sku": "DERM-I00733",
+    "carolName": "ISISPHARMA NEOTONE INTENSO SERUM 30 ML",
+    "dbName": "Isispharma Neotone Sensitive 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Neotone Sensitive no es Neotone Serum."
+  },
+  {
+    "file": "isispharma-ruboril-expert-s-crema-antienrojecimiento-40-ml-121866.webp",
+    "sku": "DERM-I00736",
+    "carolName": "ISISPHARMA RUBORIL EXPERT S CREMA ANTIENROJECIMIENTO 40 ML",
+    "dbName": "Isispharma Ruboril Expert M 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Ruboril Expert M no es Expert S."
+  },
+  {
+    "file": "isispharma-ruboril-expert-s-crema-antienrojecimiento-40-ml-121866.webp",
+    "sku": "DERM-I00738",
+    "carolName": "ISISPHARMA RUBORIL EXPERT S CREMA ANTIENROJECIMIENTO 40 ML",
+    "dbName": "Isispharma Ruboril Expert SPF50 40 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Ruboril Expert SPF50 no es Expert S."
+  },
+  {
+    "file": "la-roche-posay-effaclar-purifying-foaming-gel-13-5-fl-oz-125024.webp",
+    "sku": "DERM-I00786",
+    "carolName": "LA ROCHE POSAY EFFACLAR PURIFYING FOAMING GEL - 13.5 FL.OZ.",
+    "dbName": "LA Roche Posay Effaclar Adapalene GEL",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Effaclar Adapalene no es el Purifying Foaming Gel."
+  },
+  {
+    "file": "la-roche-posay-toleriane-hydrating-gentle-cleanser-13-5-oz-118761.webp",
+    "sku": "DERM-I00842",
+    "carolName": "LA ROCHE-POSAY TOLERIANE HYDRATING GENTLE CLEANSER 13.5 OZ",
+    "dbName": "LA Roche-posay Toleriane Dermo-cleanser 200 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Toleriane Dermo-cleanser 200 ML no es el Hydrating Gentle Cleanser 400 ML."
+  },
+  {
+    "file": "la-roche-posay-vitamin-c12-serum-antiarrugas-30-ml-120734.webp",
+    "sku": "DERM-I00824",
+    "carolName": "LA ROCHE-POSAY VITAMIN C12 SERUM ANTIARRUGAS 30 ML",
+    "dbName": "LA Roche-posay Hyalu Serum B5 30ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hyalu B5 no es Vitamin C12."
+  },
+  {
+    "file": "sensilis-hydra-essence-crema-fondant-40-ml-125387.webp",
+    "sku": "DERM-I01058",
+    "carolName": "SENSILIS HYDRA ESSENCE CREMA FONDANT 40 ML",
+    "dbName": "Sensilis Hydra Essence GEL Sorbet 40ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Gel Sorbet no es la crema Fondant."
+  },
+  {
+    "file": "sensilis-pure-perfection-crema-antiedad-50-ml-125384.webp",
+    "sku": "DERM-I01065",
+    "carolName": "SENSILIS PURE PERFECTION CREMA ANTIEDAD 50 ML",
+    "dbName": "Sensilis Pure Perfection Crema DE Noche",
+    "decision": "no",
+    "confianza": "media",
+    "razon": "El registro es la crema de noche; la foto no precisa dia/noche y Pure Perfection tiene ambas."
+  },
+  {
+    "file": "sesderma-factor-g-50-ml-anti-angi-ovalo-facial-cuello-108012.webp",
+    "sku": "DERM-I01112",
+    "carolName": "SESDERMA FACTOR G 50 ML ANTI-ANGI OVALO FACIAL & CUELLO",
+    "dbName": "Sesderma Factor G Renew Crema Ovalo Facial Y Cuello",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Registro duplicado sin tamano; se aprobo I01108, que declara los 50 ML exactos."
+  },
+  {
+    "file": "sesderma-oceanskin-serum-hidratante-30-ml-122543.webp",
+    "sku": "DERM-I01155",
+    "carolName": "SESDERMA OCEANSKIN SERUM HIDRATANTE 30 ML",
+    "dbName": "Sesderma Sesbalance Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Sesbalance no es Oceanskin."
+  },
+  {
+    "file": "sesderma-samay-crema-contorno-ojos-15-ml-127164.webp",
+    "sku": "DERM-I01111",
+    "carolName": "SESDERMA SAMAY CREMA CONTORNO OJOS 15 ML",
+    "dbName": "Sesderma Factor G Renew Crema Contorno DE Ojos 15 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Factor G Renew no es Samay (lineas distintas)."
+  },
+  {
+    "file": "sesderma-samay-serum-entienvejecimiento-30-ml-122545.webp",
+    "sku": "DERM-I01155",
+    "carolName": "SESDERMA SAMAY SERUM ENTIENVEJECIMIENTO 30 ML",
+    "dbName": "Sesderma Sesbalance Serum 30 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Sesbalance no es Samay (lineas distintas)."
+  },
+  {
+    "file": "vichy-desodorante-50-ml-24-hr-roll-on-118762.webp",
+    "sku": "DERM-I00610",
+    "carolName": "VICHY DESODORANTE 50 ML 24 HR ROLL-ON",
+    "dbName": "Hiposudol Desodorante Roll-on 50 ML",
+    "decision": "no",
+    "confianza": "alta",
+    "razon": "Hiposudol es otra marca."
+  }
+]

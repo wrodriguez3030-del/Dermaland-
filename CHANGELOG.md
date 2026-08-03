@@ -10,6 +10,27 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.103.0] - 2026-08-03
+
+**286 productos con foto (21,1 %), y ahora cada foto se mira antes de entrar.**
+
+- **Hallazgo que invalidaba el método anterior: el catálogo de origen publica
+  fotos que no corresponden a su propia ficha.** Ni el emparejamiento por nombre
+  ni la revisión semántica podían detectarlo, porque ambos comparan texto contra
+  texto y el error está entre el texto y la imagen. Casos reales: una emulsión de
+  40 ml publicada como gel de 200 ml, "Pure Vitamin C10" vendida como "C12",
+  "Duolys Légère" como "Duolys Riche", y un champú Doctar en un gel Actine.
+- Se añadió un paso de **auditoría visual**: se abre cada imagen, se lee el envase
+  (marca, línea, variante y gramaje impreso) y se compara con el producto. Sobre
+  230 revisadas, **12 estaban mal (5,2 %)** y 7 quedaron dudosas.
+- **Revertidas 4 fotos ya publicadas** que estaban equivocadas. Aplicadas 93 nuevas,
+  todas verificadas mirando el envase; 12 candidatas se descartaron por la auditoría.
+- Nuevo `scripts/revert-product-images.mjs`: pone `image_url` a NULL y borra el
+  objeto del bucket. Solo toca fotos de `product-images` — una imagen subida a mano
+  o una URL externa no se tocan, y la guarda va en el propio PATCH.
+- +193 fotos descargadas de sitios oficiales de marca (−92,2 %), pendientes de
+  auditoría visual antes de aplicarse.
+
 ## [0.102.0] - 2026-08-03
 
 **197 productos con foto (14,5 %) y la infraestructura para llegar más lejos.**

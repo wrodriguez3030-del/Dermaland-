@@ -1,0 +1,26 @@
+[
+  {
+    "sku": "DERM-I00986",
+    "name": "Pilopeptan Champu Anticaida Woman 250 ML",
+    "image_url_anterior": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9884f09e-ad61-410a-9a56-fa3038ab39fe/image.webp",
+    "razon": "Genove Pilopeptan Champu anticaida / Anti hair-loss shampoo 250 ml (envase azul, SIN mencion Woman)"
+  },
+  {
+    "sku": "DERM-I00061",
+    "name": "A-derma Dermalibour Barrier Crema 100 ML",
+    "image_url_anterior": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/903bb8ba-1035-4183-887b-24e1bad07951/image.webp",
+    "razon": "A-DERMA DERMALIBOUR+ BARRIER Creme protectrice / Protective cream 50 ml"
+  },
+  {
+    "sku": "DERM-I00036",
+    "name": "ACM Duolys Riche Anti-envejecimiento 40 ML",
+    "image_url_anterior": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7c93cfe4-4010-426e-82bd-572b83e44fd5/image.webp",
+    "razon": "ACM DUOLYS LEGERE soin hydratant anti-age, peaux normales a mixtes, 40 ml"
+  },
+  {
+    "sku": "DERM-I00837",
+    "name": "LA Roche-posay Redermic R 30 ML",
+    "image_url_anterior": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/1b1e0350-468f-44a0-8b15-26223b1eb8c4/image.webp",
+    "razon": "LA ROCHE-POSAY EFFACLAR MAT hidratante sebo-regulador, anti-brillos y anti-poros dilatados (estuche)"
+  }
+]
