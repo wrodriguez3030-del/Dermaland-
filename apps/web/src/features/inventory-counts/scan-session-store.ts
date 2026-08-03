@@ -168,6 +168,19 @@ export function createSession(input: CreateSessionInput): CountSession {
   return session;
 }
 
+/**
+ * Mete en este dispositivo una sesión que viene de la nube, para poder seguir
+ * contando donde otro equipo la dejó. No pisa una sesión local existente: la
+ * local siempre manda (puede tener escaneos que aún no subieron).
+ */
+export function importSession(session: CountSession): CountSession {
+  const list = safeRead();
+  const existente = list.find((s) => s.id === session.id);
+  if (existente) return existente;
+  safeWrite([session, ...list]);
+  return session;
+}
+
 function mutate(
   id: string,
   fn: (s: CountSession) => CountSession,

@@ -56,6 +56,7 @@ import {
   removeItem,
   setSessionStatus,
   setSessionServerId,
+  importSession,
   sessionToCountData,
   type CountSession,
 } from "@/features/inventory-counts/scan-session-store";
@@ -67,6 +68,7 @@ import {
 import { queueScan } from "@/features/inventory-counts/sync/sync";
 import { buildScanInput } from "@/features/inventory-counts/build-scan-input";
 import { ensureServerCount } from "@/features/inventory-counts/ensure-server-count";
+import { hydrateSessionFromServer } from "@/features/inventory-counts/hydrate-session";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
@@ -113,6 +115,7 @@ export default function EscanearPage() {
   const [approveOpen, setApproveOpen] = React.useState(false);
   const [lastScan, setLastScan] = React.useState<{ name: string; qty: number; ok: boolean } | null>(null);
   const [cameraOpen, setCameraOpen] = React.useState(false);
+  const [recuperando, setRecuperando] = React.useState(false);
 
   const productById = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const labById = React.useMemo(() => new Map(laboratories.map((l) => [l.id, l.name])), [laboratories]);
@@ -130,6 +133,23 @@ export default function EscanearPage() {
     if (!readonly) inputRef.current?.focus();
   }, [readonly, session?.scans.length]);
 
+  // Sin sesión en este dispositivo, el conteo se busca en la nube: es lo que
+  // permite continuar uno empezado en otro equipo o recuperado tras limpiar el
+  // navegador. Al importarlo, el store emite su evento y la pantalla se puebla.
+  React.useEffect(() => {
+    if (session || !id) return;
+    let vivo = true;
+    setRecuperando(true);
+    void hydrateSessionFromServer(id).then((s) => {
+      if (!vivo) return;
+      if (s) importSession(s);
+      setRecuperando(false);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [id, session]);
+
   // Nunca dejar un envío automático pendiente al salir de la pantalla.
   React.useEffect(
     () => () => {
@@ -144,10 +164,17 @@ export default function EscanearPage() {
         <PageHeader title="Inventario físico" breadcrumbs={[{ label: "Inventario físico", href: "/conteo-fisico" }, { label: "Escanear" }]} />
         <Card>
           <CardContent className="py-12 text-center text-sm opacity-70">
-            No encontramos este inventario físico en este dispositivo.{" "}
-            <Link href="/conteo-fisico" className="text-[color:var(--brand-accent)] hover:underline">
-              Volver a inventarios
-            </Link>
+            {recuperando ? (
+              "Buscando este inventario físico en la nube…"
+            ) : (
+              <>
+                No encontramos este inventario físico ni en este dispositivo ni en la
+                nube.{" "}
+                <Link href="/conteo-fisico" className="text-[color:var(--brand-accent)] hover:underline">
+                  Volver a inventarios
+                </Link>
+              </>
+            )}
           </CardContent>
         </Card>
       </>
