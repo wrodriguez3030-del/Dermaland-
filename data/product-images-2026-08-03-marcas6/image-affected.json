@@ -1,0 +1,65 @@
+[
+  {
+    "id": "937a6829-58d6-4aa7-8b85-86819b100f86",
+    "sku": "DERM-I00523",
+    "dbName": "Filorga Oxygen-glow Eyes 15 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/937a6829-58d6-4aa7-8b85-86819b100f86/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/937a6829-58d6-4aa7-8b85-86819b100f86/image.webp"
+  },
+  {
+    "id": "fd268d8e-a41e-423a-9dd9-9678f844d83c",
+    "sku": "DERM-I00673",
+    "dbName": "Isdin Eryfotona Ak-nmsc Fluido SPF 99 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/fd268d8e-a41e-423a-9dd9-9678f844d83c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/fd268d8e-a41e-423a-9dd9-9678f844d83c/image.webp"
+  },
+  {
+    "id": "26ad9dd1-e9ff-4f81-87c8-ca924976d55b",
+    "sku": "DERM-I00525",
+    "dbName": "Filorga Sleep & Peel 4.5 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/26ad9dd1-e9ff-4f81-87c8-ca924976d55b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/26ad9dd1-e9ff-4f81-87c8-ca924976d55b/image.webp"
+  },
+  {
+    "id": "34c0626d-4d14-48b1-9227-c595f36852a1",
+    "sku": "DERM-I00139",
+    "dbName": "Avene Fluido Ultra Light 50+ 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/34c0626d-4d14-48b1-9227-c595f36852a1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/34c0626d-4d14-48b1-9227-c595f36852a1/image.webp"
+  },
+  {
+    "id": "c9399e78-d2a8-468b-b8b6-95d157b7f391",
+    "sku": "DERM-I00396",
+    "dbName": "Ducray Keracnyl MAT 30ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c9399e78-d2a8-468b-b8b6-95d157b7f391/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c9399e78-d2a8-468b-b8b6-95d157b7f391/image.webp"
+  },
+  {
+    "id": "7986f6a8-4100-4ea1-956e-0a362a04e97e",
+    "sku": "DERM-I00502",
+    "dbName": "Eucerin Pigment Control Tinted Anti-manchas Tono Medio",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7986f6a8-4100-4ea1-956e-0a362a04e97e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7986f6a8-4100-4ea1-956e-0a362a04e97e/image.webp"
+  },
+  {
+    "id": "bf256c69-2459-483f-93ac-6e759c50cd78",
+    "sku": "DERM-I00138",
+    "dbName": "Avene Fluido Intense Protect 150 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/bf256c69-2459-483f-93ac-6e759c50cd78/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bf256c69-2459-483f-93ac-6e759c50cd78/image.webp"
+  },
+  {
+    "id": "db693559-ca32-4c63-ab28-bd2f5da8998e",
+    "sku": "DERM-I00589",
+    "dbName": "Heliocare 360 Water GEL SPF 50",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/db693559-ca32-4c63-ab28-bd2f5da8998e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/db693559-ca32-4c63-ab28-bd2f5da8998e/image.webp"
+  },
+  {
+    "id": "abcd8d63-fd44-444f-810c-3fd0c1e8be5b",
+    "sku": "DERM-I00681",
+    "dbName": "Isdin Fotoprotector Pediatrico WET Skin Spray SPF 50",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/abcd8d63-fd44-444f-810c-3fd0c1e8be5b/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/abcd8d63-fd44-444f-810c-3fd0c1e8be5b/image.webp"
+  }
+]

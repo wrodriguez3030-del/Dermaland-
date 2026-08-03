@@ -1,0 +1,92 @@
+[
+  {
+    "id": "bf256c69-2459-483f-93ac-6e759c50cd78",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00138",
+    "dbName": "Avene Fluido Intense Protect 150 ML",
+    "carolName": "Avene Fluido Intense Protect 150 ML",
+    "file": "avene-intense-protect-spf50-150-ml-filtro-solar-125474.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bf256c69-2459-483f-93ac-6e759c50cd78/image.webp"
+  },
+  {
+    "id": "34c0626d-4d14-48b1-9227-c595f36852a1",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00139",
+    "dbName": "Avene Fluido Ultra Light 50+ 50 ML",
+    "carolName": "Avene Fluido Ultra Light 50+ 50 ML",
+    "file": "avene-solar-fluide-ultra-light-50-ml-125475.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/34c0626d-4d14-48b1-9227-c595f36852a1/image.webp"
+  },
+  {
+    "id": "c9399e78-d2a8-468b-b8b6-95d157b7f391",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00396",
+    "dbName": "Ducray Keracnyl MAT 30ML",
+    "carolName": "Ducray Keracnyl MAT 30ML",
+    "file": "ducray-keracnyl-matificante-30-ml-crema-122451.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c9399e78-d2a8-468b-b8b6-95d157b7f391/image.webp"
+  },
+  {
+    "id": "7986f6a8-4100-4ea1-956e-0a362a04e97e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00502",
+    "dbName": "Eucerin Pigment Control Tinted Anti-manchas Tono Medio",
+    "carolName": "Eucerin Pigment Control Tinted Anti-manchas Tono Medio",
+    "file": "eucerin-sun-pigment-control-tinted-tono-medio-fps-50-50-ml-129924.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7986f6a8-4100-4ea1-956e-0a362a04e97e/image.webp"
+  },
+  {
+    "id": "937a6829-58d6-4aa7-8b85-86819b100f86",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00523",
+    "dbName": "Filorga Oxygen-glow Eyes 15 ML",
+    "carolName": "Filorga Oxygen-glow Eyes 15 ML",
+    "file": "filorga-oxygen-glow-eye-contour-15-ml-crema-129720.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/937a6829-58d6-4aa7-8b85-86819b100f86/image.webp"
+  },
+  {
+    "id": "26ad9dd1-e9ff-4f81-87c8-ca924976d55b",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00525",
+    "dbName": "Filorga Sleep & Peel 4.5 40 ML",
+    "carolName": "Filorga Sleep & Peel 4.5 40 ML",
+    "file": "filorga-sleep-peel-4-5-micro-peeling-crema-de-noche-40-ml-129743.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/26ad9dd1-e9ff-4f81-87c8-ca924976d55b/image.webp"
+  },
+  {
+    "id": "db693559-ca32-4c63-ab28-bd2f5da8998e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00589",
+    "dbName": "Heliocare 360 Water GEL SPF 50",
+    "carolName": "Heliocare 360 Water GEL SPF 50",
+    "file": "heliocare-360-water-gel-sunscreen-spf50-50-ml-118455.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/db693559-ca32-4c63-ab28-bd2f5da8998e/image.webp"
+  },
+  {
+    "id": "fd268d8e-a41e-423a-9dd9-9678f844d83c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00673",
+    "dbName": "Isdin Eryfotona Ak-nmsc Fluido SPF 99 50 ML",
+    "carolName": "Isdin Eryfotona Ak-nmsc Fluido SPF 99 50 ML",
+    "file": "isdin-eryfotona-ak-nmsc-fluid-fps-99-50-ml-122449.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/fd268d8e-a41e-423a-9dd9-9678f844d83c/image.webp"
+  },
+  {
+    "id": "abcd8d63-fd44-444f-810c-3fd0c1e8be5b",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00681",
+    "dbName": "Isdin Fotoprotector Pediatrico WET Skin Spray SPF 50",
+    "carolName": "Isdin Fotoprotector Pediatrico WET Skin Spray SPF 50",
+    "file": "isdin-fotoprotector-pediatrics-transparent-wet-skin-spf50-25-128806.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/abcd8d63-fd44-444f-810c-3fd0c1e8be5b/image.webp"
+  }
+]

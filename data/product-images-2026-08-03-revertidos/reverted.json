@@ -1,14 +1,8 @@
 [
   {
-    "sku": "DERM-I01274",
-    "name": "Uriage EAU Thermale 150 ML",
-    "image_url_anterior": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e197d413-cd63-4e2e-8480-0ceda3136f84/image.webp",
-    "razon": "el envase dice 300 ml / 10 fl.oz., no 150 ML"
-  },
-  {
-    "sku": "DERM-I00576",
-    "name": "Heliocare 360 Compacto Color Beige Oil-free",
-    "image_url_anterior": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9f574c48-710d-4073-8225-8ca73a0771e9/image.webp",
-    "razon": "la caja es Heliocare COLOR Compact LIGHT, ni la linea 360 ni el tono Beige"
+    "sku": "DERM-I00586",
+    "name": "Heliocare 360 Sensation SPF 50 50 ML",
+    "image_url_anterior": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/771899a0-056e-461f-8d10-5e978ea7c297/image.webp",
+    "razon": "cantabria labs HELIOCARE ADVANCED Gel SUNSCREEN/PROTECTOR SOLAR SPF 50 Fernblock (estuche naranja de la gama Advanced)"
   }
 ]

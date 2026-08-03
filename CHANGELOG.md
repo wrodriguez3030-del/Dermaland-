@@ -10,6 +10,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.106.0] - 2026-08-03
+
+**429 productos con foto (31,6 %) y auditoría visual cerrada.**
+
+- Auditadas **442 fotos** una por una leyendo el envase: **411 correctas (93 %),
+  21 equivocadas (4,8 %) y 10 dudosas**. Las 21 malas se revirtieron o nunca
+  llegaron a aplicarse.
+- **Dato útil para el trabajo que queda:** las fotos de sitios oficiales de marca
+  fallan menos que las del catálogo de la farmacia — **3,7 % frente a 5,2 %**.
+  Conviene priorizar las webs de marca como fuente.
+- Últimos errores detectados, ambos de Heliocare: la gama **Advanced** puesta en
+  un producto **360**, y **360 Color Beige** puesto en el **Gelcream Color Brown**
+  (gama y tono equivocados a la vez).
+- Nuevo `data/productos-sin-foto.csv` con los 927 pendientes, cada uno con su vía
+  recomendada: 442 resolubles desde webs de marca, 354 a buscar o fotografiar, y
+  **131 que solo se resuelven con foto propia** (IDCP, Medihealth, Primaderm y
+  EltaMD: no están en el catálogo de la farmacia ni tienen web accesible).
+
 ## [0.105.0] - 2026-08-03
 
 **421 productos con foto (31 %).**
