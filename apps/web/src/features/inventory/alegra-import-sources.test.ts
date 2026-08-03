@@ -49,6 +49,7 @@ function makeRepos(overrides: {
     expiresAt: string;
     receivedAt: string;
     lotNumber: string;
+    status?: string;
   }>;
   productListImpl?: ReturnType<typeof vi.fn>;
 }): Repositories {
@@ -215,5 +216,47 @@ describe("loadImportSources", () => {
     // explícitamente `activeOnly: false`, nunca lo dejó en el default.
     expect(calls.length).toBeGreaterThan(0);
     for (const call of calls) expect(call?.activeOnly).toBe(false);
+  });
+
+  // ── Lotes bloqueados (cuarentena / recall) ────────────────────────────────
+  // No pueden contar para el stock actual ni recibir ajustes: si contaran, el
+  // delta saldría mal, y FEFO podría drenar un lote en recall para cuadrar el
+  // número de Alegra, rompiendo la trazabilidad del retiro sanitario.
+  it("excluye los lotes en cuarentena y en recall de las dos sucursales", async () => {
+    const base = {
+      productId: "p1",
+      warehouseId: "wh-prin",
+      currentQuantity: 10,
+      expiresAt: "2027-01-01",
+      receivedAt: "2026-01-01",
+      lotNumber: "L",
+    };
+    const repos = makeRepos({
+      products: [{ id: "p1", name: "Crema X" }],
+      lots: [
+        { ...base, id: "ok-prin", branchId: "principal-id", status: "available" },
+        { ...base, id: "cuar-prin", branchId: "principal-id", status: "quarantine" },
+        { ...base, id: "recall-prin", branchId: "principal-id", status: "recalled" },
+        {
+          ...base,
+          id: "ok-cutis",
+          branchId: "cutis-id",
+          warehouseId: "wh-cutis",
+          status: "available",
+        },
+        {
+          ...base,
+          id: "cuar-cutis",
+          branchId: "cutis-id",
+          warehouseId: "wh-cutis",
+          status: "quarantine",
+        },
+      ],
+    });
+
+    const sources = await loadImportSources(ctx, repos);
+
+    expect(sources.principalLots.map((l) => l.id)).toEqual(["ok-prin"]);
+    expect(sources.cutisLots.map((l) => l.id)).toEqual(["ok-cutis"]);
   });
 });

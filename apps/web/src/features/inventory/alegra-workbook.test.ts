@@ -31,9 +31,42 @@ describe("rowsFromMatrix", () => {
     expect(rowsFromMatrix([HEADER, ["", "", "", "", "1", "0", "0", "1"]])).toEqual([]);
   });
 
-  it("trata celdas vacías o no numéricas como 0", () => {
-    const rows = rowsFromMatrix([HEADER, ["", "CREMA X", "", "", "", "0", "0", "n/a"]]);
+  // ── Cantidades no numéricas: NUNCA deben caer a 0 ────────────────────────
+  // La escritura del importador es absoluta, así que un 0 inventado borraría el
+  // stock del producto en las dos sucursales. Deben salir NaN para que
+  // `rowTargets` mande la fila a `skipped` y el usuario la vea.
+  it.each([
+    ["celda vacía", ""],
+    ["guion", "-"],
+    ["N/A", "N/A"],
+    ["texto libre", "sin dato"],
+    ["decimal", "3.7"],
+  ])("no convierte %s en 0: devuelve NaN para que la fila se omita", (_caso, valor) => {
+    const rows = rowsFromMatrix([HEADER, ["", "CREMA X", "", "", valor, "0", "0", valor]]);
+    expect(Number.isNaN(rows[0]?.qtyPrincipal)).toBe(true);
+    expect(Number.isNaN(rows[0]?.qtyTotal)).toBe(true);
+  });
+
+  it("el 0 explícito del archivo SÍ es cero", () => {
+    const rows = rowsFromMatrix([HEADER, ["", "CREMA X", "", "", "0", "0", "0", "0"]]);
     expect(rows[0]).toMatchObject({ qtyPrincipal: 0, qtyTotal: 0 });
+  });
+
+  // ── Números escritos como texto: no truncar en el separador ───────────────
+  it.each([
+    ["coma como millar", "1,234", 1234],
+    ["punto como millar", "1.234", 1234],
+    ["espacio como millar", "2 312", 2312],
+    ["millones", "1,234,567", 1234567],
+  ])("lee %s sin truncar", (_caso, texto, esperado) => {
+    const rows = rowsFromMatrix([HEADER, ["", "CREMA X", "", "", texto, "0", "0", texto]]);
+    expect(rows[0]?.qtyPrincipal).toBe(esperado);
+  });
+
+  it("no confunde un decimal con un separador de millar", () => {
+    // "1.23" no son 123: es un decimal → se omite en vez de inventar un número.
+    const rows = rowsFromMatrix([HEADER, ["", "CREMA X", "", "", "1.23", "0", "0", "1.23"]]);
+    expect(Number.isNaN(rows[0]?.qtyPrincipal)).toBe(true);
   });
 
   it("numera las filas como en Excel (la 1 es la cabecera)", () => {
@@ -64,9 +97,12 @@ describe("rowsFromMatrix", () => {
     expect(rows[0]?.name).toBe("CREMA X");
   });
 
-  it("tolera filas más cortas que la cabecera sin reventar", () => {
+  it("una fila más corta que la cabecera no revienta, pero tampoco inventa ceros", () => {
+    // Faltan las celdas de cantidad: es "no sé", no "cero". Va a `skipped`.
     const rows = rowsFromMatrix([HEADER, ["", "CREMA X"]]);
-    expect(rows[0]).toEqual({ rowNumber: 2, name: "CREMA X", qtyPrincipal: 0, qtyTotal: 0 });
+    expect(rows[0]?.name).toBe("CREMA X");
+    expect(Number.isNaN(rows[0]?.qtyPrincipal)).toBe(true);
+    expect(Number.isNaN(rows[0]?.qtyTotal)).toBe(true);
   });
 
   it("propaga el error de cabecera faltante con las columnas encontradas", () => {

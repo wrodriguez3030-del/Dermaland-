@@ -9,6 +9,7 @@ import "server-only";
 import type { ProductLot } from "@/types";
 import type { RepoContext, Repositories } from "@/server/repositories";
 import { UserFacingRepositoryError } from "@/server/repositories/supabase/client";
+import { isBlockedLot } from "./lot-selectors";
 import type { PlanLot, PlanProduct } from "./alegra-import";
 
 export interface ImportSources {
@@ -139,10 +140,18 @@ export async function loadImportSources(
   // negocio y separamos por sucursal en memoria, como sugiere la nota de
   // implementación de esta tarea.
   const allLots = await repos.productLot.list(ctx);
-  const principalLots = allLots
+
+  // Los lotes BLOQUEADOS (cuarentena y recall) quedan fuera del importador: ni
+  // cuentan para el stock actual ni pueden recibir un ajuste. Si contaran, el
+  // delta saldría mal; y peor, FEFO podría drenar un lote en recall para cuadrar
+  // el número de Alegra, rompiendo la trazabilidad del retiro sanitario.
+  // Se gestionan en sus propias pantallas (Cuarentena / Recall), no aquí.
+  const ajustables = allLots.filter((l) => !isBlockedLot(l));
+
+  const principalLots = ajustables
     .filter((l) => l.branchId === principal.id)
     .map(toPlanLot);
-  const cutisLots = allLots
+  const cutisLots = ajustables
     .filter((l) => l.branchId === cutis.id)
     .map(toPlanLot);
 

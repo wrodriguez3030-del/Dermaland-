@@ -9,10 +9,30 @@ import { resolveColumns, type AlegraRow } from "./alegra-import";
  * archivo a datos.
  */
 
-/** Entero tolerante: celdas vacías o no numéricas cuentan como 0. */
+/**
+ * Convierte el texto de una celda de cantidad en un entero.
+ *
+ * Devuelve `NaN` para TODO lo que no sea un entero limpio — celda vacía, `-`,
+ * `N/A`, texto libre, decimales — para que `rowTargets` mande esa fila a
+ * `skipped` y el usuario la vea en "Filas que no se aplican".
+ *
+ * Es deliberado que NO caiga a 0. La escritura del importador es ABSOLUTA: un 0
+ * inventado no significa "no sé", significa "pon este producto en cero", y
+ * borraría su stock en las dos sucursales sin aparecer en ningún reporte.
+ *
+ * También rechaza en vez de truncar los números escritos como texto. Alegra
+ * puede exportar `1,234`; `parseInt` lo leería como `1` y se perderían 1 233
+ * unidades en silencio. Los separadores de millar se limpian primero (solo
+ * cuando separan grupos de exactamente 3 dígitos, para no confundirlos con
+ * decimales); si lo que queda no es un entero exacto, la fila se omite.
+ */
 function toInt(raw: string): number {
-  const n = Number.parseInt(String(raw ?? "").trim(), 10);
-  return Number.isFinite(n) ? n : 0;
+  const s = String(raw ?? "").trim();
+  if (s === "") return Number.NaN;
+  const sinMiles = s.replace(/(\d)[.,  ](?=\d{3}(?:\D|$))/g, "$1");
+  if (!/^[+-]?\d+$/.test(sinMiles)) return Number.NaN;
+  const n = Number(sinMiles);
+  return Number.isSafeInteger(n) ? n : Number.NaN;
 }
 
 /**
@@ -68,11 +88,17 @@ export async function readAlegraWorkbook(file: File): Promise<AlegraRow[]> {
   const ws = wb.worksheets[0];
   if (!ws) throw new Error("El archivo no tiene ninguna hoja de cálculo.");
 
+  // `rowCount`/`columnCount` de ExcelJS son getters que RECORREN la hoja entera.
+  // Dejarlos en la condición del bucle los re-evalúa filas × columnas veces:
+  // con 5000 filas eso son ~9 segundos congelando la pestaña. Izados: ~2 ms.
+  const rowCount = ws.rowCount;
+  const colCount = ws.columnCount;
+
   const matrix: string[][] = [];
-  for (let r = 1; r <= ws.rowCount; r++) {
+  for (let r = 1; r <= rowCount; r++) {
     const row = ws.getRow(r);
     const cells: string[] = [];
-    for (let c = 1; c <= ws.columnCount; c++) {
+    for (let c = 1; c <= colCount; c++) {
       cells.push(cellText(row.getCell(c).value));
     }
     matrix.push(cells);

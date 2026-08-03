@@ -67,8 +67,13 @@ existencias. Revisa primero esas filas.
 ## Cómo revisar o revertir
 
 Cada producto ajustado deja un movimiento en **Inventario → Movimientos** con la
-referencia `ALEGRA-YYYYMMDD-HHmm`, que la pantalla te muestra al terminar. Filtra
-por esa referencia para ver todo lo que cambió en esa importación.
+referencia `ALEGRA-YYYYMMDD-HHmm`, que la pantalla te muestra al terminar.
+
+> **Ojo:** la pantalla de Movimientos todavía **no filtra por referencia** (su
+> caja de búsqueda no está conectada). Por ahora los movimientos de una
+> importación se identifican por su fecha y por el motivo "Importación Alegra".
+> La fecha y hora de la referencia están en **UTC**, no en hora dominicana: una
+> importación a las 21:00 del 1 de agosto se sella `ALEGRA-20260802-0100`.
 
 Si un producto falla a mitad del proceso, el sistema **revierte** los lotes que
 ya había tocado para ese producto y te lo reporta indicando si el stock quedó
@@ -96,6 +101,24 @@ Existe `scripts/import-stock-principal-from-alegra.mjs`, que hace lo mismo solo
 para Principal y corre con dry-run por defecto. Se usó el 2026-08-01 para la
 carga inicial (40 889 → 2 312 unidades). La pantalla es el camino normal; el
 script queda como herramienta de respaldo y para cargas guionizadas.
+
+## Celdas de cantidad que el sistema NO acepta
+
+Una celda de cantidad que no sea un entero limpio hace que **esa fila se omita**
+y aparezca en "Filas que no se aplican": celda vacía, `-`, `N/A`, texto libre o
+un decimal como `3.7`. Es deliberado: como la escritura es absoluta, tratar esas
+celdas como `0` **borraría** el stock de ese producto en las dos sucursales sin
+avisarte. Un `0` escrito explícitamente en el archivo sí vale como cero.
+
+Los números con separador de millar (`1,234`, `1.234`, `2 312`) se leen
+correctamente; no se truncan.
+
+## Lotes que el importador no toca
+
+Los lotes en **cuarentena** y en **recall** quedan fuera por completo: no cuentan
+para el stock actual ni pueden recibir un ajuste. Se gestionan en sus propias
+pantallas. Esto evita que un retiro sanitario se drene para cuadrar el número de
+Alegra.
 
 ## Deuda conocida
 
