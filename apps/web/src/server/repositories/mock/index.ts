@@ -665,6 +665,42 @@ const inventoryCount: InventoryCountRepository = {
     }));
     return count;
   },
+  async consolidate(ctx, countId, input) {
+    guard(ctx);
+    const actual =
+      extraCounts.find((x) => x.id === countId) ?? getInventoryCountById(countId);
+    if (!actual || actual.businessId !== ctx.businessId)
+      throw new Error("El conteo no existe o pertenece a otro negocio.");
+    const almacen = actual.warehouseId;
+    // Reemplaza, no acumula: el conteo local es la verdad al cerrar.
+    extraItemsByCount[countId] = input.items.map((it, i) => ({
+      id: `${countId}_it_${i}`,
+      inventoryCountId: countId,
+      productId: it.productId,
+      productSku: it.productSku,
+      productName: it.productName,
+      productLotId: it.productLotId,
+      lotNumber: it.lotNumber,
+      expiresAt: it.expiresAt,
+      warehouseId: it.warehouseId ?? almacen,
+      expectedQuantity: it.expectedQuantity,
+      countedQuantity: it.countedQuantity,
+      differenceQuantity:
+        it.differenceQuantity ?? it.countedQuantity - it.expectedQuantity,
+      status: it.status,
+      lastScanAt: it.lastScanAt,
+    }));
+    const ahora = new Date().toISOString();
+    countPatches[countId] = {
+      ...(countPatches[countId] ?? {}),
+      status: input.status,
+      itemCount: input.items.length,
+      updatedAt: ahora,
+      ...(input.status === "approved" || input.status === "adjusted"
+        ? { approvedAt: ahora }
+        : {}),
+    };
+  },
   async recordScan() {
     // En mock siempre acepta — duplicados se manejan en Supabase con el índice
     // único (offline_scan_id, device_id).

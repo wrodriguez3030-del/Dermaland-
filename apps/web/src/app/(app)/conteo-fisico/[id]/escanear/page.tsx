@@ -55,13 +55,20 @@ import {
   setItemQuantity,
   removeItem,
   setSessionStatus,
+  setSessionServerId,
+  importSession,
   sessionToCountData,
   type CountSession,
 } from "@/features/inventory-counts/scan-session-store";
 import {
   buildCountCreatePayload,
+  consolidateCountOnServer,
   persistCountToSupabase,
 } from "@/features/inventory-counts/persist";
+import { queueScan } from "@/features/inventory-counts/sync/sync";
+import { buildScanInput } from "@/features/inventory-counts/build-scan-input";
+import { ensureServerCount } from "@/features/inventory-counts/ensure-server-count";
+import { hydrateSessionFromServer } from "@/features/inventory-counts/hydrate-session";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
@@ -108,6 +115,7 @@ export default function EscanearPage() {
   const [approveOpen, setApproveOpen] = React.useState(false);
   const [lastScan, setLastScan] = React.useState<{ name: string; qty: number; ok: boolean } | null>(null);
   const [cameraOpen, setCameraOpen] = React.useState(false);
+  const [recuperando, setRecuperando] = React.useState(false);
 
   const productById = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const labById = React.useMemo(() => new Map(laboratories.map((l) => [l.id, l.name])), [laboratories]);
@@ -125,6 +133,23 @@ export default function EscanearPage() {
     if (!readonly) inputRef.current?.focus();
   }, [readonly, session?.scans.length]);
 
+  // Sin sesión en este dispositivo, el conteo se busca en la nube: es lo que
+  // permite continuar uno empezado en otro equipo o recuperado tras limpiar el
+  // navegador. Al importarlo, el store emite su evento y la pantalla se puebla.
+  React.useEffect(() => {
+    if (session || !id) return;
+    let vivo = true;
+    setRecuperando(true);
+    void hydrateSessionFromServer(id).then((s) => {
+      if (!vivo) return;
+      if (s) importSession(s);
+      setRecuperando(false);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [id, session]);
+
   // Nunca dejar un envío automático pendiente al salir de la pantalla.
   React.useEffect(
     () => () => {
@@ -139,10 +164,17 @@ export default function EscanearPage() {
         <PageHeader title="Inventario físico" breadcrumbs={[{ label: "Inventario físico", href: "/conteo-fisico" }, { label: "Escanear" }]} />
         <Card>
           <CardContent className="py-12 text-center text-sm opacity-70">
-            No encontramos este inventario físico en este dispositivo.{" "}
-            <Link href="/conteo-fisico" className="text-[color:var(--brand-accent)] hover:underline">
-              Volver a inventarios
-            </Link>
+            {recuperando ? (
+              "Buscando este inventario físico en la nube…"
+            ) : (
+              <>
+                No encontramos este inventario físico ni en este dispositivo ni en la
+                nube.{" "}
+                <Link href="/conteo-fisico" className="text-[color:var(--brand-accent)] hover:underline">
+                  Volver a inventarios
+                </Link>
+              </>
+            )}
           </CardContent>
         </Card>
       </>
@@ -187,6 +219,43 @@ export default function EscanearPage() {
     } else if (r.item) {
       setLastScan({ name: r.item.productName, qty: r.item.countedQuantity, ok: true });
       if (source === "camera") toast.success("Producto escaneado.");
+      if (product) void persistirEscaneo(product, c, source);
+    }
+  };
+
+  /**
+   * Sube el escaneo a la nube sin bloquear el conteo: `queueScan` lo guarda en
+   * IndexedDB y reintenta solo, así que un fallo aquí nunca rompe el escaneo ni
+   * pierde el dato. La cabecera se crea la primera vez que hace falta.
+   */
+  const persistirEscaneo = async (
+    product: Product,
+    codigo: string,
+    source: "reader" | "camera",
+  ) => {
+    try {
+      const server = await ensureServerCount(session);
+      if (!server) return;
+      if (server.id !== session.serverId) {
+        setSessionServerId(session.id, server.id, server.warehouseId);
+      }
+      // Sin almacén la ruta de sync rechaza el escaneo (400): mejor no encolarlo.
+      if (!server.warehouseId) return;
+      await queueScan(
+        buildScanInput({
+          serverCountId: server.id,
+          productId: product.id,
+          productLotId: null,
+          branchId: session.branchId,
+          warehouseId: server.warehouseId,
+          barcode: codigo,
+          source,
+          quantity: 1,
+          userName: session.startedByName ?? null,
+        }),
+      );
+    } catch {
+      /* la cola reintenta sola; nunca romper el escaneo */
     }
   };
 
@@ -347,15 +416,18 @@ export default function EscanearPage() {
       setSessionStatus(session.id, "approved", { approvedAt: new Date().toISOString(), closedAt: new Date().toISOString() });
       toast.success("Inventario aprobado sin ajustar el stock.");
     }
-    // Persiste la cabecera + ítems a Supabase (best-effort; no bloquea el flujo
-    // local si el backend está en modo mock —409— o hay red intermitente).
-    const persisted = await persistCountToSupabase(
-      buildCountCreatePayload(
-        session,
-        systemQtyFor,
-        withAdjustments ? "adjusted" : "approved",
-      ),
+    // Persiste a Supabase (best-effort; no bloquea el flujo local si el backend
+    // está en modo mock —409— o hay red intermitente). Si la cabecera ya nació
+    // al empezar a escanear, se consolida sobre ella: un conteo es una sola
+    // fila, nunca una provisional vacía más otra aprobada.
+    const payload = buildCountCreatePayload(
+      session,
+      systemQtyFor,
+      withAdjustments ? "adjusted" : "approved",
     );
+    const persisted = session.serverId
+      ? await consolidateCountOnServer(session.serverId, payload)
+      : await persistCountToSupabase(payload);
     if (!persisted.ok && persisted.reason !== "mock") {
       toast.show(
         "El conteo quedó aprobado en este dispositivo; se sincronizará a la nube cuando haya conexión.",

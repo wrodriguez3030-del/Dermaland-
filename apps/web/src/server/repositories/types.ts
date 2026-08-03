@@ -303,6 +303,17 @@ export interface InventoryCountRepository {
    */
   create(ctx: RepoContext, input: NewInventoryCount): Promise<InventoryCount>;
   /**
+   * Cierra un conteo que YA existe: reemplaza sus ítems y fija su estado final.
+   * Es lo que usa el flujo de escaneo, donde la cabecera nace al empezar a
+   * contar — así un conteo es siempre una sola fila y no quedan cabeceras
+   * huérfanas. Reemplaza, no acumula: reintentar da el mismo resultado.
+   */
+  consolidate(
+    ctx: RepoContext,
+    countId: ID,
+    input: { items: NewInventoryCount["items"]; status: InventoryCountStatus },
+  ): Promise<void>;
+  /**
    * Registra un scan idempotentemente. Duplicados detectados por
    * (offline_scan_id, device_id) y rechazados sin error — evita doble conteo
    * cuando un dispositivo reintenta el sync.

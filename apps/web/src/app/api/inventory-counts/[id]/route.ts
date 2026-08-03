@@ -55,9 +55,13 @@ export async function GET(
   }
 }
 
+/** Estados con los que se puede cerrar un conteo al consolidarlo. */
+const CONSOLIDATE_STATUSES = new Set(["approved", "adjusted", "reviewed", "submitted"]);
+
 /**
- * Transición de estado del conteo: { action: "submit"|"approve"|"reject",
- * reason? }. Fase 3 — no muta stock (los ajustes son un paso aparte).
+ * Transición de estado del conteo: { action: "submit"|"approve"|"reject"|
+ * "consolidate", reason?, items?, status? }. Fase 3 — no muta stock (los
+ * ajustes son un paso aparte).
  */
 export async function POST(
   req: NextRequest,
@@ -66,7 +70,7 @@ export async function POST(
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
     const { id } = await params;
-    const { action, reason } = await req.json();
+    const { action, reason, items, status } = await req.json();
     const ctx = await getRepoContext();
     const repo = getRepositories().inventoryCount;
     if (action === "submit") {
@@ -83,9 +87,27 @@ export async function POST(
       if (action === "approve") await repo.approve(ctx, id);
       else await repo.reject(ctx, id, reason ?? "");
     }
+    else if (action === "consolidate") {
+      // Cerrar un conteo escribe los ítems definitivos: mismo gate que aprobar.
+      const session = await getSession();
+      if (!session || !COUNT_APPROVER_ROLES.has(session.user.role))
+        return NextResponse.json(
+          { error: "No tienes permiso para cerrar conteos." },
+          { status: 403 },
+        );
+      if (!Array.isArray(items) || !CONSOLIDATE_STATUSES.has(status))
+        return NextResponse.json(
+          {
+            error:
+              "Payload inválido: se requieren items[] y status (approved | adjusted | reviewed | submitted).",
+          },
+          { status: 400 },
+        );
+      await repo.consolidate(ctx, id, { items, status });
+    }
     else
       return NextResponse.json(
-        { error: "Acción inválida. Usa submit | approve | reject." },
+        { error: "Acción inválida. Usa submit | approve | reject | consolidate." },
         { status: 400 },
       );
     return NextResponse.json({ ok: true });

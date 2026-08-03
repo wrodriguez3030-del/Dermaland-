@@ -71,6 +71,10 @@ export interface CountSession {
   startedByName?: string;
   startedAt: string;
   closedAt?: string;
+  /** Id del conteo en Supabase. Ausente si nunca se pudo crear (mock o sin red). */
+  serverId?: string;
+  /** Almacén que el servidor resolvió para ese conteo; los escaneos usan ese. */
+  serverWarehouseId?: string;
   approvedAt?: string;
   approvedWithAdjustments?: boolean;
   items: CountSessionItem[];
@@ -161,6 +165,19 @@ export function createSession(input: CreateSessionInput): CountSession {
     updatedAt: ts,
   };
   safeWrite([session, ...safeRead()]);
+  return session;
+}
+
+/**
+ * Mete en este dispositivo una sesión que viene de la nube, para poder seguir
+ * contando donde otro equipo la dejó. No pisa una sesión local existente: la
+ * local siempre manda (puede tener escaneos que aún no subieron).
+ */
+export function importSession(session: CountSession): CountSession {
+  const list = safeRead();
+  const existente = list.find((s) => s.id === session.id);
+  if (existente) return existente;
+  safeWrite([session, ...list]);
   return session;
 }
 
@@ -339,6 +356,22 @@ export function setSessionStatus(
   extra?: Partial<CountSession>,
 ): CountSession | undefined {
   return mutate(id, (s) => ({ ...s, status, ...extra }));
+}
+
+/**
+ * Guarda el id que el conteo tiene en Supabase. Se llama una sola vez, cuando
+ * la cabecera se crea en la nube: a partir de ahí los escaneos cuelgan de ella.
+ */
+export function setSessionServerId(
+  id: string,
+  serverId: string,
+  serverWarehouseId?: string | null,
+): CountSession | undefined {
+  return mutate(id, (s) => ({
+    ...s,
+    serverId,
+    serverWarehouseId: serverWarehouseId ?? s.serverWarehouseId,
+  }));
 }
 
 export function cancelSession(id: string): CountSession | undefined {
