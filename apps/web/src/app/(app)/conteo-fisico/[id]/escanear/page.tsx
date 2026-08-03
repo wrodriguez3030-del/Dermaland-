@@ -10,7 +10,6 @@ import {
   Minus,
   Trash2,
   Keyboard,
-  Search,
   Smartphone,
   CheckCircle2,
   AlertTriangle,
@@ -38,6 +37,13 @@ import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/format";
 import { downloadBlob } from "@/lib/utils/download";
 import { useProducts } from "@/features/products/product-store";
+import {
+  emptyScanInputState,
+  recordScanInput,
+  isScannerBurst,
+  SCANNER_IDLE_MS,
+  type ScanInputState,
+} from "@/features/inventory-counts/scanner-input";
 import type { Product } from "@/types";
 import { useAllLots, sellableStockForBranch, adjustStockAnywhere } from "@/features/inventory/lot-store";
 import { useLaboratoriesList, useCategoriesList } from "@/features/products/catalog-store";
@@ -93,6 +99,9 @@ export default function EscanearPage() {
   const catalogoCargando = products.length === 0;
 
   const inputRef = React.useRef<HTMLInputElement>(null);
+  // Ritmo de tecleo del campo: distingue el lector (ráfaga) del tecleo humano.
+  const burstRef = React.useRef<ScanInputState>(emptyScanInputState());
+  const autoSubmitRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [code, setCode] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [onlyDiff, setOnlyDiff] = React.useState(false);
@@ -116,6 +125,14 @@ export default function EscanearPage() {
   React.useEffect(() => {
     if (!readonly) inputRef.current?.focus();
   }, [readonly, session?.scans.length]);
+
+  // Nunca dejar un envío automático pendiente al salir de la pantalla.
+  React.useEffect(
+    () => () => {
+      if (autoSubmitRef.current !== null) clearTimeout(autoSubmitRef.current);
+    },
+    [],
+  );
 
   if (!session) {
     return (
@@ -174,11 +191,52 @@ export default function EscanearPage() {
     }
   };
 
-  const submitScan = () => {
-    const raw = code.trim();
+  const cancelAutoSubmit = () => {
+    if (autoSubmitRef.current !== null) {
+      clearTimeout(autoSubmitRef.current);
+      autoSubmitRef.current = null;
+    }
+  };
+
+  /** Envía un código y deja el campo listo para el siguiente escaneo. */
+  const submitValue = (raw: string) => {
+    cancelAutoSubmit();
+    burstRef.current = emptyScanInputState();
+    const c = raw.trim();
     setCode("");
-    scanCode(raw, "reader");
+    if (!c) return;
+    scanCode(c, "reader");
     inputRef.current?.focus();
+  };
+
+  // El valor del DOM manda: un lector que envía `Enter` puede adelantarse al
+  // re-render de React, y `code` llegaría sin el último carácter.
+  const submitScan = () => submitValue(inputRef.current?.value ?? code);
+
+  /**
+   * Cada cambio del campo mide el ritmo de tecleo. Si viene de un lector, se
+   * envía solo tras `SCANNER_IDLE_MS` de silencio: contar inventario es sin
+   * manos y no todos los lectores mandan `Enter` al final. El tecleo humano es
+   * demasiado lento para disparar esto, así que escribir un SKU a mano sigue
+   * necesitando `Enter` y nunca se envía a medias.
+   */
+  const onCodeChange = (next: string) => {
+    const added = next.length - code.length;
+    setCode(next);
+    cancelAutoSubmit();
+
+    if (!next.trim()) {
+      burstRef.current = emptyScanInputState();
+      return;
+    }
+
+    burstRef.current = recordScanInput(burstRef.current, { at: Date.now(), addedChars: added });
+    if (!isScannerBurst(burstRef.current, next)) return;
+
+    autoSubmitRef.current = setTimeout(() => {
+      autoSubmitRef.current = null;
+      submitValue(next);
+    }, SCANNER_IDLE_MS);
   };
 
   const totalCounted = session.items.reduce((s, it) => s + it.countedQuantity, 0);
@@ -369,18 +427,19 @@ export default function EscanearPage() {
                   ref={inputRef}
                   autoFocus
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => onCodeChange(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
                       submitScan();
                     }
                   }}
-                  placeholder="Escanea con el lector o escribe y presiona Enter…"
+                  placeholder="Escanea con el lector…"
                   className="h-12 text-base"
                 />
                 <p className="mt-1 text-xs opacity-60">
-                  El lector funciona como teclado: cada escaneo suma +1 y se mantiene el foco aquí.
+                  Cada escaneo suma +1 solo, sin tocar nada, y el foco se queda aquí. Si escribes un
+                  SKU a mano, presiona Enter.
                 </p>
                 {catalogoCargando && (
                   <p className="mt-1 text-xs text-amber-700" role="status">
@@ -390,13 +449,6 @@ export default function EscanearPage() {
                 )}
               </div>
               <div className="flex gap-2">
-                {/* Botón explícito: no todos los lectores de código de barra
-                    envían Enter al final. Sin esto, el código se quedaba escrito
-                    en la casilla sin que se buscara nunca, y los contadores en 0
-                    hacían parecer que el escáner estaba roto. */}
-                <Button type="button" onClick={submitScan} disabled={!code.trim()}>
-                  <Search className="h-4 w-4" /> Buscar y sumar
-                </Button>
                 <Button type="button" variant="outline" onClick={() => setManualOpen(true)}>
                   <Plus className="h-4 w-4" /> Agregar manual
                 </Button>

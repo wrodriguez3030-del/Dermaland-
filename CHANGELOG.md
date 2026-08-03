@@ -11,6 +11,35 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.100.1] - 2026-08-03
+
+**El escaneo del inventario físico vuelve a ser sin manos: cada escaneo suma +1 solo.**
+
+- **Causa raíz:** el campo de escaneo solo enviaba el código con `Enter`. El
+  texto de ayuda prometía "cada escaneo suma +1", pero eso dependía de que el
+  lector enviara `Enter` al final — y no todos lo hacen. Con un lector que no lo
+  envía, el código quedaba escrito en la casilla y **ningún contador se movía**
+  (ni siquiera el de "no encontrados", porque el escaneo nunca llegaba a
+  procesarse), así que parecía que el escáner estaba roto.
+- **El botón "Buscar y sumar" de v0.99.2 no era la solución:** hacía posible
+  enviar el código, pero convertía el conteo en un clic por producto. Contar
+  inventario tiene que ser sin manos. Ese botón se elimina.
+- **Ahora el campo detecta la ráfaga del lector.** Un lector HID escribe el
+  código en milisegundos; una persona no. Cuando el texto llega a esa velocidad
+  (intervalos ≤ 50 ms, o el código completo en un solo evento) y pasan 100 ms sin
+  más teclas, el código se envía solo: suma +1, limpia la casilla y deja el foco
+  listo para el siguiente. Sin `Enter`, sin clics.
+- **Escribir a mano no se auto-envía.** El tecleo humano es demasiado lento para
+  disparar la ráfaga, así que un SKU escrito a medias nunca se envía solo; para
+  eso sigue estando `Enter`. La heurística es conservadora a propósito: un falso
+  positivo contaría el producto equivocado, un falso negativo solo obliga a
+  presionar `Enter`.
+- **El mismo código escaneado N veces cuenta N.** No se añadió anti-repetido:
+  escanear cinco unidades del mismo producto tiene que contar cinco.
+- Lógica pura y probada en `features/inventory-counts/scanner-input.ts`
+  (11 casos: ráfaga de lector, tecleo humano, entrega en un solo evento, tropiezo
+  en medio de la ráfaga, código a medias, borrado y corrección).
+
 ## [0.100.0] - 2026-08-03
 
 **Fotos de producto: 38 artículos del catálogo dermo-cosmético ya tienen imagen.**
