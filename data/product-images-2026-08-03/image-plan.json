@@ -1,0 +1,22 @@
+[
+  {
+    "id": "01685dbc-78c4-404e-b2d1-55e296ed3ec2",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00175",
+    "dbName": "Babe Crema Emoliente Pediatrica 200ML",
+    "carolName": "BABE 200 ML CREMA EMOLIENTE PEDIATRICA",
+    "file": "1002745-babe-200-ml-crema-emoliente-pediatrica.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/01685dbc-78c4-404e-b2d1-55e296ed3ec2/image.webp"
+  },
+  {
+    "id": "bd0836e2-37e7-4578-ac90-de0c88e81036",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00836",
+    "dbName": "LA Roche-posay Pure Vitamin C Yeux 15 ML",
+    "carolName": "LA ROCHE-POSAY PURE VITAMIN C YEUX 15 ML",
+    "file": "1002587-la-roche-posay-pure-vitamin-c-yeux-15-ml.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bd0836e2-37e7-4578-ac90-de0c88e81036/image.webp"
+  }
+]

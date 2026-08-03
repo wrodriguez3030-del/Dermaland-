@@ -10,6 +10,7 @@ import {
   Minus,
   Trash2,
   Keyboard,
+  Search,
   Smartphone,
   CheckCircle2,
   AlertTriangle,
@@ -389,6 +390,13 @@ export default function EscanearPage() {
                 )}
               </div>
               <div className="flex gap-2">
+                {/* Botón explícito: no todos los lectores de código de barra
+                    envían Enter al final. Sin esto, el código se quedaba escrito
+                    en la casilla sin que se buscara nunca, y los contadores en 0
+                    hacían parecer que el escáner estaba roto. */}
+                <Button type="button" onClick={submitScan} disabled={!code.trim()}>
+                  <Search className="h-4 w-4" /> Buscar y sumar
+                </Button>
                 <Button type="button" variant="outline" onClick={() => setManualOpen(true)}>
                   <Plus className="h-4 w-4" /> Agregar manual
                 </Button>
