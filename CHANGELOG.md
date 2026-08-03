@@ -10,6 +10,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.105.0] - 2026-08-03
+
+**421 productos con foto (31 %).**
+
+- +92 fotos aplicadas, todas tras pasar la auditoría visual. Dos lotes se
+  auditaron completos con muy buen resultado (45/45 sin error, y 44 con uno solo),
+  lo que confirma que las fotos de sitios oficiales fallan menos que las del
+  catálogo de la farmacia.
+- Descartada la foto de `ACM Cicastim Crema Reparadora Tubo 20 ML`: el tubo
+  declara **40 ml**, es la otra referencia.
+- Dos avisos de calidad de datos que la auditoría destapó y que NO se han tocado
+  por ser decisiones del negocio:
+  - `Vichy Mineral 89 Prebiotic 30 ML` (DERM-I01329): el envase dice **"Probiotic
+    Fractions"**, que es el nombre real de Vichy. No hay otra referencia candidata
+    en el catálogo, así que **el error está en el nombre del producto, no en la foto**.
+  - `ACM Azeane Crema 30 ML` (DERM-I00006): la imagen disponible es una pieza
+    publicitaria con modelo, no una foto limpia de envase.
+
 ## [0.104.0] - 2026-08-03
 
 **329 productos con foto (24,3 %), todas las nuevas verificadas mirando el envase.**

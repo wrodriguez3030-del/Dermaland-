@@ -1,0 +1,58 @@
+[
+  {
+    "id": "f0975d5d-9404-48f5-adc0-ebb2b39130be",
+    "sku": "DERM-I00718",
+    "dbName": "Isispharma Geneskin Lift Crema Alisadora 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f0975d5d-9404-48f5-adc0-ebb2b39130be/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f0975d5d-9404-48f5-adc0-ebb2b39130be/image.webp"
+  },
+  {
+    "id": "1261f020-2730-4624-ae3e-9d5ff3bc62be",
+    "sku": "DERM-I01075",
+    "dbName": "Sensilis Supreme Booster Fece 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/1261f020-2730-4624-ae3e-9d5ff3bc62be/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1261f020-2730-4624-ae3e-9d5ff3bc62be/image.webp"
+  },
+  {
+    "id": "368ddaf0-dc31-4e00-988f-31254698e8eb",
+    "sku": "DERM-I00831",
+    "dbName": "LA Roche-posay Lipikar Wash AP+ 400 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/368ddaf0-dc31-4e00-988f-31254698e8eb/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/368ddaf0-dc31-4e00-988f-31254698e8eb/image.webp"
+  },
+  {
+    "id": "68329c69-1d66-4330-8c7f-ccefce7f2c6a",
+    "sku": "DERM-I01068",
+    "dbName": "Sensilis Sensitive Tonico Purificante 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/68329c69-1d66-4330-8c7f-ccefce7f2c6a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/68329c69-1d66-4330-8c7f-ccefce7f2c6a/image.webp"
+  },
+  {
+    "id": "44e352a2-5b37-46e2-a601-bb7843f9ffe8",
+    "sku": "DERM-I00756",
+    "dbName": "Isispharma Uveblock SPF 50+ Spray 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/44e352a2-5b37-46e2-a601-bb7843f9ffe8/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/44e352a2-5b37-46e2-a601-bb7843f9ffe8/image.webp"
+  },
+  {
+    "id": "9597fcdf-b6dc-4cef-82eb-1fc067acb0c1",
+    "sku": "DERM-I00876",
+    "dbName": "Martiderm Proteos Screen Fluid Cream SPF 50 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9597fcdf-b6dc-4cef-82eb-1fc067acb0c1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9597fcdf-b6dc-4cef-82eb-1fc067acb0c1/image.webp"
+  },
+  {
+    "id": "65717ed9-6683-4d45-94c9-ec3451cc0a4a",
+    "sku": "DERM-I01318",
+    "dbName": "Vichy Desodorante 24 Horas 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/65717ed9-6683-4d45-94c9-ec3451cc0a4a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/65717ed9-6683-4d45-94c9-ec3451cc0a4a/image.webp"
+  },
+  {
+    "id": "2adcaa8c-bfc4-4adb-a3ce-67f339dd4386",
+    "sku": "DERM-I00869",
+    "dbName": "Martiderm Epigence 145 Sleeping Cream 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/2adcaa8c-bfc4-4adb-a3ce-67f339dd4386/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2adcaa8c-bfc4-4adb-a3ce-67f339dd4386/image.webp"
+  }
+]

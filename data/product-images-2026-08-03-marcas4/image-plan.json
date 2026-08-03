@@ -1,0 +1,82 @@
+[
+  {
+    "id": "f0975d5d-9404-48f5-adc0-ebb2b39130be",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00718",
+    "dbName": "Isispharma Geneskin Lift Crema Alisadora 50 ML",
+    "carolName": "Isispharma Geneskin Lift Crema Alisadora 50 ML",
+    "file": "isispharma-geneskin-lift-creme-lissante-50-ml-121873.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f0975d5d-9404-48f5-adc0-ebb2b39130be/image.webp"
+  },
+  {
+    "id": "44e352a2-5b37-46e2-a601-bb7843f9ffe8",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00756",
+    "dbName": "Isispharma Uveblock SPF 50+ Spray 200 ML",
+    "carolName": "Isispharma Uveblock SPF 50+ Spray 200 ML",
+    "file": "isispharma-uveblock-spf50-pieles-sensibles-200-ml-protector-121868.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/44e352a2-5b37-46e2-a601-bb7843f9ffe8/image.webp"
+  },
+  {
+    "id": "368ddaf0-dc31-4e00-988f-31254698e8eb",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00831",
+    "dbName": "LA Roche-posay Lipikar Wash AP+ 400 ML",
+    "carolName": "LA Roche-posay Lipikar Wash AP+ 400 ML",
+    "file": "la-roche-posay-lipikar-wash-ap-13-5-oz-120735.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/368ddaf0-dc31-4e00-988f-31254698e8eb/image.webp"
+  },
+  {
+    "id": "2adcaa8c-bfc4-4adb-a3ce-67f339dd4386",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00869",
+    "dbName": "Martiderm Epigence 145 Sleeping Cream 50 ML",
+    "carolName": "Martiderm Epigence 145 Sleeping Cream 50 ML",
+    "file": "marti-derm-black-diamond-epigence-145-sleeping-cream-50-ml-23248.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2adcaa8c-bfc4-4adb-a3ce-67f339dd4386/image.webp"
+  },
+  {
+    "id": "9597fcdf-b6dc-4cef-82eb-1fc067acb0c1",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00876",
+    "dbName": "Martiderm Proteos Screen Fluid Cream SPF 50 40 ML",
+    "carolName": "Martiderm Proteos Screen Fluid Cream SPF 50 40 ML",
+    "file": "marti-derm-proteos-40-ml-screen-spf50-fluid-cream-122417.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9597fcdf-b6dc-4cef-82eb-1fc067acb0c1/image.webp"
+  },
+  {
+    "id": "1261f020-2730-4624-ae3e-9d5ff3bc62be",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01075",
+    "dbName": "Sensilis Supreme Booster Fece 30 ML",
+    "carolName": "Sensilis Supreme Booster Fece 30 ML",
+    "file": "sensilis-sensitive-skin-lab-supreme-booster-30-ml-125435.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1261f020-2730-4624-ae3e-9d5ff3bc62be/image.webp"
+  },
+  {
+    "id": "68329c69-1d66-4330-8c7f-ccefce7f2c6a",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01068",
+    "dbName": "Sensilis Sensitive Tonico Purificante 200 ML",
+    "carolName": "Sensilis Sensitive Tonico Purificante 200 ML",
+    "file": "sensilis-sensitive-skin-lab-tonico-purifante-200-ml-125368.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/68329c69-1d66-4330-8c7f-ccefce7f2c6a/image.webp"
+  },
+  {
+    "id": "65717ed9-6683-4d45-94c9-ec3451cc0a4a",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01318",
+    "dbName": "Vichy Desodorante 24 Horas 50 ML",
+    "carolName": "Vichy Desodorante 24 Horas 50 ML",
+    "file": "vichy-desodorante-50-ml-24-hr-roll-on-118762.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/65717ed9-6683-4d45-94c9-ec3451cc0a4a/image.webp"
+  }
+]

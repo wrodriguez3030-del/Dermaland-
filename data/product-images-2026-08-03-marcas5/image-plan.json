@@ -1,0 +1,42 @@
+[
+  {
+    "id": "e3ed3576-6d70-4b72-b9b3-2647c8be0583",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01330",
+    "dbName": "Vichy Mineral 89 Skin Matte Cooling Crema 50 ML",
+    "carolName": "Vichy Mineral 89 Skin Matte Cooling Crema 50 ML",
+    "file": "vichy-mineral-89-skin-cream-matte-cooling-sorbet-gel-cream-138800.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e3ed3576-6d70-4b72-b9b3-2647c8be0583/image.webp"
+  },
+  {
+    "id": "76268dd0-83d0-4d1a-be53-913f15652fc5",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00720",
+    "dbName": "Isispharma Glyco-a Crema / Noche Medium Peeling 12% 30 ML",
+    "carolName": "Isispharma Glyco-a Crema / Noche Medium Peeling 12% 30 ML",
+    "file": "isispharma-glyco-a-peeling-crema-de-noche-al-12-de-acido-gl-129499.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/76268dd0-83d0-4d1a-be53-913f15652fc5/image.webp"
+  },
+  {
+    "id": "6f09dde7-99b5-48f5-8cd2-d174ae4fba6a",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00721",
+    "dbName": "Isispharma Glyco-a Crema / Noche Soft Peeling 5.5% 30 ML",
+    "carolName": "Isispharma Glyco-a Crema / Noche Soft Peeling 5.5% 30 ML",
+    "file": "isispharma-glyco-a-peeling-crema-de-noche-al-5-5-de-acido-g-129497.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6f09dde7-99b5-48f5-8cd2-d174ae4fba6a/image.webp"
+  },
+  {
+    "id": "47576c78-fdae-4680-a823-41c5fb5a838f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00133",
+    "dbName": "Avene Cleanance Women Noche 30ML",
+    "carolName": "Avene Cleanance Women Noche 30ML",
+    "file": "avene-cleanance-suavizante-de-noche-30-ml-crema-122527.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/47576c78-fdae-4680-a823-41c5fb5a838f/image.webp"
+  }
+]

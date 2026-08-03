@@ -1,0 +1,45 @@
+{
+  "review": [
+    {
+      "file": "isispharma-geneskin-lift-creme-lissante-50-ml-121873.webp",
+      "sku": "DERM-I00718",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "isispharma-uveblock-spf50-pieles-sensibles-200-ml-protector-121868.webp",
+      "sku": "DERM-I00756",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "la-roche-posay-lipikar-wash-ap-13-5-oz-120735.webp",
+      "sku": "DERM-I00831",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "marti-derm-black-diamond-epigence-145-sleeping-cream-50-ml-23248.webp",
+      "sku": "DERM-I00869",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "marti-derm-proteos-40-ml-screen-spf50-fluid-cream-122417.webp",
+      "sku": "DERM-I00876",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "sensilis-sensitive-skin-lab-supreme-booster-30-ml-125435.webp",
+      "sku": "DERM-I01075",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "sensilis-sensitive-skin-lab-tonico-purifante-200-ml-125368.webp",
+      "sku": "DERM-I01068",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    },
+    {
+      "file": "vichy-desodorante-50-ml-24-hr-roll-on-118762.webp",
+      "sku": "DERM-I01318",
+      "reason": "sku_inexistente_o_ya_tiene_foto"
+    }
+  ],
+  "noMatch": []
+}

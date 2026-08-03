@@ -1,0 +1,30 @@
+[
+  {
+    "id": "e3ed3576-6d70-4b72-b9b3-2647c8be0583",
+    "sku": "DERM-I01330",
+    "dbName": "Vichy Mineral 89 Skin Matte Cooling Crema 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e3ed3576-6d70-4b72-b9b3-2647c8be0583/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e3ed3576-6d70-4b72-b9b3-2647c8be0583/image.webp"
+  },
+  {
+    "id": "47576c78-fdae-4680-a823-41c5fb5a838f",
+    "sku": "DERM-I00133",
+    "dbName": "Avene Cleanance Women Noche 30ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/47576c78-fdae-4680-a823-41c5fb5a838f/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/47576c78-fdae-4680-a823-41c5fb5a838f/image.webp"
+  },
+  {
+    "id": "6f09dde7-99b5-48f5-8cd2-d174ae4fba6a",
+    "sku": "DERM-I00721",
+    "dbName": "Isispharma Glyco-a Crema / Noche Soft Peeling 5.5% 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/6f09dde7-99b5-48f5-8cd2-d174ae4fba6a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6f09dde7-99b5-48f5-8cd2-d174ae4fba6a/image.webp"
+  },
+  {
+    "id": "76268dd0-83d0-4d1a-be53-913f15652fc5",
+    "sku": "DERM-I00720",
+    "dbName": "Isispharma Glyco-a Crema / Noche Medium Peeling 12% 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/76268dd0-83d0-4d1a-be53-913f15652fc5/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/76268dd0-83d0-4d1a-be53-913f15652fc5/image.webp"
+  }
+]

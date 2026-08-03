@@ -1,0 +1,802 @@
+[
+  {
+    "id": "e24cb62e-e78e-43b4-8908-49256d094f52",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00825",
+    "dbName": "LA Roche-posay Hydraphase HA Ojos 15 ML",
+    "carolName": "LA Roche-posay Hydraphase HA Ojos 15 ML",
+    "file": "DERM-I00825.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e24cb62e-e78e-43b4-8908-49256d094f52/image.webp"
+  },
+  {
+    "id": "69a1d2b1-bb78-47d1-80c0-f49583e4d6ab",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00829",
+    "dbName": "LA Roche-posay Lipikar Ap+m Triple Repair Moisturizing Cream 400 ML",
+    "carolName": "LA Roche-posay Lipikar Ap+m Triple Repair Moisturizing Cream 400 ML",
+    "file": "DERM-I00829.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/69a1d2b1-bb78-47d1-80c0-f49583e4d6ab/image.webp"
+  },
+  {
+    "id": "94ce44b1-ba16-4a52-9209-0af91e4b8d36",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00833",
+    "dbName": "LA Roche-posay Mela B3 Serum 30 ML",
+    "carolName": "LA Roche-posay Mela B3 Serum 30 ML",
+    "file": "DERM-I00833.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/94ce44b1-ba16-4a52-9209-0af91e4b8d36/image.webp"
+  },
+  {
+    "id": "c77e8100-d2b2-454c-b16c-d239edec6032",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00838",
+    "dbName": "LA Roche-posay Redermic Retinol Eyes 15 ML",
+    "carolName": "LA Roche-posay Redermic Retinol Eyes 15 ML",
+    "file": "DERM-I00838.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c77e8100-d2b2-454c-b16c-d239edec6032/image.webp"
+  },
+  {
+    "id": "55e76111-0501-4e66-87da-e15a17b9c698",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00841",
+    "dbName": "LA Roche-posay Toleriane Dermallergo Ultra 40 ML",
+    "carolName": "LA Roche-posay Toleriane Dermallergo Ultra 40 ML",
+    "file": "DERM-I00841.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/55e76111-0501-4e66-87da-e15a17b9c698/image.webp"
+  },
+  {
+    "id": "339f3617-baae-4406-93a2-589f442175c0",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00828",
+    "dbName": "LA Roche-posay Lipikar Ap+m Triple Repair Moisturizer Cream 200 ML",
+    "carolName": "LA Roche-posay Lipikar Ap+m Triple Repair Moisturizer Cream 200 ML",
+    "file": "DERM-I00828.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/339f3617-baae-4406-93a2-589f442175c0/image.webp"
+  },
+  {
+    "id": "6bc32832-b9e4-45fd-b884-8ebf48de42dd",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00842",
+    "dbName": "LA Roche-posay Toleriane Dermo-cleanser 200 ML",
+    "carolName": "LA Roche-posay Toleriane Dermo-cleanser 200 ML",
+    "file": "DERM-I00842.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6bc32832-b9e4-45fd-b884-8ebf48de42dd/image.webp"
+  },
+  {
+    "id": "9eda79be-2010-4994-8f57-2e5a81fef3e9",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00835",
+    "dbName": "LA Roche-posay Pigmentclar Yeux 15 ML",
+    "carolName": "LA Roche-posay Pigmentclar Yeux 15 ML",
+    "file": "DERM-I00835.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9eda79be-2010-4994-8f57-2e5a81fef3e9/image.webp"
+  },
+  {
+    "id": "1d056f04-e960-4484-a202-8b770ec9cd6a",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00851",
+    "dbName": "LA Roche-posay Vitamin C Serum 30 ML",
+    "carolName": "LA Roche-posay Vitamin C Serum 30 ML",
+    "file": "DERM-I00851.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1d056f04-e960-4484-a202-8b770ec9cd6a/image.webp"
+  },
+  {
+    "id": "795c1c86-3c1a-4131-a1af-dfbf249bae78",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01329",
+    "dbName": "Vichy Mineral 89 Prebiotic 30 ML",
+    "carolName": "Vichy Mineral 89 Prebiotic 30 ML",
+    "file": "DERM-I01329.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/795c1c86-3c1a-4131-a1af-dfbf249bae78/image.webp"
+  },
+  {
+    "id": "d2f9c258-767b-4981-9181-861b6ebe0b26",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01326",
+    "dbName": "Vichy Mineral 89 Crema Hidratante 100H Textura Riche",
+    "carolName": "Vichy Mineral 89 Crema Hidratante 100H Textura Riche",
+    "file": "DERM-I01326.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d2f9c258-767b-4981-9181-861b6ebe0b26/image.webp"
+  },
+  {
+    "id": "4b55bb7f-b6ea-4f44-ae91-d573871b33d9",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01328",
+    "dbName": "Vichy Mineral 89 Ojos 15 ML",
+    "carolName": "Vichy Mineral 89 Ojos 15 ML",
+    "file": "DERM-I01328.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4b55bb7f-b6ea-4f44-ae91-d573871b33d9/image.webp"
+  },
+  {
+    "id": "7b7c8059-6b63-4c6c-bd34-1d2a4a391fa7",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00006",
+    "dbName": "ACM Azeane Crema 30 ML",
+    "carolName": "ACM Azeane Crema 30 ML",
+    "file": "DERM-I00006.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7b7c8059-6b63-4c6c-bd34-1d2a4a391fa7/image.webp"
+  },
+  {
+    "id": "2336b175-735b-4785-bd02-f224503f2c9c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00016",
+    "dbName": "ACM Depiwhite Espuma Limpiadora Iluminadora 200 ML",
+    "carolName": "ACM Depiwhite Espuma Limpiadora Iluminadora 200 ML",
+    "file": "DERM-I00016.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2336b175-735b-4785-bd02-f224503f2c9c/image.webp"
+  },
+  {
+    "id": "e5bfe0ee-9af8-4e4b-a52e-a8eb6bb9fead",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00028",
+    "dbName": "ACM Duolys CE Serum Intensif Anti-oxidant 15% 15ML",
+    "carolName": "ACM Duolys CE Serum Intensif Anti-oxidant 15% 15ML",
+    "file": "DERM-I00028.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e5bfe0ee-9af8-4e4b-a52e-a8eb6bb9fead/image.webp"
+  },
+  {
+    "id": "e7014bbd-e10e-48f2-88b3-f9d91989e2a8",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00030",
+    "dbName": "ACM Duolys Crema Hidratante Alisante AHA AL 5 40ML",
+    "carolName": "ACM Duolys Crema Hidratante Alisante AHA AL 5 40ML",
+    "file": "DERM-I00030.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e7014bbd-e10e-48f2-88b3-f9d91989e2a8/image.webp"
+  },
+  {
+    "id": "ae895cc9-80e5-4861-b7af-1a677c992be2",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00019",
+    "dbName": "ACM Depiwhite S Crema Fotoprotectora Aclarante SPF 50",
+    "carolName": "ACM Depiwhite S Crema Fotoprotectora Aclarante SPF 50",
+    "file": "DERM-I00019.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ae895cc9-80e5-4861-b7af-1a677c992be2/image.webp"
+  },
+  {
+    "id": "3bdd8516-83b2-480a-8a07-564a875621be",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00035",
+    "dbName": "ACM Duolys Riche",
+    "carolName": "ACM Duolys Riche",
+    "file": "DERM-I00035.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3bdd8516-83b2-480a-8a07-564a875621be/image.webp"
+  },
+  {
+    "id": "f76093e5-925c-440a-9a76-f746af44ac8f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00033",
+    "dbName": "ACM Duolys Legere Piel Hidratante 40 ML.",
+    "carolName": "ACM Duolys Legere Piel Hidratante 40 ML.",
+    "file": "DERM-I00033.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f76093e5-925c-440a-9a76-f746af44ac8f/image.webp"
+  },
+  {
+    "id": "c0b17d05-a87a-4ba7-a1f7-0409a5e5c09b",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00045",
+    "dbName": "ACM Novophane Locion Anticaida DE Pelo Reaccional 100 ML",
+    "carolName": "ACM Novophane Locion Anticaida DE Pelo Reaccional 100 ML",
+    "file": "DERM-I00045.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c0b17d05-a87a-4ba7-a1f7-0409a5e5c09b/image.webp"
+  },
+  {
+    "id": "c429378f-29ba-4b1a-ada1-f1a65f26128b",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00022",
+    "dbName": "ACM Depiwhite. M Crema Protectora CON Color 50+ 40ML",
+    "carolName": "ACM Depiwhite. M Crema Protectora CON Color 50+ 40ML",
+    "file": "DERM-I00022.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c429378f-29ba-4b1a-ada1-f1a65f26128b/image.webp"
+  },
+  {
+    "id": "356dba61-c7ff-48dc-9d07-06177788a4b5",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00020",
+    "dbName": "ACM Depiwhite Serum 30 ML",
+    "carolName": "ACM Depiwhite Serum 30 ML",
+    "file": "DERM-I00020.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/356dba61-c7ff-48dc-9d07-06177788a4b5/image.webp"
+  },
+  {
+    "id": "da9fbe5a-73cf-4c48-ab6c-f88475df7375",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00048",
+    "dbName": "ACM Sebionex GEL Limpiador Botella 200 ML",
+    "carolName": "ACM Sebionex GEL Limpiador Botella 200 ML",
+    "file": "DERM-I00048.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/da9fbe5a-73cf-4c48-ab6c-f88475df7375/image.webp"
+  },
+  {
+    "id": "fee75dc5-8ebe-4151-9ae6-ad7f66c67fea",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00044",
+    "dbName": "ACM Novophane K Anti Caspa 125 ML",
+    "carolName": "ACM Novophane K Anti Caspa 125 ML",
+    "file": "DERM-I00044.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/fee75dc5-8ebe-4151-9ae6-ad7f66c67fea/image.webp"
+  },
+  {
+    "id": "db94b5c2-f706-4d46-acfe-4052e691562e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00043",
+    "dbName": "ACM Novophane Crema DE Uñas Tubo 15 ML",
+    "carolName": "ACM Novophane Crema DE Unas Tubo 15 ML",
+    "file": "DERM-I00043.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/db94b5c2-f706-4d46-acfe-4052e691562e/image.webp"
+  },
+  {
+    "id": "942f336e-fa72-4ed7-a5d1-828c2d25396e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00058",
+    "dbName": "ACM Vitix Complemento Alimenticio 30 Tabletas",
+    "carolName": "ACM Vitix Complemento Alimenticio 30 Tabletas",
+    "file": "DERM-I00058.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/942f336e-fa72-4ed7-a5d1-828c2d25396e/image.webp"
+  },
+  {
+    "id": "697c999f-5f0d-482b-86b3-3ac4de852413",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00049",
+    "dbName": "ACM Sebionex.k Crema Queratorreguladora Tubo 40 ML",
+    "carolName": "ACM Sebionex.k Crema Queratorreguladora Tubo 40 ML",
+    "file": "DERM-I00049.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/697c999f-5f0d-482b-86b3-3ac4de852413/image.webp"
+  },
+  {
+    "id": "c55f4898-23e4-4291-8bb1-d09ad514bd23",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00729",
+    "dbName": "Isispharma Neotone GEL Jabon 150 ML",
+    "carolName": "Isispharma Neotone GEL Jabon 150 ML",
+    "file": "DERM-I00729.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c55f4898-23e4-4291-8bb1-d09ad514bd23/image.webp"
+  },
+  {
+    "id": "eb844a94-311c-406b-9c43-2f4f0725a3e3",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00727",
+    "dbName": "Isispharma Neotone Body Lotion 100 ML",
+    "carolName": "Isispharma Neotone Body Lotion 100 ML",
+    "file": "DERM-I00727.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/eb844a94-311c-406b-9c43-2f4f0725a3e3/image.webp"
+  },
+  {
+    "id": "13f7453f-3e59-4cf5-9afe-28a1e0b46666",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00736",
+    "dbName": "Isispharma Ruboril Expert M 40 ML",
+    "carolName": "Isispharma Ruboril Expert M 40 ML",
+    "file": "DERM-I00736.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/13f7453f-3e59-4cf5-9afe-28a1e0b46666/image.webp"
+  },
+  {
+    "id": "0033086f-248b-4524-b67e-e3a43d05401d",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00741",
+    "dbName": "Isispharma Secalia ATO Balm 400 ML.",
+    "carolName": "Isispharma Secalia ATO Balm 400 ML.",
+    "file": "DERM-I00741.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0033086f-248b-4524-b67e-e3a43d05401d/image.webp"
+  },
+  {
+    "id": "da7a1950-1900-4824-8d7d-67c1f3ab6859",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00747",
+    "dbName": "Isispharma Teen Derm GEL Sensitive 250 ML",
+    "carolName": "Isispharma Teen Derm GEL Sensitive 250 ML",
+    "file": "DERM-I00747.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/da7a1950-1900-4824-8d7d-67c1f3ab6859/image.webp"
+  },
+  {
+    "id": "b055c802-4865-4121-a745-d114bfa0bec7",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00750",
+    "dbName": "Isispharma Urelia 10 Crema 150 ML",
+    "carolName": "Isispharma Urelia 10 Crema 150 ML",
+    "file": "DERM-I00750.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b055c802-4865-4121-a745-d114bfa0bec7/image.webp"
+  },
+  {
+    "id": "c1926a84-52bc-4aa9-8c77-23017d7ff2b5",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00738",
+    "dbName": "Isispharma Ruboril Expert SPF50 40 ML",
+    "carolName": "Isispharma Ruboril Expert SPF50 40 ML",
+    "file": "DERM-I00738.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c1926a84-52bc-4aa9-8c77-23017d7ff2b5/image.webp"
+  },
+  {
+    "id": "68b82ae1-9062-4e8d-ae93-bf70f3a42031",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00726",
+    "dbName": "Isispharma Neotone Aqua Solucion Micelar 250 ML",
+    "carolName": "Isispharma Neotone Aqua Solucion Micelar 250 ML",
+    "file": "DERM-I00726.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/68b82ae1-9062-4e8d-ae93-bf70f3a42031/image.webp"
+  },
+  {
+    "id": "08f1e033-5362-464c-bbac-34db2b01b4fd",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00745",
+    "dbName": "Isispharma Teen Derm A.Z 30 ML",
+    "carolName": "Isispharma Teen Derm A.Z 30 ML",
+    "file": "DERM-I00745.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/08f1e033-5362-464c-bbac-34db2b01b4fd/image.webp"
+  },
+  {
+    "id": "ad694911-dc54-4165-ab97-239df61e001c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00743",
+    "dbName": "Isispharma Secalia DS Crema Nutritiva 40 ML",
+    "carolName": "Isispharma Secalia DS Crema Nutritiva 40 ML",
+    "file": "DERM-I00743.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ad694911-dc54-4165-ab97-239df61e001c/image.webp"
+  },
+  {
+    "id": "84214536-a273-49e6-8b3a-471512d1d714",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00753",
+    "dbName": "Isispharma Uveblock SPF 50+ DRY Touch 40 ML",
+    "carolName": "Isispharma Uveblock SPF 50+ DRY Touch 40 ML",
+    "file": "DERM-I00753.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/84214536-a273-49e6-8b3a-471512d1d714/image.webp"
+  },
+  {
+    "id": "f7ccc061-fe74-41c2-a337-a981f1d9d44e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00724",
+    "dbName": "Isispharma Glyco-a Post Peeling 40 ML",
+    "carolName": "Isispharma Glyco-a Post Peeling 40 ML",
+    "file": "DERM-I00724.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f7ccc061-fe74-41c2-a337-a981f1d9d44e/image.webp"
+  },
+  {
+    "id": "5c49ba46-909d-419a-ba03-9667e7b48df0",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00725",
+    "dbName": "Isispharma Metroruboril AZ 30ML",
+    "carolName": "Isispharma Metroruboril AZ 30ML",
+    "file": "DERM-I00725.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/5c49ba46-909d-419a-ba03-9667e7b48df0/image.webp"
+  },
+  {
+    "id": "39fee79c-4b13-4f27-bb6f-8f8324f55a23",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00759",
+    "dbName": "Isispharma Vitiskin Hidrogel Regulador 50 ML",
+    "carolName": "Isispharma Vitiskin Hidrogel Regulador 50 ML",
+    "file": "DERM-I00759.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/39fee79c-4b13-4f27-bb6f-8f8324f55a23/image.webp"
+  },
+  {
+    "id": "3dfe5a19-1dd9-4189-9241-0c49086bc6b3",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00751",
+    "dbName": "Isispharma Urelia 50 Crema 40 ML",
+    "carolName": "Isispharma Urelia 50 Crema 40 ML",
+    "file": "DERM-I00751.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3dfe5a19-1dd9-4189-9241-0c49086bc6b3/image.webp"
+  },
+  {
+    "id": "3d6cbaf5-bb04-4e9b-89d9-73ee13365c6c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00728",
+    "dbName": "Isispharma Neotone Contorno DE Ojos",
+    "carolName": "Isispharma Neotone Contorno DE Ojos",
+    "file": "DERM-I00728.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3d6cbaf5-bb04-4e9b-89d9-73ee13365c6c/image.webp"
+  },
+  {
+    "id": "a835b509-227a-4670-bee9-b61f223d685b",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00456",
+    "dbName": "Eucerin Anti-pigmento GEL Limpiador 200 ML",
+    "carolName": "Eucerin Anti-pigmento GEL Limpiador 200 ML",
+    "file": "DERM-I00456.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a835b509-227a-4670-bee9-b61f223d685b/image.webp"
+  },
+  {
+    "id": "6febace8-10ec-4e11-afe8-93f5a2135192",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00454",
+    "dbName": "Eucerin Anti-pigment Serum Corporal Areas Sensibles 75 ML",
+    "carolName": "Eucerin Anti-pigment Serum Corporal Areas Sensibles 75 ML",
+    "file": "DERM-I00454.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6febace8-10ec-4e11-afe8-93f5a2135192/image.webp"
+  },
+  {
+    "id": "c475e534-3969-4ba6-9185-2ec59e7e2357",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00449",
+    "dbName": "Eucerin Anti-pigment Crema Corporal 200 ML",
+    "carolName": "Eucerin Anti-pigment Crema Corporal 200 ML",
+    "file": "DERM-I00449.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c475e534-3969-4ba6-9185-2ec59e7e2357/image.webp"
+  },
+  {
+    "id": "2485c25e-e44e-40cf-b4b9-999948869f94",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00461",
+    "dbName": "Eucerin Crema DE Mano Anti-pigment FPS30 75ML",
+    "carolName": "Eucerin Crema DE Mano Anti-pigment FPS30 75ML",
+    "file": "DERM-I00461.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2485c25e-e44e-40cf-b4b9-999948869f94/image.webp"
+  },
+  {
+    "id": "ee218396-1ba4-4126-84b5-fbdec2033ae8",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00463",
+    "dbName": "Eucerin Dermatoclean Hyaluron GEL 200 ML",
+    "carolName": "Eucerin Dermatoclean Hyaluron GEL 200 ML",
+    "file": "DERM-I00463.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ee218396-1ba4-4126-84b5-fbdec2033ae8/image.webp"
+  },
+  {
+    "id": "8aa1950c-b123-443b-b30d-8e6d77fb62d6",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00462",
+    "dbName": "Eucerin Dermatoclean Hyaluron 3 EN 1 200ML",
+    "carolName": "Eucerin Dermatoclean Hyaluron 3 EN 1 200ML",
+    "file": "DERM-I00462.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8aa1950c-b123-443b-b30d-8e6d77fb62d6/image.webp"
+  },
+  {
+    "id": "a16aa30f-fa12-4b5a-b19c-5f07ac3b8d41",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00465",
+    "dbName": "Eucerin Dermopure OIL Control Crema Corporal Triple Efecto 200 ML",
+    "carolName": "Eucerin Dermopure OIL Control Crema Corporal Triple Efecto 200 ML",
+    "file": "DERM-I00465.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a16aa30f-fa12-4b5a-b19c-5f07ac3b8d41/image.webp"
+  },
+  {
+    "id": "7cab0248-a7da-413c-819e-3932ca719ece",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00467",
+    "dbName": "Eucerin Dermopure OIL Control Fluido Facial Hidratante Matificante DIA 50 ML",
+    "carolName": "Eucerin Dermopure OIL Control Fluido Facial Hidratante Matificante DIA 50 ML",
+    "file": "DERM-I00467.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7cab0248-a7da-413c-819e-3932ca719ece/image.webp"
+  },
+  {
+    "id": "9b2ba525-9d29-43b9-8672-cb302d7e45a4",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00469",
+    "dbName": "Eucerin Dermopure OIL Control GEL Limpiador Cara Y Cuerpo 400 ML",
+    "carolName": "Eucerin Dermopure OIL Control GEL Limpiador Cara Y Cuerpo 400 ML",
+    "file": "DERM-I00469.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9b2ba525-9d29-43b9-8672-cb302d7e45a4/image.webp"
+  },
+  {
+    "id": "63360df3-0daf-4303-9d97-79ad139a6bd1",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00474",
+    "dbName": "Eucerin Hyaluron Filler + Elasticity Contorno DE Ojos 15 ML",
+    "carolName": "Eucerin Hyaluron Filler + Elasticity Contorno DE Ojos 15 ML",
+    "file": "DERM-I00474.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/63360df3-0daf-4303-9d97-79ad139a6bd1/image.webp"
+  },
+  {
+    "id": "547dc2a2-2c15-4d0e-b7ac-c17f1dd882f5",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00476",
+    "dbName": "Eucerin Hyaluron Filler Hydrating Booster GEL 30 ML",
+    "carolName": "Eucerin Hyaluron Filler Hydrating Booster GEL 30 ML",
+    "file": "DERM-I00476.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/547dc2a2-2c15-4d0e-b7ac-c17f1dd882f5/image.webp"
+  },
+  {
+    "id": "e012721f-19e1-498d-bd5e-3b653d07eeac",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00479",
+    "dbName": "Eucerin Hyaluron-filler + 3X Effect Contorno DE Ojos FPS 15 15ML",
+    "carolName": "Eucerin Hyaluron-filler + 3X Effect Contorno DE Ojos FPS 15 15ML",
+    "file": "DERM-I00479.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e012721f-19e1-498d-bd5e-3b653d07eeac/image.webp"
+  },
+  {
+    "id": "7cf06faa-ab07-4fcd-a2ad-70efdc3e3ffc",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00480",
+    "dbName": "Eucerin Hyaluron-filler + 3X Effect DIA FPS 30 50 ML",
+    "carolName": "Eucerin Hyaluron-filler + 3X Effect DIA FPS 30 50 ML",
+    "file": "DERM-I00480.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7cf06faa-ab07-4fcd-a2ad-70efdc3e3ffc/image.webp"
+  },
+  {
+    "id": "02e041f4-3b94-4beb-a7ed-22b1343582dd",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00477",
+    "dbName": "Eucerin Hyaluron Filler Peeling Serum 30 ML",
+    "carolName": "Eucerin Hyaluron Filler Peeling Serum 30 ML",
+    "file": "DERM-I00477.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/02e041f4-3b94-4beb-a7ed-22b1343582dd/image.webp"
+  },
+  {
+    "id": "8cc5bdd8-ed91-4da0-a70c-a0485f600505",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00482",
+    "dbName": "Eucerin Hyaluron-filler + Elascity DIA FPS 30 50 ML",
+    "carolName": "Eucerin Hyaluron-filler + Elascity DIA FPS 30 50 ML",
+    "file": "DERM-I00482.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8cc5bdd8-ed91-4da0-a70c-a0485f600505/image.webp"
+  },
+  {
+    "id": "bc4504cf-b345-480b-8b6c-86706821be7f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00486",
+    "dbName": "Eucerin Hydro Fluid Color Claro SPF 50 50 ML",
+    "carolName": "Eucerin Hydro Fluid Color Claro SPF 50 50 ML",
+    "file": "DERM-I00486.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bc4504cf-b345-480b-8b6c-86706821be7f/image.webp"
+  },
+  {
+    "id": "c2bdfe73-ecd4-4f6c-ba55-785c7a83811d",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00481",
+    "dbName": "Eucerin Hyaluron-filler + 3X Effect Noche 50 G",
+    "carolName": "Eucerin Hyaluron-filler + 3X Effect Noche 50 G",
+    "file": "DERM-I00481.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c2bdfe73-ecd4-4f6c-ba55-785c7a83811d/image.webp"
+  },
+  {
+    "id": "ca5d411a-f748-4d11-84a5-113428e5cd86",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00488",
+    "dbName": "Eucerin Hydro Fluid Color Oscuro SPF 50 50 ML",
+    "carolName": "Eucerin Hydro Fluid Color Oscuro SPF 50 50 ML",
+    "file": "DERM-I00488.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/ca5d411a-f748-4d11-84a5-113428e5cd86/image.webp"
+  },
+  {
+    "id": "43453a1b-d404-4e7b-a405-6beb4f2c6428",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00492",
+    "dbName": "Eucerin OIL Control GEL Toque Seco Facial Tono Medio 30ML",
+    "carolName": "Eucerin OIL Control GEL Toque Seco Facial Tono Medio 30ML",
+    "file": "DERM-I00492.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/43453a1b-d404-4e7b-a405-6beb4f2c6428/image.webp"
+  },
+  {
+    "id": "4303df96-6025-4671-afb5-f52c6115c31f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00491",
+    "dbName": "Eucerin OIL Control GEL Toque Seco Facial Tono Claro 30ML",
+    "carolName": "Eucerin OIL Control GEL Toque Seco Facial Tono Claro 30ML",
+    "file": "DERM-I00491.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4303df96-6025-4671-afb5-f52c6115c31f/image.webp"
+  },
+  {
+    "id": "7364da29-4197-4030-960c-9c8f0598c40c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00498",
+    "dbName": "Eucerin Photoaging Control Anti Edad 50 ML",
+    "carolName": "Eucerin Photoaging Control Anti Edad 50 ML",
+    "file": "DERM-I00498.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7364da29-4197-4030-960c-9c8f0598c40c/image.webp"
+  },
+  {
+    "id": "d3c9e2b1-7fb7-4cab-9255-8b7dc4c367d6",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00487",
+    "dbName": "Eucerin Hydro Fluid Color Medio SPF 50 50 ML",
+    "carolName": "Eucerin Hydro Fluid Color Medio SPF 50 50 ML",
+    "file": "DERM-I00487.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d3c9e2b1-7fb7-4cab-9255-8b7dc4c367d6/image.webp"
+  },
+  {
+    "id": "82989aaa-6062-4a6a-aa83-a3bc1f18d934",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00500",
+    "dbName": "Eucerin Pigment Control Anti Manchas 50 ML",
+    "carolName": "Eucerin Pigment Control Anti Manchas 50 ML",
+    "file": "DERM-I00500.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/82989aaa-6062-4a6a-aa83-a3bc1f18d934/image.webp"
+  },
+  {
+    "id": "6f1c6f02-7b24-455a-b55c-65f9f1a6abf4",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00504",
+    "dbName": "Eucerin Protector Solar OIL Control Toque Seco Anti-brillo",
+    "carolName": "Eucerin Protector Solar OIL Control Toque Seco Anti-brillo",
+    "file": "DERM-I00504.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6f1c6f02-7b24-455a-b55c-65f9f1a6abf4/image.webp"
+  },
+  {
+    "id": "9859be4c-7ca3-4ad2-9f5b-cdc20a045f5c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00508",
+    "dbName": "Eucerin SUN Spray Corporal Transparente Toque Seco FPS50 200 ML",
+    "carolName": "Eucerin SUN Spray Corporal Transparente Toque Seco FPS50 200 ML",
+    "file": "DERM-I00508.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9859be4c-7ca3-4ad2-9f5b-cdc20a045f5c/image.webp"
+  },
+  {
+    "id": "13e44e99-d782-4b5f-be3c-94814a332a3c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00499",
+    "dbName": "Eucerin Photoaging Control Anti Edad Tono Medio 50 ML",
+    "carolName": "Eucerin Photoaging Control Anti Edad Tono Medio 50 ML",
+    "file": "DERM-I00499.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/13e44e99-d782-4b5f-be3c-94814a332a3c/image.webp"
+  },
+  {
+    "id": "82539af8-c943-4a6d-9a32-c680c44ac7f6",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00505",
+    "dbName": "Eucerin Protector Solar OIL Control Toque Seco GEL Corporal 200 ML",
+    "carolName": "Eucerin Protector Solar OIL Control Toque Seco GEL Corporal 200 ML",
+    "file": "DERM-I00505.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/82539af8-c943-4a6d-9a32-c680c44ac7f6/image.webp"
+  },
+  {
+    "id": "601af042-b456-4457-93c2-5dfbec959014",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00804",
+    "dbName": "LA Roche-posay Anthelios Invisible Spray SPF 50+ 75 ML",
+    "carolName": "LA Roche-posay Anthelios Invisible Spray SPF 50+ 75 ML",
+    "file": "DERM-I00804.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/601af042-b456-4457-93c2-5dfbec959014/image.webp"
+  },
+  {
+    "id": "fffdca43-c22b-4336-9d52-9937969a77b0",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00793",
+    "dbName": "LA Roche Posay Mela B3 UV SPF 30 40 ML",
+    "carolName": "LA Roche Posay Mela B3 UV SPF 30 40 ML",
+    "file": "DERM-I00793.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/fffdca43-c22b-4336-9d52-9937969a77b0/image.webp"
+  },
+  {
+    "id": "89760241-e524-429b-92e1-f66ccf09b121",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00778",
+    "dbName": "LA Roche Posay Anthelios Fluido OIL Control SPF 50",
+    "carolName": "LA Roche Posay Anthelios Fluido OIL Control SPF 50",
+    "file": "DERM-I00778.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/89760241-e524-429b-92e1-f66ccf09b121/image.webp"
+  },
+  {
+    "id": "dfe747cc-d162-48d4-a3db-e1c2a040d2c2",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00812",
+    "dbName": "LA Roche-posay EAU Micelar Ultra Piel Sensible 400 ML",
+    "carolName": "LA Roche-posay EAU Micelar Ultra Piel Sensible 400 ML",
+    "file": "DERM-I00812.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/dfe747cc-d162-48d4-a3db-e1c2a040d2c2/image.webp"
+  },
+  {
+    "id": "51ab04a3-8446-4f8f-a319-0600b9ab9ef9",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00814",
+    "dbName": "LA Roche-posay EAU Thermale Spring Water Piel Sensible 300 ML",
+    "carolName": "LA Roche-posay EAU Thermale Spring Water Piel Sensible 300 ML",
+    "file": "DERM-I00814.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/51ab04a3-8446-4f8f-a319-0600b9ab9ef9/image.webp"
+  },
+  {
+    "id": "e22ff058-7d02-4126-955c-b7390763908f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00813",
+    "dbName": "LA Roche-posay EAU Thermale Spring Water Piel Sensible 150 ML",
+    "carolName": "LA Roche-posay EAU Thermale Spring Water Piel Sensible 150 ML",
+    "file": "DERM-I00813.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e22ff058-7d02-4126-955c-b7390763908f/image.webp"
+  },
+  {
+    "id": "eb11d382-7313-4761-a265-385ffe6edeee",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00816",
+    "dbName": "LA Roche-posay Effaclar EAU Micelar Water Ultra 400 ML",
+    "carolName": "LA Roche-posay Effaclar EAU Micelar Water Ultra 400 ML",
+    "file": "DERM-I00816.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/eb11d382-7313-4761-a265-385ffe6edeee/image.webp"
+  },
+  {
+    "id": "011c80b0-44da-4f46-8f74-901031ae87f6",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00810",
+    "dbName": "LA Roche-posay Cicaplast Crema DE Manos 50 ML",
+    "carolName": "LA Roche-posay Cicaplast Crema DE Manos 50 ML",
+    "file": "DERM-I00810.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/011c80b0-44da-4f46-8f74-901031ae87f6/image.webp"
+  },
+  {
+    "id": "7bf8201b-f74d-4f8b-a624-d56be3da7aca",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00826",
+    "dbName": "LA Roche-posay Hydraphase Intense UV 50 ML",
+    "carolName": "LA Roche-posay Hydraphase Intense UV 50 ML",
+    "file": "DERM-I00826.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7bf8201b-f74d-4f8b-a624-d56be3da7aca/image.webp"
+  },
+  {
+    "id": "c34a95de-0bd1-4dd8-a3dd-5a03758a9866",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00815",
+    "dbName": "LA Roche-posay Effaclar Duo+m Parches",
+    "carolName": "LA Roche-posay Effaclar Duo+m Parches",
+    "file": "DERM-I00815.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c34a95de-0bd1-4dd8-a3dd-5a03758a9866/image.webp"
+  }
+]
