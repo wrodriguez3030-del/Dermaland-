@@ -3,8 +3,11 @@ import {
   emptyScanInputState,
   recordScanInput,
   isScannerBurst,
+  autoSubmitDelayMs,
   SCANNER_MAX_GAP_MS,
   SCANNER_MIN_LENGTH,
+  SCANNER_IDLE_MS,
+  AUTO_SUBMIT_IDLE_MS,
 } from "./scanner-input";
 
 /** Simula escribir `value` con un intervalo fijo entre teclas. */
@@ -74,6 +77,32 @@ describe("isScannerBurst", () => {
     const code = "3282770108729";
     expect(isScannerBurst(type(code, SCANNER_MAX_GAP_MS), code)).toBe(true);
     expect(isScannerBurst(type(code, SCANNER_MAX_GAP_MS + 1), code)).toBe(false);
+  });
+});
+
+describe("autoSubmitDelayMs — nada depende de Enter", () => {
+  const code = "3282770108729";
+
+  it("la ráfaga del lector se envía sola, y rápido", () => {
+    expect(autoSubmitDelayMs(type(code, 10), code)).toBe(SCANNER_IDLE_MS);
+  });
+
+  it("un lector LENTO (200 ms por tecla) también se envía solo, solo que más tarde", () => {
+    expect(autoSubmitDelayMs(type(code, 200), code)).toBe(AUTO_SUBMIT_IDLE_MS);
+  });
+
+  it("el código completo entregado de golpe se envía solo", () => {
+    const state = recordScanInput(emptyScanInputState(), { at: 1_000, addedChars: code.length });
+    expect(autoSubmitDelayMs(state, code)).toBe(SCANNER_IDLE_MS);
+  });
+
+  it("un SKU escrito a mano también termina enviándose solo", () => {
+    expect(autoSubmitDelayMs(type("DERM-I00061", 220), "DERM-I00061")).toBe(AUTO_SUBMIT_IDLE_MS);
+  });
+
+  it("no se envía nada con menos de SCANNER_MIN_LENGTH caracteres", () => {
+    expect(autoSubmitDelayMs(type("32", 10), "32")).toBeNull();
+    expect(autoSubmitDelayMs(emptyScanInputState(), "")).toBeNull();
   });
 });
 

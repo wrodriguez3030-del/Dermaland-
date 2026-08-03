@@ -18,8 +18,18 @@
 /** Separación máxima entre teclas para considerarlas parte del mismo escaneo. */
 export const SCANNER_MAX_GAP_MS = 50;
 
-/** Silencio que cierra el código y dispara el envío automático. */
+/** Silencio que cierra el código cuando llegó como ráfaga de lector. */
 export const SCANNER_IDLE_MS = 100;
+
+/**
+ * Silencio que cierra el código en cualquier otro caso.
+ *
+ * El envío NO depende de que el lector mande `Enter` ni del ritmo de tecleo:
+ * pase lo que pase, el código se busca, suma +1 y el campo se limpia solo. Los
+ * lectores lentos (algunos traen configurado un retardo entre caracteres) caen
+ * aquí y funcionan igual, solo que 250 ms más tarde.
+ */
+export const AUTO_SUBMIT_IDLE_MS = 350;
 
 /**
  * Largo mínimo para arriesgar un envío automático. Los códigos reales son
@@ -88,4 +98,17 @@ export function isScannerBurst(state: ScanInputState, value: string): boolean {
   if (total === 0) return false;
 
   return state.fastGaps / total >= FAST_RATIO;
+}
+
+/**
+ * Cuánto esperar antes de enviar el código solo, o `null` si todavía no hay
+ * suficiente para arriesgarse.
+ *
+ * TODO código con largo suficiente se envía solo: el escaneo es sin manos y no
+ * se le pide `Enter` a nadie. La ráfaga de lector solo acelera la espera para
+ * que el escaneo se sienta instantáneo.
+ */
+export function autoSubmitDelayMs(state: ScanInputState, value: string): number | null {
+  if (value.trim().length < SCANNER_MIN_LENGTH) return null;
+  return isScannerBurst(state, value) ? SCANNER_IDLE_MS : AUTO_SUBMIT_IDLE_MS;
 }

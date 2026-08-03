@@ -11,6 +11,20 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.100.2] - 2026-08-03
+
+**El escaneo ya no depende de `Enter` ni del ritmo del lector: siempre es automático.**
+
+- v0.100.1 solo se auto-enviaba cuando detectaba una ráfaga rápida (≤ 50 ms por
+  tecla). Un lector configurado con retardo entre caracteres quedaba fuera y
+  seguía sin contar nada. Ahora **todo código con largo suficiente se envía
+  solo**: la ráfaga únicamente acorta la espera (100 ms) para que se sienta
+  instantáneo; cualquier otro ritmo se envía a los 350 ms de silencio.
+- La pantalla ya no menciona `Enter`. Se escanea y se sigue escaneando: buscar,
+  sumar +1, limpiar el campo y dejar el foco listo ocurre sin tocar nada.
+- `Enter` sigue funcionando en silencio para los lectores que sí lo envían (así
+  no esperan los 350 ms), pero ya no hace falta para nada.
+
 ## [0.100.1] - 2026-08-03
 
 **El escaneo del inventario físico vuelve a ser sin manos: cada escaneo suma +1 solo.**

@@ -40,8 +40,7 @@ import { useProducts } from "@/features/products/product-store";
 import {
   emptyScanInputState,
   recordScanInput,
-  isScannerBurst,
-  SCANNER_IDLE_MS,
+  autoSubmitDelayMs,
   type ScanInputState,
 } from "@/features/inventory-counts/scanner-input";
 import type { Product } from "@/types";
@@ -214,11 +213,10 @@ export default function EscanearPage() {
   const submitScan = () => submitValue(inputRef.current?.value ?? code);
 
   /**
-   * Cada cambio del campo mide el ritmo de tecleo. Si viene de un lector, se
-   * envía solo tras `SCANNER_IDLE_MS` de silencio: contar inventario es sin
-   * manos y no todos los lectores mandan `Enter` al final. El tecleo humano es
-   * demasiado lento para disparar esto, así que escribir un SKU a mano sigue
-   * necesitando `Enter` y nunca se envía a medias.
+   * Todo escaneo se busca, suma +1 y limpia el campo SOLO. Nada depende de que
+   * el lector envíe `Enter` ni de su velocidad: en cuanto el código deja de
+   * crecer, se envía. La ráfaga de lector solo acorta la espera para que se
+   * sienta instantáneo.
    */
   const onCodeChange = (next: string) => {
     const added = next.length - code.length;
@@ -231,12 +229,13 @@ export default function EscanearPage() {
     }
 
     burstRef.current = recordScanInput(burstRef.current, { at: Date.now(), addedChars: added });
-    if (!isScannerBurst(burstRef.current, next)) return;
+    const delay = autoSubmitDelayMs(burstRef.current, next);
+    if (delay === null) return;
 
     autoSubmitRef.current = setTimeout(() => {
       autoSubmitRef.current = null;
       submitValue(next);
-    }, SCANNER_IDLE_MS);
+    }, delay);
   };
 
   const totalCounted = session.items.reduce((s, it) => s + it.countedQuantity, 0);
@@ -438,8 +437,8 @@ export default function EscanearPage() {
                   className="h-12 text-base"
                 />
                 <p className="mt-1 text-xs opacity-60">
-                  Cada escaneo suma +1 solo, sin tocar nada, y el foco se queda aquí. Si escribes un
-                  SKU a mano, presiona Enter.
+                  Escanea y sigue escaneando: cada código se busca solo, suma +1 y el campo se
+                  limpia. No hay que presionar nada.
                 </p>
                 {catalogoCargando && (
                   <p className="mt-1 text-xs text-amber-700" role="status">

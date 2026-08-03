@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = process.argv[2];
 const APPLY = process.argv.includes("--apply");
+const APPROVED_MODE = process.argv.includes("--approved");
 if (!MANIFEST) {
   console.error('Uso: node scripts/import-product-images-from-carol.mjs "<manifiesto.json>" [--apply]');
   process.exit(1);
@@ -75,6 +76,7 @@ function jaccard(a, b) {
 const manifest = JSON.parse(readFileSync(MANIFEST, "utf8"));
 const imagesDir = path.join(path.dirname(path.resolve(MANIFEST)), "imagenes");
 const images = (manifest.images ?? []).filter((i) => i.file && i.name);
+const totalImages = images.length;
 // Fotos idénticas compartidas por varios productos = placeholder "sin foto": no se suben.
 const placeholderHashes = new Set(
   (manifest.duplicates ?? []).filter((d) => d.count >= 3).map((d) => d.sha1),
@@ -107,6 +109,33 @@ for (const p of candidates) {
 // ── emparejar ──
 const plan = [], review = [], noMatch = [], suggestions = [];
 const assigned = new Map();
+
+// Modo `--approved <archivo.json>`: aplica una lista ya revisada a mano
+// ([{file, sku}, ...]) en vez de emparejar por nombre. Las mismas guardas
+// siguen vigentes: solo productos sin foto, un sku por foto y una foto por sku.
+if (APPROVED_MODE) {
+  const approvedArg = process.argv.indexOf("--approved");
+  const approved = JSON.parse(readFileSync(process.argv[approvedArg + 1], "utf8"));
+  const bySku = new Map(candidates.map((p) => [p.sku, p]));
+  const imgByFile = new Map(images.map((i) => [i.file, i]));
+  const usedFile = new Set();
+  for (const a of approved) {
+    const p = bySku.get(a.sku);
+    if (!p) { review.push({ file: a.file, sku: a.sku, reason: "sku_inexistente_o_ya_tiene_foto" }); continue; }
+    if (!imgByFile.has(a.file)) { review.push({ file: a.file, sku: a.sku, reason: "archivo_no_esta_en_manifiesto" }); continue; }
+    if (assigned.has(p.id)) { review.push({ file: a.file, sku: a.sku, reason: "sku_repetido_en_aprobados" }); continue; }
+    if (usedFile.has(a.file)) { review.push({ file: a.file, sku: a.sku, reason: "archivo_repetido_en_aprobados" }); continue; }
+    assigned.set(p.id, a);
+    usedFile.add(a.file);
+    plan.push({
+      id: p.id, businessId: p.business_id, sku: p.sku, dbName: p.name,
+      carolName: a.carolName ?? "", file: a.file, match: `aprobado:${a.confianza ?? "manual"}`,
+      storagePath: `businesses/${p.business_id}/products/${p.id}/image.webp`,
+    });
+  }
+  images.length = 0; // salta el emparejamiento automático de abajo
+}
+
 for (const img of images) {
   if (placeholderHashes.has(img.sha1)) { review.push({ file: img.file, name: img.name, reason: "placeholder_sin_foto" }); continue; }
   const key = norm(img.name);
@@ -159,11 +188,14 @@ for (const img of images) {
 
 // ── salida ──
 const stamp = new Date().toISOString().slice(0, 10);
-const outDir = path.join(root, `data/product-images-${stamp}`);
+// Cada modo escribe en su propia carpeta: si compartieran una, un dry-run
+// posterior pisaría el plan y las sugerencias de la corrida anterior (y en
+// modo aprobados, el CSV de sugerencias que aún está por revisar).
+const outDir = path.join(root, `data/product-images-${stamp}${APPROVED_MODE ? "-aprobados" : ""}`);
 mkdirSync(outDir, { recursive: true });
 const summary = {
   fecha: stamp, aplicado: APPLY,
-  imagenesManifiesto: images.length,
+  imagenesManifiesto: totalImages,
   productosActivos: products.length,
   productosSinImagen: candidates.length,
   planAsignaciones: plan.length,
