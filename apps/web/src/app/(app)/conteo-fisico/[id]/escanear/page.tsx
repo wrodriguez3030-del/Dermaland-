@@ -61,6 +61,7 @@ import {
 } from "@/features/inventory-counts/scan-session-store";
 import {
   buildCountCreatePayload,
+  consolidateCountOnServer,
   persistCountToSupabase,
 } from "@/features/inventory-counts/persist";
 import { queueScan } from "@/features/inventory-counts/sync/sync";
@@ -388,15 +389,18 @@ export default function EscanearPage() {
       setSessionStatus(session.id, "approved", { approvedAt: new Date().toISOString(), closedAt: new Date().toISOString() });
       toast.success("Inventario aprobado sin ajustar el stock.");
     }
-    // Persiste la cabecera + ítems a Supabase (best-effort; no bloquea el flujo
-    // local si el backend está en modo mock —409— o hay red intermitente).
-    const persisted = await persistCountToSupabase(
-      buildCountCreatePayload(
-        session,
-        systemQtyFor,
-        withAdjustments ? "adjusted" : "approved",
-      ),
+    // Persiste a Supabase (best-effort; no bloquea el flujo local si el backend
+    // está en modo mock —409— o hay red intermitente). Si la cabecera ya nació
+    // al empezar a escanear, se consolida sobre ella: un conteo es una sola
+    // fila, nunca una provisional vacía más otra aprobada.
+    const payload = buildCountCreatePayload(
+      session,
+      systemQtyFor,
+      withAdjustments ? "adjusted" : "approved",
     );
+    const persisted = session.serverId
+      ? await consolidateCountOnServer(session.serverId, payload)
+      : await persistCountToSupabase(payload);
     if (!persisted.ok && persisted.reason !== "mock") {
       toast.show(
         "El conteo quedó aprobado en este dispositivo; se sincronizará a la nube cuando haya conexión.",

@@ -7,6 +7,7 @@ import type {
 import type { InventoryCountScan } from "@/types";
 import { SupabaseRepositoryError, getClient } from "./client";
 import { createCountWithItems } from "./inventory-counts-create";
+import { consolidateCountItems } from "./inventory-counts-consolidate";
 import {
   inventoryCountRowToTs,
   inventoryCountItemRowToTs,
@@ -109,6 +110,11 @@ export const inventoryCountRepository: InventoryCountRepository = {
     // La cabecera y los ítems son dos INSERT sin transacción: la compensación
     // (borrar la cabecera si fallan los ítems) vive en `inventory-counts-create`.
     return createCountWithItems(sb as never, ctx, input, warehouseId);
+  },
+
+  async consolidate(ctx, countId, input) {
+    const sb = await getClient("inventoryCount.consolidate");
+    return consolidateCountItems(sb as never, ctx, countId, input);
   },
 
   async recordScan(ctx: RepoContext, scan: Omit<InventoryCountScan, "id">) {

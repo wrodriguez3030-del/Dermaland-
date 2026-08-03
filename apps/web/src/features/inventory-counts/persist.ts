@@ -88,6 +88,44 @@ export interface PersistResult {
   message?: string;
 }
 
+/**
+ * Cierra en la nube un conteo que ya existe (la cabecera se creó al empezar a
+ * escanear): le escribe sus ítems definitivos y su estado final. Best-effort e
+ * idempotente — reintentar deja el mismo resultado, porque reemplaza los ítems
+ * en vez de acumularlos.
+ */
+export async function consolidateCountOnServer(
+  countId: string,
+  payload: CountCreatePayload,
+): Promise<PersistResult> {
+  try {
+    const res = await fetch(`/api/inventory-counts/${countId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "consolidate",
+        items: payload.items,
+        status: payload.status,
+      }),
+    });
+    if (res.status === 409) return { ok: false, reason: "mock" };
+    if (!res.ok) {
+      let data: unknown = null;
+      try {
+        data = await res.json();
+      } catch {
+        /* respuesta sin body */
+      }
+      const message =
+        (data as { error?: string } | null)?.error ?? `HTTP ${res.status}`;
+      return { ok: false, reason: "error", message };
+    }
+    return { ok: true, id: countId };
+  } catch {
+    return { ok: false, reason: "network" };
+  }
+}
+
 /** POST best-effort. Nunca lanza: devuelve el resultado para decidir el toast. */
 export async function persistCountToSupabase(
   payload: CountCreatePayload,
