@@ -43,6 +43,12 @@ const BUSINESS_ID = "00000000-0000-0000-0000-00000000d001"; // DermaLand SRL
 
 const XLSX = process.argv.slice(2).find((a) => !a.startsWith("--"));
 const APPLY = process.argv.includes("--apply");
+/**
+ * `--overwrite`: Alegra manda sobre TODO. Pisa precios, costos, ITBIS y
+ * descripciones que ya tengan valor distinto en el sistema. Sin este flag el
+ * script es conservador: solo rellena lo que está vacío y reporta los choques.
+ */
+const OVERWRITE = process.argv.includes("--overwrite");
 if (!XLSX) {
   console.error('Uso: node scripts/import-prices-from-alegra.mjs "<archivo.xlsx>" [--apply]');
   process.exit(1);
@@ -218,7 +224,7 @@ for (const row of rows) {
 
   const patch = {};
   const precioBD = Number(m.price);
-  if (precioBD > 0 && Math.abs(precioBD - row.price) > 0.01) {
+  if (precioBD > 0 && Math.abs(precioBD - row.price) > 0.01 && !OVERWRITE) {
     omitidos.conflictoPrecio.push({
       producto: m.name,
       bd: precioBD,
@@ -228,18 +234,26 @@ for (const row of rows) {
     patch.price = row.price;
   }
 
-  if (Number.isFinite(row.costo) && row.costo > 0 && Number(m.cost) === 0) patch.cost = row.costo;
+  // Costo: sin --overwrite solo rellena el que está en 0; con --overwrite,
+  // Alegra manda siempre.
+  if (Number.isFinite(row.costo) && row.costo > 0) {
+    if (OVERWRITE ? Number(m.cost) !== row.costo : Number(m.cost) === 0) patch.cost = row.costo;
+  }
   if (Number.isFinite(row.itbis) && Number(m.itbis_rate) !== row.itbis) patch.itbis_rate = row.itbis;
 
-  if (row.bc) {
+  if (row.bc && ean13ok(row.bc)) {
     if (!m.barcode) {
-      if (ean13ok(row.bc)) patch.barcode = row.bc;
+      patch.barcode = row.bc;
     } else if (String(m.barcode).trim() !== row.bc) {
+      // El código de barras identifica el producto físico: pisarlo puede
+      // apuntar a otro artículo. Se reporta SIEMPRE, incluso con --overwrite.
       omitidos.conflictoBarcode.push({ producto: m.name, bd: m.barcode, archivo: row.bc });
     }
   }
 
-  if (!m.description && row.desc) patch.description = row.desc;
+  if (row.desc && (OVERWRITE ? m.description !== row.desc : !m.description)) {
+    patch.description = row.desc;
+  }
 
   if (Object.keys(patch).length > 0) updates.set(m.id, { patch, product: m, row });
 }

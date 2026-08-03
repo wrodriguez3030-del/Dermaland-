@@ -11,6 +11,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.99.1] - 2026-08-03
+
+**Escanear en inventario físico decía "producto no encontrado" con códigos que sí existen.**
+
+- **Causa raíz medida:** `useProducts()` arranca con la lista VACÍA y descarga el
+  catálogo completo por red antes de poder buscar. Con 1 355 productos y
+  `select("*")` eso son **0,84 MB solo la primera página, 1 826 ms desde una Mac
+  por fibra**, en dos páginas SECUENCIALES, y la lista se llena una sola vez al
+  final. Durante esos segundos el campo de escaneo ya está activo y enfocado,
+  así que cada código respondía "Producto no encontrado" aunque el producto
+  existiera. Nada en la pantalla avisaba de la carga. No es una regresión: el
+  módulo se probó cuando el catálogo era pequeño y cargaba al instante.
+- **Respaldo en el servidor:** si el código no está en la lista local, ahora se
+  consulta `/api/products?search=<código>` y se confirma la coincidencia EXACTA
+  por código de barras o SKU (la API usa ILIKE y también trae parciales). El
+  escaneo funciona desde el primer segundo, con la lista aún vacía.
+- **Aviso visible** mientras el catálogo carga, con `role="status"` para que los
+  lectores de pantalla lo anuncien.
+
+## [0.99.0-catalogo] - 2026-08-03
+
+**Catálogo alineado con Alegra.**
+
+- Nuevo flag `--overwrite` en `scripts/import-prices-from-alegra.mjs`: Alegra
+  manda sobre precio, costo, ITBIS y descripción, no solo sobre los campos
+  vacíos. El **código de barras nunca se pisa** aunque se use el flag — identifica
+  el producto físico y sobrescribirlo podría apuntar a otro artículo; los choques
+  se reportan.
+- Aplicado: 19 productos ajustados (2 precios, 9 costos, 10 descripciones), 0 fallos.
+- `Vichy Dercos Shampoo 390 ML` fijado en RD$ 2 240 por decisión del dueño.
+
 ## [0.99.0] - 2026-08-02
 
 **Importador de inventario desde Alegra (Inventario → Importar desde Alegra).**

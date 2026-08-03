@@ -1,0 +1,137 @@
+[
+ {
+  "id": "5c49ba46-909d-419a-ba03-9667e7b48df0",
+  "name": "Isispharma Metroruboril AZ 30ML",
+  "patch": {
+   "description": "CREMA ANTIENROJECIMIENTO"
+  }
+ },
+ {
+  "id": "13bac7cd-22f7-4975-9a64-f06c3267263e",
+  "name": "Heliocare 360 Pigment Solution Fluid SPF 50+",
+  "patch": {
+   "description": "PROTECTOR SOLAR 50+"
+  }
+ },
+ {
+  "id": "62352df8-aa45-4b6c-a4e1-2934e381ccde",
+  "name": "Eucerin Dermopure OIL Control Triple Efecto Serum 40ML",
+  "patch": {
+   "description": "REDUCCION DE MANCHAS POST-ACNE"
+  }
+ },
+ {
+  "id": "81262dcc-16c6-45bf-8631-225f3a203208",
+  "name": "ACM Medisun Crema Solar SPF50+ Tinte Ligero 40ML",
+  "patch": {
+   "description": "TEXTURA LIJERA Y UNIFICANTE"
+  }
+ },
+ {
+  "id": "0386f0ef-a4d8-4a5b-9f5b-b6822ac603c4",
+  "name": "Vichy Liftactiv Specialist B3 Dark Spot & Wrinkles 30 ML",
+  "patch": {
+   "description": "B3 SERUM"
+  }
+ },
+ {
+  "id": "659a6d1c-2e2a-4d1f-8cf4-1d957dbd7f46",
+  "name": "Babe Healthyaging Booster Multi Rejuvenescedor 50 ML",
+  "patch": {
+   "description": "MULTI REJUVENESCEDOR"
+  }
+ },
+ {
+  "id": "5e910436-bf45-4fb9-a293-52b9d20ef17c",
+  "name": "LA Roche-posay Lipikar Eczema Soothing Relief Cream - 6.76 Fl.oz./ 200 ML",
+  "patch": {
+   "description": "SOOTHING RELIEF CREAM"
+  }
+ },
+ {
+  "id": "ed680558-9755-4990-8345-60fc113ee0c0",
+  "name": "Babe Fotoprotector Facial Oil-free 50+ 50 ML",
+  "patch": {
+   "description": "TACTO SECO"
+  }
+ },
+ {
+  "id": "0b74255f-e5e1-4a00-b96a-1c8adef8786f",
+  "name": "Xaltax 20 MG Caja",
+  "patch": {
+   "cost": 1866.6667
+  }
+ },
+ {
+  "id": "3ef11efb-349d-4778-ac57-157db13c0c9d",
+  "name": "Radiocare Ultra Crema Reparadora",
+  "patch": {
+   "price": 1455,
+   "cost": 947.17
+  }
+ },
+ {
+  "id": "02465ee5-cdc8-482a-b1e6-f188362f73d6",
+  "name": "Kalm 10 MG ** Detalle **",
+  "patch": {
+   "cost": 10.263
+  }
+ },
+ {
+  "id": "a2ce1166-842e-4d19-bc1a-57ce7a288e24",
+  "name": "Doxil 100 MG ** Detalle **",
+  "patch": {
+   "cost": 40.7692
+  }
+ },
+ {
+  "id": "d0114f04-2da6-4db5-8b0c-308fca86f3f6",
+  "name": "Kalm 25 MG ** Detalle **",
+  "patch": {
+   "cost": 11.1538
+  }
+ },
+ {
+  "id": "9ce86889-2f44-42da-a08b-257900b88cee",
+  "name": "Bioderma Sebium GEL Moussant 100 ML",
+  "patch": {
+   "description": "Se saco 1 producto del inventario porque tenía la tapa rota, se sustituyó por el Photoderm Fluide 100 Claire Light"
+  }
+ },
+ {
+  "id": "fa61c9fa-7040-4288-9f6b-9d5b051d1cd4",
+  "name": "Inmunoferon 500MG ** Detalle **",
+  "patch": {
+   "cost": 36.2667
+  }
+ },
+ {
+  "id": "25f4e159-f000-4b30-9ded-1869545dda9c",
+  "name": "Celecoxib IF 400 MG X 30CAPS ** Detalle **",
+  "patch": {
+   "cost": 42.3077
+  }
+ },
+ {
+  "id": "ad419889-c48f-4269-8c63-8b22d247437d",
+  "name": "Hidrotex Crema 30 GR",
+  "patch": {
+   "description": "GRUPO 10"
+  }
+ },
+ {
+  "id": "bb12ddb1-73c8-4af7-9dc5-cd38b647a516",
+  "name": "Vichy Dercos Shampoo 390 ML",
+  "patch": {
+   "cost": 1460
+  }
+ },
+ {
+  "id": "057ebf75-6202-4155-8551-d614b71aca20",
+  "name": "A-derma Crema DE Ducha Hidratante 500 ML",
+  "patch": {
+   "price": 2085,
+   "cost": 1358
+  }
+ }
+]

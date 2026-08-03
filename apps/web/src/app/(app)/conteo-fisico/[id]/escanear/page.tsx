@@ -37,6 +37,7 @@ import { useToast } from "@/components/ui/toast";
 import { formatCurrency } from "@/lib/utils/format";
 import { downloadBlob } from "@/lib/utils/download";
 import { useProducts } from "@/features/products/product-store";
+import type { Product } from "@/types";
 import { useAllLots, sellableStockForBranch, adjustStockAnywhere } from "@/features/inventory/lot-store";
 import { useLaboratoriesList, useCategoriesList } from "@/features/products/catalog-store";
 import { getBranchById } from "@/lib/mock-data/tenancy";
@@ -84,6 +85,12 @@ export default function EscanearPage() {
   const laboratories = useLaboratoriesList();
   const categories = useCategoriesList();
 
+  // El catálogo llega por red y tarda: 1355 productos son ~1.1 MB en dos páginas
+  // secuenciales (~4 s por fibra, más en celular). Hasta que llegue, la lista
+  // está vacía y hay que decirlo — antes se veía un campo listo para escanear
+  // que respondía "no encontrado" a códigos que sí existen.
+  const catalogoCargando = products.length === 0;
+
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [code, setCode] = React.useState("");
   const [search, setSearch] = React.useState("");
@@ -130,10 +137,32 @@ export default function EscanearPage() {
   // Lógica ÚNICA de escaneo (lector físico + cámara del celular). Busca por
   // barcode/SKU, suma +1 (applyScan agrupa duplicados incrementando la cantidad
   // contada y registra cada scan) y avisa si no se encuentra.
-  const scanCode = (raw: string, source: "reader" | "camera") => {
+  /**
+   * Busca el código en el servidor cuando no está en la lista local.
+   *
+   * `useProducts()` arranca vacío y descarga el catálogo completo de forma
+   * asíncrona: escanear antes de que termine buscaba en una lista vacía y
+   * respondía "no encontrado" aunque el producto existiera. Este respaldo
+   * consulta `/api/products?search=<código>` y confirma la coincidencia EXACTA
+   * por código de barras o SKU (la API usa ILIKE, que también trae parciales).
+   */
+  const buscarEnServidor = async (codigo: string): Promise<Product | undefined> => {
+    try {
+      const res = await fetch(`/api/products?search=${encodeURIComponent(codigo)}&limit=25`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return undefined;
+      const { products: encontrados } = (await res.json()) as { products: Product[] };
+      return findProductByCode(encontrados ?? [], codigo);
+    } catch {
+      return undefined;
+    }
+  };
+
+  const scanCode = async (raw: string, source: "reader" | "camera") => {
     const c = raw.trim();
     if (!c) return;
-    const product = findProductByCode(products, c);
+    const product = findProductByCode(products, c) ?? (await buscarEnServidor(c));
     const r = applyScan(session.id, { scannedCode: c, product, source });
     if (r.result === "not_found") {
       setLastScan({ name: `Código ${c}`, qty: 0, ok: false });
@@ -352,6 +381,12 @@ export default function EscanearPage() {
                 <p className="mt-1 text-xs opacity-60">
                   El lector funciona como teclado: cada escaneo suma +1 y se mantiene el foco aquí.
                 </p>
+                {catalogoCargando && (
+                  <p className="mt-1 text-xs text-amber-700" role="status">
+                    Cargando el catálogo… ya puedes escanear: mientras tanto cada código se busca
+                    directamente en el servidor.
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={() => setManualOpen(true)}>
