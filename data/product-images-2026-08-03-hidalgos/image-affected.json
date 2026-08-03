@@ -1,0 +1,401 @@
+[
+  {
+    "id": "798e0359-8443-4f07-8b6f-76a22aaafa17",
+    "sku": "DERM-I00195",
+    "dbName": "Babe Hidro 24H Crema GEL 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/798e0359-8443-4f07-8b6f-76a22aaafa17/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/798e0359-8443-4f07-8b6f-76a22aaafa17/image.webp"
+  },
+  {
+    "id": "87277754-c1a5-45a7-bc64-cfcbe80f4ce0",
+    "sku": "DERM-I00671",
+    "dbName": "Isdin Acniben Body Spray 150 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/87277754-c1a5-45a7-bc64-cfcbe80f4ce0/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/87277754-c1a5-45a7-bc64-cfcbe80f4ce0/image.webp"
+  },
+  {
+    "id": "e4968337-6f77-4d53-a66d-0eeb794c015d",
+    "sku": "DERM-I00781",
+    "dbName": "LA Roche Posay Anthelios UV PRO Sport SPF 50 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e4968337-6f77-4d53-a66d-0eeb794c015d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e4968337-6f77-4d53-a66d-0eeb794c015d/image.webp"
+  },
+  {
+    "id": "b206f1c7-951c-480d-b41a-6202fd3c2ac1",
+    "sku": "DERM-I00580",
+    "dbName": "Heliocare 360 Glow SPF 50 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b206f1c7-951c-480d-b41a-6202fd3c2ac1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b206f1c7-951c-480d-b41a-6202fd3c2ac1/image.webp"
+  },
+  {
+    "id": "e3e3da71-32e4-4573-86a2-f0fe46efd5fd",
+    "sku": "DERM-I00161",
+    "dbName": "Avene Xeracalm Balsamo Relipidizante 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e3e3da71-32e4-4573-86a2-f0fe46efd5fd/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e3e3da71-32e4-4573-86a2-f0fe46efd5fd/image.webp"
+  },
+  {
+    "id": "53dcfce9-f724-45cf-916d-f3193a23c5e3",
+    "sku": "DERM-I00292",
+    "dbName": "Cerave Foaming Facial Cleanser 8 OZ",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/53dcfce9-f724-45cf-916d-f3193a23c5e3/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/53dcfce9-f724-45cf-916d-f3193a23c5e3/image.webp"
+  },
+  {
+    "id": "62c802c5-18f0-42df-a888-c8c360cb1461",
+    "sku": "DERM-I00294",
+    "dbName": "Cerave Healing Ointment 3 OZ",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/62c802c5-18f0-42df-a888-c8c360cb1461/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/62c802c5-18f0-42df-a888-c8c360cb1461/image.webp"
+  },
+  {
+    "id": "7e355825-28ef-4249-ab9d-c8f38afdbfb2",
+    "sku": "DERM-I00431",
+    "dbName": "Endocare AGE Barrier Hyaluboost Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7e355825-28ef-4249-ab9d-c8f38afdbfb2/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7e355825-28ef-4249-ab9d-c8f38afdbfb2/image.webp"
+  },
+  {
+    "id": "0f6c6762-6883-420e-b692-b16bc58a2e4a",
+    "sku": "DERM-I00861",
+    "dbName": "Martiderm Acniover Corporal Spray 150 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/0f6c6762-6883-420e-b692-b16bc58a2e4a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0f6c6762-6883-420e-b692-b16bc58a2e4a/image.webp"
+  },
+  {
+    "id": "9ce86889-2f44-42da-a08b-257900b88cee",
+    "sku": "DERM-I00245",
+    "dbName": "Bioderma Sebium GEL Moussant 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9ce86889-2f44-42da-a08b-257900b88cee/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9ce86889-2f44-42da-a08b-257900b88cee/image.webp"
+  },
+  {
+    "id": "1cb4d38b-63d8-4a48-9084-ff43ba7c7ed6",
+    "sku": "DERM-I01074",
+    "dbName": "Sensilis Skin Glow K Eyes 15 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/1cb4d38b-63d8-4a48-9084-ff43ba7c7ed6/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1cb4d38b-63d8-4a48-9084-ff43ba7c7ed6/image.webp"
+  },
+  {
+    "id": "f1a10f39-7c20-47fe-aa40-424bdb0ddf56",
+    "sku": "DERM-I00534",
+    "dbName": "Frezyderm EYE Balm 15 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f1a10f39-7c20-47fe-aa40-424bdb0ddf56/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f1a10f39-7c20-47fe-aa40-424bdb0ddf56/image.webp"
+  },
+  {
+    "id": "5efcebd0-fc7d-43ce-bcc0-c1a7516d40ed",
+    "sku": "DERM-I01071",
+    "dbName": "Sensilis Skin Glow Beyond C Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/5efcebd0-fc7d-43ce-bcc0-c1a7516d40ed/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/5efcebd0-fc7d-43ce-bcc0-c1a7516d40ed/image.webp"
+  },
+  {
+    "id": "93d482f5-13b7-4b3e-ba95-950c3abc6ccb",
+    "sku": "DERM-I00152",
+    "dbName": "Avene Solar MAT Perfect CON Color 50+ 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/93d482f5-13b7-4b3e-ba95-950c3abc6ccb/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/93d482f5-13b7-4b3e-ba95-950c3abc6ccb/image.webp"
+  },
+  {
+    "id": "d20fab3c-3603-43fb-bc11-f38f5bbb0fe1",
+    "sku": "DERM-I00065",
+    "dbName": "A-derma Exomega Allergo Balsamo Emoliente 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d20fab3c-3603-43fb-bc11-f38f5bbb0fe1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d20fab3c-3603-43fb-bc11-f38f5bbb0fe1/image.webp"
+  },
+  {
+    "id": "245a4012-b764-4d28-966c-bbc9464522dc",
+    "sku": "DERM-I00905",
+    "dbName": "Medihealth Edapil M Espuma 100 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/245a4012-b764-4d28-966c-bbc9464522dc/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/245a4012-b764-4d28-966c-bbc9464522dc/image.webp"
+  },
+  {
+    "id": "f66638fa-c7da-4b10-8b90-6232e79b7fa2",
+    "sku": "DERM-I00438",
+    "dbName": "Endocare Retinol Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f66638fa-c7da-4b10-8b90-6232e79b7fa2/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f66638fa-c7da-4b10-8b90-6232e79b7fa2/image.webp"
+  },
+  {
+    "id": "4370a413-4b9f-4f3e-a2e9-e9339020a86a",
+    "sku": "DERM-I01072",
+    "dbName": "Sensilis Skin Glow Glycolic 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/4370a413-4b9f-4f3e-a2e9-e9339020a86a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4370a413-4b9f-4f3e-a2e9-e9339020a86a/image.webp"
+  },
+  {
+    "id": "18f22244-dac7-44af-8c11-d60f2f5a2019",
+    "sku": "DERM-I00070",
+    "dbName": "A-derma Exomega Control Emoliente Spray 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/18f22244-dac7-44af-8c11-d60f2f5a2019/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/18f22244-dac7-44af-8c11-d60f2f5a2019/image.webp"
+  },
+  {
+    "id": "08b3e066-7644-4bc6-86f8-c6dda8d3da0e",
+    "sku": "DERM-I00604",
+    "dbName": "Hidrisage Lumed Serum 20 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/08b3e066-7644-4bc6-86f8-c6dda8d3da0e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/08b3e066-7644-4bc6-86f8-c6dda8d3da0e/image.webp"
+  },
+  {
+    "id": "46bd7950-b023-48e3-ac82-881ccfe478da",
+    "sku": "DERM-I00603",
+    "dbName": "Hidrisage Lumed Emulgel 40 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/46bd7950-b023-48e3-ac82-881ccfe478da/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/46bd7950-b023-48e3-ac82-881ccfe478da/image.webp"
+  },
+  {
+    "id": "c08d92cc-710b-4557-89e0-c423be465998",
+    "sku": "DERM-I01189",
+    "dbName": "Tanit Despigmentante Exfoliante 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c08d92cc-710b-4557-89e0-c423be465998/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c08d92cc-710b-4557-89e0-c423be465998/image.webp"
+  },
+  {
+    "id": "37b43ff2-eeba-4909-a0ce-ecc99b3ccc16",
+    "sku": "DERM-I00948",
+    "dbName": "Neostrata Espuma Limpiadora DE Glicolico 125 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/37b43ff2-eeba-4909-a0ce-ecc99b3ccc16/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/37b43ff2-eeba-4909-a0ce-ecc99b3ccc16/image.webp"
+  },
+  {
+    "id": "3ea9cfac-8257-4014-be07-efcaf94cca1a",
+    "sku": "DERM-I00783",
+    "dbName": "LA Roche Posay Cicaplast Balm B5 UV SPF 50 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/3ea9cfac-8257-4014-be07-efcaf94cca1a/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3ea9cfac-8257-4014-be07-efcaf94cca1a/image.webp"
+  },
+  {
+    "id": "da51a926-eedf-4752-8bff-d98878faac96",
+    "sku": "DERM-I00251",
+    "dbName": "Bioderma Sebium H2O 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/da51a926-eedf-4752-8bff-d98878faac96/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/da51a926-eedf-4752-8bff-d98878faac96/image.webp"
+  },
+  {
+    "id": "65bb7840-2b87-426a-9766-eee9363380a4",
+    "sku": "DERM-I01281",
+    "dbName": "Uriage EAU Thermale Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/65bb7840-2b87-426a-9766-eee9363380a4/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/65bb7840-2b87-426a-9766-eee9363380a4/image.webp"
+  },
+  {
+    "id": "4697ecb4-a42f-417b-b601-5fbc2bab76c1",
+    "sku": "DERM-I01082",
+    "dbName": "Sesderma Acglicolic Facial Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/4697ecb4-a42f-417b-b601-5fbc2bab76c1/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4697ecb4-a42f-417b-b601-5fbc2bab76c1/image.webp"
+  },
+  {
+    "id": "47653a43-363a-41fa-88f4-2acf742f018d",
+    "sku": "DERM-I00435",
+    "dbName": "Endocare GEL Crema 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/47653a43-363a-41fa-88f4-2acf742f018d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/47653a43-363a-41fa-88f4-2acf742f018d/image.webp"
+  },
+  {
+    "id": "b36b1e72-01d3-47f9-9d8e-4566e0991da5",
+    "sku": "DERM-I01290",
+    "dbName": "Uriage Hyseac Fluido SPF 50+ 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b36b1e72-01d3-47f9-9d8e-4566e0991da5/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b36b1e72-01d3-47f9-9d8e-4566e0991da5/image.webp"
+  },
+  {
+    "id": "221bdcbd-d4b5-4568-8a44-ea4c6876a50d",
+    "sku": "DERM-I01114",
+    "dbName": "Sesderma Ferulac Liposomal Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/221bdcbd-d4b5-4568-8a44-ea4c6876a50d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/221bdcbd-d4b5-4568-8a44-ea4c6876a50d/image.webp"
+  },
+  {
+    "id": "44a7ef2e-94a1-48e2-84cc-4eb3ee4ff1c2",
+    "sku": "DERM-I01261",
+    "dbName": "Uriage Depiderm Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/44a7ef2e-94a1-48e2-84cc-4eb3ee4ff1c2/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/44a7ef2e-94a1-48e2-84cc-4eb3ee4ff1c2/image.webp"
+  },
+  {
+    "id": "d803e77d-4f8b-464e-a81e-df99022efdbf",
+    "sku": "DERM-I01298",
+    "dbName": "Uriage Xemose PSO 150ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/d803e77d-4f8b-464e-a81e-df99022efdbf/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d803e77d-4f8b-464e-a81e-df99022efdbf/image.webp"
+  },
+  {
+    "id": "69b19a15-c85f-4e7a-b431-26f9e8b35468",
+    "sku": "DERM-I00551",
+    "dbName": "Genove Fluidbase Rederm 10% AHA Locion 250 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/69b19a15-c85f-4e7a-b431-26f9e8b35468/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/69b19a15-c85f-4e7a-b431-26f9e8b35468/image.webp"
+  },
+  {
+    "id": "e43e431e-6ca8-4733-a554-a202c9e5b009",
+    "sku": "DERM-I01155",
+    "dbName": "Sesderma Sesbalance Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e43e431e-6ca8-4733-a554-a202c9e5b009/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e43e431e-6ca8-4733-a554-a202c9e5b009/image.webp"
+  },
+  {
+    "id": "e9473372-5de5-4ca1-a2fe-d04a5107d902",
+    "sku": "DERM-I00106",
+    "dbName": "Atache Vital AGE Antiage V-B3 Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e9473372-5de5-4ca1-a2fe-d04a5107d902/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e9473372-5de5-4ca1-a2fe-d04a5107d902/image.webp"
+  },
+  {
+    "id": "44f6a25c-423b-4c3c-b51f-f2d2b40014c3",
+    "sku": "DERM-I00866",
+    "dbName": "Martiderm Driosec Intensive Roll-on 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/44f6a25c-423b-4c3c-b51f-f2d2b40014c3/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/44f6a25c-423b-4c3c-b51f-f2d2b40014c3/image.webp"
+  },
+  {
+    "id": "a9ad85f4-0e9a-4f9a-836f-070bc8bfe542",
+    "sku": "DERM-I00162",
+    "dbName": "Avene Xeracalm Crema A.d. 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/a9ad85f4-0e9a-4f9a-836f-070bc8bfe542/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a9ad85f4-0e9a-4f9a-836f-070bc8bfe542/image.webp"
+  },
+  {
+    "id": "3b035c2f-3147-4ef8-9496-5d007b00f9d0",
+    "sku": "DERM-I00204",
+    "dbName": "Babe Reparador Labial",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/3b035c2f-3147-4ef8-9496-5d007b00f9d0/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3b035c2f-3147-4ef8-9496-5d007b00f9d0/image.webp"
+  },
+  {
+    "id": "b4ff3b51-8cbe-4053-b77e-adcc000f72e8",
+    "sku": "DERM-I00041",
+    "dbName": "ACM Novophane Chronic Locion Anti Caida 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b4ff3b51-8cbe-4053-b77e-adcc000f72e8/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b4ff3b51-8cbe-4053-b77e-adcc000f72e8/image.webp"
+  },
+  {
+    "id": "9113b2bb-dda7-4d08-8a59-45572a1672f7",
+    "sku": "DERM-I00174",
+    "dbName": "Babe Crema Emoliente 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9113b2bb-dda7-4d08-8a59-45572a1672f7/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9113b2bb-dda7-4d08-8a59-45572a1672f7/image.webp"
+  },
+  {
+    "id": "4885dd1b-207e-4408-9471-ee26786abdfe",
+    "sku": "DERM-I01296",
+    "dbName": "Uriage Roseliane Crema Anti-rougeurs SPF 30 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/4885dd1b-207e-4408-9471-ee26786abdfe/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4885dd1b-207e-4408-9471-ee26786abdfe/image.webp"
+  },
+  {
+    "id": "99dbdb81-3e4e-42a3-a066-9abf115e85a4",
+    "sku": "DERM-I01110",
+    "dbName": "Sesderma Factor G Renew Contorno DE Ojos 15 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/99dbdb81-3e4e-42a3-a066-9abf115e85a4/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/99dbdb81-3e4e-42a3-a066-9abf115e85a4/image.webp"
+  },
+  {
+    "id": "76ed367c-9b6b-404c-bf09-19fe206c2199",
+    "sku": "DERM-I00600",
+    "dbName": "Hidrisage Lumed Base Compacta SPF 50 Tono Oscuro 11 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/76ed367c-9b6b-404c-bf09-19fe206c2199/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/76ed367c-9b6b-404c-bf09-19fe206c2199/image.webp"
+  },
+  {
+    "id": "4a8455fb-e8cf-4cbf-b58f-bb58c3220b22",
+    "sku": "DERM-I00258",
+    "dbName": "Bioderma Sensibio DS+ Crema 40 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/4a8455fb-e8cf-4cbf-b58f-bb58c3220b22/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/4a8455fb-e8cf-4cbf-b58f-bb58c3220b22/image.webp"
+  },
+  {
+    "id": "217969cd-4550-49d7-b540-75e84dfbf3a8",
+    "sku": "DERM-I00300",
+    "dbName": "Cerave Renewing SA Cleanser 8 OZ",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/217969cd-4550-49d7-b540-75e84dfbf3a8/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/217969cd-4550-49d7-b540-75e84dfbf3a8/image.webp"
+  },
+  {
+    "id": "914fd7da-701c-4073-bc62-024d127d055e",
+    "sku": "DERM-I00832",
+    "dbName": "LA Roche-posay Mela B3 GEL Facial 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/914fd7da-701c-4073-bc62-024d127d055e/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/914fd7da-701c-4073-bc62-024d127d055e/image.webp"
+  },
+  {
+    "id": "c20f0389-db67-4b39-8e84-f99cb8f5b161",
+    "sku": "DERM-I00290",
+    "dbName": "Cerave EYE Repair Cream 0.5 OZ",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c20f0389-db67-4b39-8e84-f99cb8f5b161/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c20f0389-db67-4b39-8e84-f99cb8f5b161/image.webp"
+  },
+  {
+    "id": "492727e2-a0eb-4567-9d9a-664b04673fec",
+    "sku": "DERM-I00307",
+    "dbName": "Cetaphil Crema Hidratante Piel Sensible 453 G",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/492727e2-a0eb-4567-9d9a-664b04673fec/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/492727e2-a0eb-4567-9d9a-664b04673fec/image.webp"
+  },
+  {
+    "id": "030d7fcf-3ef2-40ab-8b90-12f5acf2bf08",
+    "sku": "DERM-I00453",
+    "dbName": "Eucerin Anti-pigment Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/030d7fcf-3ef2-40ab-8b90-12f5acf2bf08/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/030d7fcf-3ef2-40ab-8b90-12f5acf2bf08/image.webp"
+  },
+  {
+    "id": "7903e633-103b-4fe4-855b-4b5b45606c95",
+    "sku": "DERM-I01003",
+    "dbName": "Primaderm Dual Serum 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/7903e633-103b-4fe4-855b-4b5b45606c95/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7903e633-103b-4fe4-855b-4b5b45606c95/image.webp"
+  },
+  {
+    "id": "756308f1-67b5-4bcb-a582-64d35639778d",
+    "sku": "DERM-I00541",
+    "dbName": "Frezyderm SUN Screen Color Velvet SPF 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/756308f1-67b5-4bcb-a582-64d35639778d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/756308f1-67b5-4bcb-a582-64d35639778d/image.webp"
+  },
+  {
+    "id": "f16c583e-4f3c-4e96-b24d-7f3c94c99df9",
+    "sku": "DERM-I00361",
+    "dbName": "Darrow Doctar Plus 120 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/f16c583e-4f3c-4e96-b24d-7f3c94c99df9/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f16c583e-4f3c-4e96-b24d-7f3c94c99df9/image.webp"
+  },
+  {
+    "id": "bf67840d-4675-445c-b060-12e3d49d0c3c",
+    "sku": "DERM-I00291",
+    "dbName": "Cerave Foaming Facial Cleanser 12 OZ",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/bf67840d-4675-445c-b060-12e3d49d0c3c/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bf67840d-4675-445c-b060-12e3d49d0c3c/image.webp"
+  },
+  {
+    "id": "c68c5852-76b6-4f02-881a-f1e6f49ddd21",
+    "sku": "DERM-I00284",
+    "dbName": "Cerave Acne Foaming Cream Cleanser 150 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/c68c5852-76b6-4f02-881a-f1e6f49ddd21/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c68c5852-76b6-4f02-881a-f1e6f49ddd21/image.webp"
+  },
+  {
+    "id": "55b29e58-0283-444f-bdc9-12d6f0d47a9f",
+    "sku": "DERM-I00533",
+    "dbName": "Frezyderm DE Make UP 4 IN 1 200 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/55b29e58-0283-444f-bdc9-12d6f0d47a9f/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/55b29e58-0283-444f-bdc9-12d6f0d47a9f/image.webp"
+  },
+  {
+    "id": "e05bf9e3-2eb0-4854-a2dc-ed94b846147d",
+    "sku": "DERM-I01073",
+    "dbName": "Sensilis Skin Glow Juicy Crema 50 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/e05bf9e3-2eb0-4854-a2dc-ed94b846147d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e05bf9e3-2eb0-4854-a2dc-ed94b846147d/image.webp"
+  },
+  {
+    "id": "10fa0f7e-e525-459c-8ded-a91118e94a4d",
+    "sku": "DERM-I00707",
+    "dbName": "Isdin Ureadin Podos GEL OIL 75 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/10fa0f7e-e525-459c-8ded-a91118e94a4d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/10fa0f7e-e525-459c-8ded-a91118e94a4d/image.webp"
+  }
+]

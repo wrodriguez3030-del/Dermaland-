@@ -1,0 +1,37 @@
+[
+  {
+    "id": "040663af-d12e-4baa-9a18-69c48db50388",
+    "sku": "DERM-I00269",
+    "dbName": "Biretix Isoreapir Crema 50ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/040663af-d12e-4baa-9a18-69c48db50388/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/040663af-d12e-4baa-9a18-69c48db50388/image.webp"
+  },
+  {
+    "id": "9d940577-ebd2-4f00-b71f-fab233ea8499",
+    "sku": "DERM-I01039",
+    "dbName": "Rilastil Acnestil Micropeeling 100 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/9d940577-ebd2-4f00-b71f-fab233ea8499/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9d940577-ebd2-4f00-b71f-fab233ea8499/image.webp"
+  },
+  {
+    "id": "b061a435-18ef-46fd-b6bc-b2ccd2612dec",
+    "sku": "DERM-I00898",
+    "dbName": "Medihealth Betapirox Champu 120 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/b061a435-18ef-46fd-b6bc-b2ccd2612dec/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b061a435-18ef-46fd-b6bc-b2ccd2612dec/image.webp"
+  },
+  {
+    "id": "a4b60f0e-b5c7-4848-958d-d65305e17c65",
+    "sku": "DERM-I00900",
+    "dbName": "Medihealth Cetopic Serum Vitamina C Topica 30 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/a4b60f0e-b5c7-4848-958d-d65305e17c65/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/a4b60f0e-b5c7-4848-958d-d65305e17c65/image.webp"
+  },
+  {
+    "id": "1ece2582-8cb3-4804-97f6-8a87e94c7a8d",
+    "sku": "DERM-I00493",
+    "dbName": "Eucerin PH5 Aceite Y GEL DE Ducha 400 ML",
+    "image_url": "https://sntcvyozbhrgicwmtcoh.supabase.co/storage/v1/object/public/product-images/businesses/00000000-0000-0000-0000-00000000d001/products/1ece2582-8cb3-4804-97f6-8a87e94c7a8d/image.webp",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/1ece2582-8cb3-4804-97f6-8a87e94c7a8d/image.webp"
+  }
+]

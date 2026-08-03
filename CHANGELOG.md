@@ -10,6 +10,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.107.0] - 2026-08-03
+
+**491 productos con foto (36,2 %). Nueva fuente: Farmacias Los Hidalgos.**
+
+- +62 fotos desde farmaciasloshidalgos.com.do, todas verificadas mirando el envase.
+- **La tienda abrevia las marcas**, y por eso el primer cruce dio casi cero:
+  `LRP` = La Roche-Posay (57 productos), `SESD` = Sesderma (59), `MEDIH` =
+  Medihealth (20), `MARTID` = Martiderm (21). Con las equivalencias añadidas, el
+  cruce pasó de 8 a 86 candidatos.
+- **Medihealth y Primaderm SÍ están en esta tienda**, y las dábamos por imposibles:
+  la lista de "solo foto propia" baja de 131 a 84 productos.
+- **Su marcador de "sin foto" es `PIN-FLH.png`**, usado por 138 productos.
+  Detectarlo evitó repetir la misma imagen genérica en decenas de fichas.
+- Descartados 8 candidatos donde una misma imagen caía en dos productos distintos
+  (Sebium pompa/tubo, Hyalu B5 de 30 y 50 ml): ahí como mucho uno puede ser correcto.
+- Confirmado buscando en su catálogo completo (17 480 productos) que **La
+  Roche-Posay, EltaMD, Colorescience, Filorga e IDCP no los venden**.
+- Nota de método: el sitio está tras Cloudflare y devuelve 403 a cualquier cliente
+  HTTP. Se leyó su API pública de catálogo desde el navegador del usuario.
+
 ## [0.106.0] - 2026-08-03
 
 **429 productos con foto (31,6 %) y auditoría visual cerrada.**
