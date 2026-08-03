@@ -10,6 +10,43 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.110.0] - 2026-08-03
+
+**Un conteo físico ya no vive solo en el navegador donde se hizo.**
+
+El módulo se usaba en producción, pero el conteo se guardaba únicamente en el
+`localStorage`: limpiar el navegador o cambiar de equipo lo perdía. En la base
+había 3 cabeceras con `item_count = 1` y **cero ítems y cero escaneos**.
+
+- **La creación de un conteo ya no puede quedar a medias.** Eran dos `INSERT`
+  sin transacción; si fallaba el de ítems, la cabecera quedaba escrita con un
+  `item_count` que mentía. Ahora se compensa borrándola
+  (`inventory-counts-create.ts`). Sin DDL: PostgREST no da transacción, así que
+  la compensación vive en el repositorio.
+- **Los escaneos se guardan mientras se cuenta.** `queueScan` ya existía con
+  cola IndexedDB, envío inmediato y reintentos con backoff — nadie lo llamaba.
+  La cabecera nace `in_progress` al primer escaneo y cada lectura se encola
+  contra ella. El almacén sale del propio conteo creado en el servidor, no de
+  una suposición del cliente: la ruta de sync exige `warehouse_id` y la
+  pantalla nunca lo calculaba.
+- **Al aprobar se consolida el conteo, no se crea otro.** Nuevo `consolidate()`
+  en el repositorio (mock + Supabase) y acción del mismo nombre en
+  `/api/inventory-counts/[id]`, con el gate de rol de aprobar. Reemplaza los
+  ítems en vez de acumularlos, así reintentar da el mismo resultado, y un
+  `UPDATE` de 0 filas no se toma como éxito. Sin esto, cada conteo habría
+  dejado una cabecera provisional vacía: el mismo huérfano que se venía a
+  eliminar.
+- **Un conteo se puede continuar desde otro dispositivo.** Sin sesión local, la
+  pantalla se hidrata desde Supabase y la importa al store, de modo que se
+  puede seguir contando y no solo mirar.
+- **Toda la persistencia es best-effort:** sin red o con el backend en modo
+  mock (409), el módulo se comporta exactamente como antes y avisa de la
+  sincronización pendiente. Nunca bloquea el conteo.
+- Nuevo `scripts/clean-orphan-counts.mjs` (DRY-RUN por defecto, con respaldo)
+  para las cabeceras huérfanas. Detecta las 3 existentes; se niega a borrar
+  cualquiera que tenga escaneos, porque el FK es `ON DELETE CASCADE`.
+- `typecheck` ✅ · `test` **1970** ✅ · `build` ✅.
+
 ## [0.109.0] - 2026-08-03
 
 **El inventario visible es ahora únicamente el que carga el archivo de Alegra.**
