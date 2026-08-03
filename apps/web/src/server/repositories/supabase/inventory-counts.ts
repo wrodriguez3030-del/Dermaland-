@@ -6,6 +6,7 @@ import type {
 } from "../types";
 import type { InventoryCountScan } from "@/types";
 import { SupabaseRepositoryError, getClient } from "./client";
+import { createCountWithItems } from "./inventory-counts-create";
 import {
   inventoryCountRowToTs,
   inventoryCountItemRowToTs,
@@ -105,54 +106,9 @@ export const inventoryCountRepository: InventoryCountRepository = {
       input.warehouseId,
     );
 
-    const { data: countRow, error: countErr } = await sb
-      .from("inventory_counts")
-      .insert({
-        business_id: ctx.businessId,
-        branch_id: input.branchId,
-        warehouse_id: warehouseId,
-        count_number: input.countNumber,
-        count_type: input.countType,
-        status: input.status ?? "in_progress",
-        assigned_to: input.assignedTo ?? [],
-        started_at: input.startedAt ?? new Date().toISOString(),
-        notes: input.notes ?? null,
-        scan_count: 0,
-        item_count: input.items.length,
-      })
-      .select("*")
-      .single();
-    if (countErr) throw new SupabaseRepositoryError("inventoryCount.create", countErr);
-
-    if (input.items.length > 0) {
-      const itemRows = input.items.map((it) => {
-        return {
-          business_id: ctx.businessId,
-          inventory_count_id: countRow.id,
-          product_id: it.productId,
-          product_sku: it.productSku,
-          product_name: it.productName,
-          product_lot_id: it.productLotId ?? null,
-          lot_number: it.lotNumber ?? null,
-          expires_at: it.expiresAt ?? null,
-          warehouse_id: it.warehouseId || warehouseId,
-          expected_quantity: it.expectedQuantity,
-          counted_quantity: it.countedQuantity,
-          // `difference_quantity` es GENERATED ALWAYS (counted - expected) en la BD:
-          // NO se puede insertar (lanza "cannot insert a non-DEFAULT value"). La BD
-          // la calcula sola. (Bug latente: las tablas estaban vacías, nunca se ejecutó.)
-          status: it.status,
-          last_scan_at: it.lastScanAt ?? null,
-        };
-      });
-      const { error: itemsErr } = await sb
-        .from("inventory_count_items")
-        .insert(itemRows);
-      if (itemsErr)
-        throw new SupabaseRepositoryError("inventoryCount.create.items", itemsErr);
-    }
-
-    return inventoryCountRowToTs(countRow);
+    // La cabecera y los ítems son dos INSERT sin transacción: la compensación
+    // (borrar la cabecera si fallan los ítems) vive en `inventory-counts-create`.
+    return createCountWithItems(sb as never, ctx, input, warehouseId);
   },
 
   async recordScan(ctx: RepoContext, scan: Omit<InventoryCountScan, "id">) {
