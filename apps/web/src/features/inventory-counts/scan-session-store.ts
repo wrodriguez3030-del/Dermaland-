@@ -71,6 +71,8 @@ export interface CountSession {
   startedByName?: string;
   startedAt: string;
   closedAt?: string;
+  /** Id del conteo en Supabase. Ausente si nunca se pudo crear (mock o sin red). */
+  serverId?: string;
   approvedAt?: string;
   approvedWithAdjustments?: boolean;
   items: CountSessionItem[];
@@ -339,6 +341,17 @@ export function setSessionStatus(
   extra?: Partial<CountSession>,
 ): CountSession | undefined {
   return mutate(id, (s) => ({ ...s, status, ...extra }));
+}
+
+/**
+ * Guarda el id que el conteo tiene en Supabase. Se llama una sola vez, cuando
+ * la cabecera se crea en la nube: a partir de ahí los escaneos cuelgan de ella.
+ */
+export function setSessionServerId(
+  id: string,
+  serverId: string,
+): CountSession | undefined {
+  return mutate(id, (s) => ({ ...s, serverId }));
 }
 
 export function cancelSession(id: string): CountSession | undefined {

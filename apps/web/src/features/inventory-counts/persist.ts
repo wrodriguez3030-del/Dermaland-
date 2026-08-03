@@ -17,6 +17,13 @@ export type FinalCountStatus =
   | "adjusted"
   | "rejected";
 
+/**
+ * Estado con el que nace la cabecera cuando el conteo todavía está abierto: la
+ * BD lo acepta (`inventory_counts.status`) y no miente sobre el conteo, a
+ * diferencia de "submitted", que significa enviado a revisión.
+ */
+export type CountPayloadStatus = FinalCountStatus | "in_progress";
+
 export interface CountItemPayload {
   productId: string;
   productSku: string;
@@ -32,7 +39,7 @@ export interface CountCreatePayload {
   countNumber: string;
   branchId: string;
   countType: CountSession["type"];
-  status: FinalCountStatus;
+  status: CountPayloadStatus;
   notes?: string;
   startedAt?: string;
   items: CountItemPayload[];
@@ -42,7 +49,7 @@ export interface CountCreatePayload {
 export function buildCountCreatePayload(
   session: CountSession,
   systemQuantityFor: (productId: string) => number,
-  status: FinalCountStatus,
+  status: CountPayloadStatus,
 ): CountCreatePayload {
   return {
     countNumber: session.code,
