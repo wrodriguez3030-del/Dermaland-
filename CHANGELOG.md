@@ -11,6 +11,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.100.0] - 2026-08-03
+
+**Fotos de producto: 38 artículos del catálogo dermo-cosmético ya tienen imagen.**
+
+- Nuevo `scripts/import-product-images-from-carol.mjs`: sube imágenes WebP al
+  bucket `product-images` (path `businesses/{business_id}/products/{id}/image.webp`,
+  el mismo que declara `product-image-service.ts`) y rellena `products.image_url`.
+- **Nunca pisa una foto existente.** La guarda `image_url=is.null` va en el propio
+  PATCH a PostgREST, así que quien decide es Postgres y no el script: si dos
+  procesos corren a la vez, el segundo recibe 0 filas y cuenta como `skip`.
+  Verificado tras aplicar: 51 productos con foto = 13 que ya tenían + 38 nuevos.
+- **Emparejamiento por nombre, deliberadamente conservador.** Reutiliza la
+  normalización de `import-barcodes-from-alegra.mjs` (mayúsculas, sin acentos,
+  "200 ML"→"200ML", "SPF 50"→"SPF50"). Solo aplica si el nombre normalizado es
+  idéntico, o si la similitud de tokens es ≥ 0,88 **y coinciden exactamente las
+  medidas** (237ML, 50G, SPF50…). Un nombre que empareja con 2+ productos, o dos
+  fotos que caen en el mismo producto, se mandan a revisión manual.
+  De 407 fotos, 38 pasaron el filtro (22 exactas + 16 por orden de palabras).
+  Los rechazos son correctos: "Cetaphil Crema Hidratante **250 G**" del proveedor
+  no es "Cetaphil Crema Hidratante Piel Sensible **453 G**" del catálogo.
+- Las 369 restantes quedan en `data/product-images-2026-08-03/sugerencias-revisar.csv`
+  (232 candidatas con su similitud) para aprobarlas a mano.
+- DRY-RUN por defecto; `--apply` escribe. `image-affected.json` lista lo aplicado
+  para poder revertirlo.
+- Las imágenes vienen del catálogo público de tienda.farmaciacarol.com, en WebP
+  calidad 82 sin metadatos EXIF: 68,16 MB → 5,09 MB (−92,5 %), 54 KB la más
+  pesada, muy por debajo del límite de 2 MB del uploader.
+
 ## [0.99.1] - 2026-08-03
 
 **Escanear en inventario físico decía "producto no encontrado" con códigos que sí existen.**

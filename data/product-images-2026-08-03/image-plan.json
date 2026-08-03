@@ -1,13 +1,233 @@
 [
   {
+    "id": "225b9ca3-c76b-4114-864c-2e861f69a274",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00060",
+    "dbName": "A-derma Cytelium Spray 100 ML",
+    "carolName": "A-DERMA CYTELIUM 100 ML SPRAY",
+    "file": "a-derma-cytelium-100-ml-spray-106016.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/225b9ca3-c76b-4114-864c-2e861f69a274/image.webp"
+  },
+  {
+    "id": "33293c2d-3a08-46f4-9c2d-1114fa7bb9fd",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00066",
+    "dbName": "A-derma Exomega Control Crema Emoliente 200 ML",
+    "carolName": "A-DERMA EXOMEGA CONTROL CREMA EMOLIENTE 200 ML",
+    "file": "a-derma-exomega-control-crema-emoliente-200-ml-17507.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/33293c2d-3a08-46f4-9c2d-1114fa7bb9fd/image.webp"
+  },
+  {
+    "id": "28d308c1-df55-4b26-9ef2-fa14fd1dce81",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00018",
+    "dbName": "ACM Depiwhite Leche Corporal Aclarante 200 ML",
+    "carolName": "ACM DEPIWHITE LECHE CORPORAL ACLARANTE 200 ML",
+    "file": "acm-depiwhite-leche-corporal-aclarante-200-ml-104221.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/28d308c1-df55-4b26-9ef2-fa14fd1dce81/image.webp"
+  },
+  {
+    "id": "073eceb1-d360-40c4-9cd0-0314e7d27a35",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00029",
+    "dbName": "ACM Duolys Contorno DE Ojos Crema 15 ML",
+    "carolName": "ACM DUOLYS CONTORNO DE OJOS 15 ML CREMA",
+    "file": "acm-duolys-contorno-de-ojos-15-ml-crema-116438.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/073eceb1-d360-40c4-9cd0-0314e7d27a35/image.webp"
+  },
+  {
+    "id": "b58a4124-d71b-43b2-9adb-8274321c7516",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00131",
+    "dbName": "Avene Cleanance Locion Micelar 400 ML",
+    "carolName": "AVENE LOCION MICELAR CLEANANCE 400 ML",
+    "file": "avene-locion-micelar-cleanance-400-ml-113792.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/b58a4124-d71b-43b2-9adb-8274321c7516/image.webp"
+  },
+  {
     "id": "01685dbc-78c4-404e-b2d1-55e296ed3ec2",
     "businessId": "00000000-0000-0000-0000-00000000d001",
     "sku": "DERM-I00175",
     "dbName": "Babe Crema Emoliente Pediatrica 200ML",
     "carolName": "BABE 200 ML CREMA EMOLIENTE PEDIATRICA",
-    "file": "1002745-babe-200-ml-crema-emoliente-pediatrica.webp",
+    "file": "babe-200-ml-crema-emoliente-pediatrica-12615.webp",
     "match": "fuzzy(1.00)",
     "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/01685dbc-78c4-404e-b2d1-55e296ed3ec2/image.webp"
+  },
+  {
+    "id": "9a2c43df-9895-48c3-b7f1-548c11cde9a3",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00201",
+    "dbName": "Babe Jabon DE Aceite Pediatrico 200ML",
+    "carolName": "BABE 200 ML JABON DE ACEITE PEDIATRICO",
+    "file": "babe-200-ml-jabon-de-aceite-pediatrico-21278.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9a2c43df-9895-48c3-b7f1-548c11cde9a3/image.webp"
+  },
+  {
+    "id": "7ef9d2a2-7753-49bf-9b6c-afc05999e8c9",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00187",
+    "dbName": "Babe GEL DE Baño Pediatric 500 ML",
+    "carolName": "BABE 500 ML GEL DE BANO PEDIATRIC",
+    "file": "babe-500-ml-gel-de-bano-pediatric-12616.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7ef9d2a2-7753-49bf-9b6c-afc05999e8c9/image.webp"
+  },
+  {
+    "id": "336a84a0-e1a9-4c69-a985-6c5c1d4ccec5",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00170",
+    "dbName": "Babe Antiestrias 200ML",
+    "carolName": "BABE ANTIESTRIAS 200 ML",
+    "file": "babe-antiestrias-200-ml-20069.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/336a84a0-e1a9-4c69-a985-6c5c1d4ccec5/image.webp"
+  },
+  {
+    "id": "cab1124d-ba67-4301-a276-145da4edfe3e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00181",
+    "dbName": "Babe Desodorante Roll-on 50 ML",
+    "carolName": "BABE DESODORANTE ROLL-ON 50 ML",
+    "file": "babe-desodorante-roll-on-50-ml-12541.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/cab1124d-ba67-4301-a276-145da4edfe3e/image.webp"
+  },
+  {
+    "id": "0290c2f5-91ee-4525-a849-1fb5e9456e96",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00206",
+    "dbName": "Babe Stop AKN Hidratante Matificante 50ML",
+    "carolName": "BABE STOP AKN HIDRATANTE MATIFICANTE 50 ML",
+    "file": "babe-stop-akn-hidratante-matificante-50-ml-23386.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0290c2f5-91ee-4525-a849-1fb5e9456e96/image.webp"
+  },
+  {
+    "id": "065e53b9-84a5-4da3-8623-1be6a5ae6193",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00222",
+    "dbName": "Bioderma Atoderm GEL Douche 200 ML",
+    "carolName": "BIODERMA ATODERM GEL DOUCHE 200 ML",
+    "file": "bioderma-atoderm-gel-douche-200-ml-104752.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/065e53b9-84a5-4da3-8623-1be6a5ae6193/image.webp"
+  },
+  {
+    "id": "9af26375-7508-4eea-92a0-868f1f02aac3",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00250",
+    "dbName": "Bioderma Sebium Global 30 ML",
+    "carolName": "BIODERMA SEBIUM GLOBAL 30 ML",
+    "file": "bioderma-sebium-global-30-ml-21531.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9af26375-7508-4eea-92a0-868f1f02aac3/image.webp"
+  },
+  {
+    "id": "60f30c6c-10a1-4947-8699-997ae1b86fd7",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00254",
+    "dbName": "Bioderma Sebium Hydra 40 ML",
+    "carolName": "BIODERMA SEBIUM HYDRA 40 ML",
+    "file": "bioderma-sebium-hydra-40-ml-116753.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/60f30c6c-10a1-4947-8699-997ae1b86fd7/image.webp"
+  },
+  {
+    "id": "3e90ebb0-f558-41f1-9913-9424a9e3a815",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00256",
+    "dbName": "Bioderma Sebium Pore Refiner 30 ML",
+    "carolName": "BIODERMA SEBIUM PORE REFINER 30 ML",
+    "file": "bioderma-sebium-pore-refiner-30-ml-80174.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3e90ebb0-f558-41f1-9913-9424a9e3a815/image.webp"
+  },
+  {
+    "id": "d044c9ce-2dff-488a-8fe1-3344767e5c2c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00262",
+    "dbName": "Bioderma Sensibio GEL Moussant 200 ML",
+    "carolName": "BIODERMA SENSIBIO GEL MOUSSANT 200 ML",
+    "file": "bioderma-sensibio-gel-moussant-200-ml-23351.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d044c9ce-2dff-488a-8fe1-3344767e5c2c/image.webp"
+  },
+  {
+    "id": "89e44913-fa75-4b77-91a8-b11dc920b787",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00392",
+    "dbName": "Ducray Kelual DS Shampoo 100 ML",
+    "carolName": "DUCRAY KELUAL DS SHAMPOO 100 ML",
+    "file": "ducray-kelual-ds-shampoo-100-ml-20338.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/89e44913-fa75-4b77-91a8-b11dc920b787/image.webp"
+  },
+  {
+    "id": "171a6a68-c04f-48e3-a7ed-bd257c9def31",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00398",
+    "dbName": "Ducray Keracnyl Serum 30ML",
+    "carolName": "DUCRAY KERACNYL 30 ML SERUM",
+    "file": "ducray-keracnyl-30-ml-serum-85715.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/171a6a68-c04f-48e3-a7ed-bd257c9def31/image.webp"
+  },
+  {
+    "id": "3f5267ce-3b39-46dd-853f-00c5bcfc4fdf",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00393",
+    "dbName": "Ducray Keracnyl GEL Limpiador 200 ML",
+    "carolName": "DUCRAY KERACNYL LIMPIADOR 200 ML GEL",
+    "file": "ducray-keracnyl-limpiador-200-ml-gel-17515.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3f5267ce-3b39-46dd-853f-00c5bcfc4fdf/image.webp"
+  },
+  {
+    "id": "87d2073b-a31f-4f60-9e0e-f9f74285afa1",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00478",
+    "dbName": "Eucerin Hyaluron Filler Vitamina C Booster Serum Facial 8 ML",
+    "carolName": "EUCERIN HYALURON FILLER VITAMINA C BOOSTER SERUM 8 ML",
+    "file": "eucerin-hyaluron-filler-vitamina-c-booster-serum-8-ml-110712.webp",
+    "match": "fuzzy(0.89)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/87d2073b-a31f-4f60-9e0e-f9f74285afa1/image.webp"
+  },
+  {
+    "id": "0e48fffd-565b-4006-8593-9f4fea9f9d2d",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00732",
+    "dbName": "Isispharma Neotone Radiance SPF50+ 30ML",
+    "carolName": "ISISPHARMA NEOTONE RADIANCE SPF50+ 30 ML",
+    "file": "isispharma-neotone-radiance-spf50-30-ml-108226.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0e48fffd-565b-4006-8593-9f4fea9f9d2d/image.webp"
+  },
+  {
+    "id": "d3557b67-6fc6-4f34-8e1c-c207cf5ded88",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00739",
+    "dbName": "Isispharma Ruboril Lotion Leche Desmaquillante 250ML",
+    "carolName": "ISISPHARMA RUBORIL LOTION LECHE DESMAQUILLANTE 250 ML",
+    "file": "isispharma-ruboril-lotion-leche-desmaquillante-250-ml-105677.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/d3557b67-6fc6-4f34-8e1c-c207cf5ded88/image.webp"
+  },
+  {
+    "id": "65c393cc-9666-4497-9e82-699a279f9081",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00792",
+    "dbName": "LA Roche Posay Lipikar Daily Repair Lotion 400 ML",
+    "carolName": "LA ROCHE POSAY LIPIKAR LOTION DAILY REPAIR 400 ML",
+    "file": "la-roche-posay-lipikar-lotion-daily-repair-400-ml-114772.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/65c393cc-9666-4497-9e82-699a279f9081/image.webp"
   },
   {
     "id": "bd0836e2-37e7-4578-ac90-de0c88e81036",
@@ -15,8 +235,148 @@
     "sku": "DERM-I00836",
     "dbName": "LA Roche-posay Pure Vitamin C Yeux 15 ML",
     "carolName": "LA ROCHE-POSAY PURE VITAMIN C YEUX 15 ML",
-    "file": "1002587-la-roche-posay-pure-vitamin-c-yeux-15-ml.webp",
+    "file": "la-roche-posay-pure-vitamin-c-yeux-15-ml-12521.webp",
     "match": "exacto",
     "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bd0836e2-37e7-4578-ac90-de0c88e81036/image.webp"
+  },
+  {
+    "id": "cdc9933d-0af3-4940-9b54-1c426589202c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01084",
+    "dbName": "Sesderma Acglicolic Liposomal Serum 30 ML",
+    "carolName": "SESDERMA ACGLICOLIC SERUM LIPOSOMAL 30 ML",
+    "file": "sesderma-acglicolic-serum-liposomal-30-ml-21935.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/cdc9933d-0af3-4940-9b54-1c426589202c/image.webp"
+  },
+  {
+    "id": "29fb2912-fe3b-4834-8ca2-ef50217df01c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01087",
+    "dbName": "Sesderma Azelac GEL Hidratante 50 ML",
+    "carolName": "SESDERMA AZELAC GEL HIDRATANTE 50 ML",
+    "file": "sesderma-azelac-gel-hidratante-50-ml-118003.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/29fb2912-fe3b-4834-8ca2-ef50217df01c/image.webp"
+  },
+  {
+    "id": "31e9f78d-6b92-46f3-8d1a-82cfca6d0c4b",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01088",
+    "dbName": "Sesderma Azelac Locion 100 ML",
+    "carolName": "SESDERMA AZELAC LOCION 100 ML",
+    "file": "sesderma-azelac-locion-100-ml-118004.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/31e9f78d-6b92-46f3-8d1a-82cfca6d0c4b/image.webp"
+  },
+  {
+    "id": "93b67ac3-4dfd-4617-a78d-3d49b5712dac",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01100",
+    "dbName": "Sesderma C-vit Radiance Leche Corporal Luminosa 250 ML",
+    "carolName": "SESDERMA C-VIT RADIANCE LECHE CORPORAL LUMINOSA 250 ML",
+    "file": "sesderma-c-vit-radiance-leche-corporal-luminosa-250-ml-108072.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/93b67ac3-4dfd-4617-a78d-3d49b5712dac/image.webp"
+  },
+  {
+    "id": "14be92b4-30fb-4221-90da-8ac7f2f97e17",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01117",
+    "dbName": "Sesderma Hidraderm Hyal Crema Facial 50 ML",
+    "carolName": "SESDERMA HIDRADERM HYAL CREMA FACIAL 50 ML",
+    "file": "sesderma-hidraderm-hyal-crema-facial-50-ml-88311.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/14be92b4-30fb-4221-90da-8ac7f2f97e17/image.webp"
+  },
+  {
+    "id": "c3c5b7b6-b5dd-4c8d-a14c-1b76361bb62f",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01139",
+    "dbName": "Sesderma Reti AGE GEL Contorno DE Ojos 15 ML",
+    "carolName": "SESDERMA RETI-AGE CONTORNO DE OJOS GEL 15ML",
+    "file": "sesderma-reti-age-contorno-de-ojos-gel-15ml-80666.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/c3c5b7b6-b5dd-4c8d-a14c-1b76361bb62f/image.webp"
+  },
+  {
+    "id": "66a27689-79ed-444e-9df1-a1402db515ca",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01144",
+    "dbName": "Sesderma Salises GEL Hidratante 50 ML",
+    "carolName": "SESDERMA SALISES 50 ML GEL HIDRATANTE",
+    "file": "sesderma-salises-50-ml-gel-hidratante-19539.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/66a27689-79ed-444e-9df1-a1402db515ca/image.webp"
+  },
+  {
+    "id": "6b48df5f-c081-46d4-b0f5-6afd5b3039db",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01146",
+    "dbName": "Sesderma Sebovalis GEL Facial 50 ML",
+    "carolName": "SESDERMA SEBOVALIS GEL FACIAL 50 ML",
+    "file": "sesderma-sebovalis-gel-facial-50-ml-118008.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/6b48df5f-c081-46d4-b0f5-6afd5b3039db/image.webp"
+  },
+  {
+    "id": "2920048f-f05b-4836-8459-42fdb151a9fc",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01147",
+    "dbName": "Sesderma Sebovalis Shampoo 200 ML",
+    "carolName": "SESDERMA SEBOVALIS SHAMPOO 200 ML",
+    "file": "sesderma-sebovalis-shampoo-200-ml-55107.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/2920048f-f05b-4836-8459-42fdb151a9fc/image.webp"
+  },
+  {
+    "id": "742dec99-7c68-40be-b8a4-43ad82d1eb96",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01156",
+    "dbName": "Sesderma Sesgen 32 Contorno DE Ojos 15 ML",
+    "carolName": "SESDERMA SESGEN 32 CONTORNO DE OJOS 15 ML",
+    "file": "sesderma-sesgen-32-contorno-de-ojos-15-ml-80663.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/742dec99-7c68-40be-b8a4-43ad82d1eb96/image.webp"
+  },
+  {
+    "id": "7296c151-eab0-4342-bd98-5ff11379f206",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01158",
+    "dbName": "Sesderma Sesgen 32 Serum Facial Activador Celular 30 ML",
+    "carolName": "SESDERMA SESGEN 32 FACIAL 30 ML SERUM ACTIVADOR CELULAR",
+    "file": "sesderma-sesgen-32-facial-30-ml-serum-activador-celular-22417.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/7296c151-eab0-4342-bd98-5ff11379f206/image.webp"
+  },
+  {
+    "id": "cf36c641-9a10-4f5f-b0c3-f9eb9d47dea8",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01257",
+    "dbName": "Uriage Crema Lavante 200 ML",
+    "carolName": "URIAGE 200 ML LAVANTE CREMA",
+    "file": "uriage-200-ml-lavante-crema-21987.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/cf36c641-9a10-4f5f-b0c3-f9eb9d47dea8/image.webp"
+  },
+  {
+    "id": "94e7ee45-dd7b-4f49-b63c-90fbcaed3c61",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01244",
+    "dbName": "Uriage Bariederm Cica-levres 15 ML",
+    "carolName": "URIAGE BARIEDERM CICA LEVRES 15 ML",
+    "file": "uriage-bariederm-cica-levres-15-ml-90378.webp",
+    "match": "exacto",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/94e7ee45-dd7b-4f49-b63c-90fbcaed3c61/image.webp"
+  },
+  {
+    "id": "3d6637a5-f3db-4ea9-bcaa-adf65cc1eb60",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I01335",
+    "dbName": "Vichy Purete Thermale GEL Fresh Cleansing GEL 200 ML",
+    "carolName": "VICHY PURETE THERMALE FRESH CLEANSING GEL 200 ML",
+    "file": "vichy-purete-thermale-fresh-cleansing-gel-200-ml-90327.webp",
+    "match": "fuzzy(1.00)",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3d6637a5-f3db-4ea9-bcaa-adf65cc1eb60/image.webp"
   }
 ]
