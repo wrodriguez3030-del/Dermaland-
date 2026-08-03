@@ -73,6 +73,8 @@ export interface CountSession {
   closedAt?: string;
   /** Id del conteo en Supabase. Ausente si nunca se pudo crear (mock o sin red). */
   serverId?: string;
+  /** Almacén que el servidor resolvió para ese conteo; los escaneos usan ese. */
+  serverWarehouseId?: string;
   approvedAt?: string;
   approvedWithAdjustments?: boolean;
   items: CountSessionItem[];
@@ -350,8 +352,13 @@ export function setSessionStatus(
 export function setSessionServerId(
   id: string,
   serverId: string,
+  serverWarehouseId?: string | null,
 ): CountSession | undefined {
-  return mutate(id, (s) => ({ ...s, serverId }));
+  return mutate(id, (s) => ({
+    ...s,
+    serverId,
+    serverWarehouseId: serverWarehouseId ?? s.serverWarehouseId,
+  }));
 }
 
 export function cancelSession(id: string): CountSession | undefined {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from "vitest";
 import type { Product } from "@/types";
+import { buildScanInput } from "./build-scan-input";
 import {
   createSession,
   getSession,
@@ -121,5 +122,49 @@ describe("scan-session-store", () => {
     expect(byId["p1"]!.status).toBe("shortage");
     expect(byId["p2"]!.differenceQuantity).toBe(6); // 10 - 4 (sobrante)
     expect(byId["p2"]!.status).toBe("overage");
+  });
+});
+
+describe("buildScanInput", () => {
+  it("arma el payload de escaneo con el id del servidor", () => {
+    const out = buildScanInput({
+      serverCountId: "srv-1",
+      productId: "p1",
+      productLotId: null,
+      branchId: "br1",
+      warehouseId: "wh1",
+      barcode: "7460082500233",
+      source: "reader",
+      quantity: 2,
+      userName: "Willian",
+    });
+    expect(out).toEqual({
+      inventoryCountId: "srv-1",
+      productId: "p1",
+      productLotId: null,
+      branchId: "br1",
+      warehouseId: "wh1",
+      barcode: "7460082500233",
+      scanSource: "bluetooth_scanner",
+      scannedQuantity: 2,
+      scannedBy: null,
+      scannedByName: "Willian",
+      notes: null,
+    });
+  });
+
+  it("traduce el origen de cámara y manual", () => {
+    const base = {
+      serverCountId: "s",
+      productId: "p",
+      productLotId: null,
+      branchId: "b",
+      warehouseId: "w",
+      barcode: null,
+      quantity: 1,
+      userName: null,
+    } as const;
+    expect(buildScanInput({ ...base, source: "camera" }).scanSource).toBe("camera");
+    expect(buildScanInput({ ...base, source: "manual" }).scanSource).toBe("manual");
   });
 });

@@ -1,6 +1,12 @@
 import type { CountSession } from "./scan-session-store";
 import { buildCountCreatePayload, persistCountToSupabase } from "./persist";
 
+/** Conteo tal como existe en el servidor: id y almacén que él mismo resolvió. */
+export interface ServerCountRef {
+  id: string;
+  warehouseId: string | null;
+}
+
 /**
  * Garantiza que la sesión tenga una cabecera en Supabase para poder colgar de
  * ella los escaneos. Es best-effort a propósito: sin red o con el backend en
@@ -12,9 +18,12 @@ import { buildCountCreatePayload, persistCountToSupabase } from "./persist";
  */
 export async function ensureServerCount(
   session: CountSession,
-): Promise<string | null> {
-  if (session.serverId) return session.serverId;
+): Promise<ServerCountRef | null> {
+  if (session.serverId) {
+    return { id: session.serverId, warehouseId: session.serverWarehouseId ?? null };
+  }
   const payload = buildCountCreatePayload(session, () => 0, "in_progress");
   const res = await persistCountToSupabase({ ...payload, items: [] });
-  return res.ok && res.id ? res.id : null;
+  if (!res.ok || !res.id) return null;
+  return { id: res.id, warehouseId: res.warehouseId ?? null };
 }

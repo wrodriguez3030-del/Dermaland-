@@ -78,6 +78,11 @@ export function buildCountCreatePayload(
 export interface PersistResult {
   ok: boolean;
   id?: string;
+  /**
+   * Almacén que el servidor resolvió para el conteo. Los escaneos deben usar
+   * este mismo, no uno adivinado en el cliente.
+   */
+  warehouseId?: string;
   /** "mock" = backend en modo local (409); "network"/"error" = fallo real. */
   reason?: "mock" | "network" | "error";
   message?: string;
@@ -105,8 +110,9 @@ export async function persistCountToSupabase(
         (data as { error?: string } | null)?.error ?? `HTTP ${res.status}`;
       return { ok: false, reason: "error", message };
     }
-    const id = (data as { count?: { id?: string } } | null)?.count?.id;
-    return { ok: true, id };
+    const count = (data as { count?: { id?: string; warehouseId?: string } } | null)
+      ?.count;
+    return { ok: true, id: count?.id, warehouseId: count?.warehouseId };
   } catch {
     return { ok: false, reason: "network" };
   }

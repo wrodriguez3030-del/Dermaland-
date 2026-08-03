@@ -55,6 +55,7 @@ import {
   setItemQuantity,
   removeItem,
   setSessionStatus,
+  setSessionServerId,
   sessionToCountData,
   type CountSession,
 } from "@/features/inventory-counts/scan-session-store";
@@ -62,6 +63,9 @@ import {
   buildCountCreatePayload,
   persistCountToSupabase,
 } from "@/features/inventory-counts/persist";
+import { queueScan } from "@/features/inventory-counts/sync/sync";
+import { buildScanInput } from "@/features/inventory-counts/build-scan-input";
+import { ensureServerCount } from "@/features/inventory-counts/ensure-server-count";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
@@ -187,6 +191,43 @@ export default function EscanearPage() {
     } else if (r.item) {
       setLastScan({ name: r.item.productName, qty: r.item.countedQuantity, ok: true });
       if (source === "camera") toast.success("Producto escaneado.");
+      if (product) void persistirEscaneo(product, c, source);
+    }
+  };
+
+  /**
+   * Sube el escaneo a la nube sin bloquear el conteo: `queueScan` lo guarda en
+   * IndexedDB y reintenta solo, así que un fallo aquí nunca rompe el escaneo ni
+   * pierde el dato. La cabecera se crea la primera vez que hace falta.
+   */
+  const persistirEscaneo = async (
+    product: Product,
+    codigo: string,
+    source: "reader" | "camera",
+  ) => {
+    try {
+      const server = await ensureServerCount(session);
+      if (!server) return;
+      if (server.id !== session.serverId) {
+        setSessionServerId(session.id, server.id, server.warehouseId);
+      }
+      // Sin almacén la ruta de sync rechaza el escaneo (400): mejor no encolarlo.
+      if (!server.warehouseId) return;
+      await queueScan(
+        buildScanInput({
+          serverCountId: server.id,
+          productId: product.id,
+          productLotId: null,
+          branchId: session.branchId,
+          warehouseId: server.warehouseId,
+          barcode: codigo,
+          source,
+          quantity: 1,
+          userName: session.startedByName ?? null,
+        }),
+      );
+    } catch {
+      /* la cola reintenta sola; nunca romper el escaneo */
     }
   };
 

@@ -25,10 +25,13 @@ describe("ensureServerCount", () => {
       "fetch",
       vi.fn(
         async () =>
-          new Response(JSON.stringify({ count: { id: "srv-1" } }), { status: 201 }),
+          new Response(
+            JSON.stringify({ count: { id: "srv-1", warehouseId: "wh-1" } }),
+            { status: 201 },
+          ),
       ),
     );
-    expect(await ensureServerCount(sesion)).toBe("srv-1");
+    expect(await ensureServerCount(sesion)).toEqual({ id: "srv-1", warehouseId: "wh-1" });
   });
 
   it("la cabecera nace en curso y sin ítems", async () => {
@@ -62,8 +65,12 @@ describe("ensureServerCount", () => {
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
     expect(
-      await ensureServerCount({ ...(sesion as object), serverId: "srv-9" } as never),
-    ).toBe("srv-9");
+      await ensureServerCount({
+        ...(sesion as object),
+        serverId: "srv-9",
+        serverWarehouseId: "wh-9",
+      } as never),
+    ).toEqual({ id: "srv-9", warehouseId: "wh-9" });
     expect(spy).not.toHaveBeenCalled();
   });
 });
