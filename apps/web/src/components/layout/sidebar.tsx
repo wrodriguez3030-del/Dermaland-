@@ -129,6 +129,7 @@ export const groups: NavGroup[] = [
       { label: "Bloqueados", href: "/inventario/bloqueados" },
       { label: "Cuarentena", href: "/inventario/cuarentena" },
       { label: "Recall", href: "/inventario/recall" },
+      { label: "Importar desde Alegra", href: "/inventario/importar" },
     ],
   },
   {

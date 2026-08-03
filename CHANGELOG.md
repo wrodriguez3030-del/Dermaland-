@@ -11,6 +11,45 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
 
+## [0.99.0] - 2026-08-02
+
+**Importador de inventario desde Alegra (Inventario → Importar desde Alegra).**
+
+- Nueva pantalla `/inventario/importar` (roles `super_admin`/`admin`/`manager`):
+  se sube el reporte de inventario de Alegra, se ve el plan de cambios por
+  sucursal y **nada se escribe hasta confirmar**. El `.xlsx` se lee en el
+  navegador (ExcelJS bajo demanda) y el servidor **recalcula el plan completo**
+  contra la base: el cliente nunca dicta qué se escribe.
+- **Reparto por sucursal:** `Cantidad en Principal` → DermaLand Principal;
+  `Cantidad total − Cantidad en Principal` → Dermaland Cutis. La resta se valida
+  para que nunca produzca negativos.
+- Las columnas se ubican por el **texto de la cabecera**, no por posición, así
+  que acepta los distintos reportes de Alegra sin recortar nada.
+- **Vencimiento heredado con criterio:** un lote nuevo en Cutis hereda el
+  vencimiento de un lote de Principal — primero el que tiene existencias y vence
+  antes; si ninguno tiene existencias, el recibido más recientemente. Si la
+  fecha resultante ya está vencida, **no se crea el lote** y se reporta: no se
+  crea inventario que nazca bloqueado para venta. `product_lots.expires_at` es
+  NOT NULL y jamás se inventa una fecha.
+- Los ajustes bajan por FEFO y suben al lote más reciente. Cada producto deja un
+  `inventory_movements` (`adjustment_positive`/`negative`) con referencia
+  `ALEGRA-YYYYMMDD-HHmm`.
+- **Cada producto es atómico con compensación:** si algo falla después de tocar
+  un lote, se revierten los lotes ya modificados de ese producto y el reporte
+  dice si el stock quedó aplicado. Cierra el modo de fallo que el 2026-08-01
+  dejó stock correcto sin bitácora.
+- **Salvaguarda de "poner en cero los ausentes":** se rechaza (422) si el archivo
+  trae filas sin coincidencia u omitidas, porque tratarlas como "ausentes"
+  borraría el stock de productos que el archivo declara con existencias.
+- `maxDuration = 300` y escritura con concurrencia acotada (8 productos en
+  paralelo, nunca dos escrituras al mismo lote): el archivo real son ~2 700
+  llamadas que en serie agotaban el tiempo a mitad de la escritura.
+- **Corrección de fondo detectada al construirlo:** `product.list` no paginaba
+  (tope por defecto de 50 filas) y habría truncado el catálogo de ~1 356
+  productos a 50 en silencio. El importador ahora pagina de verdad.
+- No toca `products` (ni precio, ni costo, ni código de barras) y no crea
+  productos: lo que no empareja se reporta.
+- Guía de uso, salvaguardas y deuda conocida en `docs/importador-alegra.md`.
 ## [0.98.7] - 2026-08-02
 
 ### Fixed
