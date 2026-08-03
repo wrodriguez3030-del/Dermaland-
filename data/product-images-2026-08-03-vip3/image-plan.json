@@ -1,0 +1,172 @@
+[
+  {
+    "id": "689156ba-5d54-4002-9031-59548af5373e",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00931",
+    "dbName": "Medihealth Umbrella Plus Spray SPF 50+ 120 G",
+    "carolName": "Medihealth Umbrella Plus Spray SPF 50+ 120 G",
+    "file": "DERM-I00931.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/689156ba-5d54-4002-9031-59548af5373e/image.webp"
+  },
+  {
+    "id": "88059e06-ae7b-4896-a5c5-cf207e5f0080",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00925",
+    "dbName": "Medihealth Umbrella Crema SPF 50+ 60 G",
+    "carolName": "Medihealth Umbrella Crema SPF 50+ 60 G",
+    "file": "DERM-I00925.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/88059e06-ae7b-4896-a5c5-cf207e5f0080/image.webp"
+  },
+  {
+    "id": "9e81338b-1d6a-47b3-80d0-2922285565e5",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00935",
+    "dbName": "Medihealth Virosupril Crema 5 GR",
+    "carolName": "Medihealth Virosupril Crema 5 GR",
+    "file": "DERM-I00935.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9e81338b-1d6a-47b3-80d0-2922285565e5/image.webp"
+  },
+  {
+    "id": "cdfd2bd0-7171-4b7d-b568-17a702978d30",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00938",
+    "dbName": "Medihealth Zudenina Plus GEL 30 G",
+    "carolName": "Medihealth Zudenina Plus GEL 30 G",
+    "file": "DERM-I00938.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/cdfd2bd0-7171-4b7d-b568-17a702978d30/image.webp"
+  },
+  {
+    "id": "9813b439-e378-44ce-9d2a-67c53faeb6fc",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00936",
+    "dbName": "Medihealth Zudenina GEL 30G",
+    "carolName": "Medihealth Zudenina GEL 30G",
+    "file": "DERM-I00936.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9813b439-e378-44ce-9d2a-67c53faeb6fc/image.webp"
+  },
+  {
+    "id": "8360d857-d237-4da5-bdd8-6a9b3864e8e4",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00934",
+    "dbName": "Medihealth Umbrella Urban SPF 5O",
+    "carolName": "Medihealth Umbrella Urban SPF 5O",
+    "file": "DERM-I00934.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/8360d857-d237-4da5-bdd8-6a9b3864e8e4/image.webp"
+  },
+  {
+    "id": "be362a5b-9b34-4acc-b94c-6651cf23893b",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00939",
+    "dbName": "Melacare Forte 15 GR",
+    "carolName": "Melacare Forte 15 GR",
+    "file": "DERM-I00939.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/be362a5b-9b34-4acc-b94c-6651cf23893b/image.webp"
+  },
+  {
+    "id": "63190ed2-01db-4b63-a0d5-879d9d27ab67",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00918",
+    "dbName": "Medihealth Poviral Crema Dermica 5G",
+    "carolName": "Medihealth Poviral Crema Dermica 5G",
+    "file": "DERM-I00918.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/63190ed2-01db-4b63-a0d5-879d9d27ab67/image.webp"
+  },
+  {
+    "id": "f47d1e2d-7878-43eb-8a4a-d3543257d107",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00943",
+    "dbName": "Momederm Crema",
+    "carolName": "Momederm Crema",
+    "file": "DERM-I00943.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/f47d1e2d-7878-43eb-8a4a-d3543257d107/image.webp"
+  },
+  {
+    "id": "0569ea48-ddf4-451f-9a10-86642464e03c",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00940",
+    "dbName": "Melina Locion 100 ML",
+    "carolName": "Melina Locion 100 ML",
+    "file": "DERM-I00940.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/0569ea48-ddf4-451f-9a10-86642464e03c/image.webp"
+  },
+  {
+    "id": "910838c3-424a-4e90-a127-bde0c7f36d9d",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00924",
+    "dbName": "Medihealth Umbrella Base Compacta Tono 5 Bronceado SPF 50+11 G",
+    "carolName": "Medihealth Umbrella Base Compacta Tono 5 Bronceado SPF 50+11 G",
+    "file": "DERM-I00924.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/910838c3-424a-4e90-a127-bde0c7f36d9d/image.webp"
+  },
+  {
+    "id": "bada3a31-dd37-43c7-8780-c6acda63f289",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00950",
+    "dbName": "Neostrata Limpiador Ultra Iluminador 100ML",
+    "carolName": "Neostrata Limpiador Ultra Iluminador 100ML",
+    "file": "DERM-I00950.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/bada3a31-dd37-43c7-8780-c6acda63f289/image.webp"
+  },
+  {
+    "id": "e9d897b7-1acf-446c-a3a6-aecf622c29ed",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00946",
+    "dbName": "Neostrata Control DE Pigmento 50ML",
+    "carolName": "Neostrata Control DE Pigmento 50ML",
+    "file": "DERM-I00946.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/e9d897b7-1acf-446c-a3a6-aecf622c29ed/image.webp"
+  },
+  {
+    "id": "97827a6c-a71e-4cb8-bf6f-815356fd08b2",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00980",
+    "dbName": "Perfectil Triple Active Skin, Hair & Nails",
+    "carolName": "Perfectil Triple Active Skin, Hair & Nails",
+    "file": "DERM-I00980.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/97827a6c-a71e-4cb8-bf6f-815356fd08b2/image.webp"
+  },
+  {
+    "id": "3802015b-69f7-46e7-bf4c-7e7cf588d408",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00972",
+    "dbName": "Nistazinc Crema 30G",
+    "carolName": "Nistazinc Crema 30G",
+    "file": "DERM-I00972.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/3802015b-69f7-46e7-bf4c-7e7cf588d408/image.webp"
+  },
+  {
+    "id": "62e2813e-05ca-48f1-9da4-47fa7bf247e1",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00984",
+    "dbName": "Pilopeptan Cabellos Y Uñas 60 Capsulas",
+    "carolName": "Pilopeptan Cabellos Y Uñas 60 Capsulas",
+    "file": "DERM-I00984.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/62e2813e-05ca-48f1-9da4-47fa7bf247e1/image.webp"
+  },
+  {
+    "id": "9884f09e-ad61-410a-9a56-fa3038ab39fe",
+    "businessId": "00000000-0000-0000-0000-00000000d001",
+    "sku": "DERM-I00986",
+    "dbName": "Pilopeptan Champu Anticaida Woman 250 ML",
+    "carolName": "Pilopeptan Champu Anticaida Woman 250 ML",
+    "file": "DERM-I00986.webp",
+    "match": "aprobado:verificada-visualmente",
+    "storagePath": "businesses/00000000-0000-0000-0000-00000000d001/products/9884f09e-ad61-410a-9a56-fa3038ab39fe/image.webp"
+  }
+]

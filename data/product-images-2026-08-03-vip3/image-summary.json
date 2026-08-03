@@ -1,0 +1,13 @@
+{
+  "fecha": "2026-08-03",
+  "aplicado": true,
+  "imagenesManifiesto": 165,
+  "productosActivos": 1356,
+  "productosSinImagen": 721,
+  "planAsignaciones": 17,
+  "exactos": 0,
+  "fuzzy": 17,
+  "paraRevisar": 144,
+  "sinMatch": 0,
+  "sugerenciasParaAprobar": 0
+}

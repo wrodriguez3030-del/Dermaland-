@@ -10,6 +10,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.108.1] - 2026-08-03
+
+**652 productos con foto (48,1 %). Auditoría de la tanda por EAN completa.**
+
+- Las 165 fotos emparejadas por código de barras quedaron auditadas: **161 correctas
+  (97,6 %)**, 3 con discrepancia y 1 dudosa. Es la tasa de acierto más alta de todas
+  las fuentes; por nombre nunca bajó del 4-6 % de error.
+- **Las 3 discrepancias apuntan al dato, no a la foto.** Cuando el emparejamiento es
+  por identificador exacto y aun así no cuadra, el sospechoso es el catálogo:
+  - `DERM-I00847` "Toleriane Double Repair UV SPF 30 **100 ML**" (EAN 3337875545846):
+    **dos fuentes independientes** —una emparejada por nombre, otra por EAN— muestran
+    un envase que imprime **75 ml / 2.5 FL.OZ.** El tamaño del nombre está mal.
+  - `DERM-I00899` "Cetopic Crema Vitamina C **60 G**": el envase dice **50 g**.
+  - `DERM-I00997` "Prednoten 20 MG": el EAN devuelve una caja de **Prednoten-50 de
+    20 tabletas**; el "20" del nombre parece el conteo, no la concentración. Existe
+    además `DERM-I00998` "Prednoten 50 MG": podrían ser el mismo producto.
+- Otros nombres con la unidad mal puesta, detectados de paso y no modificados:
+  `DERM-I00910` (60 g en la ficha, 60 ml en el envase) y `DERM-I00934`
+  ("SPF 5O" con letra O en lugar de cero).
+
 ## [0.108.0] - 2026-08-03
 
 **609 productos con foto (44,9 %). Emparejamiento por código de barras: cero errores.**
