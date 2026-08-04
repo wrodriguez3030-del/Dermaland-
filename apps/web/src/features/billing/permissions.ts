@@ -41,6 +41,9 @@ export const FINANCE_MANAGE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "ad
 export const FINANCE_ADMIN_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin"];
 /** Caja: abrir/cerrar/movimientos (rol operativo, incluye cajero). */
 export const CASH_OPERATE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager", "supervisor", "cashier"];
+/** Pedidos de la tienda web: confirmar, preparar, entregar, cancelar. Es
+ * trabajo de mostrador, así que incluye a cajero y vendedor. */
+export const WEB_ORDER_MANAGE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager", "supervisor", "cashier", "vendedor"];
 /** Clientes: crear/editar (front-desk del POS). */
 export const CUSTOMER_MANAGE_ROLES: ReadonlyArray<UserRole> = ["super_admin", "admin", "manager", "supervisor", "cashier", "vendedor"];
 /** Venta en POS (descuento de stock por venta, cobros). Roles que atienden ventas. */

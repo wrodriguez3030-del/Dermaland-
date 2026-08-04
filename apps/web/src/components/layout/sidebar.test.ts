@@ -14,6 +14,9 @@ describe("Sidebar — submenú Ventas", () => {
     const labels = ventas!.items.map((i) => i.label);
     expect(labels).toEqual([
       "Ventas",
+      // Pedidos de la tienda en línea (F3.1/F3.3). Van bajo Ventas porque es
+      // trabajo de mostrador, no un módulo aparte.
+      "Pedidos web",
       "Proformas",
       "Pagos",
       "Incentivos",

@@ -33,7 +33,7 @@ Decisiones de negocio ya tomadas:
 |---|---|
 | Pagos | No hay credenciales de Azul ni VisaNet. Los adaptadores se construyen con proveedor simulado y se documentan las variables exactas. **Nada se declarará apto para cobrar de verdad.** |
 | Instagram | Carga manual supervisada. El adaptador de Graph API queda preparado, no conectado. **La tienda nunca depende de Instagram para funcionar.** |
-| Facturación | Un pedido web genera **proforma**, igual que el POS. No toca e-CF, secuencias fiscales ni la Fase G de DGII. |
+| Facturación | ~~Un pedido web genera **proforma**~~. **CORREGIDO 2026-08-04 al implementar F3.3: el pedido NO genera proforma.** Con retiro y pago al recoger, la venta se cobra en el POS cuando el cliente llega, y ahí nace el documento con su caja y su cajero; generarla al confirmar dejaría dos documentos por una venta. Sigue sin tocar e-CF, secuencias fiscales ni la Fase G. |
 | Sucursales | Se publican las dos, con **nombre comercial de cara al público** ("E. León Jiménez", "Cutis"), distinto del nombre interno del sistema. |
 
 ---
@@ -231,6 +231,7 @@ de perder una venta.
 | F3.0 | Portada con estantes, `/tienda/catalogo`, categorías navegables y recomendados | **Hecho** |
 | F3.1 | Carrito con precios de servidor y retiro en sucursal | **Hecho** |
 | F3.2 | Cuentas de cliente (portero + `client_auth_links`) | **Hecho** — el registro necesita SMTP en Supabase para poder usarse |
+| F3.3 | Pedidos: checkout, consulta por token y pantalla en el ERP | **Hecho** |
 
 **La tienda no se enciende hasta después de E7**, y encenderla es una decisión
 del dueño, no un paso del plan. Hoy sigue **apagada**, con 638 fichas sembradas

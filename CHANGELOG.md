@@ -10,6 +10,45 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.117.0] - 2026-08-04
+
+**Fase 3, incremento F3.3: el pedido. El carrito deja de terminar en un WhatsApp
+y pasa a ser un pedido que cae dentro del ERP. La tienda sigue APAGADA.**
+
+- **Checkout** (`/tienda/checkout`): datos de contacto, sucursal de retiro y una
+  nota. Si el cliente entró con su cuenta, los campos vienen rellenos.
+- **El pedido del cliente** (`/tienda/pedido/[token]`), sin sesión. La
+  autorización es un **token firmado** —el mismo mecanismo de `/factura`—, nunca
+  el número: `WEB-000123` es correlativo y adivinable. Un token manipulado da
+  404 a secas, sin distinguir "no existe" de "no es tuyo".
+- **Pantalla del ERP** en *Ventas → Pedidos web*: lista con filtro por estado,
+  paginación server-side con `.range()`, detalle con las líneas y botones para
+  mover el pedido.
+- **Máquina de estados** recibido → confirmado → preparando → listo → entregado,
+  con cancelación desde cualquiera menos entregado. **No retrocede a propósito**:
+  deshacer se hace cancelando, que deja rastro, no marcha atrás, que lo borra.
+  La transición la valida el **servidor**, no solo el botón.
+- **Idempotencia real**: el segundo envío con la misma clave devuelve el pedido
+  que ya existe, no un error ni un duplicado.
+- **Auditoría con etiquetas legibles**: el registro dice "Recibido → Confirmado",
+  no `recibido`/`confirmado`.
+- **Precios en instantánea** en `web_order_items`: el pedido recuerda lo que se
+  ofreció, no lo que cuesta hoy.
+
+### Corrección al diseño de la Fase 3
+
+El diseño decía que un pedido web generaría **proforma**. **Ya no lo hace**, y es
+deliberado: con retiro en sucursal y pago al recoger, la venta se cobra en el POS
+cuando el cliente llega, y ahí nace el documento con su caja, su cajero y sus
+reglas. Generarla al confirmar dejaría **dos documentos por una sola venta**, y
+gastaría un número en pedidos que se cancelan. `proformas.cashier_id` y
+`cashier_name` son además NOT NULL, y a las once de la noche no hay cajero.
+`web_orders.proforma_id` queda en el modelo para cuando el pago en línea (F3.5)
+obligue a emitir antes.
+
+**El pedido tampoco mueve inventario**: reservar exigiría tocar lotes y FEFO.
+Quien confirma valida la existencia real, y la pantalla se lo recuerda.
+
 ## [0.116.0] - 2026-08-04
 
 **Fase 3, incremento F3.2: cuentas de cliente. La tienda sigue APAGADA y el

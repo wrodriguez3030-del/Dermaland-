@@ -236,15 +236,24 @@ export function CartView({
           </div>
         ) : null}
 
+        {/* El pedido de verdad es la acción principal; WhatsApp queda de
+            respaldo porque sigue siendo útil para preguntar antes de comprar. */}
+        <Link
+          href="/tienda/checkout"
+          className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2"
+        >
+          Continuar con el pedido
+        </Link>
+
         {enlaceWhatsapp ? (
           <a
             href={enlaceWhatsapp}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2"
+            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-6 text-sm font-medium text-[color:var(--brand-fg)] hover:border-[color:var(--brand-primary)] hover:text-[color:var(--brand-primary)]"
           >
-            <MessageCircle aria-hidden className="h-5 w-5" />
-            Enviar pedido por WhatsApp
+            <MessageCircle aria-hidden className="h-4 w-4" />
+            Preguntar por WhatsApp
           </a>
         ) : null}
 
