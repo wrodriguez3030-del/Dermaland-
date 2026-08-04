@@ -115,7 +115,9 @@ export function CheckoutView({
   const envio =
     entrega === "delivery"
       ? (provinces.find((p) => p.slug === provincia)?.cost ?? null)
-      : 0;
+      : entrega === "pickup"
+        ? 0
+        : null;
   const totalConEnvio =
     resumen && envio !== null ? resumen.total + envio : (resumen?.total ?? 0);
 
@@ -151,6 +153,10 @@ export function CheckoutView({
   }, [items, mounted]);
 
   async function enviar() {
+    if (entrega === null) {
+      setError("Elige si lo retiras en sucursal o te lo llevamos.");
+      return;
+    }
     if (entrega === "delivery" && envio === null) {
       setError("Elige tu provincia para calcular el envío.");
       return;
@@ -345,7 +351,11 @@ export function CheckoutView({
           </fieldset>
         ) : null}
 
-        {entrega === "pickup" ? (
+        {entrega === null ? (
+          <p className="rounded-xl bg-[color:var(--brand-warn)]/10 px-4 py-3 text-sm text-[color:var(--brand-fg)]/80">
+            Elige arriba cómo quieres recibir tu pedido para continuar.
+          </p>
+        ) : entrega === "pickup" ? (
           <div>
             <label
               htmlFor="branchSlug"
@@ -600,7 +610,11 @@ export function CheckoutView({
         {/* Un botón muerto sin explicación es lo peor que puede pasarle a quien
             intenta comprar: pulsa y no ocurre nada. En móvil este panel va
             DEBAJO del formulario, así que el motivo tiene que estar aquí. */}
-        {entrega === "delivery" && envio === null ? (
+        {entrega === null ? (
+          <p className="mt-4 rounded-xl bg-[color:var(--brand-warn)]/10 px-3 py-2 text-sm text-[color:var(--brand-fg)]/80">
+            Elige cómo lo recibes para poder continuar.
+          </p>
+        ) : entrega === "delivery" && envio === null ? (
           <p className="mt-4 rounded-xl bg-[color:var(--brand-warn)]/10 px-3 py-2 text-sm text-[color:var(--brand-fg)]/80">
             Elige tu provincia para poder continuar.
           </p>
@@ -608,7 +622,7 @@ export function CheckoutView({
 
         <button
           type="submit"
-          disabled={enviando || !resumen}
+          disabled={enviando || !resumen || entrega === null}
           className="mt-6 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-50"
         >
           {enviando ? (
@@ -628,8 +642,10 @@ export function CheckoutView({
           {cardPaymentsEnabled
             ? "Después de enviar el pedido podrás pagarlo con tarjeta."
             : entrega === "delivery"
-              ? "Te confirmamos disponibilidad por teléfono y pagas al recibir el pedido."
-              : "Te confirmamos disponibilidad por teléfono y pagas al retirar en sucursal."}
+              ? "Te contactamos para coordinar la entrega y pagas al recibirlo."
+              : entrega === "pickup"
+                ? "Te contactamos cuando esté listo y pagas al retirarlo."
+                : "Elige arriba cómo quieres recibir tu pedido."}
         </p>
       </aside>
     </form>
