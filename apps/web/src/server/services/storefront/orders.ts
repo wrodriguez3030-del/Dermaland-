@@ -20,9 +20,14 @@ import {
   parseDeliveryAddress,
   quoteShipping,
 } from "@/features/storefront/shipping/quote";
+import {
+  checkOrderStock,
+  stockProblemMessage,
+} from "@/features/storefront/stock";
 import { loadPublishedCatalog } from "./catalog";
 import { findOrCreateClient } from "./customer-link";
 import { loadShippingRates } from "./shipping";
+import { loadWebAvailability } from "./stock";
 import { resolveStorefrontTenant } from "./tenant";
 
 /**
@@ -151,6 +156,36 @@ export async function createWebOrder(
   // menos y el total de todas sería cobrar de más.
   if (idsPorSlug.size !== resumen.lines.length) {
     return { ok: false, error: "Alguno de los productos ya no está disponible." };
+  }
+
+  // ¿Hay de verdad lo que está pidiendo?
+  //
+  // Antes no se miraba en ningún momento: se podían encargar 50 unidades de algo
+  // que tenía 1, y el fallo no salía hasta que alguien del negocio abría el
+  // pedido y tenía que llamar a deshacerlo. Decirlo AHORA, con el nombre del
+  // producto y cuántos quedan, es una molestia; decirlo mañana por teléfono es
+  // una venta perdida.
+  //
+  // Se comprueba contra la existencia menos lo apalabrado en otros pedidos web
+  // sin facturar, no contra el almacén a secas: el último frasco no se le puede
+  // vender a cinco personas.
+  //
+  // Queda una carrera abierta —dos pedidos a la vez pueden pasar los dos— y no
+  // se cierra con un bloqueo de base porque el pedido no reserva inventario por
+  // diseño. Para eso el detalle del ERP enseña la disponibilidad viva antes de
+  // confirmar.
+  const lineasConId = resumen.lines.map((l) => ({
+    productId: idsPorSlug.get(l.product.slug)!,
+    productName: l.product.title,
+    qty: l.qty,
+  }));
+  const disponible = await loadWebAvailability(
+    tenant.businessId,
+    lineasConId.map((l) => l.productId),
+  );
+  const problemas = checkOrderStock(lineasConId, disponible);
+  if (problemas.length > 0) {
+    return { ok: false, error: stockProblemMessage(problemas) };
   }
 
   const numero = await siguienteNumero(admin);
@@ -335,18 +370,36 @@ export async function countNewWebOrders(businessId: string): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Una línea vista desde el ERP. Lleva el `productId` que la pública NO lleva:
+ * dentro hace falta para mirar el inventario y para pasar el pedido al POS.
+ */
+export interface WebOrderLineForBusiness extends WebOrderItem {
+  productId: string;
+}
+
+/** El pedido con lo que solo se enseña puertas adentro. */
+export interface WebOrderForBusiness extends Omit<WebOrder, "items"> {
+  id: string;
+  items: WebOrderLineForBusiness[];
+  /** Proforma con la que se facturó, si ya se facturó. */
+  proformaId?: string;
+  /** Sucursal que retira o despacha. Para el POS y para cambiar la entrega. */
+  branchId: string;
+}
+
 /** El pedido completo, para el detalle del ERP. Acotado por `business_id`. */
 export async function getWebOrderForBusiness(
   businessId: string,
   id: string,
-): Promise<(WebOrder & { id: string }) | null> {
+): Promise<WebOrderForBusiness | null> {
   const admin = createServiceRoleClient();
   if (!admin) return null;
 
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status, proforma_id",
     )
     .eq("id", id)
     .eq("business_id", businessId)
@@ -356,7 +409,7 @@ export async function getWebOrderForBusiness(
   const [{ data: lineas }, nombres] = await Promise.all([
     admin
       .from("web_order_items")
-      .select("product_name, unit_price, qty, line_total")
+      .select("product_id, product_name, unit_price, qty, line_total")
       .eq("order_id", pedido.id)
       .order("created_at", { ascending: true }),
     nombresDeSucursal(admin, businessId),
@@ -364,6 +417,8 @@ export async function getWebOrderForBusiness(
 
   return {
     id: pedido.id,
+    branchId: pedido.branch_id,
+    proformaId: pedido.proforma_id ?? undefined,
     number: pedido.number,
     status: pedido.status as WebOrderStatus,
     branchName: nombres.get(pedido.branch_id) ?? "—",
@@ -390,6 +445,7 @@ export async function getWebOrderForBusiness(
     contactEmail: pedido.contact_email ?? undefined,
     total: Number(pedido.total),
     items: (lineas ?? []).map((l) => ({
+      productId: l.product_id,
       productName: l.product_name,
       unitPrice: Number(l.unit_price),
       qty: l.qty,
@@ -443,6 +499,15 @@ export async function advanceWebOrder(
 
   if (error) return { ok: false, error: "No se pudo cambiar el estado." };
   return { ok: true, from: desde };
+}
+
+/** Nombre COMERCIAL de cada sucursal, para el ERP. Nunca un UUID en pantalla. */
+export async function branchDisplayNames(
+  businessId: string,
+): Promise<Map<string, string>> {
+  const admin = createServiceRoleClient();
+  if (!admin) return new Map();
+  return nombresDeSucursal(admin, businessId);
 }
 
 /** Nombre COMERCIAL de cada sucursal, para no enseñar UUID en pantalla. */

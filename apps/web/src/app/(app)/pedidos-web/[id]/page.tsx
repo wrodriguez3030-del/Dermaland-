@@ -5,20 +5,29 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { OrderStatusActions } from "@/features/storefront/components/order-status-actions";
 import { webOrderStatusLabel } from "@/features/storefront/orders/status";
+import { lineStockVerdict } from "@/features/storefront/orders/line-stock";
 import { formatCurrency } from "@/lib/utils/format";
+import { formatDominicanPhone } from "@/lib/utils/formatters";
 import { WEB_ORDER_MANAGE_ROLES } from "@/features/billing/permissions";
 import { getSession } from "@/server/auth/context";
-import { getWebOrderForBusiness } from "@/server/services/storefront/orders";
+import {
+  branchDisplayNames,
+  getWebOrderForBusiness,
+} from "@/server/services/storefront/orders";
+import { loadWebAvailability } from "@/server/services/storefront/stock";
 import { listOrderReceipts } from "@/server/services/storefront/transfer-payments";
 import { ReceiptReview } from "@/features/storefront/components/receipt-review";
 
 /**
  * Detalle de un pedido web.
  *
- * El pedido **no genera proforma**: con retiro y pago al recoger, la venta se
- * cobra en el POS cuando el cliente llega, y ahí nace el documento con su caja,
- * su cajero y sus reglas. Crear una proforma aquí dejaría dos documentos por una
- * sola venta. Por eso la pantalla dice qué hay que cobrar, y no lo cobra.
+ * El pedido no crea la factura por su cuenta: la venta se emite en el POS, con
+ * su caja, su cajero, FEFO y las reglas documentales de siempre. Lo que hace
+ * esta pantalla es llevarte allí con todo puesto (botón "Facturar") y, al
+ * volver, dejar el documento enlazado al pedido. Un solo documento por venta.
+ *
+ * Antes de confirmar enseña la existencia REAL de cada línea —en esta sucursal
+ * y en las demás— para no tener que abrir el inventario en otra pestaña.
  */
 
 export const dynamic = "force-dynamic";
@@ -52,6 +61,26 @@ export default async function PedidoWebDetallePage({
   const listo = pedido.status === "listo";
   const cerrado = pedido.status === "cancelado" || pedido.status === "entregado";
 
+  // Existencia VIVA de cada línea. Sin caché y sin contar este mismo pedido
+  // como compromiso ajeno: sus líneas no compiten consigo mismas.
+  const [disponibilidad, nombresSucursal] = await Promise.all([
+    loadWebAvailability(
+      session.businessId,
+      pedido.items.map((l) => l.productId),
+      { excludeOrderId: pedido.id },
+    ),
+    branchDisplayNames(session.businessId),
+  ]);
+  const existencias = pedido.items.map((linea) =>
+    lineStockVerdict(
+      linea.qty,
+      disponibilidad.get(linea.productId),
+      pedido.branchId,
+      nombresSucursal,
+    ),
+  );
+  const faltaAlgo = existencias.some((v) => v.tone !== "ok");
+
   return (
     <div className="space-y-6">
       <Link
@@ -66,8 +95,8 @@ export default async function PedidoWebDetallePage({
         title={`Pedido ${pedido.number}`}
         description={
           pedido.fulfillment === "delivery"
-            ? `${pedido.contactName} · ${pedido.contactPhone} · ENVÍO a ${pedido.deliveryProvince}`
-            : `${pedido.contactName} · ${pedido.contactPhone} · Retira en ${pedido.branchName}`
+            ? `${pedido.contactName} · ${formatDominicanPhone(pedido.contactPhone)} · ENVÍO a ${pedido.deliveryProvince}`
+            : `${pedido.contactName} · ${formatDominicanPhone(pedido.contactPhone)} · Retira en ${pedido.branchName}`
         }
       />
 
@@ -135,22 +164,43 @@ export default async function PedidoWebDetallePage({
             Qué pidió
           </h2>
           <ul className="mt-3 divide-y divide-black/5">
-            {pedido.items.map((linea, indice) => (
-              <li
-                key={`${linea.productName}-${indice}`}
-                className="flex justify-between gap-4 py-3"
-              >
-                <span className="min-w-0 text-sm text-[color:var(--brand-fg)]/80">
-                  {linea.qty} × {linea.productName}
-                  <span className="block text-xs text-[color:var(--brand-fg)]/50">
-                    {formatCurrency(linea.unitPrice)} c/u
+            {pedido.items.map((linea, indice) => {
+              const existencia = existencias[indice]!;
+              return (
+                <li
+                  key={`${linea.productName}-${indice}`}
+                  className="flex justify-between gap-4 py-3"
+                >
+                  <span className="min-w-0 text-sm text-[color:var(--brand-fg)]/80">
+                    {linea.qty} × {linea.productName}
+                    <span className="block text-xs text-[color:var(--brand-fg)]/50">
+                      {formatCurrency(linea.unitPrice)} c/u
+                    </span>
+                    {/* La existencia, aquí mismo: quien confirma no debería
+                        tener que abrir el inventario en otra pestaña. */}
+                    <span
+                      className={`mt-1 inline-block text-xs font-medium ${
+                        existencia.tone === "ok"
+                          ? "text-emerald-700"
+                          : existencia.tone === "warn"
+                            ? "text-amber-700"
+                            : "text-red-700"
+                      }`}
+                    >
+                      {existencia.label}
+                    </span>
+                    {existencia.hint ? (
+                      <span className="block text-xs text-[color:var(--brand-fg)]/50">
+                        {existencia.hint}
+                      </span>
+                    ) : null}
                   </span>
-                </span>
-                <span className="shrink-0 text-sm font-semibold text-[color:var(--brand-fg)]">
-                  {formatCurrency(linea.lineTotal)}
-                </span>
-              </li>
-            ))}
+                  <span className="shrink-0 text-sm font-semibold text-[color:var(--brand-fg)]">
+                    {formatCurrency(linea.lineTotal)}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
 
           {pedido.shippingCost > 0 ? (
@@ -218,8 +268,9 @@ export default async function PedidoWebDetallePage({
               Mover el pedido
             </h2>
             <p className="mt-1 text-sm text-[color:var(--brand-fg)]/60">
-              Antes de confirmar, comprueba que hay existencia real: el pedido no
-              reserva inventario.
+              {faltaAlgo
+                ? "Ojo: hay líneas que no se pueden despachar tal cual desde esta sucursal. Míralas arriba antes de confirmar."
+                : "Todo lo que pidió está en esta sucursal."}
             </p>
             <div className="mt-4">
               <OrderStatusActions orderId={pedido.id} status={pedido.status} />
