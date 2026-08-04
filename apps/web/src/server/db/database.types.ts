@@ -93,6 +93,7 @@ export type Database = {
           name: string
           phone: string | null
           province: string
+          public_name: string | null
           show_on_website: boolean
           status: string
           updated_at: string
@@ -112,6 +113,7 @@ export type Database = {
           name: string
           phone?: string | null
           province: string
+          public_name?: string | null
           show_on_website?: boolean
           status?: string
           updated_at?: string
@@ -131,6 +133,7 @@ export type Database = {
           name?: string
           phone?: string | null
           province?: string
+          public_name?: string | null
           show_on_website?: boolean
           status?: string
           updated_at?: string
@@ -176,6 +179,59 @@ export type Database = {
             foreignKeyName: "brands_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_web_settings: {
+        Row: {
+          business_id: string
+          contact_email: string | null
+          created_at: string
+          og_image_url: string | null
+          seo_description: string | null
+          seo_title: string | null
+          site_name: string
+          storefront_enabled: boolean
+          tagline: string | null
+          updated_at: string
+          updated_by: string | null
+          whatsapp_phone: string | null
+        }
+        Insert: {
+          business_id: string
+          contact_email?: string | null
+          created_at?: string
+          og_image_url?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          site_name?: string
+          storefront_enabled?: boolean
+          tagline?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          whatsapp_phone?: string | null
+        }
+        Update: {
+          business_id?: string
+          contact_email?: string | null
+          created_at?: string
+          og_image_url?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          site_name?: string
+          storefront_enabled?: boolean
+          tagline?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          whatsapp_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_web_settings_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: true
             referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
@@ -2690,6 +2746,83 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "warehouses"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_web_meta: {
+        Row: {
+          benefits: string[]
+          business_id: string
+          created_at: string
+          featured: boolean
+          how_to_use: string | null
+          image_alt: string | null
+          is_new: boolean
+          product_id: string
+          published_at: string | null
+          related_product_ids: string[]
+          seo_description: string | null
+          seo_title: string | null
+          slug: string
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+          visible: boolean
+          web_description: string | null
+          web_summary: string | null
+          web_title: string | null
+        }
+        Insert: {
+          benefits?: string[]
+          business_id: string
+          created_at?: string
+          featured?: boolean
+          how_to_use?: string | null
+          image_alt?: string | null
+          is_new?: boolean
+          product_id: string
+          published_at?: string | null
+          related_product_ids?: string[]
+          seo_description?: string | null
+          seo_title?: string | null
+          slug: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          visible?: boolean
+          web_description?: string | null
+          web_summary?: string | null
+          web_title?: string | null
+        }
+        Update: {
+          benefits?: string[]
+          business_id?: string
+          created_at?: string
+          featured?: boolean
+          how_to_use?: string | null
+          image_alt?: string | null
+          is_new?: boolean
+          product_id?: string
+          published_at?: string | null
+          related_product_ids?: string[]
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+          visible?: boolean
+          web_description?: string | null
+          web_summary?: string | null
+          web_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_web_meta_product_fk"
+            columns: ["business_id", "product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["business_id", "id"]
           },
         ]
       }
