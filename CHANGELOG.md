@@ -10,6 +10,33 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.123.1] - 2026-08-04
+
+**Corrección urgente: el checkout no dejaba pasar y borraba los datos.**
+
+Reportado por el dueño con la tienda EN VIVO. Eran dos fallos encadenados:
+
+1. **El teléfono con código de país se rechazaba.** La máscara del sistema
+   produce `+1 809-555-1234` cuando el cliente escribe el `+1`; eso son **once**
+   dígitos y la validación exigía exactamente diez. El pedido se rechazaba.
+2. **Y al rechazarse, el formulario se vaciaba.** React 19 **resetea el
+   formulario** al terminar una `action`, también cuando falla; con campos no
+   controlados (`defaultValue`) eso borraba todo lo tecleado. El cliente se
+   quedaba mirando campos en blanco sin saber qué había hecho mal.
+
+- **`toLocalPhoneDigits`**: una sola regla de teléfono para el alta de pedido, el
+  registro y la interfaz. Acepta `809-555-1234`, `+1 809-555-1234`,
+  `(809) 555-1234` y `18095551234`; rechaza lo que no llega a un número
+  marcable. Antes cada sitio tenía la suya, y el formulario aceptaba lo que el
+  servidor rechazaba.
+- **El campo de teléfono usa ahora la máscara del ERP** (`formatDominicanPhone`):
+  el cliente escribe dígitos y los guiones salen solos.
+- **Todos los campos del checkout pasan a ser controlados.** Un rechazo del
+  servidor ya no puede vaciar el formulario.
+
+Comprobado contra la API con los cuatro formatos reales: los cuatro crean el
+pedido; `809555` sigue rechazándose.
+
 ## [0.123.0] - 2026-08-04
 
 - **Fuera el selector "Retiras en" del carrito.** Tenía sentido cuando el

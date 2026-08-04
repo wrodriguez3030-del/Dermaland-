@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MAX_LINES, MAX_QTY_PER_LINE } from "@/features/storefront/cart";
+import { toLocalPhoneDigits } from "@/features/storefront/phone";
 import { createWebOrder } from "@/server/services/storefront/orders";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
@@ -39,11 +40,13 @@ const CuerpoSchema = z.object({
   address: z.string().max(300).optional(),
   reference: z.string().max(300).optional(),
   contactName: z.string().trim().min(1).max(120),
-  // Dígitos: el mismo formato con el que se guarda el teléfono del cliente.
+  // MISMA regla que la máscara de la interfaz. Antes exigía exactamente 10
+  // dígitos y un "+1 809-555-1234" —que es lo que produce la máscara del
+  // sistema— tiene 11: el pedido se rechazaba y el cliente no sabía por qué.
   contactPhone: z
     .string()
-    .transform((v) => v.replace(/\D/g, ""))
-    .refine((v) => v.length === 10, "Teléfono de 10 dígitos"),
+    .transform((v) => toLocalPhoneDigits(v))
+    .refine((v): v is string => v !== null, "Escribe un teléfono de 10 dígitos."),
   contactEmail: z.string().trim().email().max(200).optional().or(z.literal("")),
   notes: z.string().trim().max(500).optional(),
   idempotencyKey: z.string().uuid(),

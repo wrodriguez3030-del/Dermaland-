@@ -9,6 +9,7 @@
 // todas las formas posibles: con guiones, con paréntesis, con espacios.
 
 import { z } from "zod";
+import { toLocalPhoneDigits } from "../phone";
 
 export interface RegistrationInput {
   email: string;
@@ -21,9 +22,6 @@ export interface RegistrationInput {
 
 /** Mínimo de Supabase Auth; subirlo aquí no sube la seguridad real. */
 const MIN_CLAVE = 8;
-
-/** Teléfono dominicano sin código de país. */
-const LARGO_TELEFONO = 10;
 
 const Esquema = z.object({
   email: z
@@ -44,9 +42,9 @@ const Esquema = z.object({
     .min(1, "Escribe tu apellido."),
   phone: z
     .string({ message: "Escribe tu teléfono." })
-    .transform((v) => v.replace(/\D/g, ""))
+    .transform((v) => toLocalPhoneDigits(v))
     .refine(
-      (v) => v.length === LARGO_TELEFONO,
+      (v): v is string => v !== null,
       "El teléfono debe tener 10 dígitos.",
     ),
 });

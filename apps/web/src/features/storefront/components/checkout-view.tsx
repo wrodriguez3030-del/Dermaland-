@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
+import { formatDominicanPhone } from "@/lib/utils/formatters";
 import type { CartSummary } from "../cart";
 import type { DeliverableProvince } from "../shipping/quote";
 import { formatAccountNumber } from "../payments/receipt";
@@ -72,6 +73,23 @@ export function CheckoutView({
     "efectivo",
   );
 
+  // TODO lo que teclea el cliente vive en estado, no en el DOM.
+  //
+  // React 19 RESETEA el formulario al terminar una `action`, también cuando
+  // falla. Con `defaultValue` eso vaciaba el formulario entero ante cualquier
+  // rechazo del servidor: el cliente se quedaba mirando campos en blanco sin
+  // saber qué había hecho mal. Controlado, no se pierde nada nunca.
+  const [nombre, setNombre] = React.useState(prefill?.name ?? "");
+  const [telefono, setTelefono] = React.useState(
+    formatDominicanPhone(prefill?.phone ?? ""),
+  );
+  const [correo, setCorreo] = React.useState(prefill?.email ?? "");
+  const [sector, setSector] = React.useState("");
+  const [direccion, setDireccion] = React.useState("");
+  const [referencia, setReferencia] = React.useState("");
+  const [nota, setNota] = React.useState("");
+  const [sucursal, setSucursal] = React.useState(branches[0]?.slug ?? "");
+
   // El flete lo pone la lista que mandó el SERVIDOR, no un número del
   // formulario: el total que se cobra se recalcula igualmente al crear el
   // pedido, pero lo que se enseña aquí tiene que coincidir.
@@ -109,7 +127,7 @@ export function CheckoutView({
     };
   }, [items, mounted]);
 
-  async function enviar(formData: FormData) {
+  async function enviar() {
     setEnviando(true);
     setError(null);
     try {
@@ -120,15 +138,15 @@ export function CheckoutView({
           items,
           fulfillment: entrega,
           paymentMethod: metodoPago,
-          branchSlug: formData.get("branchSlug"),
-          province: formData.get("province"),
-          sector: formData.get("sector"),
-          address: formData.get("address"),
-          reference: formData.get("reference") || undefined,
-          contactName: formData.get("contactName"),
-          contactPhone: formData.get("contactPhone"),
-          contactEmail: formData.get("contactEmail") || undefined,
-          notes: formData.get("notes") || undefined,
+          branchSlug: sucursal,
+          province: provincia,
+          sector,
+          address: direccion,
+          reference: referencia || undefined,
+          contactName: nombre,
+          contactPhone: telefono,
+          contactEmail: correo || undefined,
+          notes: nota || undefined,
           idempotencyKey: idempotencyKey.current,
         }),
       });
@@ -204,7 +222,8 @@ export function CheckoutView({
             id="contactName"
             name="contactName"
             required
-            defaultValue={prefill?.name}
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
             autoComplete="name"
             className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
           />
@@ -222,7 +241,12 @@ export function CheckoutView({
             name="contactPhone"
             type="tel"
             required
-            defaultValue={prefill?.phone}
+            value={telefono}
+            // Misma máscara que el ERP: el cliente escribe dígitos y salen los
+            // guiones solos. El servidor acepta también el "+1" que produce.
+            onChange={(e) => setTelefono(formatDominicanPhone(e.target.value))}
+            placeholder="809-555-0000"
+            inputMode="tel"
             autoComplete="tel"
             className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
           />
@@ -242,7 +266,8 @@ export function CheckoutView({
             id="contactEmail"
             name="contactEmail"
             type="email"
-            defaultValue={prefill?.email}
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
             autoComplete="email"
             className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
           />
@@ -305,6 +330,8 @@ export function CheckoutView({
               id="branchSlug"
               name="branchSlug"
               required
+              value={sucursal}
+              onChange={(e) => setSucursal(e.target.value)}
               className="mt-1 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
             >
               {branches.map((s) => (
@@ -355,6 +382,8 @@ export function CheckoutView({
                 id="sector"
                 name="sector"
                 required
+                value={sector}
+                onChange={(e) => setSector(e.target.value)}
                 maxLength={120}
                 placeholder="Ej.: Los Jardines, Cerros de Gurabo…"
                 className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
@@ -372,6 +401,8 @@ export function CheckoutView({
                 id="address"
                 name="address"
                 required
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
                 maxLength={300}
                 autoComplete="street-address"
                 placeholder="Calle, número, edificio, apartamento"
@@ -389,6 +420,8 @@ export function CheckoutView({
               <input
                 id="reference"
                 name="reference"
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
                 maxLength={300}
                 placeholder="Ej.: casa amarilla, frente al colmado"
                 className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
@@ -489,6 +522,8 @@ export function CheckoutView({
             id="notes"
             name="notes"
             rows={3}
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
             maxLength={500}
             className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm"
           />
