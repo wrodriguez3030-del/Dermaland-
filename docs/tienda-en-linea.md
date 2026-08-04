@@ -5,10 +5,13 @@
 > de marca), que **se conserva tal cual**: las correcciones a su contenido se
 > registran aquí, no editándolo.
 
-**Estado:** Fases 1 y 2 completas (E0–E7). **638 fichas publicadas** y la tienda
-**apagada**: encenderla es una decisión del dueño, desde *Productos → Catálogo
-web*. El procedimiento está en [`tienda-lanzamiento.md`](./tienda-lanzamiento.md).
-**Última actualización:** 2026-08-03
+**Estado:** Fases 1 y 2 completas (E0–E7). **Fase 3 en marcha**: F3.0 entregada
+(portada, categorías navegables y recomendados) — su diseño está en
+[`specs/2026-08-04-tienda-fase-3-carrito-cuentas-pedidos-design.md`](./superpowers/specs/2026-08-04-tienda-fase-3-carrito-cuentas-pedidos-design.md).
+**638 fichas publicadas** y la tienda **apagada**: encenderla es una decisión del
+dueño, desde *Productos → Catálogo web*. El procedimiento está en
+[`tienda-lanzamiento.md`](./tienda-lanzamiento.md).
+**Última actualización:** 2026-08-04
 
 ---
 
@@ -225,6 +228,7 @@ de perder una venta.
 | E5 | Interfaz del catálogo y ficha de producto | **Hecho** |
 | E6 | SEO: sitemap, JSON-LD, canónicas, `noindex` de búsquedas | **Hecho** |
 | E7 | Admin "Catálogo web" (`/tienda-web`) | **Hecho** |
+| F3.0 | Portada con estantes, `/tienda/catalogo`, categorías navegables y recomendados | **Hecho** |
 
 **La tienda no se enciende hasta después de E7**, y encenderla es una decisión
 del dueño, no un paso del plan. Hoy sigue **apagada**, con 638 fichas sembradas

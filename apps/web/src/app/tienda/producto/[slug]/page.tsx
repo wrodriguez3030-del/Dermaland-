@@ -3,13 +3,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronRight, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { buildCatalogHref } from "@/features/storefront/catalog-params";
+import {
+  buildCatalogHref,
+  categoryHref,
+} from "@/features/storefront/catalog-params";
 import { ProductCard } from "@/features/storefront/components/product-card";
 import { ProductPhoto } from "@/features/storefront/components/product-photo";
 import {
   productInquiryMessage,
   whatsappLink,
 } from "@/features/storefront/contact";
+import { recommendFor } from "@/features/storefront/recommendations";
 import {
   breadcrumbJsonLd,
   productJsonLd,
@@ -99,7 +103,12 @@ export default async function ProductoPage({
     tenant.whatsappPhone,
     productInquiryMessage(producto.title, url),
   );
-  const relacionados = await cargarRelacionados(tenant.businessId, producto);
+  // Mismo catálogo cacheado que sirvió la ficha: `cache()` de React lo comparte
+  // dentro de la petición, así que recomendar no cuesta un viaje más a la base.
+  const { products: catalogo } = await loadPublishedCatalog(tenant.businessId);
+  const relacionados = recommendFor(producto, catalogo, {
+    limit: RELACIONADOS,
+  });
 
   return (
     <>
@@ -268,34 +277,6 @@ export default async function ProductoPage({
   );
 }
 
-/**
- * Relacionados: misma marca primero, luego misma categoría.
- *
- * Se resuelve sobre el catálogo ya cargado en memoria —sin una consulta más— y
- * se excluye lo agotado: recomendar lo que no se puede comprar es peor que no
- * recomendar nada.
- */
-async function cargarRelacionados(
-  businessId: string,
-  producto: PublicProduct,
-): Promise<PublicProduct[]> {
-  const { products } = await loadPublishedCatalog(businessId);
-  const candidatos = products.filter(
-    (p) => p.slug !== producto.slug && p.availability.status === "in_stock",
-  );
-  const mismaMarca = producto.brandSlug
-    ? candidatos.filter((p) => p.brandSlug === producto.brandSlug)
-    : [];
-  const mismaCategoria = producto.categorySlug
-    ? candidatos.filter(
-        (p) =>
-          p.categorySlug === producto.categorySlug &&
-          !mismaMarca.some((m) => m.slug === p.slug),
-      )
-    : [];
-  return [...mismaMarca, ...mismaCategoria].slice(0, RELACIONADOS);
-}
-
 /** Migas de pan: dónde estoy y cómo vuelvo. */
 function Migas({ producto }: { producto: PublicProduct }) {
   return (
@@ -314,10 +295,7 @@ function Migas({ producto }: { producto: PublicProduct }) {
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0" />
             <li>
               <Link
-                href={buildCatalogHref(
-                  {},
-                  { categorySlug: producto.categorySlug },
-                )}
+                href={categoryHref(producto.categorySlug)}
                 className="underline-offset-4 hover:text-[color:var(--brand-primary)] hover:underline"
               >
                 {producto.categoryName}

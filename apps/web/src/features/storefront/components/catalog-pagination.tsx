@@ -13,18 +13,24 @@ import type { CatalogQuery, CatalogResult } from "../types";
 export function CatalogPagination({
   query,
   result,
+  base,
 }: {
   query: CatalogQuery;
   result: CatalogResult;
+  /**
+   * Dónde viven las páginas. Por defecto la rejilla; una página de categoría
+   * pasa la suya para que "Siguiente" no eche al visitante fuera de ella.
+   */
+  base?: string;
 }) {
   if (result.pageCount <= 1) return null;
 
   const actual = result.page;
   const anterior =
-    actual > 1 ? buildCatalogHref(query, { page: actual - 1 }) : null;
+    actual > 1 ? buildCatalogHref(query, { page: actual - 1 }, base) : null;
   const siguiente =
     actual < result.pageCount
-      ? buildCatalogHref(query, { page: actual + 1 })
+      ? buildCatalogHref(query, { page: actual + 1 }, base)
       : null;
 
   return (

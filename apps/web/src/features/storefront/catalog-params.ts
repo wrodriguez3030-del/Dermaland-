@@ -22,6 +22,16 @@ export const CATALOG_PARAM = {
   page: "pagina",
 } as const;
 
+/**
+ * Dónde vive la rejilla con filtros, búsqueda y paginación.
+ *
+ * `/tienda` es la PORTADA. Tenerlas en la misma dirección obligaba a que una
+ * sola URL fuera dos páginas distintas según llevara o no parámetros, y eso se
+ * nota donde importa: el H1, la canónica y la política de indexación no pueden
+ * ser las mismas para una portada y para una página de resultados.
+ */
+export const CATALOG_BASE = "/tienda/catalogo";
+
 /** Lo que entrega Next en `searchParams`. */
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -68,7 +78,7 @@ export function hasActiveFilters(query: CatalogQuery): boolean {
 export function buildCatalogHref(
   query: CatalogQuery,
   cambios: Partial<CatalogQuery> = {},
-  base = "/tienda",
+  base = CATALOG_BASE,
 ): string {
   const cambiaFiltro =
     "q" in cambios || "brandSlug" in cambios || "categorySlug" in cambios || "sort" in cambios;
@@ -91,6 +101,21 @@ export function buildCatalogHref(
 
   const cadena = params.toString();
   return cadena ? `${base}?${cadena}` : base;
+}
+
+/**
+ * Dirección de una categoría.
+ *
+ * Una categoría es una PÁGINA, no un filtro: tiene su propio H1, su propia
+ * canónica y su sitio en el sitemap. Un `?categoria=solares` es invisible para
+ * un buscador; esto no.
+ *
+ * `encodeURIComponent` porque el slug se deriva de un nombre escrito por una
+ * persona: aunque `slugify` lo limpie, esta función también la llaman las
+ * pruebas y el sitemap con lo que haya en la base.
+ */
+export function categoryHref(slug: string): string {
+  return `/tienda/categoria/${encodeURIComponent(slug)}`;
 }
 
 /** Etiquetas de los órdenes, de cara al cliente. */

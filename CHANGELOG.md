@@ -10,6 +10,40 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.114.0] - 2026-08-04
+
+**Fase 3, incremento F3.0: la tienda deja de ser una rejilla y pasa a ser una
+tienda. Sigue APAGADA — encenderla es una decisión del dueño.**
+
+- **`/tienda` es ahora una PORTADA**, no una rejilla de 24 tarjetas iguales:
+  cabecera con el lema, cuántos productos hay disponibles hoy y las dos
+  sucursales, y debajo estantes horizontales por sección (destacados, novedades
+  y una fila por categoría). El motor que decide los estantes es una función
+  pura probada (`features/storefront/home-sections.ts`): un estante con menos de
+  cuatro productos no se enseña, ningún producto se repite entre estantes, y
+  nada de esto usa azar —el catálogo va cacheado cinco minutos y un orden
+  aleatorio serviría portadas distintas a cada visitante—.
+- **La rejilla con filtros se muda a `/tienda/catalogo`.** Una sola dirección no
+  puede ser portada y buscador a la vez: el H1, la canónica y la política de
+  indexación no pueden ser las mismas para las dos. Los enlaces viejos con `?q=`
+  o `?marca=` **redirigen** con sus filtros puestos, así que lo ya compartido por
+  WhatsApp sigue funcionando.
+- **Cada categoría tiene su propia página** (`/tienda/categoria/[slug]`), con
+  título, canónica y sitio en el sitemap. Antes solo existía como parámetro
+  (`?categoria=solares`), invisible para un buscador. El sitemap pasa de 639 a
+  647 URLs.
+- **Buscador visible en todo momento** en el encabezado, más una barra de
+  categorías que se desplaza de lado en móvil en vez de esconderse tras un botón.
+  Es un `<form method="get">`: sin estado, sin JavaScript, sin hidratación.
+- **Recomendados por categoría** (`features/storefront/recommendations.ts`). La
+  ficha recomendaba por marca; el negocio pidió por categoría. Ahora la categoría
+  pesa más que la marca, y quedan fuera lo agotado y lo que no tiene foto.
+- **Corregido:** las migas de pan para Google apuntaban a `/tienda?categoria=…`,
+  que hoy redirige. Un rastro de migas hacia un 307 le dice al buscador que la
+  ruta declarada no es la que servimos.
+- La paginación acepta una base propia: sin ella, "Siguiente" dentro de una
+  categoría echaba al visitante fuera de la página que acababa de encontrar.
+
 ## [0.113.1] - 2026-08-04
 
 **Corrección: la tienda se anunciaba a sí misma en `localhost`.**

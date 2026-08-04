@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { PackageSearch } from "lucide-react";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { MapPin } from "lucide-react";
 import {
   buildCatalogHref,
-  hasActiveFilters,
   parseCatalogParams,
   type RawSearchParams,
 } from "@/features/storefront/catalog-params";
-import {
-  DEFAULT_PAGE_SIZE,
-  queryCatalog,
-} from "@/features/storefront/catalog-query";
-import { CatalogFilters } from "@/features/storefront/components/catalog-filters";
-import { CatalogPagination } from "@/features/storefront/components/catalog-pagination";
-import { ProductCard } from "@/features/storefront/components/product-card";
-import { whatsappLink } from "@/features/storefront/contact";
+import { ProductShelf } from "@/features/storefront/components/product-shelf";
+import { buildHomeSections } from "@/features/storefront/home-sections";
 import {
   serializeJsonLd,
   storeJsonLd,
@@ -26,84 +20,54 @@ import {
 } from "@/server/services/storefront/tenant";
 
 /**
- * Catálogo público.
+ * Portada de la tienda.
  *
- * El catálogo entero se carga UNA vez (cacheado) y la búsqueda, los filtros y el
- * orden se resuelven en memoria con `queryCatalog`, una función pura probada sin
- * base de datos. Es lo que permite que quien teclea "avene" encuentre "AVÈNE"
- * sin instalar `unaccent`/`pg_trgm` ni añadir columnas a `products`, la tabla de
- * la que dependen POS, DGII e inventario. El umbral para cambiar de estrategia
- * (~5 000 productos publicados) está escrito en `docs/tienda-en-linea.md` §3.5.
+ * Ya no es una rejilla de 24 tarjetas iguales: es una portada con estantes por
+ * sección, para que quien llega entienda de un vistazo qué se vende aquí. La
+ * rejilla con filtros, orden y paginación vive en `/tienda/catalogo`.
+ *
+ * `searchParams` se lee ANTES de nada a propósito. Si el primer `await` fuera el
+ * del negocio, con la tienda apagada la página llamaría a `notFound()` sin haber
+ * tocado la barra de dirección, y Next la prerrenderizaría como ruta ESTÁTICA en
+ * el build: al encender la tienda seguiría sirviendo ese 404 congelado.
  */
 
-/** Primera página cargada de inmediato: son las fotos que se ven sin bajar. */
-const FOTOS_PRIORITARIAS = 4;
-
-/**
- * Metadatos del catálogo.
- *
- * Las páginas de RESULTADOS DE BÚSQUEDA se marcan `noindex`: son contenido
- * pobre y duplicado (el mismo producto aparece en decenas de consultas
- * distintas), y los buscadores piden expresamente no indexarlas. `follow` sí,
- * para que el rastreador siga los enlaces a las fichas, que son las páginas que
- * de verdad interesan.
- *
- * Los filtros por marca y categoría SÍ se indexan: son colecciones reales y
- * estables, con su propia URL canónica.
- */
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams: Promise<RawSearchParams>;
-}): Promise<Metadata> {
-  const query = parseCatalogParams(await searchParams);
-
-  if (query.q) {
-    return {
-      title: `Resultados de «${query.q}»`,
-      robots: { index: false, follow: true },
-    };
-  }
-  return {
-    title: "Catálogo",
-    alternates: { canonical: buildCatalogHref(query) },
-  };
-}
+export const metadata: Metadata = {
+  title: "Inicio",
+  alternates: { canonical: "/tienda" },
+};
 
 export default async function TiendaPage({
   searchParams,
 }: {
   searchParams: Promise<RawSearchParams>;
 }) {
-  // `searchParams` se lee ANTES de cualquier otra cosa a propósito. Si el primer
-  // `await` fuera el del tenant, con la tienda apagada la página llamaría a
-  // `notFound()` sin haber tocado nunca la barra de dirección, y Next la
-  // prerrenderizaría como una ruta ESTÁTICA en el build: al encender la tienda
-  // seguiría sirviendo el 404 congelado. Leerlo primero deja constancia de que
-  // esta página depende de la URL y siempre se renderiza en caliente.
   const params = await searchParams;
+
+  // Los enlaces viejos —los que ya se compartieron por WhatsApp con `?q=` o
+  // `?marca=`— siguen funcionando: se mandan a la rejilla con sus filtros
+  // puestos, en vez de caer en una portada que los ignora en silencio.
   const query = parseCatalogParams(params);
+  if (query.q || query.brandSlug || query.categorySlug) {
+    redirect(buildCatalogHref(query));
+  }
 
   const tenant = await resolveStorefrontTenant();
   if (!tenant) notFound();
 
-  const { products, brands, categories } = await loadPublishedCatalog(
-    tenant.businessId,
-  );
-  const resultado = queryCatalog(products, {
-    ...query,
-    pageSize: DEFAULT_PAGE_SIZE,
-  });
-  const filtrado = hasActiveFilters(query);
-  const whatsapp = whatsappLink(
-    tenant.whatsappPhone,
-    query.q ? `Hola, estoy buscando: ${query.q}` : undefined,
-  );
+  const { products, categories } = await loadPublishedCatalog(tenant.businessId);
+  const secciones = buildHomeSections(products, categories);
+  // Se cuenta lo que se puede comprar HOY, no el catálogo entero: prometer 638
+  // productos y que la mitad esté agotada es peor que no prometer nada.
+  const productosDisponibles = products.filter(
+    (p) => p.availability.status === "in_stock",
+  ).length;
 
   return (
     <>
       {/* La tienda como negocio local, con sus sucursales: es lo que permite
-          que Google enseñe dirección y teléfono junto al resultado. */}
+          que Google enseñe dirección y teléfono junto al resultado. Va en la
+          portada y solo aquí, para no repetir la misma ficha en cada página. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -111,90 +75,65 @@ export default async function TiendaPage({
         }}
       />
 
-      <section className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-[color:var(--brand-fg)] sm:text-3xl">
-          {filtrado ? "Resultados" : "Catálogo"}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-[color:var(--brand-fg)]/70">
+      {/* Sin buscador aquí: el del encabezado es fijo y se ve en todo momento,
+          así que uno más a cuatro dedos de distancia solo parece un descuido. */}
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[color:var(--brand-primary)] to-[color:var(--brand-accent)] px-6 py-10 text-white sm:px-10 sm:py-12">
+        <h1 className="max-w-2xl text-2xl font-bold leading-tight tracking-tight sm:text-4xl">
           {tenant.tagline ??
             "Dermocosmética y cuidado de la piel, con asesoría de nuestro equipo."}
+        </h1>
+        <p className="mt-3 max-w-xl text-sm text-white/80 sm:text-base">
+          {productosDisponibles > 0
+            ? `${productosDisponibles.toLocaleString("es-DO")} productos disponibles hoy.`
+            : "Explora nuestro catálogo."}{" "}
+          Te asesoramos por WhatsApp y coordinamos la entrega o el retiro en
+          sucursal.
         </p>
+
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <Link
+            href={buildCatalogHref({})}
+            className="inline-flex min-h-12 items-center rounded-xl bg-white px-6 text-sm font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--brand-primary)]"
+          >
+            Ver todo el catálogo
+          </Link>
+          {/* Dos tiendas físicas es lo que distingue a este negocio de una web
+              cualquiera. Se dice arriba, no escondido en el pie. */}
+          {tenant.branches.length > 0 ? (
+            <p className="flex items-center gap-2 text-sm text-white/80">
+              <MapPin aria-hidden className="h-4 w-4 shrink-0" />
+              {tenant.branches.map((s) => s.name).join(" · ")}
+            </p>
+          ) : null}
+        </div>
       </section>
 
-      <CatalogFilters query={query} brands={brands} categories={categories} />
-
-      {resultado.usedFuzzy ? (
-        // La búsqueda solo tolera erratas cuando no hubo ninguna coincidencia
-        // exacta. Decirlo evita que el cliente crea que le enseñamos otra cosa
-        // por error.
-        <p className="mt-4 rounded-xl bg-[color:var(--brand-warn)]/10 px-4 py-3 text-sm text-[color:var(--brand-fg)]/80">
-          No encontramos exactamente <strong>«{query.q}»</strong>. Estos son los
-          resultados más parecidos.
-        </p>
-      ) : null}
-
-      <p
-        className="mt-6 text-sm text-[color:var(--brand-fg)]/60"
-        aria-live="polite"
-      >
-        {resultado.total === 0
-          ? "Ningún producto coincide"
-          : resultado.total === 1
-            ? "1 producto"
-            : `${resultado.total} productos`}
-      </p>
-
-      {resultado.items.length > 0 ? (
-        <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {resultado.items.map((producto, indice) => (
-            <li key={producto.slug} className="h-full">
-              <ProductCard
-                product={producto}
-                priority={indice < FOTOS_PRIORITARIAS}
-              />
-            </li>
+      {secciones.length > 0 ? (
+        <div className="mt-12">
+          {secciones.map((seccion, indice) => (
+            <ProductShelf
+              key={seccion.key}
+              section={seccion}
+              priority={indice === 0}
+            />
           ))}
-        </ul>
-      ) : (
-        <div className="mt-4 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-14 text-center">
-          <PackageSearch
-            aria-hidden
-            className="mx-auto h-10 w-10 text-[color:var(--brand-fg)]/30"
-          />
-          <p className="mt-4 font-semibold text-[color:var(--brand-fg)]">
-            No encontramos productos con esos filtros
-          </p>
-          <p className="mt-1 text-sm text-[color:var(--brand-fg)]/60">
-            Prueba con menos filtros, o escríbenos y te ayudamos a buscarlo.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            {filtrado ? (
-              <a
-                href={buildCatalogHref(query, {
-                  q: undefined,
-                  brandSlug: undefined,
-                  categorySlug: undefined,
-                })}
-                className="inline-flex min-h-11 items-center rounded-xl border border-black/10 bg-white px-5 text-sm font-medium text-[color:var(--brand-fg)] hover:border-[color:var(--brand-accent)] hover:text-[color:var(--brand-primary)]"
-              >
-                Ver todo el catálogo
-              </a>
-            ) : null}
-            {whatsapp ? (
-              <a
-                href={whatsapp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center rounded-xl bg-[color:var(--brand-primary)] px-5 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent)]"
-              >
-                Preguntar por WhatsApp
-              </a>
-            ) : null}
-          </div>
         </div>
+      ) : (
+        // La tienda encendida pero sin nada publicado NO es un error: es el
+        // estado normal el día antes del lanzamiento.
+        <p className="mt-12 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-14 text-center text-sm text-[color:var(--brand-fg)]/60">
+          Estamos preparando el catálogo. Vuelve en un rato.
+        </p>
       )}
 
-      <CatalogPagination query={query} result={resultado} />
+      <p className="mt-14 text-center">
+        <Link
+          href={buildCatalogHref({})}
+          className="inline-flex min-h-12 items-center rounded-xl border border-black/10 bg-white px-6 text-sm font-semibold text-[color:var(--brand-primary)] hover:border-[color:var(--brand-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)]"
+        >
+          Ver todo el catálogo
+        </Link>
+      </p>
     </>
   );
 }

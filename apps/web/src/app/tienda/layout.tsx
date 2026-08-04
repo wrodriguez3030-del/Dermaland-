@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin, MessageCircle, Phone } from "lucide-react";
+import { CategoryNav } from "@/features/storefront/components/category-nav";
+import { SearchBox } from "@/features/storefront/components/search-box";
 import { whatsappLink } from "@/features/storefront/contact";
+import { loadPublishedCatalog } from "@/server/services/storefront/catalog";
 import {
   resolveStorefrontTenant,
   storefrontBaseUrl,
@@ -61,6 +64,10 @@ export default async function TiendaLayout({
   if (!tenant) notFound();
 
   const whatsapp = whatsappLink(tenant.whatsappPhone);
+  // Misma llamada cacheada que usan la portada y el catálogo: `cache()` de React
+  // la comparte dentro de la petición, así que el encabezado no cuesta un viaje
+  // más a la base.
+  const { categories } = await loadPublishedCatalog(tenant.businessId);
 
   return (
     <div className="flex min-h-screen flex-col bg-[color:var(--brand-bg)]">
@@ -81,12 +88,15 @@ export default async function TiendaLayout({
             <span className="text-lg font-bold tracking-tight text-[color:var(--brand-primary)] sm:text-xl">
               {tenant.siteName}
             </span>
-            {tenant.tagline ? (
-              <span className="hidden text-sm text-[color:var(--brand-fg)]/60 md:inline">
-                {tenant.tagline}
-              </span>
-            ) : null}
           </Link>
+
+          {/* En escritorio el buscador va en la fila del logo; en móvil no
+              cabría —se quedaría en 120 px y nadie escribiría ahí— y baja a su
+              propia fila. El lema se sacrifica: el buscador vale más. */}
+          <SearchBox
+            id="buscador-encabezado"
+            className="hidden max-w-md flex-1 md:block"
+          />
 
           {whatsapp ? (
             <a
@@ -103,6 +113,12 @@ export default async function TiendaLayout({
             </a>
           ) : null}
         </div>
+
+        <div className="mx-auto max-w-6xl px-4 pb-3 sm:px-6 md:hidden">
+          <SearchBox id="buscador-movil" />
+        </div>
+
+        <CategoryNav categories={categories} />
       </header>
 
       <main

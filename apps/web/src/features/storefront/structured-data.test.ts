@@ -105,10 +105,18 @@ describe("breadcrumbJsonLd", () => {
     const items = datos.itemListElement as unknown as { position: number; name: string }[];
     expect(items.map((i) => i.position)).toEqual([1, 2, 3]);
     expect(items.map((i) => i.name)).toEqual([
-      "Catálogo",
+      "Tienda",
       "Cuidado facial",
       "Avène Cicalfate+ Crema",
     ]);
+  });
+
+  it("las migas apuntan a las MISMAS direcciones que los enlaces visibles", () => {
+    // Apuntaban a `/tienda?categoria=…`, que hoy redirige. Un rastro de migas
+    // hacia un 307 le dice a Google que la ruta declarada no es la servida.
+    const items = (breadcrumbJsonLd(producto(), BASE) as Record<string, never>)
+      .itemListElement as unknown as { item: string }[];
+    expect(items[1]?.item).toBe(`${BASE}/tienda/categoria/cuidado-facial`);
   });
 
   it("sin categoría son solo dos escalones", () => {

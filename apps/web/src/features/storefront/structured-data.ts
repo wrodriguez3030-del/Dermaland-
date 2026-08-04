@@ -11,6 +11,7 @@
 // que edita el personal del negocio: no es un atacante remoto, pero tampoco hace
 // falta confiar en que nadie pegue nunca algo raro en un campo de texto.
 
+import { categoryHref } from "./catalog-params";
 import type { PublicProduct, StorefrontTenant } from "./types";
 
 /** Moneda ISO. La tienda solo vende en pesos dominicanos. */
@@ -64,18 +65,24 @@ export function productJsonLd(
   };
 }
 
-/** Migas de pan para el buscador; las mismas que ve la persona. */
+/**
+ * Migas de pan para el buscador; las mismas que ve la persona.
+ *
+ * Las direcciones tienen que ser las MISMAS que las de los enlaces visibles.
+ * Apuntaban a `/tienda?categoria=…`, que hoy redirige: un rastro de migas hacia
+ * un 307 le dice a Google que la ruta que declaramos no es la que servimos.
+ */
 export function breadcrumbJsonLd(
   product: PublicProduct,
   baseUrl: string,
 ): Record<string, unknown> {
   const items: { name: string; url: string }[] = [
-    { name: "Catálogo", url: `${baseUrl}/tienda` },
+    { name: "Tienda", url: `${baseUrl}/tienda` },
   ];
   if (product.categoryName && product.categorySlug) {
     items.push({
       name: product.categoryName,
-      url: `${baseUrl}/tienda?categoria=${encodeURIComponent(product.categorySlug)}`,
+      url: `${baseUrl}${categoryHref(product.categorySlug)}`,
     });
   }
   items.push({
