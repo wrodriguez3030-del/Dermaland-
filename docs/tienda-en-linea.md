@@ -5,7 +5,9 @@
 > de marca), que **se conserva tal cual**: las correcciones a su contenido se
 > registran aquí, no editándolo.
 
-**Estado:** Fase 1 en curso · **Última actualización:** 2026-08-03
+**Estado:** Fases 1 y 2 completas (E0–E7). La tienda **está apagada**: encenderla
+es una decisión del dueño, desde *Productos → Catálogo web*.
+**Última actualización:** 2026-08-03
 
 ---
 
@@ -83,6 +85,26 @@ Excepciones a corregir antes de publicar: **12 URLs externas** apuntando a
 `cdn1.costatic.com` (hotlink a un CDN ajeno) y **1 data-URL de 32 KB** guardada
 dentro de la columna. Ninguna se publica: caen al marcador de posición.
 
+### 2.6 La URL de la foto SÍ contiene el `business_id` y el id del producto
+
+Corrige lo que promete §3.4 más abajo. La lista blanca gobierna los **campos**
+del objeto público; la **ruta de la foto** es otra cosa:
+`/storage/v1/object/public/product-images/businesses/{business_id}/products/{product_id}/image.webp`.
+Esos dos UUID aparecen en el HTML del catálogo (79 veces en una página de 24
+productos) y no hay forma de evitarlo sin dejar de servir las fotos directamente
+desde el CDN de Supabase.
+
+**Decisión (2026-08-03, autorizada por el dueño): se acepta.** Son
+identificadores opacos y aleatorios que no dan acceso a nada: `anon` no tiene
+`SELECT` sobre ninguna de estas tablas, la RLS es deny-by-default y todas las
+rutas de la API están tras sesión. Las alternativas —servir cada foto por una
+función propia o redirigir desde ella— cuestan una invocación por imagen y
+empeoran el LCP con 24 fotos por página, a cambio de ocultar un dato que no es
+secreto.
+
+Lo que sigue siendo cierto y está probado: **no salen** el costo, el margen, el
+SKU, el código de barras, el stock exacto ni nada de `product_lots`.
+
 ---
 
 ## 3. Decisiones de arquitectura
@@ -154,7 +176,34 @@ payload cacheado ~1 MB, se pasa a búsqueda en base con una migración `0037`
 (`unaccent` + `pg_trgm` + columna generada + índice GIN). Diseñada, no
 implementada.
 
-### 3.6 Lo agotado se muestra, pero nunca primero
+### 3.6 Una sola definición de "publicable"
+
+La regla (activo, vendible, sin borrar, con precio, sin receta, no controlado,
+con foto en el bucket propio) llegó a estar escrita **tres veces**: en el script
+de sembrado, en los filtros `WHERE` de la lectura pública y en la cabeza de quien
+mirara la lista. Hoy vive **solo** en `features/storefront/publishability.ts`,
+como función pura probada, y tanto la tienda como el admin la llaman.
+
+Consecuencia deliberada: la lectura pública ya **no** filtra en SQL. Trae las
+filas de los productos marcados visibles y aplica la regla en TypeScript. Cuesta
+unas pocas filas más por consulta y evita que un día la tienda y el admin
+discrepen sobre qué es publicable.
+
+La misma función devuelve los **motivos en lenguaje llano**, que es lo que el
+admin enseña: "No tiene precio", "No tiene foto propia". Un interruptor que no se
+deja encender sin decir por qué es la peor forma de dar una noticia.
+
+### 3.7 La caché vive en la capa de datos, no en la ruta
+
+La página del catálogo depende de la barra de dirección (`?q=`, `?marca=`,
+`?pagina=`), así que se renderiza siempre en caliente y un `revalidate` de ruta
+no serviría de nada. La caché entre peticiones la pone `unstable_cache` sobre el
+cargador del catálogo y sobre el resolutor del tenant, con etiquetas
+(`storefront-catalog`, `storefront-tenant`) que el admin invalida en **cada**
+escritura. Sin esa invalidación, quien publica un producto no lo vería en la
+tienda hasta cinco minutos después y concluiría que el botón no funciona.
+
+### 3.8 Lo agotado se muestra, pero nunca primero
 
 Un producto sin existencias sigue siendo útil (informa, posiciona, se puede
 consultar por WhatsApp), así que aparece en el catálogo; pero la relevancia lo
@@ -168,16 +217,52 @@ de perder una venta.
 | # | Incremento | Estado |
 |---|---|---|
 | E0 | Núcleo puro (`types`, `slug`, `availability`, `catalog-query`) + pruebas + este documento | **Hecho** |
-| E1 | Migración `0036_storefront_web_catalog` | Pendiente de autorización |
-| E2 | Sembrado idempotente + `show_on_website` | Pendiente (autorizado por el dueño) |
-| E3 | Capa de lectura pública (`tenant`, `catalog`, `public-product`) | Pendiente |
-| E4 | Middleware + esqueleto de rutas | Pendiente |
-| E5 | Interfaz del catálogo | Pendiente |
-| E6 | Imágenes y SEO | Pendiente |
-| E7 | Admin "Catálogo web" | Pendiente |
+| E1 | Migración `0036_storefront_web_catalog` | **Hecho** (aplicada y verificada por objeto) |
+| E2 | Sembrado idempotente + `show_on_website` | **Hecho** (638 fichas, 2 sucursales) |
+| E3 | Capa de lectura pública (`tenant`, `catalog`, `public-product`) | **Hecho** |
+| E4 | Middleware + rutas públicas | **Hecho** |
+| E5 | Interfaz del catálogo y ficha de producto | **Hecho** |
+| E6 | SEO: sitemap, JSON-LD, canónicas, `noindex` de búsquedas | **Hecho** |
+| E7 | Admin "Catálogo web" (`/tienda-web`) | **Hecho** |
 
 **La tienda no se enciende hasta después de E7**, y encenderla es una decisión
-del dueño, no un paso del plan.
+del dueño, no un paso del plan. Hoy sigue **apagada**, con 638 fichas sembradas
+y **ninguna publicada**.
+
+### 4.1 Lo que enseñó ejecutarlo
+
+Tres cosas que solo aparecieron al probar, y que no se habrían visto leyendo el
+código:
+
+- **`/robots.txt` respondía 307 a `/login`.** El `matcher` del middleware no
+  excluye `.txt`, así que ningún rastreador llegaba a leer las reglas — y sin
+  reglas, un rastreador asume que puede rastrear todo. Justo lo contrario de lo
+  que necesita R-WEB-03. `/robots.txt` y `/sitemap.xml` están ahora en
+  `PUBLIC_PATHS`.
+- **Next fijaba `/tienda` como ruta estática.** Con la tienda apagada,
+  `notFound()` se ejecutaba antes de leer `searchParams`, así que el build
+  concluía que la página no dependía de la URL y prerrenderizaba el 404: al
+  encender la tienda habría seguido sirviendo ese 404 congelado. `searchParams`
+  se lee ahora en la primera línea, y hay un comentario que explica por qué.
+- **La caché guarda también el "no hay tienda".** Encender la tienda no se ve
+  hasta que se invalida `storefront-tenant`; por eso el admin lo hace en cada
+  guardado.
+
+---
+
+## 4.2 Qué falta antes de encender
+
+1. **Confirmar que el 809-226-5252 tiene WhatsApp.** Es el número configurado y
+   el botón de cada ficha lleva a él. Si esa línea es fija, el botón —que sin
+   carrito **es** la venta— acaba en un chat muerto.
+2. **Redactar contenido.** Las 638 fichas se publican hoy con el nombre del ERP
+   (en MAYÚSCULAS) y sin resumen, descripción ni beneficios: los campos
+   comerciales nunca existieron en la base (§2.1). Se escriben desde
+   *Productos → Catálogo web*.
+3. **Decidir con cuántos productos se lanza.** 638 de 1 355; el resto no puede
+   publicarse, casi siempre por falta de foto (R-WEB-05).
+4. **Revisar el `og:image`** de la tienda: hoy no hay ninguno configurado, así
+   que al compartir el enlace no se ve tarjeta con imagen.
 
 ---
 
@@ -211,4 +296,6 @@ del dueño, no un paso del plan.
 | R-WEB-04 | Deriva de migraciones (36 archivos locales / 26 registradas) | Verificar **por objeto**, no por historial; la 0036 es 100 % `if not exists` |
 | R-WEB-05 | 704 productos sin foto | La publicación por lote filtra por foto; marcador digno cuando falte |
 | R-WEB-06 | Hotlink a un CDN ajeno y data-URL en la base | No se publican; re-subida con los scripts existentes |
-| R-WEB-07 | Catálogo publicado incompleto al lanzar | Es decisión de negocio: se lanza con 651 o se completan fotos antes |
+| R-WEB-07 | Catálogo publicado incompleto al lanzar | Es decisión de negocio: se lanza con 638 o se completan fotos antes |
+| R-WEB-08 | El botón de WhatsApp apunta a una línea sin WhatsApp | Confirmar el número antes de encender; `whatsappLink` ya devuelve `null` —y oculta el botón— si el número no es marcable |
+| R-WEB-09 | Las fichas salen con el nombre en MAYÚSCULAS y sin contenido | El admin permite redactarlas; el título comercial cae al nombre del ERP solo mientras nadie lo escriba |

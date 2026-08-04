@@ -18,6 +18,11 @@ function producto(over: Partial<WebProductRow> = {}): WebProductRow {
     image_url: FOTO,
     brand_id: "b-1",
     category_id: "c-1",
+    active: true,
+    sellable: true,
+    deleted_at: null,
+    requires_prescription: false,
+    controlled: false,
     ...over,
   };
 }

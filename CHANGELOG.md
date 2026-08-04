@@ -10,6 +10,47 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.113.0] - 2026-08-03
+
+**Tienda en línea navegable (E3–E7): catálogo público, SEO y su administración.
+La tienda sigue APAGADA — encenderla es una decisión del dueño.**
+
+- **`/tienda` y `/tienda/producto/[slug]`** con búsqueda, filtros por marca y
+  categoría, orden, paginación, ficha, relacionados y botón de WhatsApp con el
+  producto ya escrito en el mensaje. Los filtros son un `<form method="get">` y
+  la paginación son enlaces reales: el catálogo funciona con el bundle a medio
+  cargar —un móvil en la calle— y cada combinación queda en una URL compartible.
+- **Se lee con service-role acotado, nunca con la clave anónima.** La anónima
+  viaja en el navegador y RLS filtra filas, no columnas: una política de lectura
+  para `anon` sobre `products` dejaría pedir `?select=cost,price` y deducir los
+  márgenes de todo el catálogo. Hay una prueba que falla si el costo, el SKU, el
+  código de barras, el `business_id`, el UUID interno o la cantidad exacta de
+  existencias aparecen serializados.
+- **El tenant se resuelve sin parámetros**, por `storefront_enabled`, y falla
+  cerrado ante 0 o más de una tienda: si el visitante pudiera influir en qué
+  negocio se resuelve, serviríamos nosotros mismos el salto de tenant.
+- **Una sola definición de "publicable".** La regla estaba escrita tres veces
+  (sembrado, filtros SQL y criterio humano); ahora vive en
+  `features/storefront/publishability.ts` y devuelve los motivos en lenguaje
+  llano, que es lo que el admin enseña cuando un producto no puede publicarse.
+- **SEO**: `sitemap.xml` con las 639 URLs, JSON-LD de producto (precio, moneda y
+  disponibilidad), migas y negocio local. El JSON-LD escapa `<`: un nombre de
+  producto con `</script>` cerraría la etiqueta y el navegador ejecutaría lo que
+  viniera detrás. Las páginas de resultados de búsqueda van `noindex, follow`.
+- **Admin "Catálogo web"** (*Productos → Catálogo web*): interruptor de la
+  tienda con confirmación, configuración pública, publicación individual y **en
+  lote** —638 fichas de una en una no son una opción—, y redacción del contenido
+  comercial, que no se hereda de nada porque esos campos nunca existieron en la
+  base. Escribe con la sesión del usuario (RLS), audita cada cambio con etiquetas
+  legibles e invalida la caché de la tienda en cada guardado.
+- **Tres fallos que solo aparecieron al ejecutarlo:** `/robots.txt` respondía 307
+  a `/login` (el `matcher` no excluye `.txt`, así que ningún rastreador leía las
+  reglas); Next fijaba `/tienda` como ruta ESTÁTICA porque `notFound()` corría
+  antes de leer `searchParams`, y al encender la tienda habría seguido sirviendo
+  el 404 congelado; y la caché guardaba también el "no hay tienda", que es lo que
+  ahora invalida el admin.
+- 2 070 pruebas en verde (39 nuevas del módulo).
+
 ## [0.112.0] - 2026-08-03
 
 **Tienda en línea, E0: el núcleo puro. Nada toca la base ni las rutas todavía.**

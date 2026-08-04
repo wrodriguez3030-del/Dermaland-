@@ -111,6 +111,7 @@ export const groups: NavGroup[] = [
     icon: Pill,
     items: [
       { label: "Productos", href: "/productos" },
+      { label: "Catálogo web", href: "/tienda-web" },
       { label: "Categorías", href: "/productos/categorias" },
       { label: "Marcas", href: "/productos/marcas" },
       { label: "Laboratorios", href: "/productos/laboratorios" },

@@ -25,7 +25,13 @@ import type { PublicProduct } from "@/features/storefront/types";
  */
 export const PUBLIC_IMAGE_PATH = "/storage/v1/object/public/product-images/";
 
-/** Columnas de `products` que la tienda necesita. NUNCA `select("*")`. */
+/**
+ * Columnas de `products` que la tienda necesita. NUNCA `select("*")`.
+ *
+ * Las cinco últimas NO se publican: solo alimentan la regla de
+ * `features/storefront/publishability.ts`. `toPublicProduct` no las lee, y la
+ * prueba de lista blanca falla si alguna apareciera serializada.
+ */
 export interface WebProductRow {
   id: string;
   name: string;
@@ -34,6 +40,11 @@ export interface WebProductRow {
   image_url: string | null;
   brand_id: string | null;
   category_id: string | null;
+  active: boolean;
+  sellable: boolean;
+  deleted_at: string | null;
+  requires_prescription: boolean;
+  controlled: boolean;
 }
 
 /** Columnas de `product_web_meta` que la tienda necesita. */

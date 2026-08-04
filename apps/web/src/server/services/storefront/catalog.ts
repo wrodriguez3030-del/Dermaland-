@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { isSellableForWeb } from "@/features/storefront/availability";
+import { isPublishable } from "@/features/storefront/publishability";
 import { slugify } from "@/features/storefront/slug";
 import type {
   PublicProduct,
@@ -37,9 +38,17 @@ import {
 /** Cuántos ids caben en un `in.(…)`: la consulta viaja en la URL de un GET. */
 const ID_CHUNK = 150;
 
-/** Columnas de `products` que se leen. Cualquier otra sería una fuga. */
+/**
+ * Columnas de `products` que se leen. Cualquier otra sería una fuga.
+ *
+ * Las cinco últimas no se publican: alimentan la regla de publicabilidad, que
+ * se evalúa aquí en TypeScript y no con filtros SQL. Escribirla como `WHERE`
+ * habría dejado una segunda copia de la regla —la primera está en
+ * `features/storefront/publishability.ts`— y dos copias de una regla que cambia
+ * son la forma segura de que un día el catálogo enseñe algo que no debía.
+ */
 const PRODUCT_COLUMNS =
-  "id, name, presentation, price, image_url, brand_id, category_id";
+  "id, name, presentation, price, image_url, brand_id, category_id, active, sellable, deleted_at, requires_prescription, controlled";
 
 /** Columnas de `product_web_meta` que se leen. */
 const META_COLUMNS =
@@ -170,28 +179,33 @@ const leerCatalogoPublicado = async (
 
   const ids = metas.map((m) => m.product_id);
 
-  // ── 2) Los productos, con los filtros duros en la base ───────────────────
+  // ── 2) Los productos ─────────────────────────────────────────────────────
   // Publicado no basta: un producto puede haberse desactivado, quedarse sin
-  // precio o pasar a exigir receta DESPUÉS de publicarse. Estos filtros son
-  // los mismos que aplicó el sembrado, y se vuelven a aplicar en cada lectura
-  // porque el catálogo cambia todos los días y `product_web_meta` no se entera.
+  // precio o pasar a exigir receta DESPUÉS de publicarse. La regla se aplica en
+  // cada lectura porque el catálogo cambia todos los días y `product_web_meta`
+  // no se entera.
   const productos: WebProductRow[] = [];
   for (const grupo of chunk(ids, ID_CHUNK)) {
     const { data, error } = await sb
       .from("products")
       .select(PRODUCT_COLUMNS)
       .eq("business_id", businessId)
-      .in("id", grupo)
-      .eq("active", true)
-      .eq("sellable", true)
-      .eq("requires_prescription", false)
-      .eq("controlled", false)
-      .is("deleted_at", null)
-      .gt("price", 0);
+      .in("id", grupo);
     if (error) throw error;
     productos.push(...(data ?? []));
   }
-  if (productos.length === 0) return CATALOGO_VACIO;
+  const publicables = productos.filter((p) =>
+    isPublishable({
+      active: p.active,
+      sellable: p.sellable,
+      deletedAt: p.deleted_at,
+      price: p.price,
+      requiresPrescription: p.requires_prescription,
+      controlled: p.controlled,
+      hasValidImage: !!publicImageUrl(p.image_url, supabaseUrl),
+    }),
+  );
+  if (publicables.length === 0) return CATALOGO_VACIO;
 
   // ── 3) Existencias vendibles ─────────────────────────────────────────────
   // Misma regla que el POS: lote disponible, con cantidad y sin vencer. Se
@@ -238,10 +252,10 @@ const leerCatalogoPublicado = async (
 
   // ── 4) Marcas y categorías ───────────────────────────────────────────────
   const marcaIds = [
-    ...new Set(productos.map((p) => p.brand_id).filter(Boolean)),
+    ...new Set(publicables.map((p) => p.brand_id).filter(Boolean)),
   ] as string[];
   const categoriaIds = [
-    ...new Set(productos.map((p) => p.category_id).filter(Boolean)),
+    ...new Set(publicables.map((p) => p.category_id).filter(Boolean)),
   ] as string[];
 
   const [marcas, categorias] = await Promise.all([
@@ -250,14 +264,13 @@ const leerCatalogoPublicado = async (
   ]);
 
   // ── 5) Ensamblado por lista blanca ───────────────────────────────────────
-  const porId = new Map(productos.map((p) => [p.id, p]));
+  const porId = new Map(publicables.map((p) => [p.id, p]));
   const items: PublicProduct[] = [];
   for (const meta of metas) {
     const producto = porId.get(meta.product_id);
-    if (!producto) continue; // publicado pero ya no elegible: no se enseña.
-    // Sin foto válida no entra al catálogo: R-WEB-05/06. Las 12 URLs a un CDN
-    // ajeno y el `data:` de la base caen aquí.
-    if (!publicImageUrl(producto.image_url, supabaseUrl)) continue;
+    // Marcado como visible pero ya no publicable (se desactivó, perdió el
+    // precio o la foto): no se enseña. R-WEB-05/06.
+    if (!producto) continue;
     items.push(
       toPublicProduct({
         product: producto,
