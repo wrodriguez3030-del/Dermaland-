@@ -14,7 +14,14 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
  * envíos gratis a la otra punta del país.
  */
 
-/** Etiqueta de caché. Guardar tarifas la invalida, o el cambio tarda 5 minutos. */
+/**
+ * Etiqueta de caché. `saveShippingRates` la invalida.
+ *
+ * GOTCHA: `unstable_cache` **persiste en `.next/cache` y sobrevive a reiniciar
+ * el servidor**. Cambiar tarifas por SQL directo NO invalida nada, así que el
+ * cambio no se ve hasta que caduquen los 5 minutos. Por el panel sí se ve al
+ * instante. Costó una hora descubrirlo.
+ */
 export const SHIPPING_RATES_TAG = "storefront-shipping-rates";
 
 const SEGUNDOS_DE_CACHE = 300;
