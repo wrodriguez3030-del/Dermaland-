@@ -7,7 +7,6 @@ import { formatCurrency } from "@/lib/utils/format";
 import { MAX_QTY_PER_LINE, type CartSummary } from "../cart";
 import { cartInquiryMessage } from "../cart-message";
 import { whatsappLink } from "../contact";
-import type { PublicBranch } from "../types";
 import { useCart } from "./cart-provider";
 import { ProductPhoto } from "./product-photo";
 
@@ -19,15 +18,14 @@ import { ProductPhoto } from "./product-photo";
  * el negocio cobra, aunque el `localStorage` lleve una semana ahí y entretanto
  * hayan subido un precio o se haya agotado algo.
  *
- * Solo hay RETIRO EN SUCURSAL: no hay envío a domicilio, así que no se piden
- * direcciones ni se calcula coste de reparto.
+ * Aquí NO se elige cómo se recibe el pedido. El carrito enseña qué llevas y
+ * cuánto vale; retiro o envío, sucursal y dirección los pregunta el checkout,
+ * que es donde el flete cambia el total.
  */
 export function CartView({
-  branches,
   whatsappPhone,
   baseUrl,
 }: {
-  branches: PublicBranch[];
   whatsappPhone: string | undefined;
   baseUrl: string;
 }) {
@@ -35,7 +33,6 @@ export function CartView({
   const [resumen, setResumen] = React.useState<CartSummary | null>(null);
   const [cargando, setCargando] = React.useState(false);
   const [falló, setFalló] = React.useState(false);
-  const [sucursal, setSucursal] = React.useState(branches[0]?.slug ?? "");
 
   React.useEffect(() => {
     if (!mounted) return;
@@ -68,9 +65,10 @@ export function CartView({
     };
   }, [items, mounted]);
 
-  const elegida = branches.find((s) => s.slug === sucursal);
+  // Sin sucursal: el carrito ya no la pregunta, así que el mensaje no puede
+  // inventarse una. `cartInquiryMessage` lo contempla y omite la línea.
   const mensaje = resumen
-    ? cartInquiryMessage({ summary: resumen, branch: elegida, baseUrl })
+    ? cartInquiryMessage({ summary: resumen, branch: undefined, baseUrl })
     : "";
   const enlaceWhatsapp = mensaje ? whatsappLink(whatsappPhone, mensaje) : null;
 
@@ -213,28 +211,10 @@ export function CartView({
           Precios con ITBIS incluido
         </p>
 
-        {branches.length > 0 ? (
-          <div className="mt-6">
-            <label
-              htmlFor="sucursal-retiro"
-              className="text-sm font-semibold text-[color:var(--brand-fg)]"
-            >
-              Retiras en
-            </label>
-            <select
-              id="sucursal-retiro"
-              value={sucursal}
-              onChange={(e) => setSucursal(e.target.value)}
-              className="mt-2 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
-            >
-              {branches.map((s) => (
-                <option key={s.slug} value={s.slug}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
+        {/* Aquí NO se elige sucursal. Lo hacía cuando el carrito era el final
+            del camino; ahora el checkout pregunta primero cómo lo recibe —
+            retiro o envío— y solo después dónde. Preguntarlo dos veces, y en el
+            orden equivocado, es peor que no preguntarlo. */}
 
         {/* El pedido de verdad es la acción principal; WhatsApp queda de
             respaldo porque sigue siendo útil para preguntar antes de comprar. */}
@@ -260,7 +240,7 @@ export function CartView({
         {/* Se dice lo que pasa de verdad. No hay cobro en línea todavía, y
             prometerlo sería mentir. */}
         <p className="mt-3 text-xs text-[color:var(--brand-fg)]/60">
-          Te confirmamos disponibilidad y el pago se hace al retirar en sucursal.
+          En el siguiente paso eliges si lo retiras o te lo llevamos.
         </p>
       </aside>
     </div>
