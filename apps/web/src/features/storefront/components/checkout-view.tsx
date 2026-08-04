@@ -28,8 +28,7 @@ import { useCart } from "./cart-provider";
  * calcularlos: el navegador nunca decide lo que se cobra, ni siquiera en el
  * último paso.
  *
- * Es el ÚNICO sitio donde se decide cómo se recibe el pedido: retiro en
- * sucursal o envío a domicilio, con su provincia, su sector y su flete.
+ * Solo hay RETIRO EN SUCURSAL: no se piden direcciones.
  */
 export function CheckoutView({
   branches,

@@ -39,6 +39,7 @@ export default async function CarritoPage() {
         Tu carrito
       </h1>
       <CartView
+        branches={tenant.branches}
         whatsappPhone={tenant.whatsappPhone}
         baseUrl={storefrontBaseUrl()}
       />
