@@ -10,6 +10,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.115.0] - 2026-08-04
+
+**Fase 3, incremento F3.1: carrito. La tienda sigue APAGADA.**
+
+- **Carrito** en `/tienda/carrito`: se juntan varios productos y se piden de una
+  vez, en vez de escribir un WhatsApp por cada uno. Contador en el encabezado,
+  botón "Agregar al carrito" en la ficha, cantidades editables y "Quitar".
+- **El precio lo pone el servidor, siempre.** El navegador guarda únicamente
+  `slug` y cantidad; los precios y la disponibilidad los resuelve
+  `POST /api/storefront/cart` contra el catálogo ya publicado. Comprobado en
+  caliente: con un `price: 1` inyectado a mano en `localStorage`, el total
+  siguió marcando el precio real. `parseCartItems` descarta cualquier campo de
+  dinero que venga guardado, y hay una prueba que lo fija.
+- **Entrega: solo retiro en sucursal** (decisión del dueño). El cliente elige
+  entre "E. León Jiménez" y "Cutis"; no hay direcciones, ni zonas, ni coste de
+  envío. El WhatsApp del pedido dice dónde se retira.
+- **Frontera pública ampliada con cuidado.** `/api/storefront/cart` es la única
+  entrada pública bajo `/api/storefront`; `settings` y `products` siguen
+  exigiendo sesión y 2FA, y las pruebas del middleware lo comprueban en los dos
+  sentidos (incluido que un `/api/storefront/carts` inventado NO pase).
+- El motor del carrito es **independiente del POS**: aquel tiene descuento
+  global, sesión de caja y reglas documentales que la web no tiene.
+- **Cazado al construir:** `/tienda/carrito` salía como ruta ESTÁTICA porque no
+  lee `searchParams`. Con la tienda apagada habría congelado un 404 en el build
+  que seguiría sirviéndose después de encenderla — el mismo tropiezo de §4.1.
+
 ## [0.114.0] - 2026-08-04
 
 **Fase 3, incremento F3.0: la tienda deja de ser una rejilla y pasa a ser una

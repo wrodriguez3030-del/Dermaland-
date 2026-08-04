@@ -229,6 +229,7 @@ de perder una venta.
 | E6 | SEO: sitemap, JSON-LD, canónicas, `noindex` de búsquedas | **Hecho** |
 | E7 | Admin "Catálogo web" (`/tienda-web`) | **Hecho** |
 | F3.0 | Portada con estantes, `/tienda/catalogo`, categorías navegables y recomendados | **Hecho** |
+| F3.1 | Carrito con precios de servidor y retiro en sucursal | **Hecho** |
 
 **La tienda no se enciende hasta después de E7**, y encenderla es una decisión
 del dueño, no un paso del plan. Hoy sigue **apagada**, con 638 fichas sembradas
@@ -249,6 +250,10 @@ código:
   concluía que la página no dependía de la URL y prerrenderizaba el 404: al
   encender la tienda habría seguido sirviendo ese 404 congelado. `searchParams`
   se lee ahora en la primera línea, y hay un comentario que explica por qué.
+- **La trampa de la ruta estática muerde dos veces.** `/tienda/carrito` volvió a
+  caer en ella al construirla (F3.1): no lee `searchParams`, así que Next
+  concluyó que no depende de la petición y la prerrenderizó. Cualquier ruta nueva
+  de la tienda que **no** lea `searchParams` necesita `dynamic = "force-dynamic"`.
 - **La caché guarda también el "no hay tienda".** Encender la tienda no se ve
   hasta que se invalida `storefront-tenant`; por eso el admin lo hace en cada
   guardado.
