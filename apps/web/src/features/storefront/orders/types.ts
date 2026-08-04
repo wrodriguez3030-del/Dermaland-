@@ -20,8 +20,16 @@ export interface WebOrder {
   /** `WEB-000123`. Para hablar con el cliente, nunca para dar acceso. */
   number: string;
   status: WebOrderStatus;
-  /** Nombre COMERCIAL de la sucursal de retiro. */
+  /** Nombre COMERCIAL de la sucursal: donde se retira, o desde donde se envía. */
   branchName: string;
+  fulfillment: "pickup" | "delivery";
+  /** Solo en envío. Nombre de la provincia, nunca su slug. */
+  deliveryProvince?: string;
+  deliverySector?: string;
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  /** Flete cobrado. Se guarda aparte para no recalcularlo con tarifas de hoy. */
+  shippingCost: number;
   contactName: string;
   contactPhone: string;
   contactEmail?: string;

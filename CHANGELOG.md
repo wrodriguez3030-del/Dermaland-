@@ -10,6 +10,36 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.119.0] - 2026-08-04
+
+**Envío a domicilio con costo por provincia.** Hasta ahora la tienda solo ofrecía
+retiro en sucursal.
+
+- **Panel de costos de envío** en *Administración → Costos de envío*: las 32
+  demarcaciones de RD (31 provincias + Distrito Nacional), cada una con su
+  precio y una casilla para activarla. Se guardan todas de una vez.
+- **Fail-closed**: una provincia sin activar **no se puede enviar**, aunque
+  tenga precio. La alternativa —cobrar RD$0 por falta de configuración— es
+  regalar el flete sin que nadie se entere hasta ver las cuentas del mes. Un
+  envío gratis tiene que ser una decisión escrita (casilla marcada, precio 0),
+  no un olvido.
+- **Con ninguna provincia activa la tienda ni siquiera ofrece la opción**: no se
+  promete un domicilio al que no se llega.
+- **El flete lo calcula el SERVIDOR** contra las tarifas guardadas. Del
+  navegador llega la provincia; el precio, nunca.
+- **Checkout** con elección entre retiro y envío; en envío pide provincia
+  (desplegable con su precio), **sector**, dirección y una referencia opcional.
+  El sector va como texto libre: en RD hay miles y no existe lista canónica.
+- El pedido guarda `shipping_cost` **aparte del total**, para poder responder
+  "¿cuánto fue de flete?" sin recalcular con las tarifas de hoy.
+- Las 32 demarcaciones viven en **código**, no en la base: no cambian desde 1982
+  y así el slug guardado en un pedido sigue significando lo mismo aunque alguien
+  renombre algo en el panel.
+
+**Gotcha documentado:** `unstable_cache` persiste en `.next/cache` y **sobrevive
+a reiniciar el servidor**. Cambiar tarifas por SQL directo no invalida nada; por
+el panel sí, porque llama a `revalidateTag`.
+
 ## [0.118.0] - 2026-08-04
 
 **Fase 3, incremento F3.5: el cobro con tarjeta, PREPARADO. Sigue apagado y no

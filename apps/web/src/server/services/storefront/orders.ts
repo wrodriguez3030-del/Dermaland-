@@ -9,13 +9,19 @@ import {
   webOrderStatusLabel,
   type WebOrderStatus,
 } from "@/features/storefront/orders/status";
+import { provinceName } from "@/features/storefront/shipping/provinces";
 import { slugify } from "@/features/storefront/slug";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   signDocumentShareToken,
   verifyDocumentShareToken,
 } from "@/server/services/sales/share-token";
+import {
+  parseDeliveryAddress,
+  quoteShipping,
+} from "@/features/storefront/shipping/quote";
 import { loadPublishedCatalog } from "./catalog";
+import { loadShippingRates } from "./shipping";
 import { resolveStorefrontTenant } from "./tenant";
 
 /**
@@ -34,7 +40,14 @@ type Admin = NonNullable<ReturnType<typeof createServiceRoleClient>>;
 export interface CreateWebOrderInput {
   /** Lo que había en el carrito: slugs y cantidades, nada más. */
   items: unknown;
-  branchSlug: string;
+  /** `pickup` por defecto: es lo que funcionaba antes de existir el envío. */
+  fulfillment?: "pickup" | "delivery";
+  branchSlug?: string;
+  /** Solo cuando es envío. El COSTE lo pone el servidor, nunca el navegador. */
+  province?: string;
+  sector?: string;
+  address?: string;
+  reference?: string;
   contactName: string;
   contactPhone: string;
   contactEmail?: string;
@@ -88,7 +101,13 @@ export async function createWebOrder(
   // La sucursal se resuelve por su slug PÚBLICO contra las que el servidor ya
   // publica: si el `branch_id` viniera del navegador, un visitante podría
   // mandar el de otro negocio.
-  const sucursal = tenant.branches.find((b) => b.slug === input.branchSlug);
+  const esEnvio = input.fulfillment === "delivery";
+
+  // La sucursal SIEMPRE existe en el pedido: en un envío es la que lo despacha.
+  const sucursal = esEnvio
+    ? (tenant.branches.find((b) => b.slug === input.branchSlug) ??
+      tenant.branches[0])
+    : tenant.branches.find((b) => b.slug === input.branchSlug);
   if (!sucursal) return { ok: false, error: "Elige una sucursal para retirar." };
 
   const { products } = await loadPublishedCatalog(tenant.businessId);
@@ -99,6 +118,26 @@ export async function createWebOrder(
 
   const branchId = await resolverSucursal(admin, tenant.businessId, sucursal.slug);
   if (!branchId) return { ok: false, error: "No hay sucursal disponible." };
+
+  // El FLETE lo calcula el servidor contra las tarifas guardadas. Lo que llegue
+  // del navegador es la provincia, nunca el precio: si el importe viajara en el
+  // cuerpo, cambiarlo con la consola sería elegir cuánto se paga de envío.
+  let costoEnvio = 0;
+  let direccion: ReturnType<typeof parseDeliveryAddress> | null = null;
+  if (esEnvio) {
+    direccion = parseDeliveryAddress({
+      province: input.province,
+      sector: input.sector,
+      address: input.address,
+      reference: input.reference,
+    });
+    if (!direccion.ok) return { ok: false, error: direccion.error };
+
+    const tarifas = await loadShippingRates(tenant.businessId);
+    const cotizacion = quoteShipping(direccion.value.province, tarifas);
+    if (!cotizacion.ok) return { ok: false, error: cotizacion.error };
+    costoEnvio = cotizacion.cost;
+  }
 
   const idsPorSlug = await resolverIdsPorSlug(
     admin,
@@ -123,10 +162,15 @@ export async function createWebOrder(
       contact_name: input.contactName,
       contact_phone: input.contactPhone,
       contact_email: input.contactEmail ?? null,
-      fulfillment: "pickup",
+      fulfillment: esEnvio ? "delivery" : "pickup",
+      delivery_province: direccion?.ok ? direccion.value.province : null,
+      delivery_sector: direccion?.ok ? direccion.value.sector : null,
+      delivery_address: direccion?.ok ? direccion.value.address : null,
+      delivery_reference: direccion?.ok ? (direccion.value.reference ?? null) : null,
+      shipping_cost: costoEnvio,
       subtotal: resumen.total,
       itbis: 0,
-      total: resumen.total,
+      total: resumen.total + costoEnvio,
       notes: input.notes ?? null,
       idempotency_key: input.idempotencyKey,
     })
@@ -187,6 +231,9 @@ export interface WebOrderRow {
   contactName: string;
   contactPhone: string;
   branchName: string;
+  fulfillment: "pickup" | "delivery";
+  /** Nombre de la provincia en un envío. Nunca el slug. */
+  deliveryProvince?: string;
   total: number;
   createdAt: string;
 }
@@ -218,7 +265,7 @@ export async function listWebOrders(
   let q = admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, total, created_at, branch_id",
+      "id, number, status, contact_name, contact_phone, total, created_at, branch_id, fulfillment, delivery_province",
       { count: "exact" },
     )
     .eq("business_id", businessId)
@@ -241,6 +288,8 @@ export async function listWebOrders(
       contactName: p.contact_name,
       contactPhone: p.contact_phone,
       branchName: nombres.get(p.branch_id) ?? "—",
+      fulfillment: p.fulfillment === "delivery" ? "delivery" : "pickup",
+      deliveryProvince: provinceName(p.delivery_province) ?? undefined,
       total: Number(p.total),
       createdAt: p.created_at,
     })),
@@ -258,7 +307,7 @@ export async function getWebOrderForBusiness(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost",
     )
     .eq("id", id)
     .eq("business_id", businessId)
@@ -279,6 +328,12 @@ export async function getWebOrderForBusiness(
     number: pedido.number,
     status: pedido.status as WebOrderStatus,
     branchName: nombres.get(pedido.branch_id) ?? "—",
+    fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",
+    deliveryProvince: provinceName(pedido.delivery_province) ?? undefined,
+    deliverySector: pedido.delivery_sector ?? undefined,
+    deliveryAddress: pedido.delivery_address ?? undefined,
+    deliveryReference: pedido.delivery_reference ?? undefined,
+    shippingCost: Number(pedido.shipping_cost ?? 0),
     contactName: pedido.contact_name,
     contactPhone: pedido.contact_phone,
     contactEmail: pedido.contact_email ?? undefined,
@@ -397,7 +452,7 @@ export async function findWebOrderByToken(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost",
     )
     .eq("id", claims.id)
     .eq("business_id", claims.businessId)
@@ -428,6 +483,12 @@ export async function findWebOrderByToken(
     number: pedido.number,
     status: pedido.status as WebOrderStatus,
     branchName: sucursal?.public_name?.trim() || sucursal?.name || "Sucursal",
+    fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",
+    deliveryProvince: provinceName(pedido.delivery_province) ?? undefined,
+    deliverySector: pedido.delivery_sector ?? undefined,
+    deliveryAddress: pedido.delivery_address ?? undefined,
+    deliveryReference: pedido.delivery_reference ?? undefined,
+    shippingCost: Number(pedido.shipping_cost ?? 0),
     contactName: pedido.contact_name,
     contactPhone: pedido.contact_phone,
     contactEmail: pedido.contact_email ?? undefined,

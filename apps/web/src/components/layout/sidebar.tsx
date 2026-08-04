@@ -211,6 +211,9 @@ export const groups: NavGroup[] = [
       { label: "Roles", href: "/admin/roles" },
       { label: "Permisos", href: "/admin/permisos" },
       { label: "Auditoría", href: "/admin/auditoria" },
+      // Costos de envío de la tienda en línea: va aquí y no bajo Ventas porque
+      // es configuración del negocio, no trabajo de mostrador.
+      { label: "Costos de envío", href: "/envios" },
       { label: "Configuración", href: "/admin/configuracion" },
     ],
   },

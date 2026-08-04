@@ -56,7 +56,10 @@ export default async function PedidoPage({
             </p>
             <p className="mt-1 text-sm text-[color:var(--brand-fg)]/70">
               Te llamamos al {pedido.contactPhone} para confirmarte
-              disponibilidad. Pagas al retirar.
+              disponibilidad.{" "}
+              {pedido.fulfillment === "delivery"
+                ? "Pagas al recibirlo."
+                : "Pagas al retirar."}
             </p>
           </div>
         </div>
@@ -71,10 +74,23 @@ export default async function PedidoPage({
         </Badge>
       </div>
 
-      <p className="mt-3 flex items-center gap-2 text-sm text-[color:var(--brand-fg)]/70">
-        <MapPin aria-hidden className="h-4 w-4 shrink-0" />
-        Retiras en <strong className="font-semibold">{pedido.branchName}</strong>
-      </p>
+      {pedido.fulfillment === "delivery" ? (
+        <div className="mt-3 flex items-start gap-2 text-sm text-[color:var(--brand-fg)]/70">
+          <MapPin aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Te lo llevamos a <strong className="font-semibold">
+              {pedido.deliveryAddress}
+            </strong>
+            , {pedido.deliverySector}, {pedido.deliveryProvince}
+            {pedido.deliveryReference ? ` (${pedido.deliveryReference})` : ""}
+          </span>
+        </div>
+      ) : (
+        <p className="mt-3 flex items-center gap-2 text-sm text-[color:var(--brand-fg)]/70">
+          <MapPin aria-hidden className="h-4 w-4 shrink-0" />
+          Retiras en <strong className="font-semibold">{pedido.branchName}</strong>
+        </p>
+      )}
 
       <ul className="mt-6 divide-y divide-black/5 rounded-2xl border border-black/5 bg-white">
         {pedido.items.map((linea, indice) => (
@@ -90,6 +106,14 @@ export default async function PedidoPage({
             </span>
           </li>
         ))}
+        {pedido.shippingCost > 0 ? (
+          <li className="flex justify-between gap-4 px-4 py-3">
+            <span className="text-sm text-[color:var(--brand-fg)]/80">Envío</span>
+            <span className="text-sm font-semibold text-[color:var(--brand-fg)]">
+              {formatCurrency(pedido.shippingCost)}
+            </span>
+          </li>
+        ) : null}
         <li className="flex justify-between gap-4 px-4 py-3">
           <span className="text-sm font-semibold text-[color:var(--brand-fg)]">
             Total

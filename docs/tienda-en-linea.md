@@ -232,6 +232,7 @@ de perder una venta.
 | F3.1 | Carrito con precios de servidor y retiro en sucursal | **Hecho** |
 | F3.2 | Cuentas de cliente (portero + `client_auth_links`) | **Hecho** — el registro necesita SMTP en Supabase para poder usarse |
 | F3.3 | Pedidos: checkout, consulta por token y pantalla en el ERP | **Hecho** |
+| F3.6 | Envío a domicilio con costo por provincia + panel de tarifas | **Hecho** — apagado hasta que se configuren provincias |
 | F3.5 | Cobro con tarjeta **preparado** (contrato + fail-closed + runbook) | **Hecho** — apagado hasta que haya afiliación bancaria; ver [`pagos-en-linea.md`](./pagos-en-linea.md) |
 
 **La tienda no se enciende hasta después de E7**, y encenderla es una decisión

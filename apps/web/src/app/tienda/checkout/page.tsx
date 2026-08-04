@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { CheckoutView } from "@/features/storefront/components/checkout-view";
 import { resolveCustomerAccount } from "@/server/services/storefront/customer-account";
 import { paymentsEnabled } from "@/server/services/storefront/payments";
+import { loadShippingRates } from "@/server/services/storefront/shipping";
+import { deliverableProvinces } from "@/features/storefront/shipping/quote";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 export const metadata: Metadata = {
@@ -19,6 +21,11 @@ export default async function CheckoutPage() {
 
   // Si entró con su cuenta, no tiene que reescribir lo que ya sabemos de él.
   const cuenta = await resolveCustomerAccount();
+  // A qué provincias se llega hoy. Vacío = solo retiro, y la interfaz ni
+  // siquiera enseña la opción de envío.
+  const provincias = deliverableProvinces(
+    await loadShippingRates(tenant.businessId),
+  );
 
   return (
     <>
@@ -28,6 +35,7 @@ export default async function CheckoutPage() {
       <CheckoutView
         branches={tenant.branches}
         cardPaymentsEnabled={paymentsEnabled()}
+        provinces={provincias}
         prefill={
           cuenta
             ? {

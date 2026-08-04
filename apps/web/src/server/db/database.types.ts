@@ -184,6 +184,31 @@ export type Database = {
           },
         ]
       }
+      shipping_rates: {
+        Row: {
+          business_id: string
+          province_slug: string
+          cost: number
+          active: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          business_id: string
+          province_slug: string
+          cost?: number
+          active?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cost?: number
+          active?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       web_orders: {
         Row: {
           id: string
@@ -206,6 +231,14 @@ export type Database = {
           cancel_reason: string | null
           notes: string | null
           idempotency_key: string | null
+          delivery_province: string | null
+          delivery_sector: string | null
+          delivery_address: string | null
+          delivery_reference: string | null
+          shipping_cost: number
+          payment_provider: string | null
+          payment_reference: string | null
+          paid_at: string | null
           created_at: string
           updated_at: string
         }
@@ -230,6 +263,14 @@ export type Database = {
           cancel_reason?: string | null
           notes?: string | null
           idempotency_key?: string | null
+          delivery_province?: string | null
+          delivery_sector?: string | null
+          delivery_address?: string | null
+          delivery_reference?: string | null
+          shipping_cost?: number
+          payment_provider?: string | null
+          payment_reference?: string | null
+          paid_at?: string | null
           created_at?: string
           updated_at?: string
         }

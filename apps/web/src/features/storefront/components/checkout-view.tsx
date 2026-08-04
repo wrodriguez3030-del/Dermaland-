@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
 import type { CartSummary } from "../cart";
+import type { DeliverableProvince } from "../shipping/quote";
 import type { PublicBranch } from "../types";
 import { useCart } from "./cart-provider";
 
@@ -23,6 +24,7 @@ export function CheckoutView({
   branches,
   prefill,
   cardPaymentsEnabled = false,
+  provinces = [],
 }: {
   branches: PublicBranch[];
   /** Si el cliente entró con su cuenta, no tiene que reescribir sus datos. */
@@ -32,12 +34,31 @@ export function CheckoutView({
    * para que un olvido en el llamador no produzca una promesa de cobro.
    */
   cardPaymentsEnabled?: boolean;
+  /**
+   * Provincias a las que SÍ se envía, con su precio. Vacío = solo retiro, y por
+   * defecto vacío: sin configurar, no se promete un domicilio.
+   */
+  provinces?: DeliverableProvince[];
 }) {
   const router = useRouter();
   const { items, mounted, clear } = useCart();
   const [resumen, setResumen] = React.useState<CartSummary | null>(null);
   const [enviando, setEnviando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // Retiro por defecto: es lo que funcionaba antes de que existiera el envío, y
+  // lo que sigue funcionando si nadie configuró provincias.
+  const [entrega, setEntrega] = React.useState<"pickup" | "delivery">("pickup");
+  const [provincia, setProvincia] = React.useState("");
+
+  // El flete lo pone la lista que mandó el SERVIDOR, no un número del
+  // formulario: el total que se cobra se recalcula igualmente al crear el
+  // pedido, pero lo que se enseña aquí tiene que coincidir.
+  const envio =
+    entrega === "delivery"
+      ? (provinces.find((p) => p.slug === provincia)?.cost ?? null)
+      : 0;
+  const totalConEnvio =
+    resumen && envio !== null ? resumen.total + envio : (resumen?.total ?? 0);
 
   // Se genera UNA vez por montaje: es lo que hace que un doble clic —o un
   // reintento tras un fallo de red— no cree dos pedidos.
@@ -75,7 +96,12 @@ export function CheckoutView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items,
+          fulfillment: entrega,
           branchSlug: formData.get("branchSlug"),
+          province: formData.get("province"),
+          sector: formData.get("sector"),
+          address: formData.get("address"),
+          reference: formData.get("reference") || undefined,
           contactName: formData.get("contactName"),
           contactPhone: formData.get("contactPhone"),
           contactEmail: formData.get("contactEmail") || undefined,
@@ -199,27 +225,154 @@ export function CheckoutView({
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="branchSlug"
-            className="text-sm font-medium text-[color:var(--brand-fg)]"
-          >
-            Retiras en
-          </label>
-          <select
-            id="branchSlug"
-            name="branchSlug"
-            required
-            className="mt-1 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
-          >
-            {branches.map((s) => (
-              <option key={s.slug} value={s.slug}>
-                {s.name}
-                {s.address ? ` — ${s.address}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Retiro o envío. Solo se ofrece envío si el negocio configuró alguna
+            provincia: prometer un domicilio al que no se llega es peor que no
+            ofrecerlo. */}
+        {provinces.length > 0 ? (
+          <fieldset>
+            <legend className="text-sm font-medium text-[color:var(--brand-fg)]">
+              ¿Cómo lo recibes?
+            </legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  ["pickup", "Retiro en sucursal", "Sin costo"],
+                  ["delivery", "Envío a domicilio", "Según la provincia"],
+                ] as const
+              ).map(([valor, titulo, nota]) => (
+                <label
+                  key={valor}
+                  className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${
+                    entrega === valor
+                      ? "border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/5"
+                      : "border-black/10 bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="fulfillment"
+                    value={valor}
+                    checked={entrega === valor}
+                    onChange={() => setEntrega(valor)}
+                    className="mt-0.5 h-4 w-4 cursor-pointer"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-[color:var(--brand-fg)]">
+                      {titulo}
+                    </span>
+                    <span className="block text-xs text-[color:var(--brand-fg)]/60">
+                      {nota}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
+        {entrega === "pickup" ? (
+          <div>
+            <label
+              htmlFor="branchSlug"
+              className="text-sm font-medium text-[color:var(--brand-fg)]"
+            >
+              Retiras en
+            </label>
+            <select
+              id="branchSlug"
+              name="branchSlug"
+              required
+              className="mt-1 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
+            >
+              {branches.map((s) => (
+                <option key={s.slug} value={s.slug}>
+                  {s.name}
+                  {s.address ? ` — ${s.address}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <>
+            <div>
+              <label
+                htmlFor="province"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Provincia
+              </label>
+              <select
+                id="province"
+                name="province"
+                required
+                value={provincia}
+                onChange={(e) => setProvincia(e.target.value)}
+                className="mt-1 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
+              >
+                <option value="">Elige tu provincia…</option>
+                {provinces.map((p) => (
+                  <option key={p.slug} value={p.slug}>
+                    {p.name} — {formatCurrency(p.cost)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
+                El costo del envío depende de la provincia.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sector"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Sector
+              </label>
+              <input
+                id="sector"
+                name="sector"
+                required
+                maxLength={120}
+                placeholder="Ej.: Los Jardines, Cerros de Gurabo…"
+                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="address"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Dirección
+              </label>
+              <input
+                id="address"
+                name="address"
+                required
+                maxLength={300}
+                autoComplete="street-address"
+                placeholder="Calle, número, edificio, apartamento"
+                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="reference"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Referencia <span className="font-normal">(opcional)</span>
+              </label>
+              <input
+                id="reference"
+                name="reference"
+                maxLength={300}
+                placeholder="Ej.: casa amarilla, frente al colmado"
+                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+              />
+            </div>
+          </>
+        )}
 
         <div>
           <label
@@ -259,10 +412,19 @@ export function CheckoutView({
           ))}
         </ul>
 
+        {entrega === "delivery" ? (
+          <div className="mt-4 flex items-baseline justify-between border-t border-black/5 pt-4 text-sm">
+            <span className="text-[color:var(--brand-fg)]/70">Envío</span>
+            <span className="font-medium text-[color:var(--brand-fg)]">
+              {envio === null ? "Elige provincia" : formatCurrency(envio)}
+            </span>
+          </div>
+        ) : null}
+
         <div className="mt-4 flex items-baseline justify-between border-t border-black/5 pt-4">
           <span className="text-sm text-[color:var(--brand-fg)]/70">Total</span>
           <span className="text-2xl font-bold text-[color:var(--brand-fg)]">
-            {resumen ? formatCurrency(resumen.total) : "…"}
+            {resumen ? formatCurrency(totalConEnvio) : "…"}
           </span>
         </div>
         <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
@@ -271,7 +433,7 @@ export function CheckoutView({
 
         <button
           type="submit"
-          disabled={enviando || !resumen}
+          disabled={enviando || !resumen || (entrega === "delivery" && envio === null)}
           className="mt-6 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-50"
         >
           {enviando ? (
@@ -290,7 +452,9 @@ export function CheckoutView({
         <p className="mt-3 text-xs text-[color:var(--brand-fg)]/60">
           {cardPaymentsEnabled
             ? "Después de enviar el pedido podrás pagarlo con tarjeta."
-            : "Te confirmamos disponibilidad por teléfono y pagas al retirar en sucursal."}
+            : entrega === "delivery"
+              ? "Te confirmamos disponibilidad por teléfono y pagas al recibir el pedido."
+              : "Te confirmamos disponibilidad por teléfono y pagas al retirar en sucursal."}
         </p>
       </aside>
     </form>
