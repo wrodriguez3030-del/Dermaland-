@@ -22,10 +22,16 @@ import { useCart } from "./cart-provider";
 export function CheckoutView({
   branches,
   prefill,
+  cardPaymentsEnabled = false,
 }: {
   branches: PublicBranch[];
   /** Si el cliente entró con su cuenta, no tiene que reescribir sus datos. */
   prefill?: { name: string; phone: string; email: string };
+  /**
+   * ¿Hay pasarela de verdad detrás? Lo decide el SERVIDOR. Por defecto `false`
+   * para que un olvido en el llamador no produzca una promesa de cobro.
+   */
+  cardPaymentsEnabled?: boolean;
 }) {
   const router = useRouter();
   const { items, mounted, clear } = useCart();
@@ -278,10 +284,13 @@ export function CheckoutView({
           )}
         </button>
 
-        {/* La verdad, no una promesa: no se cobra en línea todavía. */}
+        {/* La verdad, no una promesa. El texto lo decide el servidor según haya
+            o no pasarela activa: mientras no la haya, aquí NUNCA aparece nada
+            que parezca un cobro. */}
         <p className="mt-3 text-xs text-[color:var(--brand-fg)]/60">
-          Te confirmamos disponibilidad por teléfono y pagas al retirar en
-          sucursal.
+          {cardPaymentsEnabled
+            ? "Después de enviar el pedido podrás pagarlo con tarjeta."
+            : "Te confirmamos disponibilidad por teléfono y pagas al retirar en sucursal."}
         </p>
       </aside>
     </form>

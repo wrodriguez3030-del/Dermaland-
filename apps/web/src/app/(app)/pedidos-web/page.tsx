@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PackageSearch } from "lucide-react";
+import { CreditCard, PackageSearch } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
 import { RowActions } from "@/components/ui/row-actions";
@@ -15,6 +15,7 @@ import {
   listWebOrders,
   WEB_ORDERS_PAGE_SIZE,
 } from "@/server/services/storefront/orders";
+import { paymentReadiness } from "@/server/services/storefront/payments";
 
 /**
  * Pedidos de la tienda en línea.
@@ -58,6 +59,7 @@ export default async function PedidosWebPage({
     status: estado,
   });
   const paginas = Math.max(1, Math.ceil(total / WEB_ORDERS_PAGE_SIZE));
+  const cobro = paymentReadiness();
 
   const href = (cambios: { estado?: string; pagina?: number }) => {
     const p = new URLSearchParams();
@@ -73,8 +75,28 @@ export default async function PedidosWebPage({
     <div className="space-y-6">
       <PageHeader
         title="Pedidos web"
-        description="Lo que los clientes piden desde la tienda en línea. El cobro se hace en el POS cuando vienen a retirar."
+        description="Lo que los clientes piden desde la tienda en línea."
       />
+
+      {/* Sin pasarela, el negocio tiene que saberlo aquí y no leyendo código:
+          es lo que explica por qué todos los pedidos llegan sin pagar. */}
+      {!cobro.enabled ? (
+        <div className="flex items-start gap-3 rounded-2xl bg-[color:var(--brand-warn)]/10 px-5 py-4">
+          <CreditCard
+            aria-hidden
+            className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--brand-fg)]/60"
+          />
+          <div>
+            <p className="text-sm font-semibold text-[color:var(--brand-fg)]">
+              Cobro con tarjeta apagado
+            </p>
+            <p className="mt-1 text-sm text-[color:var(--brand-fg)]/70">
+              {cobro.summary} Cóbralos en el POS cuando el cliente venga a
+              retirar.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <nav aria-label="Filtrar por estado" className="flex flex-wrap gap-2">
         {FILTROS.map((f) => {

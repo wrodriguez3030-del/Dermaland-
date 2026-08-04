@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckoutView } from "@/features/storefront/components/checkout-view";
 import { resolveCustomerAccount } from "@/server/services/storefront/customer-account";
+import { paymentsEnabled } from "@/server/services/storefront/payments";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default async function CheckoutPage() {
       </h1>
       <CheckoutView
         branches={tenant.branches}
+        cardPaymentsEnabled={paymentsEnabled()}
         prefill={
           cuenta
             ? {

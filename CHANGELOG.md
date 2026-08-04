@@ -10,6 +10,36 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.118.0] - 2026-08-04
+
+**Fase 3, incremento F3.5: el cobro con tarjeta, PREPARADO. Sigue apagado y no
+puede encenderse todavía — falta la afiliación bancaria, que es papeleo.**
+
+- **Contrato `PaymentProvider`**: crear intento y verificarlo, nada más. Los
+  datos de la tarjeta **nunca tocan nuestro servidor** —el cliente los teclea en
+  la página del banco—, que es lo que mantiene a DermaLand fuera del alcance de
+  PCI-DSS.
+- **El registro es fail-closed en todos los caminos**: sin configurar no cobra, a
+  medio configurar tampoco, y un proveedor desconocido tampoco.
+- **El proveedor simulado tiene PROHIBIDO activarse en producción.** Si alguien
+  pusiera `PAYMENTS_PROVIDER=simulated` en Vercel por error, el resultado es *no
+  se cobra*, no *se finge que sí*. Hay una prueba que lo fija.
+- **El adaptador de Azul NO está escrito, a propósito.** Aunque estén las siete
+  credenciales, el registro sigue devolviendo "no hay cobro" en vez de encender
+  un botón que no puede cobrar. Escribir una integración bancaria contra la
+  documentación pública, sin poder probarla contra el entorno del banco, no es
+  trabajo adelantado: es una suposición con apariencia de código.
+- **El texto del checkout lo decide el servidor.** Mientras no haya pasarela, ahí
+  no aparece nada que parezca un cobro: dice "pagas al retirar en sucursal".
+- **Diagnóstico en *Ventas → Pedidos web***: dice por qué no se cobra y qué
+  variables faltan, con sus nombres exactos. Nadie tiene que leer código para
+  saberlo.
+- **Migración 0039**: `payment_provider`, `payment_reference` y `paid_at` en
+  `web_orders`, creadas y vacías. Migrar una tabla con pedidos dentro, con el
+  negocio funcionando, es justo lo que conviene no tener que hacer.
+- **Runbook `docs/pagos-en-linea.md`**: los cinco pasos desde la solicitud al
+  banco hasta la primera compra real, y qué NO hace el módulo.
+
 ## [0.117.0] - 2026-08-04
 
 **Fase 3, incremento F3.3: el pedido. El carrito deja de terminar en un WhatsApp
