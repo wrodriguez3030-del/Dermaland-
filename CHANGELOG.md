@@ -10,6 +10,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.126.0] - 2026-08-04
+
+**El cliente por fin encuentra lo que busca.** Tres hallazgos de la revisión por
+agentes, los tres costaban ventas todos los días.
+
+- **"bloqueador" devolvía CERO resultados**, teniendo 83 protectores solares.
+  Es la palabra que usa todo el mundo en RD y ninguna caja la lleva escrita.
+  Ahora hay una tabla de sinónimos que une el problema del cliente con la marca
+  del producto: **de 0 a 93 resultados**. Igual con "espinillas" (24), "caspa"
+  (23), "manchas" (11) y "cicatriz" (21), que antes daban casi nada.
+- **"acné" pasó de 5 a 56 resultados**, porque el catálogo dice "Cleanance",
+  "Effaclar" y "Sebium", no "acné".
+- **La categoría "Acné y piel grasa" tenía 4 productos, tres agotados.** Había
+  **47 antiacné metidos en "Cuidado facial"**. Recategorizados: la categoría pasa
+  a **51 productos** y por fin aparece con su propio estante en la portada. Para
+  una tienda dermatológica, el acné es la razón número uno por la que entra un
+  cliente.
+- **Los marcadores internos del ERP ya no salen al público.** Cuatro productos
+  mostraban `** Detalle **` en la ficha **y** en el WhatsApp que enviaba el
+  cliente. Se limpia en el código y no en esas cuatro filas: el ERP seguirá
+  usando esos marcadores —los necesita— y el siguiente producto que alguien
+  anote así volvería a salir mal. El `web_title` que escribe el negocio manda y
+  no se toca: es texto pensado para el público.
+
+**Ampliar la búsqueda no es sustituirla**: lo que teclea el cliente va siempre
+incluido, y la tolerancia a erratas sigue aplicándose solo a lo que escribió, no
+a cada sinónimo — si no, medio catálogo entraría por parecido.
+
 ## [0.125.0] - 2026-08-04
 
 **Línea de progreso del pedido, aviso al cliente y contador de pedidos nuevos.**

@@ -23,6 +23,7 @@
 // aplican en el servidor, en `server/services/storefront/catalog.ts`, antes de
 // construir el `PublicProduct`. Este módulo solo consulta lo ya publicado.
 
+import { expandSearchTerm } from "./synonyms";
 import type { CatalogQuery, CatalogResult, PublicProduct } from "./types";
 
 /** Tamaño de página por defecto: 4 columnas × 6 filas en escritorio. */
@@ -79,12 +80,23 @@ function haystack(p: PublicProduct): string {
   );
 }
 
-/** ¿El texto contiene el token, tolerando una errata si se pide? */
+/**
+ * ¿El texto contiene el token —o alguno de sus sinónimos—, tolerando una errata
+ * si se pide?
+ *
+ * Los sinónimos son lo que hace que "bloqueador" encuentre los 83 protectores
+ * solares: ninguna caja dice "bloqueador", pero es la palabra que usa todo el
+ * mundo aquí. Ver `synonyms.ts`.
+ */
 function tokenMatches(texto: string, token: string, fuzzy: boolean): boolean {
-  if (texto.includes(token)) return true;
+  for (const variante of expandSearchTerm(token)) {
+    if (texto.includes(variante)) return true;
+  }
   if (!fuzzy) return false;
   // Comparar palabra a palabra: tolerar una errata sobre la cadena entera
-  // convertiría cualquier consulta corta en un comodín.
+  // convertiría cualquier consulta corta en un comodín. La errata se tolera
+  // solo sobre lo que tecleó el cliente, no sobre cada sinónimo: si no, medio
+  // catálogo entraría por parecido.
   return texto.split(" ").some((palabra) => isWithinOneEdit(palabra, token));
 }
 

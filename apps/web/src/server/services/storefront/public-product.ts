@@ -1,5 +1,6 @@
 import "server-only";
 import { availabilityFrom } from "@/features/storefront/availability";
+import { cleanPublicTitle } from "@/features/storefront/public-title";
 import type { PublicProduct } from "@/features/storefront/types";
 
 /**
@@ -120,7 +121,10 @@ function texto(valor: string | null | undefined): string | undefined {
 /** Construye el objeto público. Campo a campo, nunca por copia de la fila. */
 export function toPublicProduct(input: ToPublicProductInput): PublicProduct {
   const { product, meta, brand, category, availableQuantity, supabaseUrl } = input;
-  const title = texto(meta.web_title) ?? product.name;
+  // El `web_title` que escribe el negocio manda y no se toca: es texto pensado
+  // para el público. El nombre del ERP sí se limpia de marcadores internos
+  // (`** Detalle **`, corchetes de almacén), que el cliente no debe ver.
+  const title = texto(meta.web_title) ?? cleanPublicTitle(product.name);
   const imageUrl = publicImageUrl(product.image_url, supabaseUrl);
 
   return {
