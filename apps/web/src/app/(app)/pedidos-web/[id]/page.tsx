@@ -8,6 +8,8 @@ import { webOrderStatusLabel } from "@/features/storefront/orders/status";
 import { formatCurrency } from "@/lib/utils/format";
 import { getSession } from "@/server/auth/context";
 import { getWebOrderForBusiness } from "@/server/services/storefront/orders";
+import { listOrderReceipts } from "@/server/services/storefront/transfer-payments";
+import { ReceiptReview } from "@/features/storefront/components/receipt-review";
 
 /**
  * Detalle de un pedido web.
@@ -31,6 +33,12 @@ export default async function PedidoWebDetallePage({
 
   const pedido = await getWebOrderForBusiness(session.businessId, id);
   if (!pedido) notFound();
+
+  // Con URLs firmadas: esto solo lo ve el personal del negocio.
+  const comprobantes =
+    pedido.paymentMethod === "transferencia"
+      ? await listOrderReceipts(session.businessId, pedido.id, true)
+      : [];
 
   const listo = pedido.status === "listo";
   const cerrado = pedido.status === "cancelado" || pedido.status === "entregado";
@@ -168,6 +176,28 @@ export default async function PedidoWebDetallePage({
             <p className="mt-2 whitespace-pre-line text-sm text-[color:var(--brand-fg)]/80">
               {pedido.notes}
             </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {pedido.paymentMethod === "transferencia" ? (
+        <Card>
+          <CardContent>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+                Pago por transferencia
+              </h2>
+              <Badge tone={pedido.paymentStatus === "pagado" ? "success" : "info"}>
+                {pedido.paymentStatus === "pagado" ? "Pagado" : "Pago pendiente"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-[color:var(--brand-fg)]/60">
+              Aceptar un comprobante es lo único que marca este pedido como
+              pagado. Comprueba el monto y la fecha antes.
+            </p>
+            <div className="mt-4">
+              <ReceiptReview receipts={comprobantes} />
+            </div>
           </CardContent>
         </Card>
       ) : null}

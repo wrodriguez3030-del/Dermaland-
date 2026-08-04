@@ -6,6 +6,13 @@ import { Badge } from "@/components/ui";
 import { webOrderStatusLabel } from "@/features/storefront/orders/status";
 import { formatCurrency } from "@/lib/utils/format";
 import { findWebOrderByToken } from "@/server/services/storefront/orders";
+import {
+  listActiveBankAccounts,
+  listOrderReceipts,
+} from "@/server/services/storefront/transfer-payments";
+import { ReceiptUpload } from "@/features/storefront/components/receipt-upload";
+import { formatAccountNumber } from "@/features/storefront/payments/receipt";
+import { verifyDocumentShareToken } from "@/server/services/sales/share-token";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 /**
@@ -41,6 +48,19 @@ export default async function PedidoPage({
   if (!pedido) notFound();
 
   const cancelado = pedido.status === "cancelado";
+
+  // Solo hace falta consultar cuentas y comprobantes si el cliente eligió
+  // transferencia; para el resto, la página no cuesta un viaje más.
+  const claims =
+    pedido.paymentMethod === "transferencia"
+      ? verifyDocumentShareToken(token)
+      : null;
+  const [cuentas, comprobantes] = claims
+    ? await Promise.all([
+        listActiveBankAccounts(claims.businessId),
+        listOrderReceipts(claims.businessId, claims.id),
+      ])
+    : [[], []];
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -136,6 +156,53 @@ export default async function PedidoPage({
             {pedido.notes}
           </p>
         </div>
+      ) : null}
+
+      {pedido.paymentMethod === "transferencia" && !cancelado ? (
+        <section className="mt-8 rounded-2xl border border-black/5 bg-white p-5">
+          <h2 className="text-lg font-semibold text-[color:var(--brand-fg)]">
+            {pedido.paymentStatus === "pagado"
+              ? "Pago confirmado"
+              : "Paga por transferencia"}
+          </h2>
+
+          {pedido.paymentStatus === "pagado" ? (
+            <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
+              Confirmamos tu transferencia. Ya estamos preparando el pedido.
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
+                Transfiere {formatCurrency(pedido.total)} a cualquiera de estas
+                cuentas y sube el comprobante aquí mismo.
+              </p>
+
+              <ul className="mt-4 space-y-3">
+                {cuentas.map((c) => (
+                  <li key={c.id} className="rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3 text-sm">
+                    <span className="font-semibold text-[color:var(--brand-fg)]">
+                      {c.bankName}
+                    </span>{" "}
+                    <span className="text-[color:var(--brand-fg)]/60">
+                      · {c.accountType}
+                    </span>
+                    <span className="block font-mono text-[color:var(--brand-fg)]">
+                      {formatAccountNumber(c.accountNumber)}
+                    </span>
+                    <span className="block text-xs text-[color:var(--brand-fg)]/60">
+                      {c.holderName}
+                      {c.holderDocument ? ` · ${c.holderDocument}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-5">
+                <ReceiptUpload token={token} yaSubido={comprobantes.length > 0} />
+              </div>
+            </>
+          )}
+        </section>
       ) : null}
 
       <p className="mt-8 text-sm text-[color:var(--brand-fg)]/60">

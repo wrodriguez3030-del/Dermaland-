@@ -30,6 +30,8 @@ export interface WebOrder {
   deliveryReference?: string;
   /** Flete cobrado. Se guarda aparte para no recalcularlo con tarifas de hoy. */
   shippingCost: number;
+  paymentMethod: "efectivo" | "transferencia" | "tarjeta";
+  paymentStatus: "pendiente" | "pagado" | "reembolsado";
   contactName: string;
   contactPhone: string;
   contactEmail?: string;

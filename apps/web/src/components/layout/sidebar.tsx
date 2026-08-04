@@ -214,6 +214,7 @@ export const groups: NavGroup[] = [
       // Costos de envío de la tienda en línea: va aquí y no bajo Ventas porque
       // es configuración del negocio, no trabajo de mostrador.
       { label: "Costos de envío", href: "/envios" },
+      { label: "Cuentas bancarias", href: "/cuentas-bancarias" },
       { label: "Configuración", href: "/admin/configuracion" },
     ],
   },

@@ -28,6 +28,8 @@ const CuerpoSchema = z.object({
     .min(1)
     .max(MAX_LINES),
   fulfillment: z.enum(["pickup", "delivery"]).default("pickup"),
+  // El método NO decide si está pagado: eso lo decide un comprobante aceptado.
+  paymentMethod: z.enum(["efectivo", "transferencia"]).default("efectivo"),
   branchSlug: z.string().max(120).optional(),
   // La provincia sí; el COSTE del envío no. Lo calcula el servidor contra las
   // tarifas guardadas: si el importe viajara aquí, cambiarlo con la consola

@@ -43,6 +43,8 @@ export interface CreateWebOrderInput {
   /** `pickup` por defecto: es lo que funcionaba antes de existir el envío. */
   fulfillment?: "pickup" | "delivery";
   branchSlug?: string;
+  /** `efectivo` = paga al recibir o retirar. `transferencia` = sube comprobante. */
+  paymentMethod?: "efectivo" | "transferencia";
   /** Solo cuando es envío. El COSTE lo pone el servidor, nunca el navegador. */
   province?: string;
   sector?: string;
@@ -163,6 +165,8 @@ export async function createWebOrder(
       contact_phone: input.contactPhone,
       contact_email: input.contactEmail ?? null,
       fulfillment: esEnvio ? "delivery" : "pickup",
+      payment_method:
+        input.paymentMethod === "transferencia" ? "transferencia" : "efectivo",
       delivery_province: direccion?.ok ? direccion.value.province : null,
       delivery_sector: direccion?.ok ? direccion.value.sector : null,
       delivery_address: direccion?.ok ? direccion.value.address : null,
@@ -307,7 +311,7 @@ export async function getWebOrderForBusiness(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status",
     )
     .eq("id", id)
     .eq("business_id", businessId)
@@ -334,6 +338,18 @@ export async function getWebOrderForBusiness(
     deliveryAddress: pedido.delivery_address ?? undefined,
     deliveryReference: pedido.delivery_reference ?? undefined,
     shippingCost: Number(pedido.shipping_cost ?? 0),
+    paymentMethod:
+      pedido.payment_method === "transferencia"
+        ? "transferencia"
+        : pedido.payment_method === "tarjeta"
+          ? "tarjeta"
+          : "efectivo",
+    paymentStatus:
+      pedido.payment_status === "pagado"
+        ? "pagado"
+        : pedido.payment_status === "reembolsado"
+          ? "reembolsado"
+          : "pendiente",
     contactName: pedido.contact_name,
     contactPhone: pedido.contact_phone,
     contactEmail: pedido.contact_email ?? undefined,
@@ -452,7 +468,7 @@ export async function findWebOrderByToken(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status",
     )
     .eq("id", claims.id)
     .eq("business_id", claims.businessId)
@@ -489,6 +505,18 @@ export async function findWebOrderByToken(
     deliveryAddress: pedido.delivery_address ?? undefined,
     deliveryReference: pedido.delivery_reference ?? undefined,
     shippingCost: Number(pedido.shipping_cost ?? 0),
+    paymentMethod:
+      pedido.payment_method === "transferencia"
+        ? "transferencia"
+        : pedido.payment_method === "tarjeta"
+          ? "tarjeta"
+          : "efectivo",
+    paymentStatus:
+      pedido.payment_status === "pagado"
+        ? "pagado"
+        : pedido.payment_status === "reembolsado"
+          ? "reembolsado"
+          : "pendiente",
     contactName: pedido.contact_name,
     contactPhone: pedido.contact_phone,
     contactEmail: pedido.contact_email ?? undefined,
