@@ -8,7 +8,12 @@ import {
 import { authorizeRole } from "@/server/auth/require-role";
 import { getRepositories } from "@/server/repositories";
 import { sessionToRepoContext } from "@/server/auth/context";
-import { advanceWebOrder } from "@/server/services/storefront/orders";
+import {
+  advanceWebOrder,
+  getWebOrderForBusiness,
+} from "@/server/services/storefront/orders";
+import { notifyOrderStatus } from "@/server/services/storefront/order-notify";
+import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 /**
  * Cambiar el estado de un pedido.
@@ -63,6 +68,29 @@ export async function POST(
 
   // Auditoría con ETIQUETAS LEGIBLES, no claves: quien lea el registro dentro
   // de seis meses no tiene por qué saber qué significa "listo".
+  // Avisar al cliente. Un fallo aquí NO puede deshacer el cambio de estado:
+  // que no salga un correo no puede impedir que el negocio marque un pedido
+  // como listo. Se registra en la auditoría y se sigue.
+  let aviso = "sin-aviso";
+  try {
+    const pedido = await getWebOrderForBusiness(ctx.businessId, id);
+    const tenant = await resolveStorefrontTenant();
+    if (pedido) {
+      const r = await notifyOrderStatus({
+        businessId: ctx.businessId,
+        orderId: id,
+        orderNumber: pedido.number,
+        status: parseado.data.status,
+        fulfillment: pedido.fulfillment,
+        contactEmail: pedido.contactEmail,
+        siteName: tenant?.siteName ?? "DermaLand",
+      });
+      aviso = r.sent ? "enviado" : r.reason;
+    }
+  } catch {
+    aviso = "error";
+  }
+
   await getRepositories().audit.log(ctx, {
     businessId: ctx.businessId,
     userId: ctx.userId ?? "",
@@ -74,8 +102,12 @@ export async function POST(
       de: res.from ? webOrderStatusLabel(res.from) : undefined,
       a: webOrderStatusLabel(parseado.data.status),
       motivo: parseado.data.reason,
+      aviso_al_cliente: aviso,
     },
   });
 
-  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(
+    { ok: true, aviso },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

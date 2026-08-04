@@ -228,9 +228,15 @@ function isActive(pathname: string, href: string): boolean {
 export function Sidebar({
   className,
   showSuperAdmin = true,
+  badges,
 }: {
   className?: string;
   showSuperAdmin?: boolean;
+  /**
+   * Avisos por ruta: `{ "/pedidos-web": 3 }`. El número lo cuenta el SERVIDOR
+   * en `AppShell`; aquí solo se pinta.
+   */
+  badges?: Record<string, number>;
 }) {
   const pathname = usePathname() ?? "/";
 
@@ -262,6 +268,7 @@ export function Sidebar({
             key={group.label}
             group={group}
             pathname={pathname}
+            badges={badges}
           />
         ))}
 
@@ -286,14 +293,39 @@ export function Sidebar({
   );
 }
 
+/**
+ * Cuántos hay sin atender.
+ *
+ * El número va TAMBIÉN en el nombre accesible: un círculo con un "3" dentro no
+ * le dice nada a quien navega con lector de pantalla.
+ */
+function NavBadge({ count }: { count: number }) {
+  return (
+    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[color:var(--brand-primary)] px-1.5 text-[11px] font-bold leading-none text-white">
+      <span aria-hidden>{count > 99 ? "99+" : count}</span>
+      <span className="sr-only">
+        {count === 1 ? "1 pedido sin atender" : `${count} pedidos sin atender`}
+      </span>
+    </span>
+  );
+}
+
 function SidebarGroup({
   group,
   pathname,
+  badges,
 }: {
   group: NavGroup;
   pathname: string;
+  badges?: Record<string, number>;
 }) {
   const groupActive = group.items.some((i) => isActive(pathname, i.href));
+  // El aviso sube al grupo cerrado: si "Pedidos web" tiene 3 sin atender y el
+  // grupo "Ventas" está plegado, nadie lo vería.
+  const pendientesDelGrupo = group.items.reduce(
+    (suma, i) => suma + (badges?.[i.href] ?? 0),
+    0,
+  );
   const [open, setOpen] = React.useState(groupActive);
 
   React.useEffect(() => {
@@ -318,12 +350,17 @@ function SidebarGroup({
           <Icon className="h-4 w-4" />
           {group.label}
         </span>
-        <ChevronDown
-          className={cn(
-            "h-3 w-3 transition-transform",
-            open ? "rotate-180" : "",
-          )}
-        />
+        <span className="flex items-center gap-2">
+          {!open && pendientesDelGrupo > 0 ? (
+            <NavBadge count={pendientesDelGrupo} />
+          ) : null}
+          <ChevronDown
+            className={cn(
+              "h-3 w-3 transition-transform",
+              open ? "rotate-180" : "",
+            )}
+          />
+        </span>
       </button>
       {open && (
         <ul className="mt-1 space-y-0.5 pl-9">
@@ -334,13 +371,16 @@ function SidebarGroup({
                 <Link
                   href={item.href}
                   className={cn(
-                    "block rounded-md px-2 py-1.5 text-xs transition",
+                    "flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs transition",
                     active
                       ? "bg-[color:var(--brand-primary)]/12 font-medium text-[color:var(--brand-accent)] shadow-[inset_2px_0_0_var(--brand-primary)]"
                       : "text-black/60 hover:bg-black/[0.03] hover:text-[color:var(--brand-fg)]",
                   )}
                 >
                   {item.label}
+                  {badges?.[item.href] ? (
+                    <NavBadge count={badges[item.href]!} />
+                  ) : null}
                 </Link>
               </li>
             );
