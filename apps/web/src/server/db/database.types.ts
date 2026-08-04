@@ -965,12 +965,16 @@ export type Database = {
           document_number: string | null
           document_type: string | null
           email: string | null
+          // Columnas GENERADAS (migración 0042): las calcula la base y no
+          // aparecen en Insert/Update a propósito — escribirlas es un error.
+          email_normalized: string | null
           first_name: string
           id: string
           last_name: string
           last_visit_at: string | null
           notes: string | null
           phone: string | null
+          phone_digits: string | null
           province: string | null
           skin_type: string
           source: string
@@ -979,6 +983,7 @@ export type Database = {
           total_spent: number
           updated_at: string
           whatsapp: string | null
+          whatsapp_digits: string | null
         }
         Insert: {
           address?: string | null
