@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { webOrderStatusLabel } from "@/features/storefront/orders/status";
+import { webOrderStatusLabelFor } from "@/features/storefront/orders/status";
 import { OrderTimeline } from "@/features/storefront/components/order-timeline";
 import { formatCurrency } from "@/lib/utils/format";
 import { findWebOrderByToken } from "@/server/services/storefront/orders";
@@ -92,7 +92,7 @@ export default async function PedidoPage({
           Pedido {pedido.number}
         </h1>
         <Badge tone={cancelado ? "neutral" : "success"}>
-          {webOrderStatusLabel(pedido.status)}
+          {webOrderStatusLabelFor(pedido.status, pedido.fulfillment)}
         </Badge>
       </div>
 

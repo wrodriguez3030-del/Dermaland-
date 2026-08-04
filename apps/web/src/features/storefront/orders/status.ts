@@ -46,6 +46,27 @@ export function webOrderStatusLabel(status: WebOrderStatus): string {
   return ETIQUETAS[status];
 }
 
+/**
+ * Igual, pero sabiendo si el pedido se retira o se lleva.
+ *
+ * "Listo para retirar" sobre un pedido a domicilio es la clase de frase que
+ * hace llamar al cliente preguntando si tiene que ir a buscarlo. Los estados
+ * son los mismos —son los valores del CHECK— y lo único que cambia es cómo se
+ * cuentan.
+ */
+const ETIQUETAS_ENVIO: Partial<Record<WebOrderStatus, string>> = {
+  listo: "En camino",
+  entregado: "Entregado",
+};
+
+export function webOrderStatusLabelFor(
+  status: WebOrderStatus,
+  fulfillment: "pickup" | "delivery",
+): string {
+  if (fulfillment === "delivery") return ETIQUETAS_ENVIO[status] ?? ETIQUETAS[status];
+  return ETIQUETAS[status];
+}
+
 export function nextStatuses(from: WebOrderStatus): WebOrderStatus[] {
   return TRANSICIONES[from];
 }

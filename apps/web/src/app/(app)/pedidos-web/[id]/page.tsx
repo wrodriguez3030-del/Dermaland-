@@ -4,7 +4,7 @@ import { ChevronLeft, Info } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { OrderStatusActions } from "@/features/storefront/components/order-status-actions";
-import { webOrderStatusLabel } from "@/features/storefront/orders/status";
+import { webOrderStatusLabelFor } from "@/features/storefront/orders/status";
 import { lineStockVerdict } from "@/features/storefront/orders/line-stock";
 import { formatCurrency } from "@/lib/utils/format";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
@@ -13,7 +13,11 @@ import { getSession } from "@/server/auth/context";
 import {
   branchDisplayNames,
   getWebOrderForBusiness,
+  listActiveBranches,
 } from "@/server/services/storefront/orders";
+import { loadShippingRates } from "@/server/services/storefront/shipping";
+import { deliverableProvinces } from "@/features/storefront/shipping/quote";
+import { OrderFulfillmentEditor } from "@/features/storefront/components/order-fulfillment-editor";
 import { loadWebAvailability } from "@/server/services/storefront/stock";
 import { listOrderReceipts } from "@/server/services/storefront/transfer-payments";
 import { ReceiptReview } from "@/features/storefront/components/receipt-review";
@@ -50,9 +54,10 @@ export default async function PedidoWebDetallePage({
   // del titular, su banco y su número de cuenta. La RLS valida el tenant, no el
   // rol (DL-01), así que sin esto cualquier usuario del negocio —incluido
   // inventario— podía abrirlos.
-  const puedeVerComprobantes =
+  const puedeGestionar =
     session.isPlatformAdmin ||
     WEB_ORDER_MANAGE_ROLES.includes(session.user.role);
+  const puedeVerComprobantes = puedeGestionar;
   const comprobantes =
     pedido.paymentMethod === "transferencia" && puedeVerComprobantes
       ? await listOrderReceipts(session.businessId, pedido.id, true)
@@ -63,14 +68,24 @@ export default async function PedidoWebDetallePage({
 
   // Existencia VIVA de cada línea. Sin caché y sin contar este mismo pedido
   // como compromiso ajeno: sus líneas no compiten consigo mismas.
-  const [disponibilidad, nombresSucursal] = await Promise.all([
-    loadWebAvailability(
-      session.businessId,
-      pedido.items.map((l) => l.productId),
-      { excludeOrderId: pedido.id },
-    ),
-    branchDisplayNames(session.businessId),
-  ]);
+  const [disponibilidad, nombresSucursal, sucursales, tarifas] =
+    await Promise.all([
+      loadWebAvailability(
+        session.businessId,
+        pedido.items.map((l) => l.productId),
+        { excludeOrderId: pedido.id },
+      ),
+      branchDisplayNames(session.businessId),
+      listActiveBranches(session.businessId),
+      loadShippingRates(session.businessId),
+    ]);
+  const provincias = deliverableProvinces(tarifas);
+
+  // Cambiar la entrega solo mientras el pedido siga vivo y sin facturar: la
+  // proforma lleva el flete dentro, y cambiarlo después dejaría el documento
+  // diciendo una cosa y el pedido otra.
+  const puedeCambiarEntrega =
+    puedeGestionar && !cerrado && !pedido.proformaId;
   const existencias = pedido.items.map((linea) =>
     lineStockVerdict(
       linea.qty,
@@ -110,7 +125,7 @@ export default async function PedidoWebDetallePage({
                 : "info"
           }
         >
-          {webOrderStatusLabel(pedido.status)}
+          {webOrderStatusLabelFor(pedido.status, pedido.fulfillment)}
         </Badge>
         <span className="text-sm text-[color:var(--brand-fg)]/60">
           Recibido el {new Date(pedido.createdAt).toLocaleString("es-DO")}
@@ -131,32 +146,68 @@ export default async function PedidoWebDetallePage({
         </div>
       ) : null}
 
-      {pedido.fulfillment === "delivery" ? (
-        <Card>
-          <CardContent>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
-              A dónde se lleva
-            </h2>
+      <Card>
+        <CardContent>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+            Entrega
+          </h2>
+
+          {pedido.fulfillment === "delivery" ? (
+            <>
+              <p className="mt-2 text-sm text-[color:var(--brand-fg)]/80">
+                <strong className="font-semibold">Envío a domicilio</strong>
+                <br />
+                {pedido.deliveryAddress}
+                <br />
+                {pedido.deliverySector}, {pedido.deliveryProvince}
+                {pedido.deliveryReference ? (
+                  <>
+                    <br />
+                    <span className="text-[color:var(--brand-fg)]/60">
+                      Referencia: {pedido.deliveryReference}
+                    </span>
+                  </>
+                ) : null}
+              </p>
+              <p className="mt-2 text-sm text-[color:var(--brand-fg)]/60">
+                Flete cobrado: {formatCurrency(pedido.shippingCost)} · Despacha{" "}
+                {pedido.branchName}
+              </p>
+            </>
+          ) : (
             <p className="mt-2 text-sm text-[color:var(--brand-fg)]/80">
-              {pedido.deliveryAddress}
+              <strong className="font-semibold">Retiro en sucursal</strong>
               <br />
-              {pedido.deliverySector}, {pedido.deliveryProvince}
-              {pedido.deliveryReference ? (
-                <>
-                  <br />
-                  <span className="text-[color:var(--brand-fg)]/60">
-                    Referencia: {pedido.deliveryReference}
-                  </span>
-                </>
-              ) : null}
-            </p>
-            <p className="mt-2 text-sm text-[color:var(--brand-fg)]/60">
-              Flete cobrado: {formatCurrency(pedido.shippingCost)} · Despacha{" "}
               {pedido.branchName}
             </p>
-          </CardContent>
-        </Card>
-      ) : null}
+          )}
+
+          {/* Se puede cambiar mientras el pedido siga abierto y sin facturar.
+              Antes había que cancelar y rehacerlo, perdiendo número e
+              historial por haber pulsado el botón equivocado. */}
+          {puedeCambiarEntrega ? (
+            <div className="mt-4">
+              <OrderFulfillmentEditor
+                orderId={pedido.id}
+                fulfillment={pedido.fulfillment}
+                branchId={pedido.branchId}
+                branches={sucursales}
+                provinces={provincias.map((p) => ({
+                  slug: p.slug,
+                  name: p.name,
+                  cost: p.cost,
+                }))}
+                address={{
+                  provinceSlug: pedido.deliveryProvinceSlug,
+                  sector: pedido.deliverySector,
+                  address: pedido.deliveryAddress,
+                  reference: pedido.deliveryReference,
+                }}
+              />
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent>

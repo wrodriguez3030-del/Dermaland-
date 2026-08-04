@@ -19,6 +19,7 @@ import {
 import {
   parseDeliveryAddress,
   quoteShipping,
+  type DeliveryAddress,
 } from "@/features/storefront/shipping/quote";
 import {
   checkOrderStock,
@@ -386,6 +387,9 @@ export interface WebOrderForBusiness extends Omit<WebOrder, "items"> {
   proformaId?: string;
   /** Sucursal que retira o despacha. Para el POS y para cambiar la entrega. */
   branchId: string;
+  /** Slug de la provincia. `deliveryProvince` es el nombre, que no vale para
+   *  preseleccionar un desplegable. */
+  deliveryProvinceSlug?: string;
 }
 
 /** El pedido completo, para el detalle del ERP. Acotado por `business_id`. */
@@ -424,6 +428,7 @@ export async function getWebOrderForBusiness(
     branchName: nombres.get(pedido.branch_id) ?? "—",
     fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",
     deliveryProvince: provinceName(pedido.delivery_province) ?? undefined,
+    deliveryProvinceSlug: pedido.delivery_province ?? undefined,
     deliverySector: pedido.delivery_sector ?? undefined,
     deliveryAddress: pedido.delivery_address ?? undefined,
     deliveryReference: pedido.delivery_reference ?? undefined,
@@ -499,6 +504,159 @@ export async function advanceWebOrder(
 
   if (error) return { ok: false, error: "No se pudo cambiar el estado." };
   return { ok: true, from: desde };
+}
+
+/**
+ * Cambiar cómo se entrega un pedido ya hecho.
+ *
+ * Hace falta más de lo que parece. El cliente que se equivoca de opción llama
+ * al negocio, y hasta ahora la única salida era cancelar y volver a pedir: se
+ * perdía el número, el historial y la paciencia del cliente.
+ *
+ * El FLETE lo vuelve a calcular el servidor con las tarifas de HOY. Es lo
+ * correcto: el envío se está decidiendo ahora, no cuando se hizo el pedido. Y
+ * jamás llega un importe en la petición — quien cambia la entrega elige el
+ * destino, no lo que cuesta.
+ *
+ * Se bloquea si el pedido ya está facturado: la proforma lleva el flete dentro
+ * y cambiarlo aquí dejaría el documento diciendo una cosa y el pedido otra.
+ * Para eso está anular la proforma en el POS.
+ */
+export type ChangeFulfillmentInput =
+  | { to: "pickup"; branchId: string }
+  | {
+      to: "delivery";
+      branchId: string;
+      province: string;
+      sector: string;
+      address: string;
+      reference?: string;
+    };
+
+export async function changeWebOrderFulfillment(
+  businessId: string,
+  id: string,
+  input: ChangeFulfillmentInput,
+): Promise<{
+  ok: boolean;
+  error?: string;
+  from?: "pickup" | "delivery";
+  shippingCost?: number;
+  total?: number;
+}> {
+  const admin = createServiceRoleClient();
+  if (!admin) return { ok: false, error: "No disponible." };
+
+  const { data: actual } = await admin
+    .from("web_orders")
+    .select("status, fulfillment, subtotal, proforma_id")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!actual) return { ok: false, error: "Pedido no encontrado." };
+
+  if (actual.status === "cancelado" || actual.status === "entregado") {
+    return {
+      ok: false,
+      error: "Este pedido ya está cerrado: no se le puede cambiar la entrega.",
+    };
+  }
+  if (actual.proforma_id) {
+    return {
+      ok: false,
+      error:
+        "El pedido ya está facturado. Anula la proforma en el POS antes de cambiar la entrega.",
+    };
+  }
+
+  // La sucursal se comprueba contra las del negocio: un UUID que llegue en la
+  // petición no puede ser el de otro negocio ni el de una sucursal cerrada.
+  const { data: sucursal } = await admin
+    .from("branches")
+    .select("id")
+    .eq("id", input.branchId)
+    .eq("business_id", businessId)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!sucursal) return { ok: false, error: "Elige una sucursal válida." };
+
+  const subtotal = Number(actual.subtotal ?? 0);
+  const desde: "pickup" | "delivery" =
+    actual.fulfillment === "delivery" ? "delivery" : "pickup";
+
+  let costoEnvio = 0;
+  let direccion: DeliveryAddress | null = null;
+
+  if (input.to === "delivery") {
+    const parseada = parseDeliveryAddress({
+      province: input.province,
+      sector: input.sector,
+      address: input.address,
+      reference: input.reference,
+    });
+    if (!parseada.ok) return { ok: false, error: parseada.error };
+
+    const tarifas = await loadShippingRates(businessId);
+    const cotizacion = quoteShipping(parseada.value.province, tarifas);
+    if (!cotizacion.ok) return { ok: false, error: cotizacion.error };
+
+    costoEnvio = cotizacion.cost;
+    direccion = parseada.value;
+  }
+
+  const total = subtotal + costoEnvio;
+
+  const { error } = await admin
+    .from("web_orders")
+    .update({
+      branch_id: input.branchId,
+      fulfillment: input.to,
+      // Al pasar a retiro se BORRA la dirección. Dejarla ahí "por si acaso"
+      // haría que una pantalla futura pintara un envío que ya no existe.
+      delivery_province: direccion?.province ?? null,
+      delivery_sector: direccion?.sector ?? null,
+      delivery_address: direccion?.address ?? null,
+      delivery_reference: direccion?.reference ?? null,
+      shipping_cost: costoEnvio,
+      total,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("business_id", businessId);
+
+  if (error) return { ok: false, error: "No se pudo cambiar la entrega." };
+  return { ok: true, from: desde, shippingCost: costoEnvio, total };
+}
+
+export interface BranchOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * Sucursales que pueden retirar o despachar, para los selectores del ERP.
+ *
+ * Aquí NO se filtra por `show_on_website`: esa columna decide qué ve el
+ * público, y puertas adentro se puede despachar desde una sucursal que no esté
+ * anunciada en la tienda.
+ */
+export async function listActiveBranches(
+  businessId: string,
+): Promise<BranchOption[]> {
+  const admin = createServiceRoleClient();
+  if (!admin) return [];
+  const { data } = await admin
+    .from("branches")
+    .select("id, name, public_name")
+    .eq("business_id", businessId)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .order("name", { ascending: true });
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    name: b.public_name?.trim() || b.name,
+  }));
 }
 
 /** Nombre COMERCIAL de cada sucursal, para el ERP. Nunca un UUID en pantalla. */

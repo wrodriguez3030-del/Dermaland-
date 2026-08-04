@@ -5,6 +5,7 @@ import {
   nextStatuses,
   WEB_ORDER_STATUSES,
   webOrderStatusLabel,
+  webOrderStatusLabelFor,
 } from "./status";
 
 describe("estados del pedido", () => {
@@ -56,6 +57,38 @@ describe("estados del pedido", () => {
     // quedaría sin saber qué botones ofrecer.
     for (const s of WEB_ORDER_STATUSES) {
       expect(Array.isArray(nextStatuses(s))).toBe(true);
+    }
+  });
+});
+
+describe("webOrderStatusLabelFor", () => {
+  it("a quien pidió a domicilio no se le dice que vaya a retirar", () => {
+    // El cliente que lee "Listo para retirar" en un pedido con envío llama
+    // preguntando si tiene que ir a buscarlo.
+    expect(webOrderStatusLabelFor("listo", "delivery")).toBe("En camino");
+    expect(webOrderStatusLabelFor("listo", "pickup")).toBe("Listo para retirar");
+  });
+
+  it("entregado se cuenta según cómo llegó", () => {
+    expect(webOrderStatusLabelFor("entregado", "delivery")).toBe("Entregado");
+    expect(webOrderStatusLabelFor("entregado", "pickup")).toBe("Entregado");
+  });
+
+  it("los estados que no dependen de la entrega dicen lo mismo en los dos", () => {
+    for (const s of ["recibido", "confirmado", "preparando", "cancelado"] as const) {
+      expect(webOrderStatusLabelFor(s, "delivery")).toBe(
+        webOrderStatusLabelFor(s, "pickup"),
+      );
+    }
+  });
+
+  it("ningún estado se queda sin etiqueta en ninguno de los dos modos", () => {
+    for (const s of WEB_ORDER_STATUSES) {
+      for (const f of ["pickup", "delivery"] as const) {
+        const etiqueta = webOrderStatusLabelFor(s, f);
+        expect(etiqueta.length).toBeGreaterThan(0);
+        expect(etiqueta).not.toBe(s);
+      }
     }
   });
 });

@@ -359,6 +359,16 @@ export type Database = {
           cancel_reason?: string | null
           notes?: string | null
           updated_at?: string
+          // Cambiar el tipo de entrega toca estas. `total` y `shipping_cost`
+          // los recalcula SIEMPRE el servidor: no llegan en la petición.
+          branch_id?: string
+          fulfillment?: string
+          delivery_province?: string | null
+          delivery_sector?: string | null
+          delivery_address?: string | null
+          delivery_reference?: string | null
+          shipping_cost?: number
+          total?: number
         }
         Relationships: []
       }
