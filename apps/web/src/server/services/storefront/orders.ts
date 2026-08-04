@@ -314,6 +314,27 @@ export async function listWebOrders(
   };
 }
 
+/**
+ * Cuántos pedidos están sin atender.
+ *
+ * Solo `recibido`: es el estado que pide una acción humana. Contar también los
+ * que ya están en curso convertiría el aviso en un número que nunca baja, y un
+ * número que nunca baja deja de mirarse.
+ *
+ * `head: true` para traer el conteo sin las filas: esto se ejecuta en CADA
+ * página del ERP.
+ */
+export async function countNewWebOrders(businessId: string): Promise<number> {
+  const admin = createServiceRoleClient();
+  if (!admin) return 0;
+  const { count } = await admin
+    .from("web_orders")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .eq("status", "recibido");
+  return count ?? 0;
+}
+
 /** El pedido completo, para el detalle del ERP. Acotado por `business_id`. */
 export async function getWebOrderForBusiness(
   businessId: string,

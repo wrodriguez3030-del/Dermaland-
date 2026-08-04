@@ -10,6 +10,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.125.0] - 2026-08-04
+
+**Línea de progreso del pedido, aviso al cliente y contador de pedidos nuevos.**
+
+- **El cliente ve por dónde va su pedido** en `/tienda/pedido/[token]`: los cinco
+  pasos con el actual marcado. Los textos cambian según sea retiro o envío —
+  "Listo para retirar" no significa nada para quien pidió a domicilio. Un pedido
+  cancelado **no** pinta la línea: sugeriría que sigue vivo.
+- **Aviso por correo en cada avance**, con el enlace de su pedido. Va por el
+  **Gmail del negocio** (Ajustes → Correo), que no tiene nada que ver con el
+  emisor de Supabase Auth — ese es el que está limitado y por el que las cuentas
+  siguen cerradas.
+- **`recibido` no avisa**: el cliente acaba de hacer el pedido y está viendo la
+  pantalla que se lo confirma. El ruido enseña a ignorar los avisos que importan.
+- **Un fallo del correo NUNCA detiene el cambio de estado.** Comprobado: sin
+  credenciales resolubles, el pedido pasó a "confirmado" igual y la auditoría
+  registró `aviso_al_cliente: sin-configurar`. Que no salga un correo no puede
+  impedir que el negocio marque un pedido como listo.
+- **Contador de pedidos sin atender** junto a *Pedidos web* en el menú. Solo
+  cuenta los `recibido`: un número que incluyera los ya en curso nunca bajaría, y
+  un número que nunca baja deja de mirarse. Sube al grupo "Ventas" cuando está
+  plegado, y el número va también en el nombre accesible.
+
 ## [0.124.0] - 2026-08-04
 
 **Revisión del módulo de tienda por agentes. Un agujero de seguridad real y el

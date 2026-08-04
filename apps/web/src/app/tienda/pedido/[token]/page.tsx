@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { webOrderStatusLabel } from "@/features/storefront/orders/status";
+import { OrderTimeline } from "@/features/storefront/components/order-timeline";
 import { formatCurrency } from "@/lib/utils/format";
 import { findWebOrderByToken } from "@/server/services/storefront/orders";
 import {
@@ -111,6 +112,18 @@ export default async function PedidoPage({
           Retiras en <strong className="font-semibold">{pedido.branchName}</strong>
         </p>
       )}
+
+      {!cancelado ? (
+        <section className="mt-8 rounded-2xl border border-black/5 bg-white p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+            Por dónde va tu pedido
+          </h2>
+          <OrderTimeline status={pedido.status} fulfillment={pedido.fulfillment} />
+          <p className="mt-4 text-xs text-[color:var(--brand-fg)]/50">
+            Te avisamos por correo cada vez que avanza.
+          </p>
+        </section>
+      ) : null}
 
       <ul className="mt-6 divide-y divide-black/5 rounded-2xl border border-black/5 bg-white">
         {pedido.items.map((linea, indice) => (
