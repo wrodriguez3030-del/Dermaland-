@@ -7,6 +7,7 @@ import {
   buildCatalogHref,
   categoryHref,
 } from "@/features/storefront/catalog-params";
+import { AddToCartButton } from "@/features/storefront/components/add-to-cart-button";
 import { ProductCard } from "@/features/storefront/components/product-card";
 import { ProductPhoto } from "@/features/storefront/components/product-photo";
 import {
@@ -190,22 +191,29 @@ export default async function ProductoPage({
             </p>
           ) : null}
 
-          {whatsapp ? (
-            <a
-              href={whatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white transition-colors hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[color:var(--brand-accent)] sm:w-auto"
-            >
-              <MessageCircle aria-hidden className="h-5 w-5" />
-              {agotado ? "Consultar disponibilidad" : "Pedir por WhatsApp"}
-            </a>
-          ) : null}
+          {/* Agregar al carrito es la acción principal; WhatsApp pasa a ser la
+              secundaria (contorno, no relleno) pero no desaparece: hay clientes
+              que prefieren preguntar antes de comprar. Lo agotado no se puede
+              agregar, así que ahí WhatsApp vuelve a ser lo único. */}
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            {!agotado ? <AddToCartButton slug={producto.slug} /> : null}
+            {whatsapp ? (
+              <a
+                href={whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[color:var(--brand-primary)] px-6 text-base font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-[color:var(--brand-primary)]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2 sm:w-auto"
+              >
+                <MessageCircle aria-hidden className="h-5 w-5" />
+                {agotado ? "Consultar disponibilidad" : "Preguntar por WhatsApp"}
+              </a>
+            ) : null}
+          </div>
 
           <p className="mt-3 text-sm text-[color:var(--brand-fg)]/60">
             {agotado
               ? "Ahora mismo no tenemos existencias. Escríbenos y te avisamos cuando llegue."
-              : "Te confirmamos disponibilidad y coordinamos la entrega o el retiro en sucursal."}
+              : "Retiras tu pedido en la sucursal que elijas y pagas al recogerlo."}
           </p>
 
           {producto.benefits.length > 0 ? (
