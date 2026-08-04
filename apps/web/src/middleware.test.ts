@@ -29,6 +29,12 @@ describe("isPublic", () => {
     // Carrito: el navegador manda slugs y el SERVIDOR devuelve los precios.
     // No usa sesión y solo lee catálogo ya publicado.
     "/api/storefront/cart",
+    // Cuenta del cliente: entrar y registrarse tienen que ser accesibles SIN
+    // sesión. `/tienda/cuenta` comprueba quién eres en la página, no aquí, para
+    // no meter una llamada a Supabase en cada visita al catálogo.
+    "/tienda/cuenta",
+    "/tienda/cuenta/entrar",
+    "/tienda/cuenta/registro",
   ])("deja pasar %s", (ruta) => {
     expect(isPublic(ruta)).toBe(true);
   });
