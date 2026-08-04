@@ -75,12 +75,13 @@ export default async function PedidoPage({
             <p className="font-semibold text-[color:var(--brand-fg)]">
               Recibimos tu pedido
             </p>
+            {/* Sin repetirle su propio teléfono ni prometer una llamada: el
+                negocio contacta como puede, y prometer una llamada concreta es
+                una promesa que no siempre se cumple. */}
             <p className="mt-1 text-sm text-[color:var(--brand-fg)]/70">
-              Te llamamos al {pedido.contactPhone} para confirmarte
-              disponibilidad.{" "}
               {pedido.fulfillment === "delivery"
-                ? "Pagas al recibirlo."
-                : "Pagas al retirar."}
+                ? "Te contactamos para confirmarte la entrega."
+                : "Te contactamos cuando esté listo para retirar."}
             </p>
           </div>
         </div>

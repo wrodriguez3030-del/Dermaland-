@@ -10,6 +10,30 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.127.0] - 2026-08-04
+
+**Elegir cómo se recibe el pedido ya no se puede saltar por descuido.**
+
+Un cliente real pidió a domicilio y el pedido llegó como **retiro en sucursal**,
+con su página diciéndole "Retiras en Cutis" y una línea de progreso que
+terminaba en "Retirado". No fue un fallo de guardado: el selector arrancaba
+preseleccionado en "Retiro", así que quien no lo tocaba mandaba su pedido como
+retiro sin enterarse.
+
+- **Sin preselección** cuando hay envío configurado: el cliente tiene que elegir.
+  Hasta que elija, el resto del formulario no aparece y el botón está bloqueado
+  con el motivo escrito al lado. Elegir cómo lo recibe tiene que ser un acto, no
+  un descuido.
+- Si **no** hay provincias configuradas solo existe el retiro, y entonces sí se
+  preselecciona: no hay nada que elegir.
+- **Fuera el mensaje "Te llamamos al [teléfono] para confirmarte
+  disponibilidad".** Le repetía su propio número y prometía una llamada concreta
+  que no siempre se hace. Ahora dice "Te contactamos para confirmarte la
+  entrega" o "…cuando esté listo para retirar", según corresponda.
+- **Comprobado**: en un pedido de envío, la página no dice ni una vez "Retiras
+  en", ni "retirar", ni el nombre de una sucursal, ni le repite el teléfono. La
+  línea de progreso termina en "Entregado", no en "Retirado".
+
 ## [0.126.0] - 2026-08-04
 
 **El cliente por fin encuentra lo que busca.** Tres hallazgos de la revisión por
