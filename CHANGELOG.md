@@ -10,6 +10,39 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.120.0] - 2026-08-04
+
+**Pago por transferencia con comprobante.**
+
+- **Panel de cuentas bancarias** en *Administración → Cuentas bancarias*. Sin
+  ninguna cuenta activa, la tienda **no ofrece** transferencia: pedirle a alguien
+  que transfiera sin decirle a dónde es una vía muerta.
+- **En el checkout** el cliente elige entre pagar al recibir/retirar o
+  transferir; si transfiere, ve las cuentas ahí mismo.
+- **Sube su comprobante** desde la página de su pedido, sin sesión, autorizado
+  por el mismo token firmado con el que la consulta.
+- **En el ERP**, el detalle del pedido enseña los comprobantes con enlace
+  firmado y botones de aceptar o rechazar.
+
+### Seguridad (es una ruta pública que acepta archivos)
+
+- **Bucket `payment-receipts` PRIVADO.** Un comprobante lleva el nombre del
+  titular, su banco y a veces su número de cuenta. El personal lo ve por URL
+  firmada de **10 minutos**; comprobado que ni la URL pública ni la clave
+  anónima lo alcanzan (400 en ambas).
+- **El nombre del archivo NO se conserva.** Puede ser `../../../etc/passwd`. La
+  ruta se construye entera en el servidor y del nombre solo sobrevive una
+  extensión de lista blanca.
+- **SVG rechazado** aunque sea imagen: puede llevar `<script>` dentro y se
+  serviría desde nuestro dominio. Comprobado: EXE y SVG dan 422.
+- **Freno de abuso** de 10 subidas por hora e IP, y el tamaño se comprueba
+  **antes** de leer el archivo en memoria.
+- **Aceptar un comprobante es la ÚNICA forma de marcar un pedido como pagado.**
+  No hay botón suelto de "marcar pagado": detrás de cada pedido pagado hay un
+  documento que alguien miró. Revisar dos veces el mismo comprobante da 422.
+- **Los números de cuenta no van a la auditoría**: ese registro lo lee mucha más
+  gente que el panel donde se escriben.
+
 ## [0.119.0] - 2026-08-04
 
 **Envío a domicilio con costo por provincia.** Hasta ahora la tienda solo ofrecía

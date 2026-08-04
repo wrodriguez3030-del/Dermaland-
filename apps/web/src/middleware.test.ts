@@ -39,6 +39,9 @@ describe("isPublic", () => {
     // pedido ya creado lo da un TOKEN firmado, nunca su número.
     "/api/storefront/orders",
     "/tienda/pedido/eyJhbGciOi",
+    // Subir el comprobante: público porque la tienda no tiene sesión, pero
+    // autorizado por el TOKEN firmado del pedido, no por estar abierto.
+    "/api/storefront/orders/eyJhbGciOi/comprobante",
   ])("deja pasar %s", (ruta) => {
     expect(isPublic(ruta)).toBe(true);
   });

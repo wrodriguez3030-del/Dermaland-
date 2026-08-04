@@ -184,6 +184,80 @@ export type Database = {
           },
         ]
       }
+      payment_bank_accounts: {
+        Row: {
+          id: string
+          business_id: string
+          bank_name: string
+          account_type: string
+          account_number: string
+          holder_name: string
+          holder_document: string | null
+          active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          business_id: string
+          bank_name: string
+          account_type?: string
+          account_number: string
+          holder_name: string
+          holder_document?: string | null
+          active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          bank_name?: string
+          account_type?: string
+          account_number?: string
+          holder_name?: string
+          holder_document?: string | null
+          active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      web_order_receipts: {
+        Row: {
+          id: string
+          order_id: string
+          business_id: string
+          storage_path: string
+          mime_type: string
+          size_bytes: number
+          status: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          uploaded_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          business_id: string
+          storage_path: string
+          mime_type: string
+          size_bytes: number
+          status?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          uploaded_at?: string
+        }
+        Update: {
+          status?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: []
+      }
       shipping_rates: {
         Row: {
           business_id: string
@@ -231,6 +305,7 @@ export type Database = {
           cancel_reason: string | null
           notes: string | null
           idempotency_key: string | null
+          payment_method: string
           delivery_province: string | null
           delivery_sector: string | null
           delivery_address: string | null
@@ -263,6 +338,7 @@ export type Database = {
           cancel_reason?: string | null
           notes?: string | null
           idempotency_key?: string | null
+          payment_method?: string
           delivery_province?: string | null
           delivery_sector?: string | null
           delivery_address?: string | null
@@ -277,6 +353,8 @@ export type Database = {
         Update: {
           status?: string
           payment_status?: string
+          payment_method?: string
+          paid_at?: string | null
           proforma_id?: string | null
           cancel_reason?: string | null
           notes?: string | null

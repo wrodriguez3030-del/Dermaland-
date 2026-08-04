@@ -4,6 +4,7 @@ import { CheckoutView } from "@/features/storefront/components/checkout-view";
 import { resolveCustomerAccount } from "@/server/services/storefront/customer-account";
 import { paymentsEnabled } from "@/server/services/storefront/payments";
 import { loadShippingRates } from "@/server/services/storefront/shipping";
+import { listActiveBankAccounts } from "@/server/services/storefront/transfer-payments";
 import { deliverableProvinces } from "@/features/storefront/shipping/quote";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
@@ -26,6 +27,9 @@ export default async function CheckoutPage() {
   const provincias = deliverableProvinces(
     await loadShippingRates(tenant.businessId),
   );
+  // Sin cuentas no se ofrece transferencia: pedirle a alguien que transfiera
+  // sin decirle a dónde es una vía muerta.
+  const cuentas = await listActiveBankAccounts(tenant.businessId);
 
   return (
     <>
@@ -36,6 +40,7 @@ export default async function CheckoutPage() {
         branches={tenant.branches}
         cardPaymentsEnabled={paymentsEnabled()}
         provinces={provincias}
+        bankAccounts={cuentas}
         prefill={
           cuenta
             ? {

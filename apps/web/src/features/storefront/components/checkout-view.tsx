@@ -7,6 +7,16 @@ import { Loader2, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
 import type { CartSummary } from "../cart";
 import type { DeliverableProvince } from "../shipping/quote";
+import { formatAccountNumber } from "../payments/receipt";
+
+export interface BankAccountView {
+  id: string;
+  bankName: string;
+  accountType: string;
+  accountNumber: string;
+  holderName: string;
+  holderDocument?: string;
+}
 import type { PublicBranch } from "../types";
 import { useCart } from "./cart-provider";
 
@@ -25,6 +35,7 @@ export function CheckoutView({
   prefill,
   cardPaymentsEnabled = false,
   provinces = [],
+  bankAccounts = [],
 }: {
   branches: PublicBranch[];
   /** Si el cliente entró con su cuenta, no tiene que reescribir sus datos. */
@@ -39,6 +50,11 @@ export function CheckoutView({
    * defecto vacío: sin configurar, no se promete un domicilio.
    */
   provinces?: DeliverableProvince[];
+  /**
+   * Cuentas del negocio para transferir. Vacío = no se ofrece transferencia:
+   * pedirle a alguien que transfiera sin decirle a dónde es una vía muerta.
+   */
+  bankAccounts?: BankAccountView[];
 }) {
   const router = useRouter();
   const { items, mounted, clear } = useCart();
@@ -49,6 +65,11 @@ export function CheckoutView({
   // lo que sigue funcionando si nadie configuró provincias.
   const [entrega, setEntrega] = React.useState<"pickup" | "delivery">("pickup");
   const [provincia, setProvincia] = React.useState("");
+  // Efectivo por defecto: es lo que funcionaba antes de existir la
+  // transferencia, y lo que sigue si el negocio no puso ninguna cuenta.
+  const [metodoPago, setMetodoPago] = React.useState<"efectivo" | "transferencia">(
+    "efectivo",
+  );
 
   // El flete lo pone la lista que mandó el SERVIDOR, no un número del
   // formulario: el total que se cobra se recalcula igualmente al crear el
@@ -97,6 +118,7 @@ export function CheckoutView({
         body: JSON.stringify({
           items,
           fulfillment: entrega,
+          paymentMethod: metodoPago,
           branchSlug: formData.get("branchSlug"),
           province: formData.get("province"),
           sector: formData.get("sector"),
@@ -373,6 +395,87 @@ export function CheckoutView({
             </div>
           </>
         )}
+
+        {bankAccounts.length > 0 ? (
+          <fieldset>
+            <legend className="text-sm font-medium text-[color:var(--brand-fg)]">
+              ¿Cómo pagas?
+            </legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {(
+                [
+                  [
+                    "efectivo",
+                    entrega === "delivery" ? "Al recibirlo" : "Al retirarlo",
+                    "En efectivo",
+                  ],
+                  [
+                    "transferencia",
+                    "Transferencia bancaria",
+                    "Subes el comprobante después",
+                  ],
+                ] as const
+              ).map(([valor, titulo, nota]) => (
+                <label
+                  key={valor}
+                  className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${
+                    metodoPago === valor
+                      ? "border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/5"
+                      : "border-black/10 bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    value={valor}
+                    checked={metodoPago === valor}
+                    onChange={() => setMetodoPago(valor)}
+                    className="mt-0.5 h-4 w-4 cursor-pointer"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-[color:var(--brand-fg)]">
+                      {titulo}
+                    </span>
+                    <span className="block text-xs text-[color:var(--brand-fg)]/60">
+                      {nota}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {metodoPago === "transferencia" ? (
+              <div className="mt-3 rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/60">
+                  Transfiere a
+                </p>
+                <ul className="mt-2 space-y-3">
+                  {bankAccounts.map((c) => (
+                    <li key={c.id} className="text-sm">
+                      <span className="font-semibold text-[color:var(--brand-fg)]">
+                        {c.bankName}
+                      </span>{" "}
+                      <span className="text-[color:var(--brand-fg)]/60">
+                        · {c.accountType}
+                      </span>
+                      <span className="block font-mono text-[color:var(--brand-fg)]">
+                        {formatAccountNumber(c.accountNumber)}
+                      </span>
+                      <span className="block text-xs text-[color:var(--brand-fg)]/60">
+                        {c.holderName}
+                        {c.holderDocument ? ` · ${c.holderDocument}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs text-[color:var(--brand-fg)]/70">
+                  Al enviar el pedido te damos un enlace para subir el
+                  comprobante. Preparamos el pedido cuando lo confirmemos.
+                </p>
+              </div>
+            ) : null}
+          </fieldset>
+        ) : null}
 
         <div>
           <label
