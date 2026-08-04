@@ -68,6 +68,32 @@ export const isPublic = (pathname: string) =>
   PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
   PUBLIC_PATH_PATTERNS.some((re) => re.test(pathname));
 
+/**
+ * ¿Este usuario es PERSONAL del negocio, o un cliente de la tienda?
+ *
+ * Hasta ahora la pregunta no hacía falta: los usuarios sólo los creaba un
+ * administrador, así que "tiene sesión" y "es del negocio" eran lo mismo. Con el
+ * registro de clientes abierto dejan de serlo, y el middleware es el único sitio
+ * donde la diferencia se puede aplicar ANTES de servir una página del ERP.
+ *
+ * La marca es `business_id` en `app_metadata`, escribible sólo por service_role
+ * (SEC-001). Un cliente recién registrado no la tiene y nunca la tendrá: su
+ * vínculo con la ficha comercial vive en `client_auth_links`, no en el token.
+ *
+ * `is_platform_admin === true` (comparación ESTRICTA: un `"true"` de texto no
+ * eleva a nadie) también entra, porque el súper admin es personal por definición
+ * y puede no tener negocio asignado. `/super-admin` conserva además su propio
+ * control más abajo.
+ */
+export const isBusinessUser = (
+  appMetadata: Record<string, unknown> | null | undefined,
+): boolean => {
+  const m = appMetadata ?? {};
+  if (m.is_platform_admin === true) return true;
+  const businessId = m.business_id;
+  return typeof businessId === "string" && businessId.trim().length > 0;
+};
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (isPublic(pathname)) return NextResponse.next();
@@ -101,6 +127,17 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // Tener sesión ya no basta: hay que ser del NEGOCIO. Un cliente de la tienda
+  // tiene sesión perfectamente válida y no debe ver `/inventario` ni `/ventas`.
+  // Se le devuelve a la tienda y no a `/login`: ya está autenticado, mandarlo al
+  // login sería pedirle que arregle algo que no está roto.
+  if (!isBusinessUser(user.app_metadata)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/tienda";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

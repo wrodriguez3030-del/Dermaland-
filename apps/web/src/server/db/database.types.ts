@@ -184,6 +184,27 @@ export type Database = {
           },
         ]
       }
+      client_auth_links: {
+        Row: {
+          auth_user_id: string
+          business_id: string
+          client_id: string
+          created_at: string
+        }
+        Insert: {
+          auth_user_id: string
+          business_id: string
+          client_id: string
+          created_at?: string
+        }
+        Update: {
+          auth_user_id?: string
+          business_id?: string
+          client_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       business_web_settings: {
         Row: {
           business_id: string

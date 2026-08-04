@@ -63,16 +63,36 @@ export async function signIn(formData: FormData): Promise<AuthResult> {
   return { ok: true, requiresMfa: verified };
 }
 
-/** Logout — limpia cookies y redirige a /login. */
-export async function signOut(): Promise<void> {
+/** Cierra la sesión sin redirigir. Cada puerta decide a dónde vuelve el suyo. */
+async function limpiarSesion(): Promise<void> {
   if (env.DATA_SOURCE === "mock" || !isSupabaseConfigured()) {
     const c = await cookies();
     c.delete("dl-mock-session");
-    redirect("/login");
+    return;
   }
   const sb = await createServer();
   await sb?.auth.signOut();
+}
+
+/** Logout del PERSONAL — limpia cookies y redirige a /login. */
+export async function signOut(): Promise<void> {
+  await limpiarSesion();
   redirect("/login");
+}
+
+/**
+ * Logout de un CLIENTE de la tienda.
+ *
+ * Función aparte y no un parámetro de `signOut`: esa se usa directamente como
+ * `action` de un formulario, así que su primer argumento es el `FormData` que
+ * envía el navegador, no un destino.
+ *
+ * Vuelve a `/tienda` y no a `/login`: el login del ERP no es su puerta, y
+ * mandarlo ahí después de cerrar sesión sería ofrecerle una que no puede abrir.
+ */
+export async function signOutCustomer(): Promise<void> {
+  await limpiarSesion();
+  redirect("/tienda");
 }
 
 /**

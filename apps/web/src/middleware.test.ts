@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isPublic } from "./middleware";
+import { isBusinessUser, isPublic } from "./middleware";
 
 /**
  * La lista de rutas públicas es la frontera entre lo que ve cualquiera en
@@ -29,6 +29,12 @@ describe("isPublic", () => {
     // Carrito: el navegador manda slugs y el SERVIDOR devuelve los precios.
     // No usa sesión y solo lee catálogo ya publicado.
     "/api/storefront/cart",
+    // Cuenta del cliente: entrar y registrarse tienen que ser accesibles SIN
+    // sesión. `/tienda/cuenta` comprueba quién eres en la página, no aquí, para
+    // no meter una llamada a Supabase en cada visita al catálogo.
+    "/tienda/cuenta",
+    "/tienda/cuenta/entrar",
+    "/tienda/cuenta/registro",
   ])("deja pasar %s", (ruta) => {
     expect(isPublic(ruta)).toBe(true);
   });
@@ -60,5 +66,44 @@ describe("isPublic", () => {
     "/api/proformas",
   ])("exige sesión en %s", (ruta) => {
     expect(isPublic(ruta)).toBe(false);
+  });
+});
+
+/**
+ * El portero preguntaba una sola cosa: "¿hay un usuario?". Eso alcanzaba porque
+ * la única forma de existir como usuario era que un administrador te creara.
+ * Con el registro de clientes abierto la premisa se invierte: cualquiera puede
+ * fabricarse una sesión válida desde la tienda. Lo que distingue al personal es
+ * llevar `business_id` en `app_metadata`, que sólo escribe service_role.
+ */
+describe("isBusinessUser", () => {
+  it("deja pasar a quien tiene business_id", () => {
+    expect(
+      isBusinessUser({ business_id: "00000000-0000-0000-0000-00000000d001" }),
+    ).toBe(true);
+  });
+
+  it("NO deja pasar a un cliente de la tienda", () => {
+    // Así queda un usuario recién creado por `auth.signUp`: sin claims.
+    expect(isBusinessUser({})).toBe(false);
+    expect(isBusinessUser(undefined)).toBe(false);
+    expect(isBusinessUser(null)).toBe(false);
+  });
+
+  it("no acepta un business_id que no sea texto con contenido", () => {
+    expect(isBusinessUser({ business_id: "" })).toBe(false);
+    expect(isBusinessUser({ business_id: "   " })).toBe(false);
+    expect(isBusinessUser({ business_id: true })).toBe(false);
+    expect(isBusinessUser({ business_id: 1 })).toBe(false);
+  });
+
+  it("el súper admin es personal aunque no tenga negocio asignado", () => {
+    expect(isBusinessUser({ is_platform_admin: true })).toBe(true);
+  });
+
+  it("un is_platform_admin que no sea exactamente true no cuenta", () => {
+    // Que un "true" de TEXTO elevara a alguien sería la puerta de atrás.
+    expect(isBusinessUser({ is_platform_admin: "true" })).toBe(false);
+    expect(isBusinessUser({ is_platform_admin: 1 })).toBe(false);
   });
 });

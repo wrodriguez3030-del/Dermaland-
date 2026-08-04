@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin, MessageCircle, Phone } from "lucide-react";
+import { AccountNav } from "@/features/storefront/components/account-nav";
 import { CartBadge } from "@/features/storefront/components/cart-badge";
 import { CartProvider } from "@/features/storefront/components/cart-provider";
 import { CategoryNav } from "@/features/storefront/components/category-nav";
 import { SearchBox } from "@/features/storefront/components/search-box";
 import { whatsappLink } from "@/features/storefront/contact";
 import { loadPublishedCatalog } from "@/server/services/storefront/catalog";
+import { resolveCustomerAccount } from "@/server/services/storefront/customer-account";
 import {
   resolveStorefrontTenant,
   storefrontBaseUrl,
@@ -70,6 +72,7 @@ export default async function TiendaLayout({
   // la comparte dentro de la petición, así que el encabezado no cuesta un viaje
   // más a la base.
   const { categories } = await loadPublishedCatalog(tenant.businessId);
+  const cuenta = await resolveCustomerAccount();
 
   return (
     // El carrito envuelve TODA la tienda: el contador del encabezado y la ficha
@@ -104,6 +107,7 @@ export default async function TiendaLayout({
             />
 
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <AccountNav nombre={cuenta?.firstName} />
               <CartBadge />
 
               {whatsapp ? (

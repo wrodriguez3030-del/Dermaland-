@@ -230,6 +230,7 @@ de perder una venta.
 | E7 | Admin "Catálogo web" (`/tienda-web`) | **Hecho** |
 | F3.0 | Portada con estantes, `/tienda/catalogo`, categorías navegables y recomendados | **Hecho** |
 | F3.1 | Carrito con precios de servidor y retiro en sucursal | **Hecho** |
+| F3.2 | Cuentas de cliente (portero + `client_auth_links`) | **Hecho** — el registro necesita SMTP en Supabase para poder usarse |
 
 **La tienda no se enciende hasta después de E7**, y encenderla es una decisión
 del dueño, no un paso del plan. Hoy sigue **apagada**, con 638 fichas sembradas
@@ -310,3 +311,5 @@ código:
 | R-WEB-07 | Catálogo publicado incompleto al lanzar | Es decisión de negocio: se lanza con 638 o se completan fotos antes |
 | ~~R-WEB-08~~ | ~~El botón de WhatsApp apunta a una línea sin WhatsApp~~ | **CERRADO 2026-08-03**: el dueño confirma que el 809-226-5252 tiene WhatsApp. `whatsappLink` sigue devolviendo `null` —y ocultando el botón— si algún día el número deja de ser marcable |
 | R-WEB-09 | Las fichas salen con el nombre en MAYÚSCULAS y sin contenido | El admin permite redactarlas; el título comercial cae al nombre del ERP solo mientras nadie lo escriba |
+| R-WEB-10 | **El registro de clientes no se puede usar**: Supabase exige confirmar el correo y su emisor propio se agota en unos pocos envíos por hora (`over_email_send_rate_limit`) | Configurar un SMTP propio en Supabase. **No** desactivar la confirmación: permitiría registrarse con el correo de otra persona. Es configuración de la cuenta, no código |
+| R-WEB-11 | El registro público es superficie de spam en `auth.users` | Supabase limita por IP de serie; con SMTP propio + confirmación obligatoria, una cuenta sin confirmar no sirve de nada |
