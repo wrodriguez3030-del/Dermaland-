@@ -1,6 +1,6 @@
 {
   "name": "dermaland",
-  "version": "0.116.0",
+  "version": "0.117.0",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
