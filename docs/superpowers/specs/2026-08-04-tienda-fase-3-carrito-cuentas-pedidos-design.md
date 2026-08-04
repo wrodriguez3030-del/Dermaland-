@@ -203,9 +203,19 @@ aplica igual aquí.
 
 ### 4.6 F3.4 — Entrega y F3.5 — Cobro
 
-**Entrega** queda pendiente de una decisión de negocio (retiro en sucursal,
-envío, o ambos). El modelo de datos la contempla desde ya con
-`fulfillment: 'pickup' | 'delivery'` para no tener que migrar después.
+**Entrega — DECIDIDO por el dueño el 2026-08-04: solo RETIRO EN SUCURSAL.**
+No hay envío a domicilio. Eso simplifica bastante:
+
+- Sin direcciones de entrega, sin zonas, sin tarifas, sin mensajería.
+- El cliente **elige sucursal** al confirmar: "E. León Jiménez" o "Cutis".
+- No hay coste de envío en el total.
+- El pedido se prepara en la sucursal elegida, que es la que descuenta
+  existencias al emitirse la venta.
+
+El modelo de datos conserva `fulfillment: 'pickup' | 'delivery'` con `'pickup'`
+como único valor emitido hoy, para que el día que quieran repartir no haya que
+migrar una tabla con pedidos dentro. Las columnas de dirección (§5) **no se
+crean todavía**: se añaden si y cuando aparezca el reparto.
 
 **Cobro:** una interfaz y nada más.
 
@@ -246,9 +256,9 @@ Identidad y destino: `business_id`, `branch_id`, `number` (secuencia propia
 Contacto en **instantánea** (`contact_name`, `contact_phone`, `contact_email`):
 el pedido debe recordar a quién se le vendió aunque el cliente cambie de
 teléfono después.
-Entrega: `fulfillment`, `delivery_address`, `delivery_city`, `delivery_province`,
-`delivery_notes`.
-Dinero: `subtotal`, `discount`, `itbis`, `shipping`, `total`.
+Entrega: `fulfillment` (hoy siempre `'pickup'`) y `pickup_branch_id`. Las
+columnas de dirección **no se crean** mientras no haya reparto (§4.6).
+Dinero: `subtotal`, `discount`, `itbis`, `total`. Sin `shipping`: no hay envío.
 Estado: `status`, `payment_status`, `payment_provider`, `payment_reference`.
 Enlaces: `proforma_id`, `cancelled_reason`, `idempotency_key`.
 
@@ -343,7 +353,7 @@ tienda de verdad. Eso alimenta F3.0.
 | **F3.1** | Carrito | F3.0 |
 | **F3.2** | Cuentas (portero primero) | — |
 | **F3.3** | Pedidos en el ERP | F3.1 |
-| **F3.4** | Entrega | **Decisión de negocio pendiente** |
+| **F3.4** | Entrega (solo retiro en sucursal) | F3.3 |
 | **F3.5** | Cobro simulado | F3.3 |
 
 La tienda **sigue apagada** durante toda la fase. Encenderla es, como siempre,

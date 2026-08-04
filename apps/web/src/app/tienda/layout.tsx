@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MapPin, MessageCircle, Phone } from "lucide-react";
+import { CartBadge } from "@/features/storefront/components/cart-badge";
+import { CartProvider } from "@/features/storefront/components/cart-provider";
 import { CategoryNav } from "@/features/storefront/components/category-nav";
 import { SearchBox } from "@/features/storefront/components/search-box";
 import { whatsappLink } from "@/features/storefront/contact";
@@ -70,129 +72,142 @@ export default async function TiendaLayout({
   const { categories } = await loadPublishedCatalog(tenant.businessId);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[color:var(--brand-bg)]">
-      {/* Saltar al contenido: primer tabulador de la página, visible al enfocar. */}
-      <a
-        href="#contenido"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[color:var(--brand-primary)] focus:px-4 focus:py-3 focus:text-white"
-      >
-        Saltar al contenido
-      </a>
+    // El carrito envuelve TODA la tienda: el contador del encabezado y la ficha
+    // tienen que leer el mismo estado, y el layout es el único punto común.
+    <CartProvider>
+      <div className="flex min-h-screen flex-col bg-[color:var(--brand-bg)]">
+        {/* Saltar al contenido: primer tabulador de la página, visible al enfocar. */}
+        <a
+          href="#contenido"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[color:var(--brand-primary)] focus:px-4 focus:py-3 focus:text-white"
+        >
+          Saltar al contenido
+        </a>
 
-      <header className="sticky top-0 z-40 border-b border-black/5 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <Link
-            href="/tienda"
-            className="flex min-h-11 items-center gap-3 rounded-lg px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)]"
-          >
-            <span className="text-lg font-bold tracking-tight text-[color:var(--brand-primary)] sm:text-xl">
-              {tenant.siteName}
-            </span>
-          </Link>
+        <header className="sticky top-0 z-40 border-b border-black/5 bg-white/90 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+            <Link
+              href="/tienda"
+              className="flex min-h-11 items-center gap-3 rounded-lg px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)]"
+            >
+              <span className="text-lg font-bold tracking-tight text-[color:var(--brand-primary)] sm:text-xl">
+                {tenant.siteName}
+              </span>
+            </Link>
 
-          {/* En escritorio el buscador va en la fila del logo; en móvil no
+            {/* En escritorio el buscador va en la fila del logo; en móvil no
               cabría —se quedaría en 120 px y nadie escribiría ahí— y baja a su
               propia fila. El lema se sacrifica: el buscador vale más. */}
-          <SearchBox
-            id="buscador-encabezado"
-            className="hidden max-w-md flex-1 md:block"
-          />
+            <SearchBox
+              id="buscador-encabezado"
+              className="hidden max-w-md flex-1 md:block"
+            />
 
-          {whatsapp ? (
-            <a
-              href={whatsapp}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[color:var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[color:var(--brand-accent)]"
-            >
-              <MessageCircle aria-hidden className="h-4 w-4" />
-              {/* En móvil el texto sobra: el icono ya es inequívoco y el espacio
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <CartBadge />
+
+              {whatsapp ? (
+                <a
+                  href={whatsapp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[color:var(--brand-primary)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[color:var(--brand-accent)]"
+                >
+                  <MessageCircle aria-hidden className="h-4 w-4" />
+                  {/* En móvil el texto sobra: el icono ya es inequívoco y el espacio
                   hace falta para el nombre de la tienda. */}
-              <span className="hidden sm:inline">Escríbenos</span>
-              <span className="sr-only sm:hidden">Escríbenos por WhatsApp</span>
-            </a>
-          ) : null}
-        </div>
+                  <span className="hidden sm:inline">Escríbenos</span>
+                  <span className="sr-only sm:hidden">
+                    Escríbenos por WhatsApp
+                  </span>
+                </a>
+              ) : null}
+            </div>
+          </div>
 
-        <div className="mx-auto max-w-6xl px-4 pb-3 sm:px-6 md:hidden">
-          <SearchBox id="buscador-movil" />
-        </div>
+          <div className="mx-auto max-w-6xl px-4 pb-3 sm:px-6 md:hidden">
+            <SearchBox id="buscador-movil" />
+          </div>
 
-        <CategoryNav categories={categories} />
-      </header>
+          <CategoryNav categories={categories} />
+        </header>
 
-      <main
-        id="contenido"
-        className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6"
-      >
-        {children}
-      </main>
+        <main
+          id="contenido"
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6"
+        >
+          {children}
+        </main>
 
-      <footer className="mt-12 border-t border-black/5 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
-            Nuestras sucursales
-          </h2>
-          <div className="mt-4 grid gap-6 sm:grid-cols-2">
-            {tenant.branches.map((sucursal) => {
-              const tel = whatsappLink(sucursal.whatsapp ?? sucursal.phone);
-              return (
-                <div key={sucursal.slug}>
-                  <p className="font-semibold text-[color:var(--brand-fg)]">
-                    {sucursal.name}
-                  </p>
-                  {sucursal.address ? (
-                    <p className="mt-1 flex items-start gap-2 text-sm text-[color:var(--brand-fg)]/70">
-                      <MapPin aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>
-                        {sucursal.address}
-                        {sucursal.city ? `, ${sucursal.city}` : ""}
-                      </span>
+        <footer className="mt-12 border-t border-black/5 bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+              Nuestras sucursales
+            </h2>
+            <div className="mt-4 grid gap-6 sm:grid-cols-2">
+              {tenant.branches.map((sucursal) => {
+                const tel = whatsappLink(sucursal.whatsapp ?? sucursal.phone);
+                return (
+                  <div key={sucursal.slug}>
+                    <p className="font-semibold text-[color:var(--brand-fg)]">
+                      {sucursal.name}
                     </p>
-                  ) : null}
-                  {sucursal.phone ? (
-                    <p className="mt-1 flex items-center gap-2 text-sm">
-                      <Phone
-                        aria-hidden
-                        className="h-4 w-4 shrink-0 text-[color:var(--brand-fg)]/70"
-                      />
-                      {tel ? (
-                        <a
-                          href={tel}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
-                        >
-                          {sucursal.phone}
-                        </a>
-                      ) : (
-                        <span className="text-[color:var(--brand-fg)]/70">
-                          {sucursal.phone}
+                    {sucursal.address ? (
+                      <p className="mt-1 flex items-start gap-2 text-sm text-[color:var(--brand-fg)]/70">
+                        <MapPin
+                          aria-hidden
+                          className="mt-0.5 h-4 w-4 shrink-0"
+                        />
+                        <span>
+                          {sucursal.address}
+                          {sucursal.city ? `, ${sucursal.city}` : ""}
                         </span>
-                      )}
-                    </p>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
+                      </p>
+                    ) : null}
+                    {sucursal.phone ? (
+                      <p className="mt-1 flex items-center gap-2 text-sm">
+                        <Phone
+                          aria-hidden
+                          className="h-4 w-4 shrink-0 text-[color:var(--brand-fg)]/70"
+                        />
+                        {tel ? (
+                          <a
+                            href={tel}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
+                          >
+                            {sucursal.phone}
+                          </a>
+                        ) : (
+                          <span className="text-[color:var(--brand-fg)]/70">
+                            {sucursal.phone}
+                          </span>
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
 
-          <div className="mt-10 flex flex-col gap-2 border-t border-black/5 pt-6 text-xs text-[color:var(--brand-fg)]/60 sm:flex-row sm:items-center sm:justify-between">
-            <p>
-              © {new Date().getFullYear()} {tenant.siteName}. Todos los precios
-              están en pesos dominicanos (RD$) e incluyen ITBIS.
-            </p>
-            {tenant.contactEmail ? (
-              <a
-                href={`mailto:${tenant.contactEmail}`}
-                className="text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
-              >
-                {tenant.contactEmail}
-              </a>
-            ) : null}
+            <div className="mt-10 flex flex-col gap-2 border-t border-black/5 pt-6 text-xs text-[color:var(--brand-fg)]/60 sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                © {new Date().getFullYear()} {tenant.siteName}. Todos los
+                precios están en pesos dominicanos (RD$) e incluyen ITBIS.
+              </p>
+              {tenant.contactEmail ? (
+                <a
+                  href={`mailto:${tenant.contactEmail}`}
+                  className="text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
+                >
+                  {tenant.contactEmail}
+                </a>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </CartProvider>
   );
 }
