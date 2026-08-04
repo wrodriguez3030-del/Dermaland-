@@ -22,6 +22,16 @@ export const CATALOG_PARAM = {
   page: "pagina",
 } as const;
 
+/**
+ * Dónde vive la rejilla con filtros, búsqueda y paginación.
+ *
+ * `/tienda` es la PORTADA. Tenerlas en la misma dirección obligaba a que una
+ * sola URL fuera dos páginas distintas según llevara o no parámetros, y eso se
+ * nota donde importa: el H1, la canónica y la política de indexación no pueden
+ * ser las mismas para una portada y para una página de resultados.
+ */
+export const CATALOG_BASE = "/tienda/catalogo";
+
 /** Lo que entrega Next en `searchParams`. */
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -68,7 +78,7 @@ export function hasActiveFilters(query: CatalogQuery): boolean {
 export function buildCatalogHref(
   query: CatalogQuery,
   cambios: Partial<CatalogQuery> = {},
-  base = "/tienda",
+  base = CATALOG_BASE,
 ): string {
   const cambiaFiltro =
     "q" in cambios || "brandSlug" in cambios || "categorySlug" in cambios || "sort" in cambios;

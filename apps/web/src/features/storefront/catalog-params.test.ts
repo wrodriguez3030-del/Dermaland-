@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCatalogHref,
+  CATALOG_BASE,
   hasActiveFilters,
   parseCatalogParams,
 } from "./catalog-params";
@@ -58,33 +59,41 @@ describe("buildCatalogHref", () => {
 
   it("no escribe los valores por defecto", () => {
     // La URL que se comparte por WhatsApp debe ser legible.
-    expect(buildCatalogHref(base)).toBe("/tienda");
-    expect(buildCatalogHref(base, { brandSlug: "avene" })).toBe("/tienda?marca=avene");
+    expect(buildCatalogHref(base)).toBe("/tienda/catalogo");
+    expect(buildCatalogHref(base, { brandSlug: "avene" })).toBe("/tienda/catalogo?marca=avene");
   });
 
   it("cambiar de filtro vuelve a la página 1", () => {
     // Estar en la página 7 y elegir una marca de 12 productos dejaría al
     // cliente mirando una lista vacía.
     const enPagina7 = parseCatalogParams({ pagina: "7" });
-    expect(buildCatalogHref(enPagina7, { brandSlug: "isdin" })).toBe("/tienda?marca=isdin");
+    expect(buildCatalogHref(enPagina7, { brandSlug: "isdin" })).toBe("/tienda/catalogo?marca=isdin");
   });
 
   it("cambiar de página conserva los filtros", () => {
     const conFiltros = parseCatalogParams({ q: "crema", marca: "avene", orden: "nombre" });
     expect(buildCatalogHref(conFiltros, { page: 2 })).toBe(
-      "/tienda?q=crema&marca=avene&orden=nombre&pagina=2",
+      "/tienda/catalogo?q=crema&marca=avene&orden=nombre&pagina=2",
     );
   });
 
   it("codifica el texto de búsqueda", () => {
     expect(buildCatalogHref(base, { q: "protección solar" })).toBe(
-      "/tienda?q=protecci%C3%B3n+solar",
+      "/tienda/catalogo?q=protecci%C3%B3n+solar",
     );
   });
 
   it("quitar un filtro lo saca de la URL", () => {
     const conMarca = parseCatalogParams({ marca: "avene", q: "crema" });
-    expect(buildCatalogHref(conMarca, { brandSlug: undefined })).toBe("/tienda?q=crema");
+    expect(buildCatalogHref(conMarca, { brandSlug: undefined })).toBe("/tienda/catalogo?q=crema");
+  });
+
+  it("apunta a la rejilla, no a la portada", () => {
+    // `/tienda` es la PORTADA. Si el destino por defecto volviera a ser
+    // `/tienda`, cada filtro y cada paginación devolverían al visitante a los
+    // estantes en vez de a sus resultados.
+    expect(buildCatalogHref(base)).toBe(CATALOG_BASE);
+    expect(CATALOG_BASE).toBe("/tienda/catalogo");
   });
 });
 
