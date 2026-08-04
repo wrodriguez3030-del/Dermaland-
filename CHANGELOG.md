@@ -10,6 +10,36 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.122.0] - 2026-08-04
+
+**Todo cliente de la tienda entra en la base de clientes del ERP.**
+
+Hasta ahora **no entraba ninguno**: el pedido guardaba nombre y teléfono en
+instantánea pero no creaba ficha, y `web_orders.client_id` quedaba en nulo. Con
+las cuentas cerradas (v0.121.0), el pedido era el único camino — así que ningún
+comprador de la tienda aparecía en *Clientes*.
+
+- Al hacer un pedido se **busca la ficha y, si no existe, se crea**, con
+  `source = 'web'`.
+- **Una sola regla para los dos caminos** (pedido y registro):
+  `findOrCreateClient`. Si cada uno llevara su propia idea de cuándo un cliente
+  "ya existe", el mismo señor acabaría con dos fichas según por dónde entrara.
+  Se borró la copia duplicada que había en el registro.
+- **Se busca por teléfono primero**, luego whatsapp, luego correo: en esta tienda
+  el teléfono es obligatorio y el correo no.
+- **Que falle el alta de la ficha NO detiene el pedido.** Perder una venta porque
+  no se pudo crear una ficha sería absurdo; el contacto va en instantánea de
+  todos modos.
+- **`splitFullName`**: el checkout pide nombre y apellido en una sola casilla
+  —pedir dos hace que la gente abandone— y `clients` los guarda en dos columnas
+  NOT NULL. Se parte por el primer espacio: "María Trinidad Sánchez" es un
+  nombre normal y trocearlo en cuatro columnas daría fichas peores. Un solo
+  nombre deja el apellido **vacío**, no repetido: "Pedro Pedro" se lee como un
+  error del sistema.
+
+Probado: dos pedidos con el mismo teléfono y nombres distintos quedaron en **una
+ficha con dos pedidos enlazados**, no en dos clientes.
+
 ## [0.121.0] - 2026-08-04
 
 **Las cuentas de cliente se apagan hasta que el correo funcione.**

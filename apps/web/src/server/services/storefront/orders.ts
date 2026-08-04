@@ -21,6 +21,7 @@ import {
   quoteShipping,
 } from "@/features/storefront/shipping/quote";
 import { loadPublishedCatalog } from "./catalog";
+import { findOrCreateClient } from "./customer-link";
 import { loadShippingRates } from "./shipping";
 import { resolveStorefrontTenant } from "./tenant";
 
@@ -155,12 +156,25 @@ export async function createWebOrder(
   const numero = await siguienteNumero(admin);
   if (!numero) return { ok: false, error: "No se pudo registrar el pedido." };
 
+  // Todo cliente de la tienda entra en la base de clientes del ERP. Si ya
+  // compraba en el mostrador se reutiliza su ficha en vez de duplicarla.
+  //
+  // Que esto falle NO detiene el pedido: perder una venta porque no se pudo
+  // crear una ficha sería absurdo. El pedido guarda el contacto en instantánea
+  // igualmente, así que nadie se queda sin saber a quién llamar.
+  const clientId = await findOrCreateClient(tenant.businessId, {
+    fullName: input.contactName,
+    phone: input.contactPhone,
+    email: input.contactEmail,
+  });
+
   const { data: pedido, error } = await admin
     .from("web_orders")
     .insert({
       business_id: tenant.businessId,
       branch_id: branchId,
       number: numero,
+      client_id: clientId ?? null,
       contact_name: input.contactName,
       contact_phone: input.contactPhone,
       contact_email: input.contactEmail ?? null,
