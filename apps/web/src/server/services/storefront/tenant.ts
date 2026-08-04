@@ -1,7 +1,11 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { slugify } from "@/features/storefront/slug";
-import type { PublicBranch, StorefrontTenant } from "@/features/storefront/types";
+import type {
+  PublicBranch,
+  StorefrontTenant,
+} from "@/features/storefront/types";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 
@@ -29,7 +33,8 @@ const SETTINGS_COLUMNS =
   "business_id, site_name, tagline, seo_title, seo_description, og_image_url, whatsapp_phone, contact_email";
 
 /** Columnas de sucursal publicables. `code` solo alimenta el slug de respaldo. */
-const BRANCH_COLUMNS = "code, name, public_name, address, city, phone, whatsapp";
+const BRANCH_COLUMNS =
+  "code, name, public_name, address, city, phone, whatsapp";
 
 function limpio(valor: string | null | undefined): string | undefined {
   const texto = valor?.trim();
@@ -69,7 +74,8 @@ async function loadPublicBranches(
     // (por ejemplo si fuera solo símbolos), y el desempate ante dos nombres
     // comerciales iguales.
     let slug = slugify(nombre) || slugify(fila.code) || "sucursal";
-    if (usados.has(slug)) slug = `${slug}-${slugify(fila.code) || usados.size + 1}`;
+    if (usados.has(slug))
+      slug = `${slug}-${slugify(fila.code) || usados.size + 1}`;
     usados.add(slug);
     return {
       slug,
@@ -83,42 +89,59 @@ async function loadPublicBranches(
 }
 
 /**
+ * Etiqueta de caché del tenant. Encender o apagar la tienda, o cambiar el
+ * nombre público de una sucursal, debe llamar a `revalidateTag`: si no, el
+ * cambio tardaría hasta `SEGUNDOS_DE_CACHE` en verse.
+ */
+export const STOREFRONT_TENANT_TAG = "storefront-tenant";
+
+/** La configuración cambia muy de vez en cuando; el catálogo, a diario. */
+const SEGUNDOS_DE_CACHE = 300;
+
+/**
  * Negocio dueño de la tienda encendida, o `null`.
  *
- * Memoizado por petición con `cache()` de React: el layout, la página y la
- * generación de metadatos lo piden por separado y deben ver lo mismo sin
- * repetir el viaje a la base.
+ * Caché en dos niveles, por el mismo motivo que el catálogo: `cache()` de React
+ * evita repetir la consulta dentro de una petición (layout, página y metadatos
+ * lo piden por separado) y `unstable_cache` la conserva entre peticiones, para
+ * que la cabecera y el pie no cuesten dos viajes a la base en cada visita.
  */
 export const resolveStorefrontTenant = cache(
-  async (): Promise<StorefrontTenant | null> => {
-    const sb = createServiceRoleClient();
-    if (!sb) return null;
-
-    // `limit(2)` para poder DISTINGUIR "una" de "más de una" y cerrarse en el
-    // segundo caso, en vez de servir la primera que devuelva la base.
-    const { data, error } = await sb
-      .from("business_web_settings")
-      .select(SETTINGS_COLUMNS)
-      .eq("storefront_enabled", true)
-      .limit(2);
-    if (error || !data || data.length !== 1) return null;
-
-    const ajustes = data[0]!;
-    const branches = await loadPublicBranches(sb, ajustes.business_id);
-
-    return {
-      businessId: ajustes.business_id,
-      siteName: limpio(ajustes.site_name) ?? "DermaLand",
-      tagline: limpio(ajustes.tagline),
-      seoTitle: limpio(ajustes.seo_title),
-      seoDescription: limpio(ajustes.seo_description),
-      ogImageUrl: limpio(ajustes.og_image_url),
-      whatsappPhone: limpio(ajustes.whatsapp_phone),
-      contactEmail: limpio(ajustes.contact_email),
-      branches,
-    };
-  },
+  async (): Promise<StorefrontTenant | null> =>
+    unstable_cache(leerTenant, ["storefront-tenant"], {
+      revalidate: SEGUNDOS_DE_CACHE,
+      tags: [STOREFRONT_TENANT_TAG],
+    })(),
 );
+
+const leerTenant = async (): Promise<StorefrontTenant | null> => {
+  const sb = createServiceRoleClient();
+  if (!sb) return null;
+
+  // `limit(2)` para poder DISTINGUIR "una" de "más de una" y cerrarse en el
+  // segundo caso, en vez de servir la primera que devuelva la base.
+  const { data, error } = await sb
+    .from("business_web_settings")
+    .select(SETTINGS_COLUMNS)
+    .eq("storefront_enabled", true)
+    .limit(2);
+  if (error || !data || data.length !== 1) return null;
+
+  const ajustes = data[0]!;
+  const branches = await loadPublicBranches(sb, ajustes.business_id);
+
+  return {
+    businessId: ajustes.business_id,
+    siteName: limpio(ajustes.site_name) ?? "DermaLand",
+    tagline: limpio(ajustes.tagline),
+    seoTitle: limpio(ajustes.seo_title),
+    seoDescription: limpio(ajustes.seo_description),
+    ogImageUrl: limpio(ajustes.og_image_url),
+    whatsappPhone: limpio(ajustes.whatsapp_phone),
+    contactEmail: limpio(ajustes.contact_email),
+    branches,
+  };
+};
 
 /** URL absoluta de la tienda, para enlaces canónicos y datos estructurados. */
 export function storefrontBaseUrl(): string {

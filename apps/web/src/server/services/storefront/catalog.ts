@@ -1,8 +1,12 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { isSellableForWeb } from "@/features/storefront/availability";
 import { slugify } from "@/features/storefront/slug";
-import type { PublicProduct, PublicTaxonomy } from "@/features/storefront/types";
+import type {
+  PublicProduct,
+  PublicTaxonomy,
+} from "@/features/storefront/types";
 import { env } from "@/lib/env";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { fetchAllPages } from "@/server/repositories/supabase/pagination";
@@ -47,11 +51,26 @@ export interface PublishedCatalog {
   categories: PublicTaxonomy[];
 }
 
-const CATALOGO_VACIO: PublishedCatalog = { products: [], brands: [], categories: [] };
+/**
+ * Etiqueta de caché del catálogo. Publicar o despublicar un producto debe
+ * llamar a `revalidateTag(STOREFRONT_CATALOG_TAG)`: sin eso, el cambio tardaría
+ * hasta `SEGUNDOS_DE_CACHE` en verse y el administrador creería que no funcionó.
+ */
+export const STOREFRONT_CATALOG_TAG = "storefront-catalog";
+
+/** Cuánto vive el catálogo en caché entre peticiones. */
+const SEGUNDOS_DE_CACHE = 300;
+
+const CATALOGO_VACIO: PublishedCatalog = {
+  products: [],
+  brands: [],
+  categories: [],
+};
 
 function chunk<T>(items: readonly T[], size: number): T[][] {
   const partes: T[][] = [];
-  for (let i = 0; i < items.length; i += size) partes.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    partes.push(items.slice(i, i + size));
   return partes;
 }
 
@@ -92,150 +111,179 @@ function taxonomyCounts(
     if (previo) previo.productCount += 1;
     else acumulado.set(slug, { slug, name, productCount: 1 });
   }
-  return [...acumulado.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  return [...acumulado.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "es"),
+  );
 }
 
 /**
- * Catálogo publicado de un negocio.
+ * Catálogo publicado de un negocio, con caché en DOS niveles.
  *
- * Memoizado por petición: el catálogo, la ficha de producto y los metadatos SEO
- * de una misma página lo piden por separado. `cache()` de React lo resuelve una
- * vez por petición; la caché entre peticiones la fija cada ruta con su
- * `revalidate`, no este servicio.
+ * `cache()` de React lo resuelve una vez por PETICIÓN: el catálogo, la ficha de
+ * producto y los metadatos SEO de una misma página lo piden por separado y deben
+ * ver lo mismo sin repetir el viaje.
+ *
+ * `unstable_cache` lo conserva ENTRE peticiones. Va aquí y no en el
+ * `revalidate` de la ruta porque la página del catálogo depende de la barra de
+ * dirección (`?q=`, `?marca=`, `?pagina=`) y por eso se renderiza siempre en
+ * caliente: sin esta capa, cada búsqueda que teclea cada visitante golpearía la
+ * base con la decena de consultas de abajo. La etiqueta permite que el admin de
+ * catálogo lo invalide al publicar, en vez de esperar los cinco minutos.
  */
 export const loadPublishedCatalog = cache(
-  async (businessId: string): Promise<PublishedCatalog> => {
-    const sb = createServiceRoleClient();
-    if (!sb) return CATALOGO_VACIO;
-    const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-
-    // ── 1) Qué está publicado ────────────────────────────────────────────────
-    // La AUSENCIA de fila significa "no publicado" (fail-closed): aquí solo se
-    // pregunta por las que existen Y están marcadas visibles.
-    const metas = await fetchAllPages<WebMetaRow & { sort_order: number }>(
-      async (from, to) => {
-        const { data, error } = await sb
-          .from("product_web_meta")
-          .select(META_COLUMNS)
-          .eq("business_id", businessId)
-          .eq("visible", true)
-          .order("sort_order", { ascending: true })
-          .order("product_id", { ascending: true })
-          .range(from, to);
-        if (error) throw error;
-        return data ?? [];
+  async (businessId: string): Promise<PublishedCatalog> =>
+    unstable_cache(
+      () => leerCatalogoPublicado(businessId),
+      ["storefront-catalog", businessId],
+      {
+        revalidate: SEGUNDOS_DE_CACHE,
+        tags: [STOREFRONT_CATALOG_TAG],
       },
-    );
-    if (metas.length === 0) return CATALOGO_VACIO;
+    )(),
+);
 
-    const ids = metas.map((m) => m.product_id);
+const leerCatalogoPublicado = async (
+  businessId: string,
+): Promise<PublishedCatalog> => {
+  const sb = createServiceRoleClient();
+  if (!sb) return CATALOGO_VACIO;
+  const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
 
-    // ── 2) Los productos, con los filtros duros en la base ───────────────────
-    // Publicado no basta: un producto puede haberse desactivado, quedarse sin
-    // precio o pasar a exigir receta DESPUÉS de publicarse. Estos filtros son
-    // los mismos que aplicó el sembrado, y se vuelven a aplicar en cada lectura
-    // porque el catálogo cambia todos los días y `product_web_meta` no se entera.
-    const productos: WebProductRow[] = [];
-    for (const grupo of chunk(ids, ID_CHUNK)) {
+  // ── 1) Qué está publicado ────────────────────────────────────────────────
+  // La AUSENCIA de fila significa "no publicado" (fail-closed): aquí solo se
+  // pregunta por las que existen Y están marcadas visibles.
+  const metas = await fetchAllPages<WebMetaRow & { sort_order: number }>(
+    async (from, to) => {
       const { data, error } = await sb
-        .from("products")
-        .select(PRODUCT_COLUMNS)
+        .from("product_web_meta")
+        .select(META_COLUMNS)
         .eq("business_id", businessId)
-        .in("id", grupo)
-        .eq("active", true)
-        .eq("sellable", true)
-        .eq("requires_prescription", false)
-        .eq("controlled", false)
-        .is("deleted_at", null)
-        .gt("price", 0);
-      if (error) throw error;
-      productos.push(...(data ?? []));
-    }
-    if (productos.length === 0) return CATALOGO_VACIO;
-
-    // ── 3) Existencias vendibles ─────────────────────────────────────────────
-    // Misma regla que el POS: lote disponible, con cantidad y sin vencer. Se
-    // filtra en la base para no traer los 1 371 lotes, y se vuelve a comprobar
-    // en memoria con `isSellableForWeb` para que la regla tenga UNA sola
-    // definición —la probada— y no dos que puedan separarse.
-    const hoy = new Date().toISOString().slice(0, 10);
-    const lotes = await fetchAllPages<{
-      product_id: string;
-      status: string;
-      current_quantity: number;
-      expires_at: string | null;
-    }>(async (from, to) => {
-      const { data, error } = await sb
-        .from("product_lots")
-        .select("product_id, status, current_quantity, expires_at")
-        .eq("business_id", businessId)
-        .eq("status", "available")
-        .gt("current_quantity", 0)
-        .gte("expires_at", hoy)
+        .eq("visible", true)
+        .order("sort_order", { ascending: true })
         .order("product_id", { ascending: true })
-        .order("id", { ascending: true })
         .range(from, to);
       if (error) throw error;
       return data ?? [];
-    });
+    },
+  );
+  if (metas.length === 0) return CATALOGO_VACIO;
 
-    const existencias = new Map<string, number>();
-    for (const lote of lotes) {
-      const vendible = isSellableForWeb(
-        {
-          status: lote.status,
-          currentQuantity: lote.current_quantity,
-          expiresAt: lote.expires_at,
-        },
-        hoy,
-      );
-      if (!vendible) continue;
-      existencias.set(
-        lote.product_id,
-        (existencias.get(lote.product_id) ?? 0) + lote.current_quantity,
-      );
-    }
+  const ids = metas.map((m) => m.product_id);
 
-    // ── 4) Marcas y categorías ───────────────────────────────────────────────
-    const marcaIds = [...new Set(productos.map((p) => p.brand_id).filter(Boolean))] as string[];
-    const categoriaIds = [...new Set(productos.map((p) => p.category_id).filter(Boolean))] as string[];
+  // ── 2) Los productos, con los filtros duros en la base ───────────────────
+  // Publicado no basta: un producto puede haberse desactivado, quedarse sin
+  // precio o pasar a exigir receta DESPUÉS de publicarse. Estos filtros son
+  // los mismos que aplicó el sembrado, y se vuelven a aplicar en cada lectura
+  // porque el catálogo cambia todos los días y `product_web_meta` no se entera.
+  const productos: WebProductRow[] = [];
+  for (const grupo of chunk(ids, ID_CHUNK)) {
+    const { data, error } = await sb
+      .from("products")
+      .select(PRODUCT_COLUMNS)
+      .eq("business_id", businessId)
+      .in("id", grupo)
+      .eq("active", true)
+      .eq("sellable", true)
+      .eq("requires_prescription", false)
+      .eq("controlled", false)
+      .is("deleted_at", null)
+      .gt("price", 0);
+    if (error) throw error;
+    productos.push(...(data ?? []));
+  }
+  if (productos.length === 0) return CATALOGO_VACIO;
 
-    const [marcas, categorias] = await Promise.all([
-      loadTaxonomy(sb, "brands", businessId, marcaIds),
-      loadTaxonomy(sb, "product_categories", businessId, categoriaIds),
-    ]);
+  // ── 3) Existencias vendibles ─────────────────────────────────────────────
+  // Misma regla que el POS: lote disponible, con cantidad y sin vencer. Se
+  // filtra en la base para no traer los 1 371 lotes, y se vuelve a comprobar
+  // en memoria con `isSellableForWeb` para que la regla tenga UNA sola
+  // definición —la probada— y no dos que puedan separarse.
+  const hoy = new Date().toISOString().slice(0, 10);
+  const lotes = await fetchAllPages<{
+    product_id: string;
+    status: string;
+    current_quantity: number;
+    expires_at: string | null;
+  }>(async (from, to) => {
+    const { data, error } = await sb
+      .from("product_lots")
+      .select("product_id, status, current_quantity, expires_at")
+      .eq("business_id", businessId)
+      .eq("status", "available")
+      .gt("current_quantity", 0)
+      .gte("expires_at", hoy)
+      .order("product_id", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
+    if (error) throw error;
+    return data ?? [];
+  });
 
-    // ── 5) Ensamblado por lista blanca ───────────────────────────────────────
-    const porId = new Map(productos.map((p) => [p.id, p]));
-    const items: PublicProduct[] = [];
-    for (const meta of metas) {
-      const producto = porId.get(meta.product_id);
-      if (!producto) continue; // publicado pero ya no elegible: no se enseña.
-      // Sin foto válida no entra al catálogo: R-WEB-05/06. Las 12 URLs a un CDN
-      // ajeno y el `data:` de la base caen aquí.
-      if (!publicImageUrl(producto.image_url, supabaseUrl)) continue;
-      items.push(
-        toPublicProduct({
-          product: producto,
-          meta,
-          brand: producto.brand_id ? marcas.get(producto.brand_id) : null,
-          category: producto.category_id ? categorias.get(producto.category_id) : null,
-          availableQuantity: existencias.get(producto.id) ?? 0,
-          supabaseUrl,
-        }),
-      );
-    }
+  const existencias = new Map<string, number>();
+  for (const lote of lotes) {
+    const vendible = isSellableForWeb(
+      {
+        status: lote.status,
+        currentQuantity: lote.current_quantity,
+        expiresAt: lote.expires_at,
+      },
+      hoy,
+    );
+    if (!vendible) continue;
+    existencias.set(
+      lote.product_id,
+      (existencias.get(lote.product_id) ?? 0) + lote.current_quantity,
+    );
+  }
 
-    return {
-      products: items,
-      brands: taxonomyCounts(items, (p) => ({ slug: p.brandSlug, name: p.brandName })),
-      categories: taxonomyCounts(items, (p) => ({
-        slug: p.categorySlug,
-        name: p.categoryName,
-      })),
-    };
-  },
-);
+  // ── 4) Marcas y categorías ───────────────────────────────────────────────
+  const marcaIds = [
+    ...new Set(productos.map((p) => p.brand_id).filter(Boolean)),
+  ] as string[];
+  const categoriaIds = [
+    ...new Set(productos.map((p) => p.category_id).filter(Boolean)),
+  ] as string[];
+
+  const [marcas, categorias] = await Promise.all([
+    loadTaxonomy(sb, "brands", businessId, marcaIds),
+    loadTaxonomy(sb, "product_categories", businessId, categoriaIds),
+  ]);
+
+  // ── 5) Ensamblado por lista blanca ───────────────────────────────────────
+  const porId = new Map(productos.map((p) => [p.id, p]));
+  const items: PublicProduct[] = [];
+  for (const meta of metas) {
+    const producto = porId.get(meta.product_id);
+    if (!producto) continue; // publicado pero ya no elegible: no se enseña.
+    // Sin foto válida no entra al catálogo: R-WEB-05/06. Las 12 URLs a un CDN
+    // ajeno y el `data:` de la base caen aquí.
+    if (!publicImageUrl(producto.image_url, supabaseUrl)) continue;
+    items.push(
+      toPublicProduct({
+        product: producto,
+        meta,
+        brand: producto.brand_id ? marcas.get(producto.brand_id) : null,
+        category: producto.category_id
+          ? categorias.get(producto.category_id)
+          : null,
+        availableQuantity: existencias.get(producto.id) ?? 0,
+        supabaseUrl,
+      }),
+    );
+  }
+
+  return {
+    products: items,
+    brands: taxonomyCounts(items, (p) => ({
+      slug: p.brandSlug,
+      name: p.brandName,
+    })),
+    categories: taxonomyCounts(items, (p) => ({
+      slug: p.categorySlug,
+      name: p.categoryName,
+    })),
+  };
+};
 
 /** Lee los nombres de marcas o categorías por id, en grupos y sin `select("*")`. */
 async function loadTaxonomy(

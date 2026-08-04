@@ -68,6 +68,15 @@ const nextConfig: NextConfig = {
           ...(process.env.NODE_ENV === "production"
             ? [{ key: "Content-Security-Policy-Report-Only", value: cspReportOnly }]
             : []),
+          // R-WEB-03: los despliegues Preview tienen URL pública y los mismos
+          // datos que producción. Sin esto, Google podría indexar el catálogo
+          // bajo un dominio efímero que mañana da 404 y que además compite con
+          // el dominio bueno por el mismo contenido. Es la segunda capa: actúa
+          // aunque el rastreador llegue por un enlace directo sin leer
+          // `robots.txt`. En producción NO se emite.
+          ...(process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production"
+            ? [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]
+            : []),
         ],
       },
     ];

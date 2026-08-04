@@ -28,6 +28,16 @@ const PUBLIC_PATHS = [
   // DL-07: ruta EXACTA. Antes era "/api/brand", que por `startsWith` dejaba
   // pública también "/api/brands" (CRUD de marcas) y saltaba el 2FA.
   "/api/brand/logo",
+  // Tienda en línea. NO usa sesión: el negocio se resuelve en el servidor con
+  // `business_web_settings.storefront_enabled` (a lo sumo uno en toda la
+  // plataforma) y se lee con service-role acotado, nunca con la clave anónima.
+  // Si la tienda está apagada, las rutas devuelven 404 por sí solas.
+  "/tienda",
+  // El `matcher` de abajo no excluye `.txt`, así que sin esta entrada el
+  // middleware respondía a `/robots.txt` con un 307 a `/login`: el rastreador
+  // nunca llegaba a leer las reglas y, sin reglas, asume que puede rastrear
+  // todo. Justo lo contrario de lo que hace falta en los despliegues Preview.
+  "/robots.txt",
   "/_next",
   "/favicon.ico",
 ];
