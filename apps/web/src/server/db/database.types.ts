@@ -184,6 +184,94 @@ export type Database = {
           },
         ]
       }
+      web_orders: {
+        Row: {
+          id: string
+          business_id: string
+          branch_id: string
+          number: string
+          client_id: string | null
+          auth_user_id: string | null
+          contact_name: string
+          contact_phone: string
+          contact_email: string | null
+          fulfillment: string
+          subtotal: number
+          discount: number
+          itbis: number
+          total: number
+          status: string
+          payment_status: string
+          proforma_id: string | null
+          cancel_reason: string | null
+          notes: string | null
+          idempotency_key: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          business_id: string
+          branch_id: string
+          number: string
+          client_id?: string | null
+          auth_user_id?: string | null
+          contact_name: string
+          contact_phone: string
+          contact_email?: string | null
+          fulfillment?: string
+          subtotal?: number
+          discount?: number
+          itbis?: number
+          total?: number
+          status?: string
+          payment_status?: string
+          proforma_id?: string | null
+          cancel_reason?: string | null
+          notes?: string | null
+          idempotency_key?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          status?: string
+          payment_status?: string
+          proforma_id?: string | null
+          cancel_reason?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      web_order_items: {
+        Row: {
+          id: string
+          order_id: string
+          business_id: string
+          product_id: string
+          product_name: string
+          unit_price: number
+          qty: number
+          line_total: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          business_id: string
+          product_id: string
+          product_name: string
+          unit_price: number
+          qty: number
+          line_total: number
+          created_at?: string
+        }
+        Update: {
+          qty?: number
+          line_total?: number
+        }
+        Relationships: []
+      }
       client_auth_links: {
         Row: {
           auth_user_id: string
