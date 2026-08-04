@@ -38,6 +38,7 @@ const PUBLIC_PATHS = [
   // nunca llegaba a leer las reglas y, sin reglas, asume que puede rastrear
   // todo. Justo lo contrario de lo que hace falta en los despliegues Preview.
   "/robots.txt",
+  "/sitemap.xml",
   "/_next",
   "/favicon.ico",
 ];

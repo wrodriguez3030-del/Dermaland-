@@ -5,7 +5,15 @@ import { Check, ChevronRight, MessageCircle } from "lucide-react";
 import { buildCatalogHref } from "@/features/storefront/catalog-params";
 import { ProductCard } from "@/features/storefront/components/product-card";
 import { ProductPhoto } from "@/features/storefront/components/product-photo";
-import { productInquiryMessage, whatsappLink } from "@/features/storefront/contact";
+import {
+  productInquiryMessage,
+  whatsappLink,
+} from "@/features/storefront/contact";
+import {
+  breadcrumbJsonLd,
+  productJsonLd,
+  serializeJsonLd,
+} from "@/features/storefront/structured-data";
 import type { PublicProduct } from "@/features/storefront/types";
 import { formatCurrency } from "@/lib/utils/format";
 import {
@@ -48,14 +56,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const ficha = await cargarFicha(slug);
-  if (!ficha) return { title: "Producto no disponible", robots: { index: false } };
+  if (!ficha)
+    return { title: "Producto no disponible", robots: { index: false } };
 
   const { producto } = ficha;
   const titulo = producto.seoTitle ?? producto.title;
   const descripcion =
     producto.seoDescription ??
     producto.summary ??
-    [producto.brandName, producto.title, producto.presentation].filter(Boolean).join(" · ");
+    [producto.brandName, producto.title, producto.presentation]
+      .filter(Boolean)
+      .join(" · ");
 
   return {
     title: titulo,
@@ -91,6 +102,26 @@ export default async function ProductoPage({
 
   return (
     <>
+      {/* Datos estructurados: precio y disponibilidad directamente en el
+          resultado de Google. El contenido va escapado — un nombre con
+          `</script>` cerraría la etiqueta. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(
+            productJsonLd(producto, tenant, storefrontBaseUrl()),
+          ),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(
+            breadcrumbJsonLd(producto, storefrontBaseUrl()),
+          ),
+        }}
+      />
+
       <Migas producto={producto} />
 
       <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
@@ -143,7 +174,9 @@ export default async function ProductoPage({
               {producto.availability.label}
             </span>
           </div>
-          <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">Precio con ITBIS incluido</p>
+          <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
+            Precio con ITBIS incluido
+          </p>
 
           {producto.summary ? (
             <p className="mt-6 text-base leading-relaxed text-[color:var(--brand-fg)]/80">
@@ -176,12 +209,17 @@ export default async function ProductoPage({
               </h2>
               <ul className="mt-3 space-y-2">
                 {producto.benefits.map((beneficio) => (
-                  <li key={beneficio} className="flex items-start gap-2 text-sm">
+                  <li
+                    key={beneficio}
+                    className="flex items-start gap-2 text-sm"
+                  >
                     <Check
                       aria-hidden
                       className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--brand-success)]"
                     />
-                    <span className="text-[color:var(--brand-fg)]/80">{beneficio}</span>
+                    <span className="text-[color:var(--brand-fg)]/80">
+                      {beneficio}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -194,7 +232,9 @@ export default async function ProductoPage({
         <div className="mt-12 grid gap-8 border-t border-black/5 pt-10 md:grid-cols-2">
           {producto.description ? (
             <section>
-              <h2 className="text-lg font-semibold text-[color:var(--brand-fg)]">Descripción</h2>
+              <h2 className="text-lg font-semibold text-[color:var(--brand-fg)]">
+                Descripción
+              </h2>
               <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[color:var(--brand-fg)]/80">
                 {producto.description}
               </p>
@@ -202,7 +242,9 @@ export default async function ProductoPage({
           ) : null}
           {producto.howToUse ? (
             <section>
-              <h2 className="text-lg font-semibold text-[color:var(--brand-fg)]">Modo de uso</h2>
+              <h2 className="text-lg font-semibold text-[color:var(--brand-fg)]">
+                Modo de uso
+              </h2>
               <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[color:var(--brand-fg)]/80">
                 {producto.howToUse}
               </p>
@@ -263,7 +305,10 @@ function Migas({ producto }: { producto: PublicProduct }) {
     <nav aria-label="Ruta de navegación" className="mb-6">
       <ol className="flex flex-wrap items-center gap-1 text-sm text-[color:var(--brand-fg)]/60">
         <li>
-          <Link href="/tienda" className="underline-offset-4 hover:text-[color:var(--brand-primary)] hover:underline">
+          <Link
+            href="/tienda"
+            className="underline-offset-4 hover:text-[color:var(--brand-primary)] hover:underline"
+          >
             Catálogo
           </Link>
         </li>
@@ -272,7 +317,10 @@ function Migas({ producto }: { producto: PublicProduct }) {
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0" />
             <li>
               <Link
-                href={buildCatalogHref({}, { categorySlug: producto.categorySlug })}
+                href={buildCatalogHref(
+                  {},
+                  { categorySlug: producto.categorySlug },
+                )}
                 className="underline-offset-4 hover:text-[color:var(--brand-primary)] hover:underline"
               >
                 {producto.categoryName}
@@ -281,7 +329,10 @@ function Migas({ producto }: { producto: PublicProduct }) {
           </>
         ) : null}
         <ChevronRight aria-hidden className="h-4 w-4 shrink-0" />
-        <li aria-current="page" className="max-w-full truncate text-[color:var(--brand-fg)]">
+        <li
+          aria-current="page"
+          className="max-w-full truncate text-[color:var(--brand-fg)]"
+        >
           {producto.title}
         </li>
       </ol>

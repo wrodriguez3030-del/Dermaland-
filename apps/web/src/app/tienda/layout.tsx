@@ -26,7 +26,10 @@ export const revalidate = 300;
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await resolveStorefrontTenant();
   if (!tenant) {
-    return { title: "Tienda no disponible", robots: { index: false, follow: false } };
+    return {
+      title: "Tienda no disponible",
+      robots: { index: false, follow: false },
+    };
   }
   const titulo = tenant.seoTitle ?? tenant.siteName;
   const descripcion =
@@ -102,7 +105,10 @@ export default async function TiendaLayout({
         </div>
       </header>
 
-      <main id="contenido" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      <main
+        id="contenido"
+        className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6"
+      >
         {children}
       </main>
 
@@ -116,7 +122,9 @@ export default async function TiendaLayout({
               const tel = whatsappLink(sucursal.whatsapp ?? sucursal.phone);
               return (
                 <div key={sucursal.slug}>
-                  <p className="font-semibold text-[color:var(--brand-fg)]">{sucursal.name}</p>
+                  <p className="font-semibold text-[color:var(--brand-fg)]">
+                    {sucursal.name}
+                  </p>
                   {sucursal.address ? (
                     <p className="mt-1 flex items-start gap-2 text-sm text-[color:var(--brand-fg)]/70">
                       <MapPin aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
@@ -128,7 +136,10 @@ export default async function TiendaLayout({
                   ) : null}
                   {sucursal.phone ? (
                     <p className="mt-1 flex items-center gap-2 text-sm">
-                      <Phone aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--brand-fg)]/70" />
+                      <Phone
+                        aria-hidden
+                        className="h-4 w-4 shrink-0 text-[color:var(--brand-fg)]/70"
+                      />
                       {tel ? (
                         <a
                           href={tel}
@@ -139,7 +150,9 @@ export default async function TiendaLayout({
                           {sucursal.phone}
                         </a>
                       ) : (
-                        <span className="text-[color:var(--brand-fg)]/70">{sucursal.phone}</span>
+                        <span className="text-[color:var(--brand-fg)]/70">
+                          {sucursal.phone}
+                        </span>
                       )}
                     </p>
                   ) : null}
@@ -150,8 +163,8 @@ export default async function TiendaLayout({
 
           <div className="mt-10 flex flex-col gap-2 border-t border-black/5 pt-6 text-xs text-[color:var(--brand-fg)]/60 sm:flex-row sm:items-center sm:justify-between">
             <p>
-              © {new Date().getFullYear()} {tenant.siteName}. Todos los precios están en
-              pesos dominicanos (RD$) e incluyen ITBIS.
+              © {new Date().getFullYear()} {tenant.siteName}. Todos los precios
+              están en pesos dominicanos (RD$) e incluyen ITBIS.
             </p>
             {tenant.contactEmail ? (
               <a

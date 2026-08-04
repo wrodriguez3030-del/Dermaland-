@@ -15,8 +15,15 @@ import { CatalogFilters } from "@/features/storefront/components/catalog-filters
 import { CatalogPagination } from "@/features/storefront/components/catalog-pagination";
 import { ProductCard } from "@/features/storefront/components/product-card";
 import { whatsappLink } from "@/features/storefront/contact";
+import {
+  serializeJsonLd,
+  storeJsonLd,
+} from "@/features/storefront/structured-data";
 import { loadPublishedCatalog } from "@/server/services/storefront/catalog";
-import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
+import {
+  resolveStorefrontTenant,
+  storefrontBaseUrl,
+} from "@/server/services/storefront/tenant";
 
 /**
  * Catálogo público.
@@ -32,9 +39,36 @@ import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 /** Primera página cargada de inmediato: son las fotos que se ven sin bajar. */
 const FOTOS_PRIORITARIAS = 4;
 
-export const metadata: Metadata = {
-  title: "Catálogo",
-};
+/**
+ * Metadatos del catálogo.
+ *
+ * Las páginas de RESULTADOS DE BÚSQUEDA se marcan `noindex`: son contenido
+ * pobre y duplicado (el mismo producto aparece en decenas de consultas
+ * distintas), y los buscadores piden expresamente no indexarlas. `follow` sí,
+ * para que el rastreador siga los enlaces a las fichas, que son las páginas que
+ * de verdad interesan.
+ *
+ * Los filtros por marca y categoría SÍ se indexan: son colecciones reales y
+ * estables, con su propia URL canónica.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearchParams>;
+}): Promise<Metadata> {
+  const query = parseCatalogParams(await searchParams);
+
+  if (query.q) {
+    return {
+      title: `Resultados de «${query.q}»`,
+      robots: { index: false, follow: true },
+    };
+  }
+  return {
+    title: "Catálogo",
+    alternates: { canonical: buildCatalogHref(query) },
+  };
+}
 
 export default async function TiendaPage({
   searchParams,
@@ -68,6 +102,15 @@ export default async function TiendaPage({
 
   return (
     <>
+      {/* La tienda como negocio local, con sus sucursales: es lo que permite
+          que Google enseñe dirección y teléfono junto al resultado. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(storeJsonLd(tenant, storefrontBaseUrl())),
+        }}
+      />
+
       <section className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-[color:var(--brand-fg)] sm:text-3xl">
           {filtrado ? "Resultados" : "Catálogo"}

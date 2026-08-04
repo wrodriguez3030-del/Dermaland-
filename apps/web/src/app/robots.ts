@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { storefrontBaseUrl } from "@/server/services/storefront/tenant";
 
 /**
  * Qué puede rastrear un buscador.
@@ -38,5 +39,8 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
+    // Solo en producción: apuntar al sitemap desde un Preview sería invitar a
+    // rastrear justo lo que la regla de arriba acaba de cerrar.
+    sitemap: `${storefrontBaseUrl()}/sitemap.xml`,
   };
 }

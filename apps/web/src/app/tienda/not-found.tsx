@@ -17,7 +17,8 @@ export default function TiendaNotFound() {
         No encontramos lo que buscabas
       </h1>
       <p className="mt-3 text-sm text-[color:var(--brand-fg)]/70">
-        Es posible que el enlace haya cambiado o que el producto ya no esté disponible.
+        Es posible que el enlace haya cambiado o que el producto ya no esté
+        disponible.
       </p>
       <Link
         href="/tienda"
