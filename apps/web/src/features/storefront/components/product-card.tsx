@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui";
 import { formatCurrency } from "@/lib/utils/format";
 import type { PublicProduct } from "../types";
 import { ProductPhoto } from "./product-photo";
@@ -36,7 +37,10 @@ export function ProductCard({
           priority={priority}
         />
         {product.isNew && !agotado ? (
-          <span className="absolute left-3 top-3 rounded-full bg-[color:var(--brand-accent)] px-2.5 py-1 text-xs font-semibold text-white">
+          // Fondo `--brand-primary` y no `--brand-accent`: en texto de 12 px el
+          // acento deja el blanco en 3,7:1, por debajo del 4,5:1 que exige AA
+          // (`DERMALAND_BRAND_AUDIT.md` §2).
+          <span className="absolute left-3 top-3 rounded-full bg-[color:var(--brand-primary)] px-2.5 py-1 text-xs font-semibold text-white">
             Nuevo
           </span>
         ) : null}
@@ -44,7 +48,7 @@ export function ProductCard({
 
       <div className="flex flex-1 flex-col gap-1 border-t border-black/5 p-4">
         {product.brandName ? (
-          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-accent)]">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-primary)]">
             {product.brandName}
           </p>
         ) : null}
@@ -54,22 +58,21 @@ export function ProductCard({
         </h3>
 
         {product.presentation ? (
-          <p className="text-xs text-[color:var(--brand-fg)]/60">{product.presentation}</p>
+          <p className="text-xs text-[color:var(--brand-fg)]/60">
+            {product.presentation}
+          </p>
         ) : null}
 
         <div className="mt-auto flex items-end justify-between gap-2 pt-3">
           <p className="text-base font-bold text-[color:var(--brand-fg)]">
             {formatCurrency(product.price)}
           </p>
-          <span
-            className={
-              agotado
-                ? "rounded-full bg-black/5 px-2.5 py-1 text-xs font-medium text-[color:var(--brand-fg)]/60"
-                : "rounded-full bg-[color:var(--brand-success)]/10 px-2.5 py-1 text-xs font-medium text-[color:var(--brand-success)]"
-            }
-          >
+          {/* Se reutiliza el Badge del ERP: su verde (emerald-700) da 5,5:1
+              sobre el fondo claro, mientras que `--brand-success` se queda en
+              3,3:1 y no llega a AA en texto pequeño. */}
+          <Badge tone={agotado ? "neutral" : "success"}>
             {product.availability.label}
-          </span>
+          </Badge>
         </div>
       </div>
     </Link>

@@ -145,7 +145,7 @@ export default async function TiendaLayout({
                           href={tel}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[color:var(--brand-accent)] underline-offset-4 hover:underline"
+                          className="text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
                         >
                           {sucursal.phone}
                         </a>
@@ -169,7 +169,7 @@ export default async function TiendaLayout({
             {tenant.contactEmail ? (
               <a
                 href={`mailto:${tenant.contactEmail}`}
-                className="text-[color:var(--brand-accent)] underline-offset-4 hover:underline"
+                className="text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
               >
                 {tenant.contactEmail}
               </a>

@@ -47,9 +47,19 @@ const PUBLIC_PATHS = [
 // El endpoint valida el token internamente (service-role acotado por business).
 const PUBLIC_PATH_PATTERNS = [/^\/api\/proformas\/[^/]+\/pdf$/];
 
-// DL-07: match por SEGMENTO (no por prefijo suelto). `startsWith(p)` hacía que
-// "/api/brand" cubriera "/api/brands", "/factura" cubriera "/factura-x", etc.
-const isPublic = (pathname: string) =>
+/**
+ * ¿Esta ruta se sirve SIN sesión?
+ *
+ * DL-07: match por SEGMENTO (no por prefijo suelto). `startsWith(p)` hacía que
+ * "/api/brand" cubriera "/api/brands" —el CRUD de marcas— y que "/factura"
+ * cubriera "/factura-x".
+ *
+ * Se exporta solo para poder probarlo: esta lista es la frontera entre lo que ve
+ * cualquiera y lo que exige sesión y 2FA, y un error aquí no falla ruidosamente,
+ * abre una puerta en silencio. `middleware.test.ts` la comprueba en los DOS
+ * sentidos: que lo público pase y que lo privado no.
+ */
+export const isPublic = (pathname: string) =>
   PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) ||
   PUBLIC_PATH_PATTERNS.some((re) => re.test(pathname));
 

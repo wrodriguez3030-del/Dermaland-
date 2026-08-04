@@ -1,6 +1,15 @@
 import { Search } from "lucide-react";
-import { CATALOG_PARAM, SORT_LABELS, buildCatalogHref, hasActiveFilters } from "../catalog-params";
-import { CATALOG_SORTS, type CatalogQuery, type PublicTaxonomy } from "../types";
+import {
+  CATALOG_PARAM,
+  SORT_LABELS,
+  buildCatalogHref,
+  hasActiveFilters,
+} from "../catalog-params";
+import {
+  CATALOG_SORTS,
+  type CatalogQuery,
+  type PublicTaxonomy,
+} from "../types";
 
 /**
  * Búsqueda, filtros y orden del catálogo.

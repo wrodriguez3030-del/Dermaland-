@@ -65,12 +65,14 @@ export function ProductPhoto({
         />
       ) : (
         <div
-          className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[color:var(--brand-primary)]/10 to-[color:var(--brand-accent)]/5 text-[color:var(--brand-accent)]"
+          className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[color:var(--brand-primary)]/10 to-[color:var(--brand-accent)]/5 text-[color:var(--brand-primary)]"
           role="img"
           aria-label={`Sin foto de ${title}`}
         >
           <Package aria-hidden className="h-8 w-8 opacity-70" />
-          <span className="text-lg font-bold tracking-tight opacity-80">{iniciales}</span>
+          <span className="text-lg font-bold tracking-tight opacity-80">
+            {iniciales}
+          </span>
         </div>
       )}
     </div>

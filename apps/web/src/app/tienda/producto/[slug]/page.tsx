@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronRight, MessageCircle } from "lucide-react";
+import { Badge } from "@/components/ui";
 import { buildCatalogHref } from "@/features/storefront/catalog-params";
 import { ProductCard } from "@/features/storefront/components/product-card";
 import { ProductPhoto } from "@/features/storefront/components/product-photo";
@@ -136,7 +137,7 @@ export default async function ProductoPage({
 
         <div>
           {producto.brandName ? (
-            <p className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-accent)]">
+            <p className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-primary)]">
               {producto.brandSlug ? (
                 <Link
                   href={buildCatalogHref({}, { brandSlug: producto.brandSlug })}
@@ -164,15 +165,11 @@ export default async function ProductoPage({
             <p className="text-3xl font-bold text-[color:var(--brand-fg)]">
               {formatCurrency(producto.price)}
             </p>
-            <span
-              className={
-                agotado
-                  ? "rounded-full bg-black/5 px-3 py-1 text-sm font-medium text-[color:var(--brand-fg)]/60"
-                  : "rounded-full bg-[color:var(--brand-success)]/10 px-3 py-1 text-sm font-medium text-[color:var(--brand-success)]"
-              }
-            >
+            {/* Mismo Badge del ERP que la tarjeta del catálogo: su verde llega
+                a AA en texto pequeño; `--brand-success` no. */}
+            <Badge tone={agotado ? "neutral" : "success"}>
               {producto.availability.label}
-            </span>
+            </Badge>
           </div>
           <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
             Precio con ITBIS incluido

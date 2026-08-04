@@ -10,7 +10,7 @@ import Link from "next/link";
 export default function TiendaNotFound() {
   return (
     <div className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-6 text-center">
-      <p className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-accent)]">
+      <p className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-primary)]">
         Página no encontrada
       </p>
       <h1 className="mt-3 text-2xl font-bold tracking-tight text-[color:var(--brand-fg)]">

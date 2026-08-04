@@ -49,7 +49,20 @@ La tienda sigue APAGADA — encenderla es una decisión del dueño.**
   antes de leer `searchParams`, y al encender la tienda habría seguido sirviendo
   el 404 congelado; y la caché guardaba también el "no hay tienda", que es lo que
   ahora invalida el admin.
-- 2 070 pruebas en verde (39 nuevas del módulo).
+- **Accesibilidad**: seis textos pequeños usaban `--brand-accent`, que sobre
+  fondo claro da 3,7:1 y no llega al 4,5:1 que exige AA —lo advertía el propio
+  `DERMALAND_BRAND_AUDIT.md` §2 y se coló igual—. Pasan a `--brand-primary`
+  (6,7:1). La disponibilidad reutiliza el `Badge` del ERP, cuyo verde llega a
+  5,5:1; `--brand-success` se quedaba en 3,3:1.
+- **`middleware.test.ts`**: 29 pruebas sobre la lista de rutas públicas, en los
+  DOS sentidos. Es la frontera entre lo que ve cualquiera y lo que exige sesión
+  y 2FA, y un error ahí no falla ruidosamente: abre una puerta en silencio.
+  Cubre la regresión DL-07 (que `/api/brands` no se cuele por `/api/brand/logo`)
+  y que `/tienda-web` —la administración— NO sea pública.
+- **Tarjeta Open Graph de la tienda**: al pegar el enlace en WhatsApp se ve el
+  logo, la frase y las dos sucursales con su nombre comercial, en lugar de un
+  enlace pelado.
+- 2 099 pruebas en verde (68 nuevas).
 
 ## [0.112.0] - 2026-08-03
 
