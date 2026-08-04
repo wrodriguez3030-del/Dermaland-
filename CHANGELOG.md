@@ -10,6 +10,15 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.123.0] - 2026-08-04
+
+- **Fuera el selector "Retiras en" del carrito.** Tenía sentido cuando el
+  carrito era el final del camino; desde que existe el checkout se preguntaba
+  dos veces, y con envío a domicilio encima obligaba a elegir sucursal **antes**
+  de que el cliente decidiera si la quería. Ahora el carrito enseña qué llevas y
+  cuánto vale, y el checkout pregunta cómo lo recibes.
+- El WhatsApp de respaldo del carrito ya no nombra sucursal: sin selector, no
+  puede inventarse una.
 ## [0.122.0] - 2026-08-04
 
 **Todo cliente de la tienda entra en la base de clientes del ERP.**
