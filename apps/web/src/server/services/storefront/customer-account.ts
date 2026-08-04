@@ -2,6 +2,7 @@ import "server-only";
 import { customerAccountsEnabled } from "@/features/storefront/account/availability";
 import { parseRegistration } from "@/features/storefront/account/registration";
 import { createServer, createServiceRoleClient } from "@/lib/supabase/server";
+import { findOrCreateClient } from "./customer-link";
 import { resolveStorefrontTenant } from "./tenant";
 
 /**
@@ -34,77 +35,6 @@ export interface SignUpResult {
   needsConfirmation?: boolean;
 }
 
-/**
- * `clients.source` tiene un CHECK que sólo admite
- * `manual|whatsapp|web|import|agendapro`. Un valor nuevo reventaría el alta.
- */
-const FUENTE_WEB = "web";
-
-/** Mismo formato que genera el ERP en `repositories/supabase/customer.ts`. */
-function generarNumeroCliente(): string {
-  return `CLI-${Math.floor(100000 + Math.random() * 900000)}`;
-}
-
-/**
- * ¿Esta persona ya tiene ficha en el mostrador?
- *
- * Consultas separadas con `.eq()` y NO un `.or()` con la cadena montada a mano:
- * `.or("email.eq." + email)` sería construir un filtro concatenando texto que
- * escribió un desconocido —una coma dentro del valor abre una condición nueva—.
- * `.eq()` va parametrizado y no hay nada que escapar.
- */
-async function buscarClienteExistente(
-  admin: Admin,
-  businessId: string,
-  datos: { email: string; phone: string },
-): Promise<string | undefined> {
-  const busquedas: Array<["email" | "phone" | "whatsapp", string]> = [
-    ["email", datos.email],
-    ["phone", datos.phone],
-    ["whatsapp", datos.phone],
-  ];
-  for (const [columna, valor] of busquedas) {
-    const { data } = await admin
-      .from("clients")
-      .select("id")
-      .eq("business_id", businessId)
-      .eq(columna, valor)
-      .is("deleted_at", null)
-      .limit(1)
-      .maybeSingle();
-    if (data?.id) return data.id;
-  }
-  return undefined;
-}
-
-/** Crea la ficha comercial. `customer_number` es obligatorio y sin default. */
-async function crearCliente(
-  admin: Admin,
-  businessId: string,
-  datos: { firstName: string; lastName: string; email: string; phone: string },
-): Promise<string | undefined> {
-  // Hasta tres intentos: el número es aleatorio de 6 dígitos y puede chocar.
-  for (let intento = 0; intento < 3; intento++) {
-    const { data, error } = await admin
-      .from("clients")
-      .insert({
-        business_id: businessId,
-        customer_number: generarNumeroCliente(),
-        first_name: datos.firstName,
-        last_name: datos.lastName,
-        email: datos.email,
-        phone: datos.phone,
-        whatsapp: datos.phone,
-        source: FUENTE_WEB,
-      })
-      .select("id")
-      .single();
-    if (data?.id) return data.id;
-    // 23505 = clave duplicada. Cualquier otro error no se arregla reintentando.
-    if (error?.code !== "23505") return undefined;
-  }
-  return undefined;
-}
 
 /**
  * ¿Se pueden crear cuentas hoy?
@@ -152,16 +82,14 @@ export async function signUpCustomer(raw: unknown): Promise<SignUpResult> {
   }
   const authUserId = data.user.id;
 
-  // ¿Ya compraba en el mostrador? Se reutiliza su ficha en vez de duplicarla.
-  const clientId =
-    (await buscarClienteExistente(admin, tenant.businessId, { email, phone })) ??
-    (await crearCliente(admin, tenant.businessId, {
-      firstName,
-      lastName,
-      email,
-      phone,
-    }));
-
+  // MISMA función que usa el pedido: si cada camino llevara su propia idea de
+  // cuándo un cliente "ya existe", el mismo señor acabaría con dos fichas según
+  // por dónde entrara.
+  const clientId = await findOrCreateClient(tenant.businessId, {
+    fullName: `${firstName} ${lastName}`.trim(),
+    phone,
+    email,
+  });
   if (!clientId) return { ok: false, error: "No pudimos crear la cuenta." };
 
   const { error: errorVinculo } = await admin
