@@ -44,6 +44,12 @@ const PUBLIC_PATHS = [
   // `products` son administración y siguen exigiendo sesión y 2FA. Por el match
   // por segmento (DL-07), esta entrada NO los cubre.
   "/api/storefront/cart",
+  // Alta de pedido desde la tienda (sin sesión) y consulta del pedido por token
+  // firmado. El CAMBIO DE ESTADO no vive aquí debajo a propósito: está en
+  // `/api/pedidos-web/...`, fuera de este prefijo, y por tanto exige sesión del
+  // negocio. `middleware.test.ts` lo fija en los dos sentidos.
+  "/api/storefront/orders",
+  "/tienda/pedido",
   "/_next",
   "/favicon.ico",
 ];

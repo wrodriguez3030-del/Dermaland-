@@ -35,6 +35,10 @@ describe("isPublic", () => {
     "/tienda/cuenta",
     "/tienda/cuenta/entrar",
     "/tienda/cuenta/registro",
+    // Crear pedido y consultarlo: la tienda no tiene sesión. El acceso al
+    // pedido ya creado lo da un TOKEN firmado, nunca su número.
+    "/api/storefront/orders",
+    "/tienda/pedido/eyJhbGciOi",
   ])("deja pasar %s", (ruta) => {
     expect(isPublic(ruta)).toBe(true);
   });
@@ -55,6 +59,11 @@ describe("isPublic", () => {
     "/api/storefront/products/9f0c2f5e-1111-2222-3333-444455556666",
     // Ni un nombre que EMPIECE como el carrito puede colarse.
     "/api/storefront/carts",
+    // Cambiar el estado de un pedido es del NEGOCIO, no del cliente: por eso
+    // vive FUERA del prefijo público `/api/storefront`.
+    "/pedidos-web",
+    "/pedidos-web/9f0c2f5e-1111-2222-3333-444455556666",
+    "/api/pedidos-web/9f0c2f5e-1111-2222-3333-444455556666/estado",
     // DL-07: el CRUD de marcas NO puede colarse por el prefijo del logo.
     "/api/brands",
     // Ni un nombre que empiece igual que una ruta pública.

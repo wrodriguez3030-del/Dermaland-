@@ -3698,6 +3698,10 @@ export type Database = {
         Args: { p_numbering_id: string }
         Returns: number
       }
+      nextval_web_order_number: {
+        Args: Record<string, never>
+        Returns: number
+      }
       reserve_ecf_sequence_number: {
         Args: { p_ambiente: string; p_business_id: string; p_tipo_ecf: string }
         Returns: number
