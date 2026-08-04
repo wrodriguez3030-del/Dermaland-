@@ -123,14 +123,19 @@ modifica** (`tienda-en-linea.md` §5). El contraste sigue la regla ya fijada:
 
 ### 4.2 Recomendados por categoría
 
-Función pura, `features/storefront/recommendations.ts`, con esta prelación:
+Función pura, `features/storefront/recommendations.ts`:
 
-1. `product_web_meta.related_product_ids` — lo que el negocio escogió a mano.
-   **Ya existe en la base**; hoy solo se llena manualmente.
-2. Si no llena el cupo: misma **categoría**, luego misma **marca**.
-3. Filtros duros: publicable (§3.6 del documento madre), con foto, excluyendo el
-   producto actual y los ya escogidos a mano.
-4. Orden determinista y **lo agotado nunca primero** (§3.8 del documento madre).
+1. Afinidad automática: misma **categoría** pesa más que misma **marca** (10
+   puntos contra 4), así que lo que coincide en las dos va primero.
+2. Filtros duros: con foto, con existencia y excluyendo el producto actual.
+3. Desempate determinista: destacado, novedad y luego nombre.
+
+**Corrección al diseño original (2026-08-04, al implementarlo):** se había
+previsto una capa manual por delante, leyendo
+`product_web_meta.related_product_ids`. Ese campo **existe en la base pero
+ningún código lo escribe** — el admin de catálogo web no lo edita. Leer un campo
+que nadie llena es construir un fantasma, así que la capa manual espera a que
+exista el camino de escritura; entonces entra como primer criterio.
 
 Sin historial de navegación ni "quien compró esto compró aquello": no hay
 volumen de pedidos para que eso signifique nada, y arrastraría seguimiento del

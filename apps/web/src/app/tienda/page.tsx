@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { MapPin } from "lucide-react";
 import {
   buildCatalogHref,
   parseCatalogParams,
   type RawSearchParams,
 } from "@/features/storefront/catalog-params";
 import { ProductShelf } from "@/features/storefront/components/product-shelf";
-import { SearchBox } from "@/features/storefront/components/search-box";
 import { buildHomeSections } from "@/features/storefront/home-sections";
 import {
   serializeJsonLd,
@@ -57,6 +57,11 @@ export default async function TiendaPage({
 
   const { products, categories } = await loadPublishedCatalog(tenant.businessId);
   const secciones = buildHomeSections(products, categories);
+  // Se cuenta lo que se puede comprar HOY, no el catálogo entero: prometer 638
+  // productos y que la mitad esté agotada es peor que no prometer nada.
+  const productosDisponibles = products.filter(
+    (p) => p.availability.status === "in_stock",
+  ).length;
 
   return (
     <>
@@ -70,16 +75,37 @@ export default async function TiendaPage({
         }}
       />
 
-      <section className="rounded-3xl bg-gradient-to-br from-[color:var(--brand-primary)]/10 via-white to-[color:var(--brand-accent)]/5 px-6 py-10 sm:px-10 sm:py-14">
-        <h1 className="max-w-2xl text-2xl font-bold leading-tight tracking-tight text-[color:var(--brand-fg)] sm:text-4xl">
+      {/* Sin buscador aquí: el del encabezado es fijo y se ve en todo momento,
+          así que uno más a cuatro dedos de distancia solo parece un descuido. */}
+      <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-[color:var(--brand-primary)] to-[color:var(--brand-accent)] px-6 py-10 text-white sm:px-10 sm:py-12">
+        <h1 className="max-w-2xl text-2xl font-bold leading-tight tracking-tight sm:text-4xl">
           {tenant.tagline ??
             "Dermocosmética y cuidado de la piel, con asesoría de nuestro equipo."}
         </h1>
-        <p className="mt-3 max-w-xl text-sm text-[color:var(--brand-fg)]/70 sm:text-base">
-          Busca por producto o por marca, o baja y mira lo que tenemos por
-          categoría.
+        <p className="mt-3 max-w-xl text-sm text-white/80 sm:text-base">
+          {productosDisponibles > 0
+            ? `${productosDisponibles.toLocaleString("es-DO")} productos disponibles hoy.`
+            : "Explora nuestro catálogo."}{" "}
+          Te asesoramos por WhatsApp y coordinamos la entrega o el retiro en
+          sucursal.
         </p>
-        <SearchBox id="buscador-portada" className="mt-6 max-w-lg" />
+
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <Link
+            href={buildCatalogHref({})}
+            className="inline-flex min-h-12 items-center rounded-xl bg-white px-6 text-sm font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--brand-primary)]"
+          >
+            Ver todo el catálogo
+          </Link>
+          {/* Dos tiendas físicas es lo que distingue a este negocio de una web
+              cualquiera. Se dice arriba, no escondido en el pie. */}
+          {tenant.branches.length > 0 ? (
+            <p className="flex items-center gap-2 text-sm text-white/80">
+              <MapPin aria-hidden className="h-4 w-4 shrink-0" />
+              {tenant.branches.map((s) => s.name).join(" · ")}
+            </p>
+          ) : null}
+        </div>
       </section>
 
       {secciones.length > 0 ? (

@@ -63,8 +63,18 @@ export function ProductCard({
           </p>
         ) : null}
 
-        <div className="mt-auto flex items-end justify-between gap-2 pt-3">
-          <p className="text-base font-bold text-[color:var(--brand-fg)]">
+        {/* La categoría orienta dentro de un estante, donde el visitante ya no
+            tiene el filtro lateral a la vista para saber qué está mirando. */}
+        {product.categoryName ? (
+          <p className="text-xs text-[color:var(--brand-fg)]/50">
+            {product.categoryName}
+          </p>
+        ) : null}
+
+        {/* Precio y disponibilidad en columna, no en la misma línea: dentro de
+            un estante la tarjeta mide 176 px y ahí se pisan. */}
+        <div className="mt-auto flex flex-col items-start gap-1.5 pt-3">
+          <p className="text-lg font-bold text-[color:var(--brand-fg)]">
             {formatCurrency(product.price)}
           </p>
           {/* Se reutiliza el Badge del ERP: su verde (emerald-700) da 5,5:1
