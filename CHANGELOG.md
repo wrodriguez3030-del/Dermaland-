@@ -10,6 +10,22 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.113.1] - 2026-08-04
+
+**Corrección: la tienda se anunciaba a sí misma en `localhost`.**
+
+- **`robots.txt` de producción apuntaba el sitemap a `http://localhost:3031`.**
+  La dirección pública salía solo de `NEXT_PUBLIC_APP_URL`, que **no está
+  definida en Vercel**, así que se aplicaba el valor por defecto del esquema. De
+  esa misma función salen además las URL canónicas, el `sitemap.xml`, los datos
+  estructurados y el enlace que el cliente se lleva por WhatsApp: una canónica a
+  `localhost` le dice a Google que la página buena está en otro sitio.
+- La regla vive ahora en `features/storefront/base-url.ts` como función pura y
+  probada (DL-20, la misma del resto del proyecto): manda la base configurada
+  salvo que sea `localhost`; si no, `VERCEL_PROJECT_PRODUCTION_URL` y luego
+  `VERCEL_URL`. En un *Preview* la canónica apunta al dominio de **producción**,
+  no al del despliegue efímero.
+
 ## [0.113.0] - 2026-08-03
 
 **Tienda en línea navegable (E3–E7): catálogo público, SEO y su administración.

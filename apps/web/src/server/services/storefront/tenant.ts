@@ -1,6 +1,7 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
+import { resolveBaseUrl } from "@/features/storefront/base-url";
 import { slugify } from "@/features/storefront/slug";
 import type {
   PublicBranch,
@@ -143,7 +144,20 @@ const leerTenant = async (): Promise<StorefrontTenant | null> => {
   };
 };
 
-/** URL absoluta de la tienda, para enlaces canónicos y datos estructurados. */
+/**
+ * URL absoluta de la tienda, para canónicas, sitemap, datos estructurados y el
+ * enlace que se lleva el cliente por WhatsApp.
+ *
+ * No basta con leer `NEXT_PUBLIC_APP_URL`: esa variable NO está definida en
+ * Vercel, así que el esquema aplicaba su valor por defecto y el `robots.txt` de
+ * producción salió apuntando el sitemap a `http://localhost:3031`. La regla
+ * (DL-20, la misma del resto del proyecto) vive probada en
+ * `features/storefront/base-url.ts`.
+ */
 export function storefrontBaseUrl(): string {
-  return env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  return resolveBaseUrl({
+    appUrl: env.NEXT_PUBLIC_APP_URL,
+    vercelProductionUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    vercelUrl: process.env.VERCEL_URL,
+  });
 }
