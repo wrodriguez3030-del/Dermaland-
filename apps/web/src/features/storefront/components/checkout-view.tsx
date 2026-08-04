@@ -22,6 +22,25 @@ import type { PublicBranch } from "../types";
 import { useCart } from "./cart-provider";
 
 /**
+ * UUID v4 con respaldo.
+ *
+ * `crypto.randomUUID` solo existe en contexto seguro; en el navegador embebido
+ * de Instagram o WhatsApp puede no estar. Sin respaldo, el pedido se rechazaría
+ * con un error que no explica nada.
+ */
+function uuidV4(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const h = "0123456789abcdef";
+  const d = Array.from({ length: 36 }, () => h[Math.floor(Math.random() * 16)]!);
+  d[8] = d[13] = d[18] = d[23] = "-";
+  d[14] = "4";
+  d[19] = h[8 + Math.floor(Math.random() * 4)]!;
+  return d.join("");
+}
+
+/**
  * Confirmar el pedido.
  *
  * Los importes que se ven aquí vienen del SERVIDOR (`/api/storefront/cart`),
@@ -102,10 +121,14 @@ export function CheckoutView({
 
   // Se genera UNA vez por montaje: es lo que hace que un doble clic —o un
   // reintento tras un fallo de red— no cree dos pedidos.
-  const idempotencyKey = React.useRef<string>("");
-  if (!idempotencyKey.current && typeof crypto !== "undefined") {
-    idempotencyKey.current = crypto.randomUUID();
-  }
+  // `useState` con inicializador perezoso y NO asignación en render: asignar en
+  // render es impuro y se ejecuta dos veces con StrictMode.
+  //
+  // `crypto.randomUUID` **solo existe en contexto seguro**, y esta tienda se
+  // promociona por Instagram y WhatsApp, cuyos navegadores embebidos son
+  // justo donde eso falla. Sin respaldo, o revienta el render o manda una clave
+  // vacía que el servidor rechaza con un error que no dice nada.
+  const [idempotencyKey] = React.useState(() => uuidV4());
 
   React.useEffect(() => {
     if (!mounted || items.length === 0) return;
@@ -128,6 +151,10 @@ export function CheckoutView({
   }, [items, mounted]);
 
   async function enviar() {
+    if (entrega === "delivery" && envio === null) {
+      setError("Elige tu provincia para calcular el envío.");
+      return;
+    }
     setEnviando(true);
     setError(null);
     try {
@@ -147,7 +174,7 @@ export function CheckoutView({
           contactPhone: telefono,
           contactEmail: correo || undefined,
           notes: nota || undefined,
-          idempotencyKey: idempotencyKey.current,
+          idempotencyKey,
         }),
       });
       const datos = await resp.json();
@@ -570,9 +597,18 @@ export function CheckoutView({
           Precios con ITBIS incluido
         </p>
 
+        {/* Un botón muerto sin explicación es lo peor que puede pasarle a quien
+            intenta comprar: pulsa y no ocurre nada. En móvil este panel va
+            DEBAJO del formulario, así que el motivo tiene que estar aquí. */}
+        {entrega === "delivery" && envio === null ? (
+          <p className="mt-4 rounded-xl bg-[color:var(--brand-warn)]/10 px-3 py-2 text-sm text-[color:var(--brand-fg)]/80">
+            Elige tu provincia para poder continuar.
+          </p>
+        ) : null}
+
         <button
           type="submit"
-          disabled={enviando || !resumen || (entrega === "delivery" && envio === null)}
+          disabled={enviando || !resumen}
           className="mt-6 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-50"
         >
           {enviando ? (
