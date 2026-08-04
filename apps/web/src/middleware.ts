@@ -39,6 +39,11 @@ const PUBLIC_PATHS = [
   // todo. Justo lo contrario de lo que hace falta en los despliegues Preview.
   "/robots.txt",
   "/sitemap.xml",
+  // Carrito de la tienda: el navegador guarda slugs y esta ruta devuelve los
+  // precios. Es la ÚNICA entrada pública bajo `/api/storefront`; `settings` y
+  // `products` son administración y siguen exigiendo sesión y 2FA. Por el match
+  // por segmento (DL-07), esta entrada NO los cubre.
+  "/api/storefront/cart",
   "/_next",
   "/favicon.ico",
 ];
