@@ -47,7 +47,11 @@ export default async function PedidoWebDetallePage({
 
       <PageHeader
         title={`Pedido ${pedido.number}`}
-        description={`${pedido.contactName} · ${pedido.contactPhone} · Retira en ${pedido.branchName}`}
+        description={
+          pedido.fulfillment === "delivery"
+            ? `${pedido.contactName} · ${pedido.contactPhone} · ENVÍO a ${pedido.deliveryProvince}`
+            : `${pedido.contactName} · ${pedido.contactPhone} · Retira en ${pedido.branchName}`
+        }
       />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -81,6 +85,33 @@ export default async function PedidoWebDetallePage({
         </div>
       ) : null}
 
+      {pedido.fulfillment === "delivery" ? (
+        <Card>
+          <CardContent>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+              A dónde se lleva
+            </h2>
+            <p className="mt-2 text-sm text-[color:var(--brand-fg)]/80">
+              {pedido.deliveryAddress}
+              <br />
+              {pedido.deliverySector}, {pedido.deliveryProvince}
+              {pedido.deliveryReference ? (
+                <>
+                  <br />
+                  <span className="text-[color:var(--brand-fg)]/60">
+                    Referencia: {pedido.deliveryReference}
+                  </span>
+                </>
+              ) : null}
+            </p>
+            <p className="mt-2 text-sm text-[color:var(--brand-fg)]/60">
+              Flete cobrado: {formatCurrency(pedido.shippingCost)} · Despacha{" "}
+              {pedido.branchName}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardContent>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
@@ -104,6 +135,15 @@ export default async function PedidoWebDetallePage({
               </li>
             ))}
           </ul>
+
+          {pedido.shippingCost > 0 ? (
+            <div className="mt-3 flex justify-between text-sm">
+              <span className="text-[color:var(--brand-fg)]/70">Envío</span>
+              <span className="font-medium text-[color:var(--brand-fg)]">
+                {formatCurrency(pedido.shippingCost)}
+              </span>
+            </div>
+          ) : null}
 
           <div className="mt-4 flex items-baseline justify-between border-t border-black/5 pt-4">
             <span className="text-sm text-[color:var(--brand-fg)]/70">

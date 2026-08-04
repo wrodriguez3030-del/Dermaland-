@@ -141,7 +141,7 @@ export default async function PedidosWebPage({
                 <TR>
                   <TH>Pedido</TH>
                   <TH>Cliente</TH>
-                  <TH>Retira en</TH>
+                  <TH>Entrega</TH>
                   <TH>Total</TH>
                   <TH>Estado</TH>
                   <TH>Acciones</TH>
@@ -167,7 +167,23 @@ export default async function PedidosWebPage({
                         {p.contactPhone}
                       </span>
                     </TD>
-                    <TD>{p.branchName}</TD>
+                    <TD>
+                      {p.fulfillment === "delivery" ? (
+                        <>
+                          Envío
+                          <span className="block text-xs text-[color:var(--brand-fg)]/50">
+                            {p.deliveryProvince}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          Retiro
+                          <span className="block text-xs text-[color:var(--brand-fg)]/50">
+                            {p.branchName}
+                          </span>
+                        </>
+                      )}
+                    </TD>
                     <TD className="font-semibold">{formatCurrency(p.total)}</TD>
                     <TD>
                       <Badge

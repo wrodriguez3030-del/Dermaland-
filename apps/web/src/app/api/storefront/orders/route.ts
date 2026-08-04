@@ -27,7 +27,15 @@ const CuerpoSchema = z.object({
     )
     .min(1)
     .max(MAX_LINES),
-  branchSlug: z.string().min(1).max(120),
+  fulfillment: z.enum(["pickup", "delivery"]).default("pickup"),
+  branchSlug: z.string().max(120).optional(),
+  // La provincia sí; el COSTE del envío no. Lo calcula el servidor contra las
+  // tarifas guardadas: si el importe viajara aquí, cambiarlo con la consola
+  // sería elegir cuánto se paga de flete.
+  province: z.string().max(120).optional(),
+  sector: z.string().max(120).optional(),
+  address: z.string().max(300).optional(),
+  reference: z.string().max(300).optional(),
   contactName: z.string().trim().min(1).max(120),
   // Dígitos: el mismo formato con el que se guarda el teléfono del cliente.
   contactPhone: z
