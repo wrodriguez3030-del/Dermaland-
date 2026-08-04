@@ -10,6 +10,58 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.116.0] - 2026-08-04
+
+**Fase 3, incremento F3.2: cuentas de cliente. La tienda sigue APAGADA y el
+registro NO se puede usar todavía — ver la nota del final.**
+
+### Seguridad (lo importante de esta versión)
+
+- **El portero del middleware exige ser del NEGOCIO, no solo tener sesión.**
+  Hasta ahora `middleware.ts` preguntaba una sola cosa: *"¿hay un usuario?"*.
+  Eso alcanzaba porque la única forma de existir como usuario era que un
+  administrador te creara. Con el registro de clientes abierto la premisa se
+  invierte: cualquiera podría fabricarse una sesión válida desde la tienda y
+  pasar hacia `/inventario`, `/ventas` o `/reportes`. Lo único que lo frenaba
+  estaba mucho más adentro (`context.ts:55`), que es una red, no un portón.
+  Ahora se exige `business_id` en `app_metadata` —escribible solo por
+  service_role (SEC-001)—, y el súper admin entra por `is_platform_admin ===
+  true` con comparación **estricta**: un `"true"` de texto no eleva a nadie.
+  **`auth-claims.ts` no se toca**: el `?? "cashier"` se queda donde está.
+  Comprobado en caliente con dos usuarios de prueba, creados y borrados: el
+  cliente rebota a `/tienda` desde las siete rutas probadas, incluido
+  `/super-admin`; el personal entra a todas con normalidad.
+
+### Cuentas
+
+- **`client_auth_links`** (migración 0037): puente entre la cuenta de Supabase y
+  la ficha comercial. RLS deny-by-default con una sola política de lectura sobre
+  la fila propia, y `revoke` explícito de escritura a `anon` y `authenticated` —
+  poder insertar ahí sería elegir a qué historial de compras engancharse.
+- **Registro, entrada y "Mi cuenta"** en `/tienda/cuenta/*`. Al registrarse se
+  busca si esa persona ya compraba en el mostrador (por correo, teléfono y
+  whatsapp) y se reutiliza su ficha en vez de duplicarla.
+- El error del alta es **siempre el mismo**, gane o pierda, para que el
+  formulario no sirva de comprobador de qué correos están registrados.
+- `signOutCustomer` devuelve al cliente a `/tienda`; `signOut` sigue llevando al
+  personal a `/login`, sin cambiar de firma (se usa como `action` de formulario).
+
+### Dos trampas de la base que habrían reventado el alta en producción
+
+- `clients.source` tiene un CHECK que solo admite
+  `manual|whatsapp|web|import|agendapro`. Se usa `web`.
+- `clients.customer_number` es NOT NULL **sin valor por defecto**: se genera
+  `CLI-XXXXXX` con el mismo formato del ERP y hasta tres reintentos si choca.
+
+### Pendiente, y bloquea el uso real
+
+**Supabase está exigiendo confirmar el correo y su emisor propio está limitado a
+unos pocos envíos por hora** (`over_email_send_rate_limit` al segundo intento).
+Tal como está, un cliente real no podría completar el registro. Hace falta
+configurar un SMTP propio en Supabase —o desactivar la confirmación, que es
+peor: permitiría registrarse con el correo de otro—. Es configuración de la
+cuenta, no código.
+
 ## [0.115.0] - 2026-08-04
 
 **Fase 3, incremento F3.1: carrito. La tienda sigue APAGADA.**
