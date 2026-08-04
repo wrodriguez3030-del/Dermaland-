@@ -5,8 +5,9 @@
 > de marca), que **se conserva tal cual**: las correcciones a su contenido se
 > registran aquí, no editándolo.
 
-**Estado:** Fases 1 y 2 completas (E0–E7). La tienda **está apagada**: encenderla
-es una decisión del dueño, desde *Productos → Catálogo web*.
+**Estado:** Fases 1 y 2 completas (E0–E7). **638 fichas publicadas** y la tienda
+**apagada**: encenderla es una decisión del dueño, desde *Productos → Catálogo
+web*. El procedimiento está en [`tienda-lanzamiento.md`](./tienda-lanzamiento.md).
 **Última actualización:** 2026-08-03
 
 ---
@@ -252,9 +253,10 @@ código:
 
 ## 4.2 Qué falta antes de encender
 
-1. **Confirmar que el 809-226-5252 tiene WhatsApp.** Es el número configurado y
-   el botón de cada ficha lleva a él. Si esa línea es fija, el botón —que sin
-   carrito **es** la venta— acaba en un chat muerto.
+1. ~~Confirmar que el 809-226-5252 tiene WhatsApp.~~ **Confirmado por el dueño
+   el 2026-08-03.** Es el número configurado en `business_web_settings` y al que
+   lleva el botón de cada ficha, con el producto y su enlace ya escritos en el
+   mensaje. Sin carrito, ese botón **es** la venta.
 2. **Redactar contenido.** Las 638 fichas se publican hoy con el nombre del ERP
    (en MAYÚSCULAS) y sin resumen, descripción ni beneficios: los campos
    comerciales nunca existieron en la base (§2.1). Se escriben desde
@@ -297,5 +299,5 @@ código:
 | R-WEB-05 | 704 productos sin foto | La publicación por lote filtra por foto; marcador digno cuando falte |
 | R-WEB-06 | Hotlink a un CDN ajeno y data-URL en la base | No se publican; re-subida con los scripts existentes |
 | R-WEB-07 | Catálogo publicado incompleto al lanzar | Es decisión de negocio: se lanza con 638 o se completan fotos antes |
-| R-WEB-08 | El botón de WhatsApp apunta a una línea sin WhatsApp | Confirmar el número antes de encender; `whatsappLink` ya devuelve `null` —y oculta el botón— si el número no es marcable |
+| ~~R-WEB-08~~ | ~~El botón de WhatsApp apunta a una línea sin WhatsApp~~ | **CERRADO 2026-08-03**: el dueño confirma que el 809-226-5252 tiene WhatsApp. `whatsappLink` sigue devolviendo `null` —y ocultando el botón— si algún día el número deja de ser marcable |
 | R-WEB-09 | Las fichas salen con el nombre en MAYÚSCULAS y sin contenido | El admin permite redactarlas; el título comercial cae al nombre del ERP solo mientras nadie lo escriba |
