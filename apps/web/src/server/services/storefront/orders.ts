@@ -4,7 +4,11 @@ import type {
   WebOrder,
   WebOrderItem,
 } from "@/features/storefront/orders/types";
-import type { WebOrderStatus } from "@/features/storefront/orders/status";
+import {
+  canTransition,
+  webOrderStatusLabel,
+  type WebOrderStatus,
+} from "@/features/storefront/orders/status";
 import { slugify } from "@/features/storefront/slug";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
@@ -173,6 +177,180 @@ export async function createWebOrder(
     number: numero,
     token: signDocumentShareToken(tenant.businessId, pedido.id),
   };
+}
+
+/** Una fila de la lista del ERP. Sin UUID de más de los necesarios. */
+export interface WebOrderRow {
+  id: string;
+  number: string;
+  status: WebOrderStatus;
+  contactName: string;
+  contactPhone: string;
+  branchName: string;
+  total: number;
+  createdAt: string;
+}
+
+export interface ListWebOrdersResult {
+  rows: WebOrderRow[];
+  total: number;
+}
+
+/** Filas por página. La lista se pagina en el SERVIDOR, siempre. */
+export const WEB_ORDERS_PAGE_SIZE = 25;
+
+/**
+ * Pedidos del negocio, paginados.
+ *
+ * `.range()` no es opcional: sin él PostgREST corta en 1000 filas **en
+ * silencio**, y la pantalla enseñaría un subconjunto sin decir que lo es.
+ */
+export async function listWebOrders(
+  businessId: string,
+  opts: { page?: number; status?: WebOrderStatus } = {},
+): Promise<ListWebOrdersResult> {
+  const admin = createServiceRoleClient();
+  if (!admin) return { rows: [], total: 0 };
+
+  const page = Math.max(1, Math.trunc(opts.page ?? 1));
+  const desde = (page - 1) * WEB_ORDERS_PAGE_SIZE;
+
+  let q = admin
+    .from("web_orders")
+    .select(
+      "id, number, status, contact_name, contact_phone, total, created_at, branch_id",
+      { count: "exact" },
+    )
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false })
+    .range(desde, desde + WEB_ORDERS_PAGE_SIZE - 1);
+
+  if (opts.status) q = q.eq("status", opts.status);
+
+  const { data, count, error } = await q;
+  if (error || !data) return { rows: [], total: 0 };
+
+  const nombres = await nombresDeSucursal(admin, businessId);
+
+  return {
+    total: count ?? 0,
+    rows: data.map((p) => ({
+      id: p.id,
+      number: p.number,
+      status: p.status as WebOrderStatus,
+      contactName: p.contact_name,
+      contactPhone: p.contact_phone,
+      branchName: nombres.get(p.branch_id) ?? "—",
+      total: Number(p.total),
+      createdAt: p.created_at,
+    })),
+  };
+}
+
+/** El pedido completo, para el detalle del ERP. Acotado por `business_id`. */
+export async function getWebOrderForBusiness(
+  businessId: string,
+  id: string,
+): Promise<(WebOrder & { id: string }) | null> {
+  const admin = createServiceRoleClient();
+  if (!admin) return null;
+
+  const { data: pedido } = await admin
+    .from("web_orders")
+    .select(
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id",
+    )
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!pedido) return null;
+
+  const [{ data: lineas }, nombres] = await Promise.all([
+    admin
+      .from("web_order_items")
+      .select("product_name, unit_price, qty, line_total")
+      .eq("order_id", pedido.id)
+      .order("created_at", { ascending: true }),
+    nombresDeSucursal(admin, businessId),
+  ]);
+
+  return {
+    id: pedido.id,
+    number: pedido.number,
+    status: pedido.status as WebOrderStatus,
+    branchName: nombres.get(pedido.branch_id) ?? "—",
+    contactName: pedido.contact_name,
+    contactPhone: pedido.contact_phone,
+    contactEmail: pedido.contact_email ?? undefined,
+    total: Number(pedido.total),
+    items: (lineas ?? []).map((l) => ({
+      productName: l.product_name,
+      unitPrice: Number(l.unit_price),
+      qty: l.qty,
+      lineTotal: Number(l.line_total),
+    })),
+    notes: pedido.notes ?? undefined,
+    createdAt: pedido.created_at,
+  };
+}
+
+/**
+ * Cambia el estado de un pedido.
+ *
+ * La transición se valida AQUÍ y no solo en la pantalla: el servidor no puede
+ * fiarse de que el botón que llegó fuera uno de los que él pintó.
+ */
+export async function advanceWebOrder(
+  businessId: string,
+  id: string,
+  to: WebOrderStatus,
+  reason?: string,
+): Promise<{ ok: boolean; error?: string; from?: WebOrderStatus }> {
+  const admin = createServiceRoleClient();
+  if (!admin) return { ok: false, error: "No disponible." };
+
+  const { data: actual } = await admin
+    .from("web_orders")
+    .select("status")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!actual) return { ok: false, error: "Pedido no encontrado." };
+
+  const desde = actual.status as WebOrderStatus;
+  if (!canTransition(desde, to)) {
+    return {
+      ok: false,
+      error: `No se puede pasar de "${webOrderStatusLabel(desde)}" a "${webOrderStatusLabel(to)}".`,
+    };
+  }
+
+  const { error } = await admin
+    .from("web_orders")
+    .update({
+      status: to,
+      cancel_reason: to === "cancelado" ? (reason ?? null) : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("business_id", businessId);
+
+  if (error) return { ok: false, error: "No se pudo cambiar el estado." };
+  return { ok: true, from: desde };
+}
+
+/** Nombre COMERCIAL de cada sucursal, para no enseñar UUID en pantalla. */
+async function nombresDeSucursal(
+  admin: Admin,
+  businessId: string,
+): Promise<Map<string, string>> {
+  const { data } = await admin
+    .from("branches")
+    .select("id, name, public_name")
+    .eq("business_id", businessId);
+  return new Map(
+    (data ?? []).map((b) => [b.id, b.public_name?.trim() || b.name]),
+  );
 }
 
 /** `branches.code` es el respaldo del slug público (ver `tenant.ts`). */

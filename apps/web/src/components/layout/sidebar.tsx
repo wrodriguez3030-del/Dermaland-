@@ -70,6 +70,7 @@ export const groups: NavGroup[] = [
       // POS / Nueva venta se accede desde el botón verde en Ventas/Facturas
       // (la ruta /pos sigue existiendo y funciona por URL directa).
       { label: "Ventas", href: "/ventas" },
+      { label: "Pedidos web", href: "/pedidos-web" },
       { label: "Proformas", href: "/proformas" },
       { label: "Pagos", href: "/pagos" },
       { label: "Incentivos", href: "/ventas/incentivos" },
