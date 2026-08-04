@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { signOutCustomer } from "@/server/auth/actions";
 import { resolveCustomerAccount } from "@/server/services/storefront/customer-account";
+import { accountsEnabled } from "@/server/services/storefront/customer-account";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 export const metadata: Metadata = {
@@ -25,6 +26,9 @@ export const dynamic = "force-dynamic";
 export default async function CuentaPage() {
   const tenant = await resolveStorefrontTenant();
   if (!tenant) notFound();
+  // Con las cuentas cerradas esta página no existe: un formulario que falla
+  // siempre es peor que una página que no está.
+  if (!accountsEnabled()) notFound();
 
   const cuenta = await resolveCustomerAccount();
   if (!cuenta) redirect("/tienda/cuenta/entrar");

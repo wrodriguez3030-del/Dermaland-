@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { signIn } from "@/server/auth/actions";
+import { accountsEnabled } from "@/server/services/storefront/customer-account";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 export const metadata: Metadata = {
@@ -20,6 +21,9 @@ export default async function EntrarPage({
   const { error } = await searchParams;
   const tenant = await resolveStorefrontTenant();
   if (!tenant) notFound();
+  // Con las cuentas cerradas esta página no existe: un formulario que falla
+  // siempre es peor que una página que no está.
+  if (!accountsEnabled()) notFound();
 
   async function action(formData: FormData): Promise<void> {
     "use server";

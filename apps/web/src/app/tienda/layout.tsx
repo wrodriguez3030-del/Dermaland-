@@ -9,7 +9,10 @@ import { CategoryNav } from "@/features/storefront/components/category-nav";
 import { SearchBox } from "@/features/storefront/components/search-box";
 import { whatsappLink } from "@/features/storefront/contact";
 import { loadPublishedCatalog } from "@/server/services/storefront/catalog";
-import { resolveCustomerAccount } from "@/server/services/storefront/customer-account";
+import {
+  accountsEnabled,
+  resolveCustomerAccount,
+} from "@/server/services/storefront/customer-account";
 import {
   resolveStorefrontTenant,
   storefrontBaseUrl,
@@ -72,7 +75,11 @@ export default async function TiendaLayout({
   // la comparte dentro de la petición, así que el encabezado no cuesta un viaje
   // más a la base.
   const { categories } = await loadPublishedCatalog(tenant.businessId);
-  const cuenta = await resolveCustomerAccount();
+  // Sin cuentas abiertas no se enseña la puerta: el registro fallaría al
+  // segundo cliente de la hora (ver `account/availability.ts`). Se puede comprar
+  // sin cuenta, así que esto no frena una venta.
+  const cuentasAbiertas = accountsEnabled();
+  const cuenta = cuentasAbiertas ? await resolveCustomerAccount() : null;
 
   return (
     // El carrito envuelve TODA la tienda: el contador del encabezado y la ficha
@@ -107,7 +114,7 @@ export default async function TiendaLayout({
             />
 
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              <AccountNav nombre={cuenta?.firstName} />
+              {cuentasAbiertas ? <AccountNav nombre={cuenta?.firstName} /> : null}
               <CartBadge />
 
               {whatsapp ? (

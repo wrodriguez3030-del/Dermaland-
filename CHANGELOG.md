@@ -10,6 +10,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.121.0] - 2026-08-04
+
+**Las cuentas de cliente se apagan hasta que el correo funcione.**
+
+La tienda está en vivo y su formulario de registro **fallaba**: Supabase exige
+confirmar el correo y su emisor propio se agota en unos pocos envíos por hora
+(`over_email_send_rate_limit`). El segundo cliente que lo intentara en la misma
+hora veía un error, y el que se queda fuera no vuelve. Una puerta que no abre es
+peor que ninguna puerta.
+
+- **`STOREFRONT_ACCOUNTS_ENABLED`**, apagada por defecto. Con ella apagada:
+  no hay enlace de cuenta en el encabezado, y `/tienda/cuenta`,
+  `/tienda/cuenta/entrar` y `/tienda/cuenta/registro` devuelven **404** — no un
+  formulario que falla.
+- **Se comprueba también en el servidor**, no solo al pintar: que un formulario
+  no se dibuje no impide que alguien llame a la acción.
+- **Se enciende solo con el valor exacto `true`.** Un `1`, un `TRUE` o un `yes`
+  no abren nada; hay prueba que lo fija.
+- **No se pierde nada**: el código de cuentas queda intacto. El día que haya SMTP
+  propio en Supabase (Authentication → Emails → SMTP), se enciende poniendo la
+  variable en Vercel. Ni una línea de código.
+
+**Se puede comprar sin cuenta**, así que esto no frena una sola venta: el
+checkout pide nombre y teléfono y ya.
+
 ## [0.120.0] - 2026-08-04
 
 **Pago por transferencia con comprobante.**

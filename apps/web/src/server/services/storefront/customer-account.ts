@@ -1,4 +1,5 @@
 import "server-only";
+import { customerAccountsEnabled } from "@/features/storefront/account/availability";
 import { parseRegistration } from "@/features/storefront/account/registration";
 import { createServer, createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveStorefrontTenant } from "./tenant";
@@ -105,7 +106,24 @@ async function crearCliente(
   return undefined;
 }
 
+/**
+ * ¿Se pueden crear cuentas hoy?
+ *
+ * Apagadas por defecto: Supabase exige confirmar el correo y su emisor propio se
+ * agota en unos pocos envíos por hora. Ver `account/availability.ts`.
+ */
+export function accountsEnabled(): boolean {
+  return customerAccountsEnabled({
+    STOREFRONT_ACCOUNTS_ENABLED: process.env.STOREFRONT_ACCOUNTS_ENABLED,
+  });
+}
+
 export async function signUpCustomer(raw: unknown): Promise<SignUpResult> {
+  // Se comprueba también aquí y no solo en la pantalla: que un formulario no se
+  // pinte no impide que alguien llame a la acción.
+  if (!accountsEnabled()) {
+    return { ok: false, error: "Las cuentas no están disponibles todavía." };
+  }
   const parsed = parseRegistration(raw);
   if (!parsed.ok) return { ok: false, error: parsed.error };
 
@@ -170,6 +188,7 @@ export async function signUpCustomer(raw: unknown): Promise<SignUpResult> {
  * ficha de otro sería mezclar dos identidades distintas.
  */
 export async function resolveCustomerAccount(): Promise<CustomerAccount | null> {
+  if (!accountsEnabled()) return null;
   const sb = await createServer();
   if (!sb) return null;
   const {
