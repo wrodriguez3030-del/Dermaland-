@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { categoryHref } from "@/features/storefront/catalog-params";
 import { loadPublishedCatalog } from "@/server/services/storefront/catalog";
 import {
   resolveStorefrontTenant,
@@ -21,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!tenant) return [];
 
   const base = storefrontBaseUrl();
-  const { products } = await loadPublishedCatalog(tenant.businessId);
+  const { products, categories } = await loadPublishedCatalog(tenant.businessId);
 
   return [
     {
@@ -34,6 +35,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.9,
     },
+    // Las categorías son colecciones reales y estables, con su propia página:
+    // por eso entran al sitemap y un `?categoria=` nunca podría.
+    ...categories.map((categoria) => ({
+      url: `${base}${categoryHref(categoria.slug)}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
     ...products.map((producto) => ({
       url: `${base}/tienda/producto/${producto.slug}`,
       changeFrequency: "weekly" as const,

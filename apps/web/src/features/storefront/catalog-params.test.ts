@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCatalogHref,
   CATALOG_BASE,
+  categoryHref,
   hasActiveFilters,
   parseCatalogParams,
 } from "./catalog-params";
@@ -94,6 +95,29 @@ describe("buildCatalogHref", () => {
     // estantes en vez de a sus resultados.
     expect(buildCatalogHref(base)).toBe(CATALOG_BASE);
     expect(CATALOG_BASE).toBe("/tienda/catalogo");
+  });
+});
+
+describe("categoryHref", () => {
+  it("da a cada categoría su propia dirección", () => {
+    expect(categoryHref("proteccion-solar")).toBe(
+      "/tienda/categoria/proteccion-solar",
+    );
+  });
+
+  it("la paginación de una categoría se queda dentro de la categoría", () => {
+    // Sin base propia, "Siguiente" mandaría a /tienda/catalogo y echaría al
+    // visitante —y al rastreador— fuera de la página que acaba de encontrar.
+    const enCategoria = parseCatalogParams({});
+    expect(
+      buildCatalogHref(enCategoria, { page: 2 }, categoryHref("solares")),
+    ).toBe("/tienda/categoria/solares?pagina=2");
+  });
+
+  it("escapa lo que venga con caracteres raros", () => {
+    // El slug sale de un nombre escrito por una persona: puede traer cualquier
+    // cosa, y sin escapar rompería la URL o abriría un parámetro extra.
+    expect(categoryHref("piel & sol")).toBe("/tienda/categoria/piel%20%26%20sol");
   });
 });
 

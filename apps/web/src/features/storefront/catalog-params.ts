@@ -103,6 +103,21 @@ export function buildCatalogHref(
   return cadena ? `${base}?${cadena}` : base;
 }
 
+/**
+ * Dirección de una categoría.
+ *
+ * Una categoría es una PÁGINA, no un filtro: tiene su propio H1, su propia
+ * canónica y su sitio en el sitemap. Un `?categoria=solares` es invisible para
+ * un buscador; esto no.
+ *
+ * `encodeURIComponent` porque el slug se deriva de un nombre escrito por una
+ * persona: aunque `slugify` lo limpie, esta función también la llaman las
+ * pruebas y el sitemap con lo que haya en la base.
+ */
+export function categoryHref(slug: string): string {
+  return `/tienda/categoria/${encodeURIComponent(slug)}`;
+}
+
 /** Etiquetas de los órdenes, de cara al cliente. */
 export const SORT_LABELS: Record<CatalogSort, string> = {
   relevancia: "Más relevantes",

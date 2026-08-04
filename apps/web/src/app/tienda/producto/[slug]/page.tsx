@@ -3,7 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, ChevronRight, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { buildCatalogHref } from "@/features/storefront/catalog-params";
+import {
+  buildCatalogHref,
+  categoryHref,
+} from "@/features/storefront/catalog-params";
 import { ProductCard } from "@/features/storefront/components/product-card";
 import { ProductPhoto } from "@/features/storefront/components/product-photo";
 import {
@@ -292,10 +295,7 @@ function Migas({ producto }: { producto: PublicProduct }) {
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0" />
             <li>
               <Link
-                href={buildCatalogHref(
-                  {},
-                  { categorySlug: producto.categorySlug },
-                )}
+                href={categoryHref(producto.categorySlug)}
                 className="underline-offset-4 hover:text-[color:var(--brand-primary)] hover:underline"
               >
                 {producto.categoryName}
