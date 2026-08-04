@@ -10,6 +10,53 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.124.0] - 2026-08-04
+
+**Revisión del módulo de tienda por agentes. Un agujero de seguridad real y el
+resto de causas del checkout roto.**
+
+### Seguridad
+
+- **Open redirect en `/login/mfa`, corregido.** Usaba `startsWith("/")` a secas,
+  que deja pasar `//evil.com` y `/\evil.com` —el navegador las resuelve como
+  otro dominio—. Y esa página **redirige al montar** cuando el usuario no tiene
+  factor TOTP: bastaba mandarle a alguien
+  `dermaland.vercel.app/login/mfa?next=//evil.com` para sacarlo del dominio
+  **sin sesión, sin código y sin un clic**. El guard correcto ya existía en
+  `/login`; estaba escrito **dos veces** y la copia mala era la peligrosa. Ahora
+  vive una sola vez en `lib/utils/safe-next.ts`, con pruebas.
+- **Los comprobantes bancarios ya no se leen sin rol.** La mutación sí exigía
+  rol, la lectura no — y un comprobante lleva nombre del titular, banco y número
+  de cuenta. La RLS valida el tenant, **no el rol** (DL-01).
+
+### El checkout: las causas que faltaban
+
+El arreglo anterior (v0.123.1) tapaba el fallo de rebote. La causa raíz era otra
+y fallaba **el 100 % de las veces**, no solo con el `+1`:
+
+- **`FormData.get()` devuelve `null`** para un campo que no está en el DOM, y
+  `JSON.stringify` **conserva el null** (solo omite `undefined`). Los campos de
+  envío solo existen en modo envío y el selector de sucursal solo en retiro, así
+  que **siempre** viajaba algún `null` — y el esquema aceptaba `undefined` pero
+  rechazaba `null`. Ningún pedido podía completarse.
+  La frontera pública usa ahora `.nullish()`: debe tolerar el `null` de
+  cualquier llamador, no solo el `undefined` que manda nuestro formulario.
+- **El error 422 decía "Revisa los datos" para todo.** Ahora dice qué campo
+  arreglar, mapeado a frases de negocio — sin devolver el error de zod crudo,
+  que filtraría la forma del esquema.
+- **El botón se deshabilitaba sin explicación** cuando faltaba la provincia. En
+  móvil el panel va debajo del formulario, así que el cliente pulsaba y no
+  ocurría nada. Ahora dice por qué.
+- **`crypto.randomUUID` solo existe en contexto seguro** y esta tienda se
+  promociona por Instagram y WhatsApp, cuyos navegadores embebidos son justo
+  donde falla. Ahora hay respaldo.
+
+### Pruebas
+
+- **`checkout-payload.test.ts`**: la regresión que faltaba. Fija el cuerpo exacto
+  con `null` que rompía, en los dos modos, y los cuatro formatos de teléfono.
+- `safe-next.test.ts` y `phone.test.ts`.
+
 ## [0.123.1] - 2026-08-04
 
 **Corrección urgente: el checkout no dejaba pasar y borraba los datos.**

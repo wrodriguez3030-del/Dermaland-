@@ -6,6 +6,7 @@ import { Badge, Card, CardContent } from "@/components/ui";
 import { OrderStatusActions } from "@/features/storefront/components/order-status-actions";
 import { webOrderStatusLabel } from "@/features/storefront/orders/status";
 import { formatCurrency } from "@/lib/utils/format";
+import { WEB_ORDER_MANAGE_ROLES } from "@/features/billing/permissions";
 import { getSession } from "@/server/auth/context";
 import { getWebOrderForBusiness } from "@/server/services/storefront/orders";
 import { listOrderReceipts } from "@/server/services/storefront/transfer-payments";
@@ -34,9 +35,17 @@ export default async function PedidoWebDetallePage({
   const pedido = await getWebOrderForBusiness(session.businessId, id);
   if (!pedido) notFound();
 
-  // Con URLs firmadas: esto solo lo ve el personal del negocio.
+  // Las URL firmadas de los comprobantes SOLO para quien puede gestionarlos.
+  //
+  // La mutación ya exigía rol; la LECTURA no, y un comprobante lleva el nombre
+  // del titular, su banco y su número de cuenta. La RLS valida el tenant, no el
+  // rol (DL-01), así que sin esto cualquier usuario del negocio —incluido
+  // inventario— podía abrirlos.
+  const puedeVerComprobantes =
+    session.isPlatformAdmin ||
+    WEB_ORDER_MANAGE_ROLES.includes(session.user.role);
   const comprobantes =
-    pedido.paymentMethod === "transferencia"
+    pedido.paymentMethod === "transferencia" && puedeVerComprobantes
       ? await listOrderReceipts(session.businessId, pedido.id, true)
       : [];
 
@@ -180,7 +189,7 @@ export default async function PedidoWebDetallePage({
         </Card>
       ) : null}
 
-      {pedido.paymentMethod === "transferencia" ? (
+      {pedido.paymentMethod === "transferencia" && puedeVerComprobantes ? (
         <Card>
           <CardContent>
             <div className="flex flex-wrap items-center justify-between gap-3">

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { HeartPulse, ShieldCheck, AlertTriangle } from "lucide-react";
 import { Button, Input, Label } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { safeNext } from "@/lib/utils/safe-next";
 
 /**
  * B-04: paso de verificación 2FA en el login. Se llega aquí cuando el usuario ya
@@ -13,10 +14,10 @@ import { createClient } from "@/lib/supabase/client";
  */
 function MfaChallenge() {
   const params = useSearchParams();
-  const next = (() => {
-    const n = params.get("next");
-    return n && n.startsWith("/") ? n : "/";
-  })();
+  // DL-12. Antes era `n.startsWith("/")` a secas, y esta página redirige AL
+  // MONTAR cuando el usuario no tiene factor TOTP: bastaba mandar el enlace
+  // `?next=//evil.com` para sacar a alguien del dominio sin sesión ni un clic.
+  const next = safeNext(params.get("next"));
   const supabase = createClient();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);

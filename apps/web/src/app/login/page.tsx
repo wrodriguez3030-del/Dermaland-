@@ -4,16 +4,7 @@ import { HeartPulse, ShieldCheck, AlertTriangle } from "lucide-react";
 import { Button, Input, Label } from "@/components/ui";
 import { signIn } from "@/server/auth/actions";
 import { env, isSupabaseConfigured } from "@/lib/env";
-
-/**
- * DL-12: destino de post-login. Debe ser una ruta INTERNA. `startsWith("/")`
- * por sí solo NO basta: "//evil.com" y "/\evil.com" (que el navegador normaliza
- * a "//evil.com") empiezan por "/" y provocarían un open redirect a otro dominio.
- */
-function safeNext(v: unknown): string {
-  const s = typeof v === "string" ? v : "";
-  return s.startsWith("/") && !s.startsWith("//") && !s.startsWith("/\\") ? s : "/";
-}
+import { safeNext } from "@/lib/utils/safe-next";
 
 export default async function LoginPage({
   searchParams,
