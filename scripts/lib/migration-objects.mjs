@@ -23,11 +23,6 @@ const PATTERNS = [
     name: (m) => m[1],
   },
   {
-    kind: "column",
-    re: /\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:public\.)?"?([a-z0-9_]+)"?\s+add\s+column\s+(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?/gi,
-    name: (m) => `${m[1]}.${m[2]}`,
-  },
-  {
     kind: "function",
     re: /\bcreate\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([a-z0-9_]+)"?/gi,
     name: (m) => m[1],
@@ -44,6 +39,16 @@ const PATTERNS = [
   },
 ];
 
+/**
+ * Las columnas se extraen en dos etapas porque un `alter table` real trae
+ * varias cláusulas `add column` separadas por comas en la misma sentencia
+ * (ver 0014_billing_settings_ecf.sql, 0019_sale_seller.sql). Un patrón de una
+ * sola pasada solo capturaba la primera cláusula y perdía el resto.
+ */
+const ALTER_TABLE_RE =
+  /\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:public\.)?"?([a-z0-9_]+)"?\s+([\s\S]*?)(?:;|$)/gid;
+const ADD_COLUMN_RE = /\badd\s+column\s+(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?/gi;
+
 /** Objetos declarados por el SQL, en orden de aparición y sin repetidos. */
 export function extractObjects(sql) {
   const limpio = stripSqlComments(sql);
@@ -55,6 +60,24 @@ export function extractObjects(sql) {
       hallazgos.push({ kind, name: name(m), at: m.index });
     }
   }
+
+  ALTER_TABLE_RE.lastIndex = 0;
+  let stmt;
+  while ((stmt = ALTER_TABLE_RE.exec(limpio)) !== null) {
+    const tabla = stmt[1];
+    const cuerpo = stmt[2];
+    const [cuerpoInicio] = stmt.indices[2];
+    ADD_COLUMN_RE.lastIndex = 0;
+    let col;
+    while ((col = ADD_COLUMN_RE.exec(cuerpo)) !== null) {
+      hallazgos.push({
+        kind: "column",
+        name: `${tabla}.${col[1]}`,
+        at: cuerpoInicio + col.index,
+      });
+    }
+  }
+
   hallazgos.sort((a, b) => a.at - b.at);
   const vistos = new Set();
   const salida = [];
