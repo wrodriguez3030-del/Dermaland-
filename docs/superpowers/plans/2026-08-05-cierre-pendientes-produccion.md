@@ -14,11 +14,11 @@
 
 - **Nada de este trabajo toca DGII, testecf, XML ni certificados.** Si un cambio los roza, detente y pregunta.
 - **Ningún script ejecuta `supabase migration repair`.** Los redacta para autorización humana.
-- **Ningún script escribe en producción.** El único acceso a producción es de lectura (`pg_dump`, `SELECT`).
+- **Ningún script escribe en producción, con una sola excepción nombrada:** `scripts/mfa-break-glass.mjs` (Task 9), que retira un factor y registra la operación en auditoría. Es su razón de existir. Todo lo demás toca producción **solo de lectura** (`pg_dump`, `SELECT`).
 - **Secretos:** `SUPABASE_DB_URL` sale de `apps/web/.env.local`. Nunca en argv, nunca en el repositorio, nunca en un log. En el servidor remoto viaja por archivo temporal con modo `600` y se borra con `trap`.
-- **Pruebas unitarias:** van en `apps/web/tests/unit/*.test.ts` (ya incluido en `apps/web/vitest.config.ts`, hoy vacío). Importan los `.mjs` de `scripts/` por ruta relativa.
+- **Pruebas unitarias:** las de los `.mjs` de `scripts/` van en `apps/web/tests/unit/*.test.ts` (ya incluido en `apps/web/vitest.config.ts`, hoy vacío) e importan por ruta relativa. Las de código de la app se co-ubican con su fuente (`src/**/*.test.ts`), como ya hace el repo.
+- **Rama:** `feat/cierre-pendientes-produccion`, partida de `main`. **No** de `feat/dgii-reformulacion`: llevar esto a producción no puede arrastrar la reformulación fiscal, que tiene su propia política de autorización.
 - **Comandos de prueba:** `cd apps/web && pnpm vitest run <ruta>`. Línea base actual: **446 pruebas en verde**.
-- **Rama:** trabajar sobre la actual (`feat/dgii-reformulacion`) salvo indicación contraria.
 - **Servidor DR:** `cibaocloud@supabase-01` (Tailscale). Imagen `supabase/postgres:17.6.1.132`. Contenedor `dermaland-dr-db`. **Sin puerto expuesto.**
 - **Prohibido absolutamente:** tocar el contenedor `supabase-db` (producción de csl-app) o `palusa-*` (PalusaApp) en ese servidor.
 - Mensajes de commit en español, cuerpo explicando el *por qué*, y terminados en `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
@@ -1812,7 +1812,9 @@ Esta prueba es la que hace seguro el despliegue de Task 8. Sin ella, el enforcem
 
 - [ ] **Step 3: Desplegar el enforcement**
 
-Solo ahora. Push a `main` despliega a producción (auto-deploy activo).
+Solo ahora, y **solo con autorización explícita del dueño en ese momento**.
+
+La rama es `feat/cierre-pendientes-produccion`, partida de `main`: no arrastra la reformulación DGII. El despliegue es fusionarla a `main` (auto-deploy activo), **nunca** fusionar `feat/dgii-reformulacion`.
 
 Tras el despliegue verifica en vivo: el admin enrolado entra pasando por `/login/mfa`, y el cajero entra sin cambios.
 
