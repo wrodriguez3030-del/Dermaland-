@@ -1,4 +1,4 @@
--- 0042_payments_azul
+-- 20260804195156_0042_payments_azul.sql
 --
 -- RECONSTRUIDO 2026-08-05 desde la definicion viva de la base.
 -- Esta migracion se aplico en su dia con `apply_migration` del MCP y nunca
@@ -8,20 +8,32 @@
 -- este archivo NO debe reaplicarse en produccion, solo permitir levantar el
 -- esquema de cero. Idempotente a proposito.
 --
--- FUENTE: el SQL literal guardado en
--- supabase_migrations.schema_migrations.statements para la version
--- 20260804195156, contrastado columna por columna contra
--- information_schema.columns, pg_constraint (8 constraints), pg_indexes (8
--- indices), pg_policies (payments_personal) e
--- information_schema.role_table_grants — donde se confirma que `anon` y
--- `authenticated` conservan SELECT pero NO tienen INSERT/UPDATE/DELETE, o sea
--- que el `revoke` del final se aplico. Va literal: el SQL registrado ya era
--- idempotente.
+-- EL NOMBRE ES LA IDENTIDAD REGISTRADA, no una numeracion inventada. La CLI de
+-- Supabase lista las migraciones locales con /^([0-9]+)_(.*)\.sql$/ y SALTA en
+-- silencio (solo aviso por stderr) las que no casan. Con el nombre a secas,
+-- `supabase db push` — el procedimiento de docs/supabase-setup.md — ignoraba
+-- este archivo y reconstruia una base incompleta. Con el prefijo
+-- `20260804195156_` la CLI deriva exactamente la version y el nombre que ya
+-- guarda supabase_migrations.schema_migrations, asi que el viaje de ida y
+-- vuelta es exacto.
 --
--- NOTA de nombre: el numero 0042 ya lo usaba
--- `0042_client_identity_normalized.sql`. No se renumera a proposito — la base
--- conoce esta migracion como `0042_payments_azul` y reescribir un numero ya
--- registrado es justo lo que creo este desorden.
+-- FUENTE: el SQL literal guardado en
+-- supabase_migrations.schema_migrations.statements para esa version,
+-- contrastado columna por columna contra information_schema.columns,
+-- pg_constraint (8 constraints), pg_indexes (8 indices), pg_policies
+-- (payments_personal) e information_schema.role_table_grants — donde se
+-- confirma que `anon` y `authenticated` conservan SELECT pero NO tienen
+-- INSERT/UPDATE/DELETE, o sea que el `revoke` del final se aplico. El cuerpo
+-- va LITERAL: el SQL registrado ya era idempotente.
+--
+-- NOTA sobre el `0042` de dentro del nombre: el numero 0042 ya lo usaba
+-- `0042_client_identity_normalized.sql`, y aun asi esta migracion quedo
+-- registrada como `0042_payments_azul`. Ese es el nombre que guarda la base y
+-- por eso se conserva tal cual detras del prefijo de version. Ojo: mientras el
+-- archivo se llamo `0042_payments_azul.sql` a secas, la CLI SI lo leia pero
+-- derivaba version `0042` y nombre `payments_azul` — que no existen en el
+-- historial — de modo que `db push` habria intentado APLICARLO otra vez a
+-- produccion. Peor que saltarselo.
 --
 -- El adaptador de Azul NO esta escrito a proposito: esta tabla es el cimiento
 -- del cobro con tarjeta (F3.5), que queda preparado y APAGADO.

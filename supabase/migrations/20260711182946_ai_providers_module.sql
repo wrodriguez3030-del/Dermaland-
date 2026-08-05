@@ -1,4 +1,4 @@
--- ai_providers_module
+-- 20260711182946_ai_providers_module.sql
 --
 -- RECONSTRUIDO 2026-08-05 desde la definicion viva de la base.
 -- Esta migracion se aplico en su dia con `apply_migration` del MCP y nunca
@@ -8,17 +8,26 @@
 -- este archivo NO debe reaplicarse en produccion, solo permitir levantar el
 -- esquema de cero. Idempotente a proposito.
 --
+-- EL NOMBRE ES LA IDENTIDAD REGISTRADA, no una numeracion inventada. La CLI de
+-- Supabase lista las migraciones locales con /^([0-9]+)_(.*)\.sql$/ y SALTA en
+-- silencio (solo aviso por stderr) las que no casan. Con el nombre a secas,
+-- `supabase db push` — el procedimiento de docs/supabase-setup.md — ignoraba
+-- este archivo y reconstruia una base incompleta. Con el prefijo
+-- `20260711182946_` la CLI deriva exactamente la version y el nombre que ya
+-- guarda supabase_migrations.schema_migrations, asi que el viaje de ida y
+-- vuelta es exacto.
+--
 -- FUENTE: el SQL literal guardado en
--- supabase_migrations.schema_migrations.statements para la version
--- 20260711182946, contrastado columna por columna, indice por indice y policy
--- por policy contra el catalogo vivo (information_schema.columns, pg_indexes,
+-- supabase_migrations.schema_migrations.statements para esa version,
+-- contrastado columna por columna, indice por indice y policy por policy
+-- contra el catalogo vivo (information_schema.columns, pg_indexes,
 -- pg_constraint, pg_policies, pg_class.relrowsecurity).
 --
 -- UNICO CAMBIO respecto al SQL registrado: se antepone
 -- `drop policy if exists` a cada `create policy`, porque `create policy` a
--- secas no es idempotente. El resto va literal.
+-- secas no es idempotente. El resto va literal, acentos incluidos.
 
--- Modulo seguro de Proveedores de IA. Multi-tenant por business_id + RLS.
+-- Módulo seguro de Proveedores de IA. Multi-tenant por business_id + RLS.
 -- Las claves NUNCA se guardan en texto plano (van cifradas AES-256-GCM en
 -- ai_provider_secrets). No toca DGII ni datos fiscales.
 
@@ -107,7 +116,7 @@ create table if not exists public.ai_usage_logs (
 create index if not exists ai_usage_logs_business_created_idx on public.ai_usage_logs (business_id, created_at desc);
 create index if not exists ai_usage_logs_agent_idx on public.ai_usage_logs (business_id, agent_id, created_at desc);
 
--- RLS: aislamiento por empresa (mismo patron que el resto: auth_business_id()).
+-- RLS: aislamiento por empresa (mismo patrón que el resto: auth_business_id()).
 alter table public.ai_providers enable row level security;
 alter table public.ai_provider_secrets enable row level security;
 alter table public.ai_agent_provider_bindings enable row level security;

@@ -21,23 +21,42 @@
 
   | Archivo | Versión en el historial | Qué trae |
   |---|---|---|
-  | `ai_providers_module.sql` | `20260711182946` | 4 tablas `ai_*` + 4 índices + RLS por `business_id` |
-  | `product_images_storage_bucket.sql` | `20260803010512` | bucket `product-images` (público en lectura) + 4 policies en `storage.objects` |
-  | `0042_payments_azul.sql` | `20260804195156` | tabla `payments` + 8 índices + RLS + `revoke` de escritura a `anon`/`authenticated` |
-  | `ecf_events_fk_restrict.sql` | `20260805020813` | FK de `ecf_document_events` → `ON DELETE RESTRICT` |
+  | `20260711182946_ai_providers_module.sql` | `20260711182946` | 4 tablas `ai_*` + 4 índices + RLS por `business_id` |
+  | `20260803010512_product_images_storage_bucket.sql` | `20260803010512` | bucket `product-images` (público en lectura) + 4 policies en `storage.objects` |
+  | `20260804195156_0042_payments_azul.sql` | `20260804195156` | tabla `payments` + 8 índices + RLS + `revoke` de escritura a `anon`/`authenticated` |
+  | `20260805020813_ecf_events_fk_restrict.sql` | `20260805020813` | FK de `ecf_document_events` → `ON DELETE RESTRICT` |
 
 - **De dónde salió el DDL:** de la columna `statements` del propio historial —
   el SQL **literal** que se ejecutó — contrastado después objeto por objeto
   contra el catálogo vivo. No se inventó ni una línea.
-- **Nombres sin renumerar** a propósito: cada archivo conserva el nombre con que
-  la base lo conoce (incluido el `0042` repetido). Reescribir un número ya
-  registrado es lo que creó este desorden.
+- **El nombre lleva delante la versión registrada, y eso NO es renumerar.** La
+  CLI de Supabase lista las migraciones locales con `/^([0-9]+)_(.*)\.sql$/` y
+  **salta en silencio** (solo aviso por stderr) las que no casan. Con el nombre a
+  secas, `supabase db push` —el procedimiento de `docs/supabase-setup.md`, y el
+  remedio que el informe de producción nombra para B-07— ignoraba tres de los
+  cuatro archivos y reconstruía una base **sin las tablas `ai_*`, sin el bucket
+  `product-images` y con el `ON DELETE CASCADE` que `ecf_events_fk_restrict`
+  vino a quitar**. El cuarto era peor: `0042_payments_azul.sql` sí casaba, pero
+  la CLI derivaba versión `0042` y nombre `payments_azul` —que no existen en el
+  historial— así que `db push` lo habría **reaplicado** a producción. Con el
+  prefijo `<versión>_`, la CLI deriva exactamente la versión y el nombre que ya
+  guarda `schema_migrations`: el viaje de ida y vuelta es exacto y no se inventa
+  ningún número.
 - **La prueba:** los **51** archivos se aplicaron en orden sobre un PostgreSQL
   **17.6 vacío** (contenedor desechable `supabase/postgres:17.6.1.132`,
   destruido al terminar). **50 de 51 aplican limpio.** La huella de los objetos
   de las cuatro migraciones recuperadas (154 líneas: columnas, índices,
   constraints, policies, RLS, bucket y grants) salió **idéntica** entre la base
   reconstruida y producción.
+- **Hallazgo aparte — `0002a_clients.sql` también lo salta la CLI.** Es un
+  archivo **preexistente**, no de los cuatro recuperados, pero cae en la misma
+  trampa: `0002a` lleva letra, así que `/^([0-9]+)_/` no casa. La base lo tiene
+  registrado como versión `20260519205927`, nombre `0002a_clients`. Crea la tabla
+  `clients` (+3 índices, RLS y 2 policies), de la que dependen otras **8**
+  migraciones, así que con `db push` la reconstrucción se cae en
+  `0003_dgii_pos.sql`. Remedio: `git mv supabase/migrations/0002a_clients.sql
+  supabase/migrations/20260519205927_0002a_clients.sql`. **No se aplicó aquí:**
+  es un archivo ajeno a esta tarea y merece su propio cambio.
 - **Hallazgo aparte — `0017_backfill_product_laboratories.sql` NO es aplicable.**
   Su `UPDATE products p ... FROM alias a JOIN laboratories l ON ... = p.business_id`
   es SQL inválido: la tabla objetivo no se puede referenciar desde el `ON` de un

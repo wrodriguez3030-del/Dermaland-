@@ -1,4 +1,4 @@
--- ecf_events_fk_restrict
+-- 20260805020813_ecf_events_fk_restrict.sql
 --
 -- RECONSTRUIDO 2026-08-05 desde la definicion viva de la base.
 -- Esta migracion se aplico en su dia con `apply_migration` del MCP y nunca
@@ -8,15 +8,24 @@
 -- este archivo NO debe reaplicarse en produccion, solo permitir levantar el
 -- esquema de cero. Idempotente a proposito.
 --
+-- EL NOMBRE ES LA IDENTIDAD REGISTRADA, no una numeracion inventada. La CLI de
+-- Supabase lista las migraciones locales con /^([0-9]+)_(.*)\.sql$/ y SALTA en
+-- silencio (solo aviso por stderr) las que no casan. Con el nombre a secas,
+-- `supabase db push` — el procedimiento de docs/supabase-setup.md — ignoraba
+-- este archivo y reconstruia una base incompleta. Con el prefijo
+-- `20260805020813_` la CLI deriva exactamente la version y el nombre que ya
+-- guarda supabase_migrations.schema_migrations, asi que el viaje de ida y
+-- vuelta es exacto.
+--
 -- FUENTE: el SQL literal guardado en
--- supabase_migrations.schema_migrations.statements para la version
--- 20260805020813, contrastado contra pg_constraint, donde hoy se lee
+-- supabase_migrations.schema_migrations.statements para esa version,
+-- contrastado contra pg_constraint, donde hoy se lee
 -- `FOREIGN KEY (electronic_invoice_id) REFERENCES electronic_invoices(id)
--- ON DELETE RESTRICT` (confdeltype = 'r'). Va literal: el par
+-- ON DELETE RESTRICT` (confdeltype = 'r'). El cuerpo va LITERAL: el par
 -- `drop constraint if exists` + `add constraint` ya es idempotente.
 --
--- Este archivo ajusta una clave foranea que creo 0045_ecf_idempotency_and_events;
--- ordenado por nombre se aplica despues de todos los 00xx, que es donde debe ir.
+-- Ajusta una clave foranea que creo 0045_ecf_idempotency_and_events; con el
+-- prefijo de version se aplica al final de la secuencia, que es donde debe ir.
 
 -- El CASCADE era una trampa: borrar un comprobante intentaba borrar su historial,
 -- el disparador append-only lo impedia, y el mensaje que salia hablaba de
