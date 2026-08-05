@@ -50,36 +50,63 @@
 | `0042_client_identity_normalized` | APLICADA | 8 | si | — |
 | `0043_branch_web_fulfillment` | APLICADA | 2 | si | — |
 | `0044_client_phone_uniform_format` | INDETERMINADA | 0 | **NO** | — |
+| `0045_ecf_idempotency_and_events` | APLICADA | 13 | si | — |
+| `0046_dgii_xml_storage` | NO_APLICADA | 1 | si | policy:storage.dgii_xml_select |
 
-## Registros en la base sin archivo local
+## Sin archivo local (agujero real)
+
+Registros del historial que no corresponden a NINGUN `.sql` del repositorio
+— ni por nombre ni por los objetos que declaran. Estos son la evidencia de
+que se aplico algo a produccion sin dejar rastro reconstruible.
 
 - `ai_providers_module` (version `20260711182946`)
-- `create_inventory_transfers_tables` (version `20260716203725`)
-- `transfer_stock_atomic` (version `20260716203746`)
-- `purchases_module` (version `20260716213445`)
 - `product_images_storage_bucket` (version `20260803010512`)
 - `0042_payments_azul` (version `20260804195156`)
-- `ecf_idempotency_and_events` (version `20260805020706`)
 - `ecf_events_fk_restrict` (version `20260805020813`)
-- `dgii_xml_storage` (version `20260805131840`)
 
-> Estos son el agujero real: se aplicaron sin dejar `.sql` en el repositorio,
-> asi que `supabase/migrations/` ya no reconstruye el esquema desde cero.
+## Registrado bajo otro nombre (cosmetico)
+
+Registros del historial que SI tienen un `.sql` local — Supabase los
+registro con el nombre de una tabla o funcion en vez del nombre del
+archivo. Emparejados por similitud de objetos (Jaccard >= 0.5,
+ver comentario en el codigo). No representan un agujero: NO proponer
+`repair` para estos, ya estan registrados (solo que con otro nombre).
+
+- `create_inventory_transfers_tables` (version `20260716203725`) → `0010_inventory_transfers` (jaccard 1.00, 7/7 objetos)
+- `transfer_stock_atomic` (version `20260716203746`) → `0032_transfer_atomic` (jaccard 1.00, 1/1 objetos)
+- `purchases_module` (version `20260716213445`) → `0012_purchases` (jaccard 1.00, 18/18 objetos)
+
+## Archivo sin registro (contabilidad)
+
+Archivos locales que no aparecen en el historial bajo ningun nombre (ni el
+suyo ni un renombrado detectado arriba). No es un agujero: casi todos ya
+estan `APLICADA` de verdad, solo falta que el historial lo sepa.
+
+- `0007_audit_logs_insert_policy` → APLICADA
+- `0008_security_advisor_fixes` → APLICADA
+- `0009_rls_initplan_remaining` → INDETERMINADA
+- `0011_invoice_numberings` → APLICADA
+- `0015_cash_movements` → APLICADA
+- `0016_laboratories_seed` → INDETERMINADA
+- `0017_backfill_product_laboratories` → INDETERMINADA
+- `0018_pos_numbering_wiring` → APLICADA
+- `0019_sale_seller` → APLICADA
+- `0020_sales_incentives` → APLICADA
+- `0021_users_vendedor_role` → INDETERMINADA
+- `0022_customer_sales_relations` → APLICADA
+- `0044_client_phone_uniform_format` → INDETERMINADA
 
 ## Comandos de reparacion propuestos — NO EJECUTADOS
 
 ```bash
 supabase migration repair --status applied 0007
 supabase migration repair --status applied 0008
-supabase migration repair --status applied 0010
 supabase migration repair --status applied 0011
-supabase migration repair --status applied 0012
 supabase migration repair --status applied 0015
 supabase migration repair --status applied 0018
 supabase migration repair --status applied 0019
 supabase migration repair --status applied 0020
 supabase migration repair --status applied 0022
-supabase migration repair --status applied 0032
 ```
 
 **Requieren decision humana** (no se propone comando):
