@@ -77,10 +77,10 @@ un typo del XSD 31.
 | 12 | E32 + RFCE con límite RD$250 000 | **No existe** el camino RFCE |
 | 21 | Aprobación comercial | Tabla creada, **flujo no implementado** |
 | 22 | Recepción de e-CF de terceros | Tabla creada, **endpoint receptor no existe** |
-| 18 | Outbox / cola / reintentos con backoff | **No existe.** El envío es en línea |
+| 18 | Outbox / cola / reintentos con backoff | **Parcial.** Idempotencia y clasificación de errores hechas y forzadas en la base; falta el trabajador que consume la cola |
 | 19 | Job de consulta de `trackId` | **No existe** (es la Fase H, bloqueada) |
-| 25 | 13 permisos `dgii.*` granulares | **No existe ninguno** |
-| 9 | Máquina de estados explícita | Parcial: hay estados, no hay tabla de transiciones permitidas |
+| ~~25~~ | ~~13 permisos `dgii.*` granulares~~ | **HECHO** |
+| ~~9~~ | ~~Máquina de estados explícita~~ | **HECHO.** `features/dgii/document-state.ts` + historial append-only en la base |
 | 15 | Alertas de vencimiento del certificado (30/15/7/3/1/0) | **No existe** |
 | 28 | Métricas y alertas | **No existe** |
 
@@ -133,12 +133,15 @@ por usuario a propósito: es lo que el sistema ya sabe hacer, y un modelo de
 autorización paralelo solo para lo fiscal sería un segundo sitio donde
 equivocarse.
 
-### 3.3 — BAJO · `DgiiService` legacy sigue enrutado
+### 3.3 — BAJO · `DgiiService` legacy sigue enrutado — **CERRADO**
 
-`server/services/dgii/service.ts` conserva stubs que lanzan `DgiiNotImplemented`
-(`submitToDgii`, `getTrackStatus`, `cancelInvoice`, `createCreditNote`) y **cinco
-rutas siguen importándolo**. Convive con `testecf-client.ts`, que es el camino
-real. Dos caminos para lo mismo es cómo se acaba enviando por el equivocado.
+`service.ts` conservaba un objeto `dgiiService` con `submitToDgii`,
+`getTrackStatus`, `cancelInvoice` y `createCreditNote` lanzando
+`DgiiNotImplemented`. **No lo usaba nadie**, pero vivía junto a las piezas que
+sí funcionan y convivía con `testecf-client.ts`, que es el envío de verdad.
+
+Eliminado. El archivo queda como barril de reexportaciones, de 168 a 70 líneas.
+Un solo camino de envío.
 
 ---
 
@@ -197,7 +200,8 @@ rotación es cosa del proveedor, a quien conviene avisar.
 3. Faltan credenciales: las 4 validaciones externas siguen sin confirmar
    (acta de designación, vigencia y no revocación del certificado, titularidad
    frente al RNC, RNC emisor correcto).
-4. La idempotencia no está probada porque no hay cola.
+4. ~~La idempotencia no está probada porque no hay cola.~~ **Probada contra la
+   base real** (§9). Falta el trabajador que consume la cola.
 5. No hay rollback fiscal documentado.
 6. Certificación DGII no completada.
 7. **Producción no ha sido autorizada por el propietario.**
@@ -227,3 +231,85 @@ toca.
 
 El punto 1 es el único que arregla algo que hoy está mal en producción; el resto
 construye lo que falta.
+
+
+---
+
+## 9. Cimientos puestos el 2026-08-04
+
+Se eligieron estas cuatro cosas y no otras porque son las únicas puertas del §31
+que no dependen de la DGII ni del contador, **y porque no se pueden retrofitear**
+sin rehacer lo que se construya encima.
+
+### Máquina de estados
+
+`features/dgii/document-state.ts`, sobre los **doce estados que ya tenía el
+CHECK** de `electronic_invoices`. No se inventó ninguno: cambiar el CHECK de una
+tabla fiscal para que encaje con un documento de diseño es empezar la casa por
+el tejado.
+
+Las dos reglas que importan, con prueba cada una:
+
+- **Un documento aceptado no retrocede.** Ni una respuesta repetida, ni una
+  consulta que llega tarde, ni un reintento devuelven a `submitted` algo que la
+  DGII ya autorizó.
+- **Un documento firmado no se edita.** El XML firmado *es* el documento.
+
+Y una distinción que evita alarmas inútiles: repetir un estado es `duplicada`
+(se ignora), llegar tarde es `fuera-de-orden` (se registra y se ignora), pedir
+un imposible es `invalida` (eso sí lo mira alguien).
+
+### Clasificación de errores
+
+`features/dgii/error-classification.ts`. Ocho clases y, sobre todo, **el caso
+que puede duplicar un comprobante**: un tiempo de espera agotado *después* de
+entregar el XML no se reintenta — se consulta por `trackId`. La DGII pudo
+recibirlo y perderse la respuesta.
+
+Reintentos exponenciales **con ruido**: sin él, cien comprobantes que fallaron
+por el mismo corte de red vuelven todos en el mismo instante y tumban otra vez
+lo que se estaba recuperando.
+
+### Idempotencia
+
+`features/dgii/idempotency.ts` + migración `0045`.
+
+    business_id : ambiente : e-NCF : operación
+
+El **ambiente** entra en la llave a propósito: sin él, haber probado con un
+e-NCF impediría emitirlo de verdad.
+
+La llave va en claro y no como hash porque cuando alguien mire a las dos de la
+mañana por qué un envío no salió, `d001:ecf:E310000000001:submit` le dice qué
+pasó y un hash no.
+
+**La barrera está en la base, no en TypeScript.** En Vercel hay varias funciones
+sin servidor atendiendo a la vez y «leer, comprobar, escribir» no es atómico
+entre ellas: dos peticiones simultáneas leen las dos «no existe» y las dos
+envían. Solo un índice único lo impide.
+
+### Historial append-only
+
+Tabla `ecf_document_events` con un disparador que **rechaza `UPDATE` y `DELETE`**
+aunque los lance la clave de servicio. Sin el disparador, «append-only» sería una
+intención escrita en un comentario.
+
+### Verificado contra la base de producción
+
+| Prueba | Resultado |
+|---|---|
+| Doble clic / dos funciones a la vez, misma llave | Rechazado por la base |
+| Mismo e-NCF, mismo ambiente | Rechazado |
+| Mismo e-NCF en producción tras probarlo en `testecf` | **Permitido**, como debe ser |
+| `UPDATE` del historial | Rechazado |
+| `DELETE` del historial | Rechazado |
+| Borrar un comprobante que ya tiene historial | Rechazado |
+
+Las seis, ejecutadas sobre Supabase de producción y con las filas de prueba
+retiradas después.
+
+**Hallazgo de la propia verificación:** la clave foránea era `ON DELETE CASCADE`,
+así que borrar un comprobante intentaba borrar su historial, el disparador lo
+impedía y el mensaje hablaba de «append-only» en vez de decir lo que pasaba.
+Cambiada a `RESTRICT`, que dice la verdad: un comprobante con historial fiscal no
+se borra.
