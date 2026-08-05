@@ -91,4 +91,3 @@ jobs:
           path: backups/*.sql.gz.gpg
           retention-days: 14
           if-no-files-found: error
-          if-no-files-found: error
