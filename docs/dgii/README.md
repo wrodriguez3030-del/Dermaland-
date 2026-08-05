@@ -53,8 +53,9 @@ que ya funcionaban.
 | **Un solo camino de envío** | Eliminado el `dgiiService` que fingía enviar |
 | **Trabajador de la cola** | Cron cada 15 min. Un negocio cada vez; se para antes de hablar con la DGII |
 | **RFCE** | Umbral RD$250 000 verificado en la DGII. Estrictamente menor |
+| **14 XSD oficiales** | Descargados de dgii.gov.do con checksum y prueba de integridad. Antes 4 |
 
-**2 455 pruebas** en el proyecto. Migraciones `0045` aplicadas y verificadas
+**2 492 pruebas** en el proyecto. Migraciones `0045` aplicadas y verificadas
 contra la base de producción, con las filas de prueba retiradas.
 
 ## 5. Verificado contra la base real
@@ -72,7 +73,7 @@ contra la base de producción, con las filas de prueba retiradas.
 
 | § | Qué | Bloqueado por |
 |---|---|---|
-| 10 | Seis tipos e-CF (41, 43, 44, 45, 46, 47) | **Faltan los XSD oficiales.** Solo se obtienen de la DGII; no se inventan |
+| ~~10~~ | ~~Seis tipos e-CF (41, 43, 44, 45, 46, 47)~~ | **Los XSD ya están** (los 14, oficiales, con checksum). Falta el *builder* de cada tipo |
 | ~~12~~ | ~~RFCE~~ | **HECHO.** Umbral verificado en fuente oficial DGII |
 | ~~18~~ | ~~El trabajador que consume la cola~~ | **HECHO.** Falta enchufarle los manejadores de validar/firmar |
 | 19 | Job de consulta por `trackId` | Es Fase H, bloqueada por política |
@@ -100,7 +101,7 @@ en vez de decir lo que pasaba. Cambiada a `RESTRICT`.
 
 **NO-GO.** Por el §34, no se declara GO si:
 
-- ❌ **Faltan XSD** — 4 de 10 tipos.
+- ✅ ~~Faltan XSD~~ — **los 14, oficiales y fijados por checksum**.
 - ❌ **Faltan pruebas reales** — nunca se ha transmitido nada, ni a `testecf`.
 - ❌ **Faltan credenciales** — las cuatro validaciones externas del §8.
 - ✅ ~~Riesgo de pérdida de datos~~ — migración aditiva, tabla vacía.
@@ -111,7 +112,9 @@ en vez de decir lo que pasaba. Cambiada a `RESTRICT`.
 - ❌ **Certificación DGII sin completar.**
 - ❌ **Producción no autorizada por el propietario.**
 
-Cinco de diez cerradas. Las otras cinco no dependen de escribir más código.
+**Seis de diez cerradas.** Las cuatro que quedan no dependen de escribir más
+código: transmitir a `testecf`, las validaciones externas, la certificación y tu
+autorización.
 
 ## 10. Política vigente
 
