@@ -219,8 +219,22 @@ export function BranchStockModal({
   );
 }
 
+/** El pedido web que se está facturando, tal como lo devuelve su ruta. */
+interface PedidoWebParaPos {
+  id: string;
+  number: string;
+  branchId: string;
+  clientId?: string;
+  contactName: string;
+  fulfillment: "pickup" | "delivery";
+  shippingCost: number;
+  lines: { productId: string; qty: number }[];
+  alreadyInvoiced: boolean;
+}
+
 export function PosTerminal({
   canSwitchBranch = false,
+  pedidoWebId,
 }: {
   /**
    * ¿Puede el usuario elegir a qué sucursal facturar? (admin/manager). Lo
@@ -228,6 +242,11 @@ export function PosTerminal({
    * `false`, la sucursal se muestra como texto fijo (sin selector).
    */
   canSwitchBranch?: boolean;
+  /**
+   * Pedido web que se viene a facturar (`/pos?pedido=…`). Cuando llega, el POS
+   * se carga solo: carrito, cliente y sucursal del pedido.
+   */
+  pedidoWebId?: string;
 } = {}) {
   const customers = useCustomers();
   const billingSettings = useBillingSettings();
@@ -424,6 +443,169 @@ export function PosTerminal({
         alternativeBranchName: altBranchId ? resolveBranchName(altBranchId) : "",
       };
     }, [branchId, filtered, lotsFor, activeBranchIds]);
+
+  // ── Facturar un pedido web ────────────────────────────────────────────────
+  //
+  // Se entra aquí desde el detalle del pedido (`/pos?pedido=…`). El POS se
+  // carga solo: los productos del pedido, el cliente y la sucursal.
+  //
+  // Los PRECIOS no se copian del pedido: se toman del catálogo de hoy y pasan
+  // por las mismas reglas de ITBIS, descuento y FEFO que cualquier venta. Una
+  // factura con cifras heredadas de hace días no se puede comprobar contra
+  // nada.
+  //
+  // Si algo del pedido no se puede cargar —se agotó, está en otra sucursal— se
+  // dice CUÁL y se sigue con el resto. Dejar el carrito vacío sin explicar por
+  // qué obligaría al cajero a teclearlo todo a mano sin saber qué falló.
+  const [pedidoWeb, setPedidoWeb] = React.useState<PedidoWebParaPos | null>(null);
+  const [pedidoAvisos, setPedidoAvisos] = React.useState<string[]>([]);
+  const cargadoRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (!pedidoWebId) return;
+    // Una sola vez por pedido: sin esto, cada cambio de `lots` volvería a
+    // llenar el carrito encima de lo que el cajero ya hubiera tocado.
+    if (cargadoRef.current === pedidoWebId) return;
+    // Hasta que no haya catálogo, lotes y sucursal no se puede resolver nada.
+    if (!branchReady || products.length === 0 || lots.length === 0) return;
+
+    cargadoRef.current = pedidoWebId;
+
+    void (async () => {
+      let pedido: PedidoWebParaPos;
+      try {
+        const resp = await fetch(`/api/pedidos-web/${pedidoWebId}/pos`);
+        if (!resp.ok) {
+          toast.error("No se pudo cargar el pedido.");
+          return;
+        }
+        pedido = (await resp.json()) as PedidoWebParaPos;
+      } catch {
+        toast.error("No se pudo cargar el pedido.");
+        return;
+      }
+
+      if (pedido.alreadyInvoiced) {
+        toast.error(`El pedido ${pedido.number} ya está facturado.`);
+        return;
+      }
+
+      // La sucursal del pedido manda: es donde está la mercancía apartada.
+      const destino = pedido.branchId || branchId;
+      const avisos: string[] = [];
+      if (destino !== branchId) {
+        if (canSwitchBranch) {
+          setBranchId(destino);
+        } else {
+          avisos.push(
+            `Este pedido es de ${getBranchDisplayName(destino)} y estás facturando en ${branchName}. Pídele a un administrador que cambie la sucursal.`,
+          );
+        }
+      }
+      const sucursalUsada = canSwitchBranch ? destino : branchId;
+
+      const lineas: CartLine[] = [];
+      for (const l of pedido.lines) {
+        const producto = products.find((p) => p.id === l.productId);
+        if (!producto) {
+          avisos.push("Un producto del pedido ya no está en el catálogo.");
+          continue;
+        }
+        const vendible = getSellableLotForProduct(
+          lots,
+          l.productId,
+          sucursalUsada,
+          activeBranchIds,
+        );
+        const enSucursal = sellableStockForBranch(lots, l.productId, sucursalUsada);
+        if (!vendible.lot || enSucursal === 0) {
+          avisos.push(`${producto.name}: sin existencia vendible aquí.`);
+          continue;
+        }
+        const cantidad = Math.min(l.qty, enSucursal);
+        if (cantidad < l.qty) {
+          avisos.push(
+            `${producto.name}: pidió ${l.qty} y solo hay ${enSucursal}. Se cargó ${cantidad}.`,
+          );
+        }
+        lineas.push({
+          productId: producto.id,
+          productSku: producto.sku,
+          productName: producto.name,
+          lotId: vendible.lot.id,
+          lotNumber: vendible.lot.lotNumber,
+          expiresAt: vendible.lot.expiresAt,
+          unitPrice: producto.price,
+          itbisRate: producto.itbisRate,
+          quantity: cantidad,
+          discount: 0,
+          discountType: "none",
+          discountValue: 0,
+          maxStock: enSucursal,
+        });
+      }
+
+      // El flete no entra como línea: el POS factura productos con lote, y un
+      // "Envío" sin lote rompería FEFO y el descuento de inventario. Se avisa
+      // para que se cobre aparte, en vez de emitir una factura corta callando.
+      if (pedido.fulfillment === "delivery" && pedido.shippingCost > 0) {
+        avisos.push(
+          `Este pedido lleva ${formatCurrency(pedido.shippingCost)} de envío que NO se factura como línea. Cóbralo aparte.`,
+        );
+      }
+
+      setPedidoWeb(pedido);
+      setPedidoAvisos(avisos);
+      if (lineas.length > 0) {
+        setCart(lineas);
+        setCartBranchId(sucursalUsada);
+      }
+      if (pedido.clientId) setCustomerId(pedido.clientId);
+    })();
+  }, [
+    pedidoWebId,
+    branchReady,
+    branchId,
+    branchName,
+    products,
+    lots,
+    activeBranchIds,
+    canSwitchBranch,
+    setBranchId,
+    toast,
+  ]);
+
+  /**
+   * Deja la factura enlazada al pedido. Se llama DESPUÉS de emitir.
+   *
+   * Que esto falle NO deshace la venta: la factura existe y el cliente ya pagó.
+   * Lo único que se pierde es el enlace, y se dice en voz alta para que alguien
+   * pueda arreglarlo.
+   */
+  const enlazarPedidoWeb = React.useCallback(
+    async (proformaId: string, documentNumber: string) => {
+      if (!pedidoWeb) return;
+      try {
+        const resp = await fetch(`/api/pedidos-web/${pedidoWeb.id}/facturar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ proformaId, documentNumber }),
+        });
+        if (!resp.ok) {
+          toast.error(
+            `La venta se emitió, pero no se pudo marcar el pedido ${pedidoWeb.number} como facturado.`,
+          );
+          return;
+        }
+        toast.success(`Pedido ${pedidoWeb.number} facturado.`);
+      } catch {
+        toast.error(
+          `La venta se emitió, pero no se pudo marcar el pedido ${pedidoWeb.number} como facturado.`,
+        );
+      }
+    },
+    [pedidoWeb, toast],
+  );
 
   // Totales con el motor de cálculo (descuento por línea + descuento global).
   const totals = cartTotals(cart, discountGlobalPercent);
@@ -838,6 +1020,11 @@ export function PosTerminal({
       }
     }
 
+    // Si esta venta venía de un pedido web, se deja el documento enlazado. Va
+    // aquí y no antes: el pedido no puede quedar marcado como facturado por una
+    // venta que luego falló.
+    void enlazarPedidoWeb(savedId, comprobante ?? number);
+
     setIssued({
       id: savedId,
       number,
@@ -870,6 +1057,33 @@ export function PosTerminal({
 
   return (
     <div className="grid min-h-[calc(100vh-12rem)] gap-4 xl:gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(380px,1fr)] xl:grid-cols-[minmax(0,2fr)_minmax(420px,1fr)]">
+      {/* Se está facturando un pedido web: se dice cuál y qué no cuadró.
+          Ocupa las dos columnas porque afecta a toda la venta. */}
+      {pedidoWeb && !issued ? (
+        <div className="lg:col-span-2 rounded-2xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-3">
+          <p className="text-sm font-semibold text-[color:var(--brand-fg)]">
+            Facturando el pedido {pedidoWeb.number} · {pedidoWeb.contactName}
+          </p>
+          {pedidoAvisos.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {pedidoAvisos.map((aviso, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 text-xs text-amber-800"
+                >
+                  <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {aviso}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-xs text-[color:var(--brand-fg)]/60">
+              Se cargó todo lo que pidió. Cobra como cualquier otra venta.
+            </p>
+          )}
+        </div>
+      ) : null}
+
       {/* ───────────────────────── Izquierda: catálogo ──────────────────── */}
       <div className="flex min-w-0 flex-col rounded-2xl border border-black/5 bg-white shadow-sm">
         {/* Sucursal PRIMERO: se elige a qué sucursal facturar y desde ahí se busca. */}

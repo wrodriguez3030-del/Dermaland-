@@ -317,3 +317,87 @@ código:
 | R-WEB-09 | Las fichas salen con el nombre en MAYÚSCULAS y sin contenido | El admin permite redactarlas; el título comercial cae al nombre del ERP solo mientras nadie lo escriba |
 | ~~R-WEB-10~~ | ~~**El registro de clientes no se puede usar**~~ **MITIGADO 2026-08-04**: las cuentas quedan APAGADAS con `STOREFRONT_ACCOUNTS_ENABLED` (por defecto `false`), así que el cliente no ve una puerta que no abre. Se puede comprar sin cuenta. Para encenderlas hace falta primero SMTP propio en Supabase. Original: Supabase exige confirmar el correo y su emisor propio se agota en unos pocos envíos por hora (`over_email_send_rate_limit`) | Configurar un SMTP propio en Supabase. **No** desactivar la confirmación: permitiría registrarse con el correo de otra persona. Es configuración de la cuenta, no código |
 | R-WEB-11 | El registro público es superficie de spam en `auth.users` | Supabase limita por IP de serie; con SMTP propio + confirmación obligatoria, una cuenta sin confirmar no sirve de nada |
+
+---
+
+## 7. El pedido y el ERP (2026-08-04)
+
+Cuatro cosas que faltaban para que un pedido web fuera un pedido de verdad y no
+un aviso por correo.
+
+### 7.1 El pedido mira la existencia
+
+Antes no la miraba **en ningún momento**: se podían encargar 50 unidades de algo
+que tenía 1. El fallo aparecía cuando alguien del negocio abría el pedido y
+tenía que llamar a deshacerlo.
+
+```
+disponible = existencia vendible − apalabrado en pedidos web abiertos sin facturar
+```
+
+Restar lo apalabrado es lo que impide vender el último frasco a cinco personas.
+Se deja de contar en cuanto el pedido se factura: ahí el POS descuenta el
+inventario de verdad, y seguir restándolo escondería existencia que sí está.
+
+La lectura es **sin caché** a propósito (`server/services/storefront/stock.ts`).
+El catálogo sí la tiene —cinco minutos, y ahí un "En existencia" viejo no hace
+daño—, pero esto decide si un pedido se acepta.
+
+Si la lectura falla, el mapa vuelve vacío y todo cuenta como agotado. Parar es
+recuperable; vender a ciegas no.
+
+**El pedido sigue sin reservar inventario.** Queda una carrera abierta: dos
+pedidos simultáneos pueden pasar los dos. Por eso el detalle del ERP enseña la
+disponibilidad viva de cada línea antes de confirmar.
+
+### 7.2 Facturar desde el pedido
+
+`Facturar en el POS` abre `/pos?pedido=<id>` con el carrito, el cliente y la
+sucursal del pedido puestos.
+
+Los **precios no se copian** del pedido: salen del catálogo de hoy y pasan por
+las mismas reglas de ITBIS, descuento y FEFO que cualquier venta. Una factura
+con cifras heredadas de hace días no se puede comprobar contra nada.
+
+Al emitir, el documento queda enlazado (`web_orders.proforma_id`). El enlace se
+escribe **después** de emitir: el pedido no puede quedar marcado como facturado
+por una venta que luego falló.
+
+**Limitación conocida:** el flete NO se factura como línea. El POS factura
+productos con lote, y un "Envío" sin lote rompería FEFO y el descuento de
+inventario. El POS lo dice en pantalla con el importe para que se cobre aparte.
+Resolverlo bien pide un producto de servicio sin inventario, que hoy no existe
+en `products`.
+
+### 7.3 Cambiar el tipo de entrega
+
+Retiro ↔ envío sin rehacer el pedido. Antes la única salida era cancelar y
+volver a pedir: se perdía el número y el historial.
+
+El flete lo recalcula el servidor con las tarifas de **hoy** —el envío se está
+decidiendo ahora—, y en la petición viaja el destino, nunca el precio. Al pasar
+a retiro se **borra** la dirección.
+
+Bloqueado si el pedido está cerrado o ya facturado: la proforma lleva el flete
+dentro.
+
+### 7.4 El cliente no se duplica
+
+**Esto ya había fallado en producción.** El ERP guarda `829-714-1975` y la
+tienda mandaba `8297141975`; la búsqueda previa al alta usaba un `=` literal y
+no casaba nunca. `CLI-420678` y `CLI-573912` son la misma persona.
+
+- Migración `0042`: columnas generadas `phone_digits`, `whatsapp_digits` y
+  `email_normalized` en `clients`, con la misma regla que
+  `customer-normalization.ts`, más índices parciales.
+- `features/customers/identity-match.ts` decide quién es quién. El **correo
+  manda** sobre el teléfono: una bandeja de entrada no se comparte. Por teléfono
+  hace falta además que el nombre encaje, porque en esta base hay dos personas
+  distintas con el mismo número.
+- Ante la duda, ficha nueva. Una ficha de más se fusiona; una compra en la ficha
+  de otro no se ve.
+- **Sin índice único** a propósito: una familia comparte número.
+- La ficha que nace en la tienda guarda el teléfono con guiones, como las demás.
+
+Queda por decidir qué hacer con `CLI-573912`, el duplicado que ya existe.
+Fusionarlo es tocar datos reales de un cliente real.

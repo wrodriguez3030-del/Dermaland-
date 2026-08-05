@@ -629,6 +629,140 @@ export async function changeWebOrderFulfillment(
   return { ok: true, from: desde, shippingCost: costoEnvio, total };
 }
 
+/**
+ * Lo que el POS necesita para facturar un pedido sin que nadie lo teclee.
+ *
+ * NO lleva importes. El POS vuelve a poner el precio de cada producto de su
+ * propio catálogo, aplica ITBIS y descuentos con sus reglas y escoge lote por
+ * FEFO. Copiar aquí los precios del pedido —de hace días— sería emitir una
+ * factura con cifras que no salen de ninguna parte.
+ */
+export interface WebOrderForPos {
+  id: string;
+  number: string;
+  branchId: string;
+  /** Ficha del ERP, si se pudo enlazar. El POS la preselecciona. */
+  clientId?: string;
+  contactName: string;
+  fulfillment: "pickup" | "delivery";
+  /** Para avisar: el POS no factura el flete como línea. */
+  shippingCost: number;
+  lines: { productId: string; qty: number }[];
+  /** Ya facturado: el POS no debe volver a cobrarlo. */
+  alreadyInvoiced: boolean;
+}
+
+export async function getWebOrderForPos(
+  businessId: string,
+  id: string,
+): Promise<WebOrderForPos | null> {
+  const admin = createServiceRoleClient();
+  if (!admin) return null;
+
+  const { data: pedido } = await admin
+    .from("web_orders")
+    .select(
+      "id, number, branch_id, client_id, contact_name, fulfillment, shipping_cost, status, proforma_id",
+    )
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!pedido) return null;
+  // Un pedido cancelado no se factura. Dejar que el POS lo cargara sería
+  // ofrecer cobrar algo que el negocio ya dijo que no iba a vender.
+  if (pedido.status === "cancelado") return null;
+
+  const { data: lineas } = await admin
+    .from("web_order_items")
+    .select("product_id, qty")
+    .eq("order_id", pedido.id)
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: true });
+
+  return {
+    id: pedido.id,
+    number: pedido.number,
+    branchId: pedido.branch_id,
+    clientId: pedido.client_id ?? undefined,
+    contactName: pedido.contact_name,
+    fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",
+    shippingCost: Number(pedido.shipping_cost ?? 0),
+    lines: (lineas ?? []).map((l) => ({ productId: l.product_id, qty: l.qty })),
+    alreadyInvoiced: Boolean(pedido.proforma_id),
+  };
+}
+
+/**
+ * Deja el documento enlazado al pedido.
+ *
+ * Se llama DESPUÉS de emitir, no antes: el pedido no puede quedar marcado como
+ * facturado por una venta que luego falló. Si esta llamada se pierde, lo que se
+ * pierde es el enlace —molesto— y no la factura.
+ *
+ * Es idempotente con la MISMA proforma: un reintento del navegador no es un
+ * error. Con otra distinta sí lo es, y se rechaza: dos documentos por una venta
+ * es exactamente lo que este módulo existe para evitar.
+ */
+export async function linkProformaToWebOrder(
+  businessId: string,
+  id: string,
+  proformaId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const admin = createServiceRoleClient();
+  if (!admin) return { ok: false, error: "No disponible." };
+
+  const { data: pedido } = await admin
+    .from("web_orders")
+    .select("proforma_id, status")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!pedido) return { ok: false, error: "Pedido no encontrado." };
+
+  if (pedido.proforma_id) {
+    return pedido.proforma_id === proformaId
+      ? { ok: true }
+      : { ok: false, error: "Este pedido ya tiene otra factura enlazada." };
+  }
+
+  // La proforma tiene que ser de este negocio. Sin esto, un id de otro tenant
+  // enlazaría un documento ajeno al pedido.
+  const { data: proforma } = await admin
+    .from("proformas")
+    .select("id")
+    .eq("id", proformaId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!proforma) return { ok: false, error: "Documento no encontrado." };
+
+  const { error } = await admin
+    .from("web_orders")
+    .update({ proforma_id: proformaId, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .is("proforma_id", null);
+
+  if (error) return { ok: false, error: "No se pudo enlazar la factura." };
+  return { ok: true };
+}
+
+/** Número visible del documento con el que se facturó un pedido. */
+export async function proformaNumberFor(
+  businessId: string,
+  proformaId: string,
+): Promise<string | null> {
+  const admin = createServiceRoleClient();
+  if (!admin) return null;
+  const { data } = await admin
+    .from("proformas")
+    .select("number, ecf_number")
+    .eq("id", proformaId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!data) return null;
+  return data.ecf_number?.trim() || data.number;
+}
+
 export interface BranchOption {
   id: string;
   name: string;

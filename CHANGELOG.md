@@ -10,6 +10,79 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.128.0] - 2026-08-04
+
+**El pedido web deja de ser un aviso por correo y pasa a ser un pedido del ERP.**
+
+Cuatro cosas que faltaban, y una de ellas ya había fallado en producción.
+
+### El pedido mira la existencia real
+
+Antes no la miraba **en ningún momento**: se podían encargar 50 unidades de algo
+que tenía 1, y el fallo no salía hasta que alguien del negocio abría el pedido y
+tenía que llamar a deshacerlo.
+
+Lo disponible no es lo que hay en el almacén: hay que restar lo ya apalabrado a
+otros pedidos web sin facturar, o el último frasco se le vende a cinco personas.
+En cuanto un pedido se factura, el POS descuenta el inventario de verdad y deja
+de contar aquí, para no restar dos veces la misma mercancía.
+
+Cuando algo no alcanza, el mensaje dice el nombre y el número —"Solo nos queda 1
+de Cicalfate y pediste 2"— en vez de "no hay stock", que obliga a adivinar cuál
+de los seis productos del carrito falla.
+
+Y el detalle del pedido enseña cada línea con su existencia: aquí, en otra
+sucursal y cuántas, apalabrada a otros pedidos, o sin existencia. Quien confirma
+ya no tiene que abrir el inventario en otra pestaña.
+
+### Facturar desde el mismo menú
+
+`Facturar en el POS` abre el POS con el carrito, el cliente y la sucursal del
+pedido puestos. Los precios NO se copian del pedido: salen del catálogo de hoy y
+pasan por las mismas reglas de ITBIS, descuento y FEFO que cualquier venta.
+
+Al emitir, el documento queda enlazado al pedido, que pasa a decir "Facturado"
+con enlace al comprobante. El enlace se escribe DESPUÉS de emitir: el pedido no
+puede quedar marcado como facturado por una venta que luego falló.
+
+Si algo del pedido no se puede cargar —se agotó, está en otra sucursal— se dice
+cuál y se sigue con el resto, en vez de dejar el carrito vacío sin explicar por
+qué. El flete de un envío no se factura como línea y el POS lo avisa con el
+importe, para que se cobre aparte en lugar de emitir una factura corta callando.
+
+### Cambiar el tipo de entrega sin rehacer el pedido
+
+Hasta ahora, un cliente que se equivocaba de opción obligaba a cancelar y volver
+a pedir: se perdía el número, el historial y la paciencia.
+
+Retiro ↔ envío, cambiando también de sucursal. El flete lo recalcula el servidor
+con las tarifas de hoy; en la petición va el destino, nunca el precio. Al pasar a
+retiro se borra la dirección. Bloqueado si el pedido está cerrado o ya facturado,
+porque la proforma lleva el flete dentro.
+
+De paso: "Listo para retirar" ya no aparece en un pedido con envío.
+
+### El cliente ya no se duplica
+
+El ERP guarda `829-714-1975` y la tienda mandaba `8297141975`. La búsqueda previa
+al alta usaba un `=` literal, así que no casaba nunca: **CLI-420678 y CLI-573912
+son la misma persona**.
+
+- Migración `0042`: columnas generadas `phone_digits`, `whatsapp_digits` y
+  `email_normalized` en `clients`, con la misma regla que el TypeScript, más
+  índices parciales por `(business_id, columna)`.
+- El correo manda sobre el teléfono: una bandeja de entrada no se comparte. Por
+  teléfono hace falta además que el nombre encaje, porque en esta base hay dos
+  personas distintas usando el mismo número.
+- Ante la duda, ficha nueva. Una ficha de más se fusiona; una compra metida en la
+  ficha de otro no se ve.
+- Sin índice único a propósito: una familia comparte número.
+- Buscar un cliente por dígitos ya encuentra al que se guardó con guiones.
+- La ficha que nace en la tienda guarda el teléfono con guiones, como las demás.
+
+Queda por decidir qué hacer con `CLI-573912`, el duplicado que ya existe:
+fusionarlo es tocar datos reales de un cliente real.
+
 ## [0.127.0] - 2026-08-04
 
 **Elegir cómo se recibe el pedido ya no se puede saltar por descuido.**

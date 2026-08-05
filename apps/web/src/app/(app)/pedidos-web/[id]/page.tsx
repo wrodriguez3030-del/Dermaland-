@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft, Info } from "lucide-react";
+import { ChevronLeft, Info, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { OrderStatusActions } from "@/features/storefront/components/order-status-actions";
@@ -14,6 +14,7 @@ import {
   branchDisplayNames,
   getWebOrderForBusiness,
   listActiveBranches,
+  proformaNumberFor,
 } from "@/server/services/storefront/orders";
 import { loadShippingRates } from "@/server/services/storefront/shipping";
 import { deliverableProvinces } from "@/features/storefront/shipping/quote";
@@ -86,6 +87,16 @@ export default async function PedidoWebDetallePage({
   // diciendo una cosa y el pedido otra.
   const puedeCambiarEntrega =
     puedeGestionar && !cerrado && !pedido.proformaId;
+
+  // Facturar mientras el pedido no esté cancelado y no tenga ya documento. Un
+  // pedido `entregado` sin factura SÍ se puede facturar: la mercancía salió y
+  // el documento falta, que es justo lo que hay que poder arreglar.
+  const puedeFacturar =
+    puedeGestionar && pedido.status !== "cancelado" && !pedido.proformaId;
+
+  const numeroDocumento = pedido.proformaId
+    ? await proformaNumberFor(session.businessId, pedido.proformaId)
+    : null;
   const existencias = pedido.items.map((linea) =>
     lineStockVerdict(
       linea.qty,
@@ -132,16 +143,45 @@ export default async function PedidoWebDetallePage({
         </span>
       </div>
 
-      {listo ? (
-        <div className="flex items-start gap-3 rounded-2xl bg-[color:var(--brand-primary)]/5 px-5 py-4">
-          <Info
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--brand-primary)]"
-          />
+      {/* Facturar sin volver a teclear nada. El POS se abre con el carrito, el
+          cliente y la sucursal del pedido puestos; ahí se cobra con las reglas
+          de siempre y, al emitir, el documento queda enlazado aquí. */}
+      {pedido.proformaId ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-emerald-50 px-5 py-4">
+          <p className="text-sm text-emerald-900">
+            Facturado{numeroDocumento ? ` · ${numeroDocumento}` : ""}
+          </p>
+          <Link
+            href={`/proformas/${pedido.proformaId}`}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800 hover:border-emerald-500"
+          >
+            <Receipt aria-hidden className="h-4 w-4" />
+            Ver el documento
+          </Link>
+        </div>
+      ) : puedeFacturar ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[color:var(--brand-primary)]/5 px-5 py-4">
           <p className="text-sm text-[color:var(--brand-fg)]/80">
-            Cuando el cliente venga a retirar,{" "}
-            <strong>cóbralo en el POS como cualquier otra venta</strong>. Este
-            pedido no emite factura por sí solo.
+            {listo
+              ? "El pedido está listo. Cuando el cliente pague, factúralo aquí mismo."
+              : "Puedes facturarlo cuando quieras: el POS se abre con todo puesto."}
+          </p>
+          <Link
+            href={`/pos?pedido=${pedido.id}`}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-5 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent)]"
+          >
+            <Receipt aria-hidden className="h-4 w-4" />
+            Facturar en el POS
+          </Link>
+        </div>
+      ) : null}
+
+      {faltaAlgo && !pedido.proformaId ? (
+        <div className="flex items-start gap-3 rounded-2xl bg-amber-50 px-5 py-4">
+          <Info aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+          <p className="text-sm text-amber-900">
+            Hay líneas sin existencia en {pedido.branchName}. Mira el detalle de
+            cada una más abajo: el POS solo puede cobrar lo que haya aquí.
           </p>
         </div>
       ) : null}
