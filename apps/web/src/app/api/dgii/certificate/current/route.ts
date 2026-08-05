@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import { loadActiveCertificateAction } from "@/features/dgii/certificate-actions";
 
 /**
@@ -14,6 +15,11 @@ import { loadActiveCertificateAction } from "@/features/dgii/certificate-actions
  * sincronizar el `certificate-status-store` con la verdad del server.
  */
 export async function GET() {
+  // La RLS valida el `business_id`, no el rol (DL-01): sin esto,
+  // cualquier usuario con sesión del negocio entraba aquí.
+  const auth = await authorizeDgii("dgii.view");
+  if (!auth.ok) return auth.res;
+
   try {
     const certificate = await loadActiveCertificateAction();
     return NextResponse.json({

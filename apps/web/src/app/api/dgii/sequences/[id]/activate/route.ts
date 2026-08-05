@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import { getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
@@ -15,6 +16,10 @@ export async function POST(
   _req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  // Rol, no solo sesión: la RLS valida el `business_id` y no el rol (DL-01).
+  const authDgii = await authorizeDgii("dgii.manage_sequences");
+  if (!authDgii.ok) return authDgii.res;
+
   if (env.DATA_SOURCE !== "supabase") {
     return NextResponse.json(
       { error: "Disponible solo con DATA_SOURCE=supabase" },

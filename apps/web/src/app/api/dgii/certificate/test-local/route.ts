@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { getSession } from "@/server/auth/context";
@@ -55,6 +56,10 @@ async function readEcf32Xsd(): Promise<string | null> {
  * NUNCA llama a DGII. NUNCA envía XML real. NUNCA consume secuencias.
  */
 export async function POST() {
+  // Rol, no solo sesión: la RLS valida el `business_id` y no el rol (DL-01).
+  const authDgii = await authorizeDgii("dgii.manage_certificate");
+  if (!authDgii.ok) return authDgii.res;
+
   if (!isCertificateUploadEnabled()) {
     return NextResponse.json(
       {

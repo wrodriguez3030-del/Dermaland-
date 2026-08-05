@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import {
   buildEcfXml,
   buildDgiiConsultaUrl,
@@ -29,6 +30,11 @@ import { getCertificationFixture } from "@/server/services/dgii/certification-fi
 const TIPOS_SOPORTADOS = new Set(["31", "32", "33", "34"]);
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // La RLS valida el `business_id`, no el rol (DL-01): sin esto,
+  // cualquier usuario con sesión del negocio entraba aquí.
+  const auth = await authorizeDgii("dgii.certification_run");
+  if (!auth.ok) return auth.res;
+
   let tipo: string;
   try {
     const body = (await req.json()) as { tipoEcf?: string };

@@ -1,6 +1,10 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { getSession, type AuthSession } from "./context";
+import {
+  rolesForDgiiPermission,
+  type DgiiPermission,
+} from "@/features/dgii/permissions";
 import type { UserRole } from "@/types";
 
 export type AuthorizeResult =
@@ -23,6 +27,25 @@ export type AuthorizeResult =
  * const ctx = sessionToRepoContext(auth.session);
  * ```
  */
+/**
+ * Igual que `authorizeRole`, pero nombrando la ACCIÓN fiscal en vez del grupo
+ * de roles.
+ *
+ * Dentro de lo fiscal conviven acciones que no se parecen: mirar el estado de
+ * un comprobante lo hace el mostrador; descargar su XML firmado es sacar el
+ * documento fiscal en crudo; sustituir el certificado es cambiar la identidad
+ * fiscal del negocio. Un solo conjunto de roles para todas obliga a elegir
+ * entre dejar sin trabajar a la caja o darle la llave del certificado.
+ *
+ * Leer `authorizeDgii("dgii.download_xml")` dice qué protege la ruta. Leer
+ * `authorizeRole(ADMIN_Y_GERENCIA)` no.
+ */
+export async function authorizeDgii(
+  permission: DgiiPermission,
+): Promise<AuthorizeResult> {
+  return authorizeRole(rolesForDgiiPermission(permission));
+}
+
 export async function authorizeRole(
   allowed: ReadonlyArray<UserRole>,
 ): Promise<AuthorizeResult> {

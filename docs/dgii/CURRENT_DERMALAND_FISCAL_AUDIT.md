@@ -88,9 +88,9 @@ un typo del XSD 31.
 
 ## 3. Hallazgos de seguridad
 
-### 3.1 — ALTO · Ocho rutas de API fiscal sin control de rol
+### 3.1 — MEDIO · Ocho rutas de API fiscal sin control de rol — **CERRADO**
 
-Estas rutas no llaman `getSession` ni `authorizeRole`:
+Estas rutas no llamaban `getSession` ni `authorizeRole`:
 
 ```
 /api/dgii/certificate/current
@@ -103,19 +103,35 @@ Estas rutas no llaman `getSession` ni `authorizeRole`:
 /api/dgii/facturas/[id]/xml-unsigned
 ```
 
-No están abiertas a internet —el middleware exige sesión del negocio—, pero
-**DL-01 dice que la RLS valida el `business_id`, no el rol**. Traducido: hoy
-cualquier usuario con sesión, incluido el de inventario, puede descargar el XML
-**firmado** de una factura fiscal y los metadatos del certificado.
+No estaban abiertas a internet —el middleware exige sesión del negocio—, pero
+**DL-01 dice que la RLS valida el `business_id`, no el rol**: cualquier usuario
+con sesión, incluido el de inventario, entraba.
 
-El propio pliego lo nombra en §25: *«un usuario que crea una factura no obtiene
-automáticamente acceso al certificado»*.
+**Corrección de la primera versión de este documento.** Aquí se afirmó que se
+podía descargar «el XML firmado de una factura fiscal». Al leer las rutas: las
+de `facturas/[id]` sirven **facturas mock** (`mockElectronicInvoices`) y todas
+firman con un **certificado ficticio** (`getDgiiDemoKeyPair`), no con el del
+negocio. `certificate/current` devuelve solo metadatos y ya resolvía la sesión
+por dentro. No había, por tanto, exposición de documentos fiscales reales ni de
+material del certificado. Por eso esto es **MEDIO y no ALTO**.
 
-### 3.2 — MEDIO · No hay permisos fiscales
+Lo que sí había y valía cerrar: `preview/xml-signed` acepta una proforma
+cualquiera en el cuerpo y devuelve XML firmado — una máquina de firmar al
+alcance de cualquier usuario con sesión.
 
-El único rastro de `dgii.*` en el código son **nombres de acciones de auditoría**
-(`dgii.numbering_created`…), no permisos. Los 13 permisos del §25 hay que
-crearlos desde cero.
+**Estado: las 18 rutas de `/api/dgii` exigen ahora un permiso fiscal**, y una
+prueba de propiedad (`routes-guarded.test.ts`) falla si aparece una sin él.
+
+### 3.2 — MEDIO · No hay permisos fiscales — **CERRADO**
+
+El único rastro de `dgii.*` en el código eran **nombres de acciones de
+auditoría** (`dgii.numbering_created`…), no permisos.
+
+**Estado: creados los 13 del §25** en `features/dgii/permissions.ts`, cada uno
+declarando sus roles. Se implementan con roles y no con una tabla de permisos
+por usuario a propósito: es lo que el sistema ya sabe hacer, y un modelo de
+autorización paralelo solo para lo fiscal sería un segundo sitio donde
+equivocarse.
 
 ### 3.3 — BAJO · `DgiiService` legacy sigue enrutado
 
@@ -185,8 +201,8 @@ toca.
 
 | # | Trabajo | Depende del ZIP |
 |---|---|---|
-| 1 | Cerrar el hallazgo 3.1: rol en las ocho rutas | No |
-| 2 | Crear los 13 permisos `dgii.*` y aplicarlos | No |
+| ~~1~~ | ~~Cerrar el hallazgo 3.1: rol en las ocho rutas~~ · **HECHO** | No |
+| ~~2~~ | ~~Crear los 13 permisos `dgii.*` y aplicarlos~~ · **HECHO** | No |
 | 3 | Retirar el `DgiiService` legacy y dejar un solo camino | No |
 | 4 | Máquina de estados explícita + eventos append-only | No |
 | 5 | Outbox, idempotencia y reintentos con backoff | No |

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import { getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
@@ -33,6 +34,10 @@ function guard() {
 }
 
 export async function GET(): Promise<NextResponse> {
+  // Rol, no solo sesión: la RLS valida el `business_id` y no el rol (DL-01).
+  const authDgii = await authorizeDgii("dgii.view");
+  if (!authDgii.ok) return authDgii.res;
+
   const blocked = guard();
   if (blocked) return blocked;
   const session = await getSession();
@@ -51,6 +56,10 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Rol, no solo sesión: la RLS valida el `business_id` y no el rol (DL-01).
+  const authDgii = await authorizeDgii("dgii.manage_sequences");
+  if (!authDgii.ok) return authDgii.res;
+
   const blocked = guard();
   if (blocked) return blocked;
   const session = await getSession();
