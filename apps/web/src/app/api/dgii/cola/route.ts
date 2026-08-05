@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authorizeDgii } from "@/server/auth/require-role";
 import { env } from "@/lib/env";
+import { LOCAL_HANDLERS } from "@/server/services/dgii/queue-handlers";
 import {
   businessesWithPendingWork,
   runQueueForBusiness,
@@ -64,6 +65,10 @@ async function procesar(
     resultados.push(
       await runQueueForBusiness({
         businessId,
+        // Solo los manejadores LOCALES: validar y firmar. `enviar` y
+        // `consultar` no están, y el trabajador los cuenta como pendientes en
+        // vez de fingir que los hizo.
+        handlers: LOCAL_HANDLERS,
         correlationId: `cola-${disparadaPor}`,
       }),
     );

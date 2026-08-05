@@ -56,8 +56,10 @@ que ya funcionaban.
 | **14 XSD oficiales** | Descargados de dgii.gov.do con checksum y prueba de integridad. Antes 4 |
 | **Los 10 tipos e-CF** | Construyen y **validan contra su esquema oficial**. Antes 4 |
 | **Reglas por tipo** | Tabla sacada de los XSD, con prueba que la compara contra ellos |
+| **Almacén del XML fiscal** | Bucket privado `dgii-xml` + hash SHA-256. Antes el XML se tiraba |
+| **Manejadores locales** | Validar y firmar, con verificación de la firma y revalidación del firmado |
 
-**2 526 pruebas** en el proyecto. Migraciones `0045` aplicadas y verificadas
+**2 532 pruebas** en el proyecto. Migraciones `0045` aplicadas y verificadas
 contra la base de producción, con las filas de prueba retiradas.
 
 ## 5. Verificado contra la base real
@@ -77,9 +79,9 @@ contra la base de producción, con las filas de prueba retiradas.
 |---|---|---|
 | ~~10~~ | ~~Seis tipos e-CF (41, 43, 44, 45, 46, 47)~~ | **HECHO.** Los diez construyen y validan contra su XSD oficial |
 | ~~12~~ | ~~RFCE~~ | **HECHO.** Umbral verificado en fuente oficial DGII |
-| ~~18~~ | ~~El trabajador que consume la cola~~ | **HECHO.** Falta enchufarle los manejadores de validar/firmar |
+| ~~18~~ | ~~El trabajador que consume la cola~~ | **HECHO**, con sus manejadores de validar y firmar enchufados |
 | 19 | Job de consulta por `trackId` | Es Fase H, bloqueada por política |
-| 21, 22 | Recepción y aprobación comercial | Nada. Diseño listo en `SOURCE_MODULE_AUDIT` §7 |
+| 21, 22 | Recepción y aprobación comercial | Nada. Diseño listo en `SOURCE_MODULE_AUDIT` §7. **Es lo único de emisión/recepción que falta** |
 | 28 | Métricas y alertas | Nada |
 
 ## 7. Migraciones
