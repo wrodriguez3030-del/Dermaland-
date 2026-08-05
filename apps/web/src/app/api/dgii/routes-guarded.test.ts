@@ -81,14 +81,18 @@ describe("rutas /api/dgii", () => {
     expect(inventados, inventados.join(" · ")).toEqual([]);
   });
 
-  it("nada bajo /api/dgii puede ser público", () => {
-    // Si alguien añadiera una ruta fiscal a PUBLIC_PATHS, quedaría abierta a
-    // internet: el portero del middleware ni la miraría.
+  it("ninguna ruta fiscal está en PUBLIC_PATHS", () => {
+    // Una ruta fiscal ahí quedaría abierta a internet: el portero ni la
+    // miraría. `CRON_PATHS` es otra cosa —exige demostrar un secreto— y por eso
+    // se busca solo dentro del bloque de rutas públicas.
     const middleware = readFileSync(
       join(process.cwd(), "src/middleware.ts"),
       "utf8",
     );
-    const publicas = [...middleware.matchAll(/"(\/api\/dgii[^"]*)"/g)].map((m) => m[1]);
+    const ini = middleware.indexOf("const PUBLIC_PATHS");
+    const fin = middleware.indexOf("];", ini);
+    const bloque = middleware.slice(ini, fin);
+    const publicas = [...bloque.matchAll(/"(\/api\/dgii[^"]*)"/g)].map((m) => m[1]);
     expect(publicas).toEqual([]);
   });
 });

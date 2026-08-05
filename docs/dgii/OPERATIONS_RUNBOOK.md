@@ -1,5 +1,16 @@
 # Operación de la cola fiscal
 
+## Dónde se mira, en el sistema
+
+**DGII / Facturación → Estado** (`/dgii/estado`). Lee la base de verdad: cuántos
+comprobantes hay y en qué estado, cuál lleva más tiempo esperando, si el
+certificado aguanta, si los esquemas son los oficiales, y un botón para procesar
+la cola sin esperar al cron.
+
+⚠️ Las pantallas **«Comprobantes emitidos»** y **«Envíos a DGII»** siguen
+mostrando datos de demostración de hace meses, no la base. Están pendientes de
+migrar; hasta entonces, lo que vale es «Estado».
+
 ## Qué corre y cuándo
 
 `/api/dgii/cola` cada 15 minutos (`vercel.json`).
@@ -9,7 +20,8 @@
 | Cron de Vercel | `Authorization: Bearer $CRON_SECRET` |
 | Una persona | Permiso `dgii.retry` |
 
-**Sin `CRON_SECRET` configurado, la puerta del cron no existe.** No se cae a un
+**Sin `CRON_SECRET` configurado, la puerta del cron no existe** — ni en el
+portero del sistema ni en la ruta. No se cae a un
 valor por defecto: una cola fiscal que se dispara con solo saber la URL es una
 cola que puede disparar cualquiera.
 

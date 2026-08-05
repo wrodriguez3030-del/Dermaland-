@@ -189,6 +189,9 @@ export const groups: NavGroup[] = [
     label: "DGII / Facturación",
     icon: FileText,
     items: [
+      // Primero el estado: es lo que se mira a diario. Lee la base de verdad,
+      // a diferencia de las pantallas de demostración que hay más abajo.
+      { label: "Estado", href: "/dgii/estado" },
       { label: "Configuración de facturación", href: "/dgii/facturacion/configuracion" },
       { label: "Numeraciones / Secuencias", href: "/dgii/secuencias" },
       { label: "Reglas automáticas de e-CF", href: "/dgii/facturacion/reglas" },
