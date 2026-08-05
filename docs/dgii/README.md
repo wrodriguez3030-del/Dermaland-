@@ -51,6 +51,8 @@ que ya funcionaban.
 | **Política de cola** | Pura, sin base de datos. Respeta la cita, prioriza lo más viejo, topa en 10 |
 | **Avisos de certificado** | 30/15/7/3/1/0 días, una vez por umbral |
 | **Un solo camino de envío** | Eliminado el `dgiiService` que fingía enviar |
+| **Trabajador de la cola** | Cron cada 15 min. Un negocio cada vez; se para antes de hablar con la DGII |
+| **RFCE** | Umbral RD$250 000 verificado en la DGII. Estrictamente menor |
 
 **2 455 pruebas** en el proyecto. Migraciones `0045` aplicadas y verificadas
 contra la base de producción, con las filas de prueba retiradas.
@@ -71,8 +73,8 @@ contra la base de producción, con las filas de prueba retiradas.
 | § | Qué | Bloqueado por |
 |---|---|---|
 | 10 | Seis tipos e-CF (41, 43, 44, 45, 46, 47) | **Faltan los XSD oficiales.** Solo se obtienen de la DGII; no se inventan |
-| 12 | RFCE | El umbral y el sentido de la comparación hay que confirmarlos con la DGII |
-| 18 | El trabajador que consume la cola | Nada. Es lo siguiente |
+| ~~12~~ | ~~RFCE~~ | **HECHO.** Umbral verificado en fuente oficial DGII |
+| ~~18~~ | ~~El trabajador que consume la cola~~ | **HECHO.** Falta enchufarle los manejadores de validar/firmar |
 | 19 | Job de consulta por `trackId` | Es Fase H, bloqueada por política |
 | 21, 22 | Recepción y aprobación comercial | Nada. Diseño listo en `SOURCE_MODULE_AUDIT` §7 |
 | 28 | Métricas y alertas | Nada |

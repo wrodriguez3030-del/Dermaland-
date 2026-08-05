@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { ECF_STATUSES, type EcfStatus } from "./document-state";
 import {
   actionFor,
+  gateAction,
   isDue,
   LOTE_MAXIMO,
   pickBatch,
+  touchesDgii,
   type QueueCandidate,
 } from "./queue-policy";
 
@@ -127,5 +129,38 @@ describe("el tamaño del lote", () => {
 
   it("sin candidatos, lote vacío", () => {
     expect(pickBatch([], { now: AHORA })).toEqual([]);
+  });
+});
+
+describe("el freno del envío", () => {
+  it("con el envío apagado, lo LOCAL sigue avanzando", () => {
+    // Validar y firmar ocurren en casa y se pueden repetir mil veces sin
+    // consecuencias. Pararlas también sería castigar de más: el día que se
+    // habilite, lo pendiente tiene que salir de inmediato.
+    for (const a of ["validar", "firmar", "reintentar"] as const) {
+      expect(gateAction(a, false).allowed, a).toBe(true);
+    }
+  });
+
+  it("con el envío apagado, NADA habla con la DGII", () => {
+    for (const a of ["enviar", "consultar"] as const) {
+      const g = gateAction(a, false);
+      expect(g.allowed, a).toBe(false);
+      if (!g.allowed) expect(g.reason).toBe("envio-deshabilitado");
+    }
+  });
+
+  it("con el envío encendido, todo pasa", () => {
+    for (const a of ["validar", "firmar", "enviar", "consultar", "reintentar"] as const) {
+      expect(gateAction(a, true).allowed, a).toBe(true);
+    }
+  });
+
+  it("la frontera está donde el e-NCF se gasta", () => {
+    // Hasta firmar, todo se deshace. Al enviar, ya no.
+    expect(touchesDgii("validar")).toBe(false);
+    expect(touchesDgii("firmar")).toBe(false);
+    expect(touchesDgii("enviar")).toBe(true);
+    expect(touchesDgii("consultar")).toBe(true);
   });
 });

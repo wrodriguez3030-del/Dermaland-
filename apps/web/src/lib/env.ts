@@ -41,6 +41,13 @@ const schema = z.object({
     .union([z.literal("true"), z.literal("false")])
     .default("false"),
 
+  // Secreto del cron de Vercel para la cola fiscal (`/api/dgii/cola`).
+  //
+  // OPCIONAL, y sin valor por defecto a propósito: mientras no exista, la puerta
+  // del cron NO se abre. Una cola fiscal que se dispara con solo saber la URL es
+  // una cola que puede disparar cualquiera.
+  CRON_SECRET: z.string().min(24).optional(),
+
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
