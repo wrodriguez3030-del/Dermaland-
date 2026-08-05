@@ -8,6 +8,7 @@ import {
   categoryHref,
 } from "@/features/storefront/catalog-params";
 import { AddToCartButton } from "@/features/storefront/components/add-to-cart-button";
+import { productBlurb } from "@/features/storefront/product-blurb";
 import { ProductCard } from "@/features/storefront/components/product-card";
 import { ProductPhoto } from "@/features/storefront/components/product-photo";
 import {
@@ -99,6 +100,7 @@ export default async function ProductoPage({
   const { tenant, producto } = ficha;
 
   const agotado = producto.availability.status === "out_of_stock";
+  const resumen = productBlurb(producto);
   const url = `${storefrontBaseUrl()}/tienda/producto/${producto.slug}`;
   const whatsapp = whatsappLink(
     tenant.whatsappPhone,
@@ -185,10 +187,31 @@ export default async function ProductoPage({
             Precio con ITBIS incluido
           </p>
 
-          {producto.summary ? (
+          {/* Qué es y para qué piel. Sale del texto del negocio si lo escribió
+              y, si no, de lo que dice el propio nombre del producto — el
+              catálogo no tiene ni una descripción redactada. */}
+          {resumen.summary ? (
             <p className="mt-6 text-base leading-relaxed text-[color:var(--brand-fg)]/80">
-              {producto.summary}
+              {resumen.summary}
             </p>
+          ) : null}
+
+          {resumen.skinTypes.length > 0 ? (
+            <div className="mt-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+                Indicado para
+              </h2>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {resumen.skinTypes.map((tipo) => (
+                  <li
+                    key={tipo}
+                    className="rounded-full bg-[color:var(--brand-primary)]/10 px-3 py-1 text-sm font-medium text-[color:var(--brand-primary)]"
+                  >
+                    {tipo}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
 
           {/* Agregar al carrito es la acción principal; WhatsApp pasa a ser la

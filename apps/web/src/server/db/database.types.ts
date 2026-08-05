@@ -90,6 +90,8 @@ export type Database = {
           email: string | null
           id: string
           is_pilot: boolean
+          /** Sucursal que despacha y factura los pedidos web (migración 0043). */
+          is_web_fulfillment: boolean
           name: string
           phone: string | null
           province: string
@@ -110,6 +112,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_pilot?: boolean
+          is_web_fulfillment?: boolean
           name: string
           phone?: string | null
           province: string
@@ -130,6 +133,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_pilot?: boolean
+          is_web_fulfillment?: boolean
           name?: string
           phone?: string | null
           province?: string

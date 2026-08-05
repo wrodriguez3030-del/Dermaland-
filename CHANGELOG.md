@@ -10,6 +10,77 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.129.0] - 2026-08-04
+
+**La tienda dice qué vende, y solo enseña lo que tiene.**
+
+### Lo agotado sale del catálogo
+
+Antes salía con su etiqueta "Agotado". Casi la mitad del catálogo eran
+callejones sin salida: el cliente entra, le gusta, y no lo puede comprar.
+**El catálogo pasa de 627 productos a 359.** No hay que despublicar nada a mano:
+se recalcula en cada carga, así que un producto vuelve solo en cuanto entre
+existencia.
+
+### Cada producto dice qué es y para qué piel
+
+Las 638 fichas tienen el resumen vacío y `benefits` en `[]` — no hay ni una
+descripción escrita. La línea se deriva del propio nombre, que es lo único real
+que hay: "matificante" está impreso en la caja, "SPF 50" también. **Sale texto en
+el 90 % de las fichas.**
+
+Solo se dice lo que ya dice la etiqueta. Nunca se promete un resultado —"elimina
+el acné", "borra las arrugas"— porque eso son afirmaciones sanitarias y no las
+puede hacer una función que adivina. Y si del nombre no se puede afirmar nada,
+no se pinta nada: un texto de relleno bajo cada ficha enseña a no leer ninguno.
+
+Lo que escriba el negocio en `web_summary` manda siempre.
+
+### Agregar sin salir del listado
+
+Para meter algo al carrito había que entrar a la ficha, y una vez dentro el
+cliente se quedaba ahí: comprar tres cosas eran seis navegaciones. Ahora cada
+tarjeta tiene su botón. En la ficha, al agregar aparecen las dos salidas —seguir
+comprando o ir al carrito— en vez de dejar al cliente parado.
+
+### Al cliente que vuelve no se le pide todo otra vez
+
+Se reconoce el DISPOSITIVO, no el número tecleado. Un buscador por teléfono sería
+también una máquina de cosechar datos: cualquiera puede probar números y quedarse
+con el nombre y el domicilio de quien acierte, y eso no se tapa con un límite de
+peticiones. La galleta es un puntero firmado con HMAC, sin datos personales
+dentro, y hay un "No soy yo" para las computadoras compartidas.
+
+### El POS factura los pedidos web desde la sucursal designada
+
+Nueva columna `branches.is_web_fulfillment`, marcada en DermaLand Principal. El
+pedido guarda la sucursal que eligió el cliente, pero en un envío esa sucursal no
+significa nada, y "Cutis" está anunciada en la tienda con CERO lotes: facturar
+ahí abría el POS con el carrito vacío. Solo se mueve de la designada si ahí no se
+puede despachar ni una línea, y lo dice.
+
+### Un solo formato de teléfono
+
+Migración `0044`: las fichas guardadas como `8297141975` pasan a `829-714-1975`,
+y de aquí en adelante lo garantiza el repositorio en la única puerta por la que
+pasa todo lo que se guarda. La cadena vacía pasa a nulo: "" y "no tiene teléfono"
+son la misma cosa.
+
+### Corregido: elegir la entrega volvía a poder saltarse
+
+La corrección de v0.127.0 **no había surtido efecto**. Tocó las cuatro ramas de
+la pantalla que miran `null` y se dejó el inicializador del estado sin cambiar,
+así que el selector seguía arrancando en "Retiro" y quien no lo tocaba mandaba su
+pedido como retiro sin enterarse — el fallo original, con la pantalla ya escrita
+para evitarlo. TypeScript no lo vio: comparar contra `null` está permitido aunque
+el tipo no lo incluya. Ahora la regla vive en `initialFulfillment()`, con prueba
+propia que falla si alguien vuelve a preseleccionar.
+
+### Fusionado el cliente duplicado
+
+`CLI-573912` se fusionó en `CLI-420678` y su pedido pasó a la ficha original. La
+duplicada queda marcada como borrada con la nota del porqué, no eliminada.
+
 ## [0.128.0] - 2026-08-04
 
 **El pedido web deja de ser un aviso por correo y pasa a ser un pedido del ERP.**

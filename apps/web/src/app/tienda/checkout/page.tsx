@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckoutView } from "@/features/storefront/components/checkout-view";
 import { resolveCustomerAccount } from "@/server/services/storefront/customer-account";
+import { resolveRememberedCustomer } from "@/server/services/storefront/returning-customer";
 import { paymentsEnabled } from "@/server/services/storefront/payments";
 import { loadShippingRates } from "@/server/services/storefront/shipping";
 import { listActiveBankAccounts } from "@/server/services/storefront/transfer-payments";
@@ -22,6 +23,12 @@ export default async function CheckoutPage() {
 
   // Si entró con su cuenta, no tiene que reescribir lo que ya sabemos de él.
   const cuenta = await resolveCustomerAccount();
+  // Y si ya compró desde este mismo teléfono o computadora, tampoco. Se
+  // reconoce el DISPOSITIVO y no el número tecleado: un buscador por teléfono
+  // sería también una máquina de cosechar nombres y direcciones ajenas.
+  const conocido = cuenta
+    ? null
+    : await resolveRememberedCustomer(tenant.businessId);
   // A qué provincias se llega hoy. Vacío = solo retiro, y la interfaz ni
   // siquiera enseña la opción de envío.
   const provincias = deliverableProvinces(
@@ -48,8 +55,10 @@ export default async function CheckoutPage() {
                 phone: cuenta.phone ?? "",
                 email: cuenta.email,
               }
-            : undefined
+            : (conocido ?? undefined)
         }
+        /** Solo el reconocido por dispositivo se puede "olvidar". */
+        recognized={Boolean(conocido)}
       />
     </>
   );

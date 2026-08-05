@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Check, ShoppingBag } from "lucide-react";
 import { useCart } from "./cart-provider";
 
@@ -29,6 +30,7 @@ export function AddToCartButton({
   }, [confirmado]);
 
   return (
+    <div className="w-full sm:w-auto">
     <button
       type="button"
       // Deshabilitado hasta montar: con el `localStorage` todavía sin leer,
@@ -52,5 +54,25 @@ export function AddToCartButton({
         </>
       )}
     </button>
+
+      {/* Agregado y punto: el cliente se quedaba parado en la ficha sin saber
+          si seguir mirando o ir a pagar. Las dos salidas, escritas. */}
+      {confirmado ? (
+        <p className="mt-3 flex flex-wrap items-center gap-4 text-sm">
+          <Link
+            href="/tienda/catalogo"
+            className="font-semibold text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
+          >
+            Seguir comprando
+          </Link>
+          <Link
+            href="/tienda/carrito"
+            className="text-[color:var(--brand-fg)]/70 underline-offset-4 hover:underline"
+          >
+            Ver el carrito
+          </Link>
+        </p>
+      ) : null}
+    </div>
   );
 }

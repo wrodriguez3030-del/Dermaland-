@@ -264,6 +264,14 @@ const leerCatalogoPublicado = async (
   ]);
 
   // ── 5) Ensamblado por lista blanca ───────────────────────────────────────
+  //
+  // LO AGOTADO NO ENTRA. Antes salía con su etiqueta "Agotado" —era una
+  // decisión escrita, §3.8— y el resultado fue que casi la mitad del catálogo
+  // eran callejones sin salida: el cliente entra, le gusta, y no lo puede
+  // comprar. El dueño lo cambió y tiene razón: una tienda enseña lo que vende.
+  //
+  // No hace falta despublicar nada a mano. Esto se recalcula con cada carga del
+  // catálogo, así que un producto vuelve solo en cuanto entre existencia.
   const porId = new Map(publicables.map((p) => [p.id, p]));
   const items: PublicProduct[] = [];
   for (const meta of metas) {
@@ -271,6 +279,7 @@ const leerCatalogoPublicado = async (
     // Marcado como visible pero ya no publicable (se desactivó, perdió el
     // precio o la foto): no se enseña. R-WEB-05/06.
     if (!producto) continue;
+    if ((existencias.get(producto.id) ?? 0) <= 0) continue;
     items.push(
       toPublicProduct({
         product: producto,

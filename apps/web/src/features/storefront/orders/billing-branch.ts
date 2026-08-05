@@ -28,12 +28,27 @@ export interface OrderLineNeed {
   qty: number;
 }
 
+export interface PickBillingBranchOptions {
+  /**
+   * Sucursal con derecho a ganar los empates: aquella a la que el cliente **va
+   * a ir**. Solo existe en un retiro.
+   *
+   * En un **envío no hay ninguna**. El cliente no pisa una sucursal; la que
+   * quedó guardada en el pedido es la que la tienda eligió por defecto y no
+   * significa nada. Privilegiarla fue justo lo que dejó el POS abierto en
+   * "Cutis" —cero lotes— con el carrito vacío.
+   */
+  stickyBranchId?: string;
+}
+
 /**
  * La sucursal desde la que conviene facturar.
  *
- * Gana la que cubre más líneas enteras. **La del pedido gana los empates**: si
- * puede hacerlo igual de bien, no hay motivo para moverse de donde el cliente
- * quedó en pasar a buscarlo.
+ * Gana la que cubre más líneas enteras. En un retiro, la sucursal del cliente
+ * gana los empates: si puede hacerlo igual de bien, no hay motivo para mover la
+ * venta de donde él quedó en pasar a buscarla. En un envío no hay empate que
+ * proteger y gana la que más cubra; a igualdad, la primera de la lista — por eso
+ * `candidateBranchIds` debe venir ordenada por existencia, de más a menos.
  *
  * `stockFor` desacopla esto del store de lotes del POS, que es lo que lo hace
  * probable sin montar medio inventario.
@@ -43,20 +58,35 @@ export function pickBillingBranch(
   orderBranchId: string,
   candidateBranchIds: readonly string[],
   stockFor: (productId: string, branchId: string) => number,
+  options: PickBillingBranchOptions = {},
 ): BranchPick {
   const cobertura = (branchId: string) =>
     lines.filter((l) => stockFor(l.productId, branchId) >= l.qty).length;
 
-  const delPedido = cobertura(orderBranchId);
-  // Si la del pedido lo cubre todo, no hay nada que decidir.
-  if (lines.length > 0 && delPedido === lines.length) {
-    return { branchId: orderBranchId, covered: delPedido, changed: false };
+  const sticky = options.stickyBranchId;
+
+  // El punto de partida: la sucursal del cliente si existe, y si no la primera
+  // candidata —la de más existencia—. Nunca la del pedido a secas: en un envío
+  // esa sucursal es la que puso la tienda por defecto y no significa nada.
+  let mejorId = sticky ?? candidateBranchIds[0] ?? orderBranchId;
+  let mejor = cobertura(mejorId);
+
+  // Si el punto de partida lo cubre todo, no hay nada que decidir.
+  if (lines.length > 0 && mejor === lines.length) {
+    return { branchId: mejorId, covered: mejor, changed: mejorId !== orderBranchId };
   }
 
-  let mejorId = orderBranchId;
-  let mejor = delPedido;
+  // Con sucursal designada, moverse es una RED DE SEGURIDAD, no una
+  // optimización: solo si ahí no se puede despachar ni una sola línea. Que la
+  // facturación se mude sola porque otra sucursal cubre una línea más sería un
+  // cambio en silencio de una decisión que tomó el negocio.
+  const soloSiVacia = sticky !== undefined;
+  if (soloSiVacia && mejor > 0) {
+    return { branchId: mejorId, covered: mejor, changed: mejorId !== orderBranchId };
+  }
+
   for (const id of candidateBranchIds) {
-    if (id === orderBranchId) continue;
+    if (id === mejorId) continue;
     const n = cobertura(id);
     // `>` estricto: empatar no basta para mover la venta de sitio.
     if (n > mejor) {

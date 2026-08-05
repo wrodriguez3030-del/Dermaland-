@@ -49,6 +49,10 @@ const PUBLIC_PATHS = [
   // `/api/pedidos-web/...`, fuera de este prefijo, y por tanto exige sesión del
   // negocio. `middleware.test.ts` lo fija en los dos sentidos.
   "/api/storefront/orders",
+  // "No soy yo" del checkout: borra la galleta que recuerda al cliente en este
+  // dispositivo. Lo único que puede provocar quien la llame es que su propio
+  // navegador deje de recordar sus datos.
+  "/api/storefront/olvidarme",
   "/tienda/pedido",
   "/_next",
   "/favicon.ico",
