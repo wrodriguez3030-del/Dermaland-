@@ -144,34 +144,47 @@ real. Dos caminos para lo mismo es cómo se acaba enviando por el equivocado.
 
 ## 4. Diferencias con el módulo Odoo de referencia
 
-**No se pudo hacer.** Ver §6.
+Ver `SOURCE_MODULE_AUDIT.md`. En una tabla:
+
+| | `l10n_do_edi` (Odoo) | DermaLand hoy |
+|---|---|---|
+| Tipos e-CF | 10 | 4 |
+| XSD incluidos | **1** para 10 tipos | 4 para 4 tipos |
+| Pruebas | **0** | 285 |
+| Rutas públicas sin auth | **6**, una con IDOR | 0 |
+| Permisos | Abiertos a todos, incluido `res.company` | 13 granulares |
+| Dependencia de un servidor ajeno para emitir | **Sí** | No |
+| Contraseña del certificado | Campo de la empresa, en claro | Cifrada, fuera de la base |
+| RFCE | Sí | **No** |
+| Recepción y aprobación comercial | Sí | **No** |
+| Cola / reintentos | Cron cada 15 min, sin idempotencia | **No** |
+
+Lo que DermaLand debe tomar de ahí es el **inventario de reglas fiscales**, no
+la ingeniería. Lo que le falta a DermaLand y el otro sí tiene: RFCE, recepción,
+aprobación comercial y los seis tipos e-CF que faltan.
 
 ---
 
 ## 5. Riesgo de licencia
 
-**No se pudo evaluar.** Ver §6.
+Ver `THIRD_PARTY_AND_LICENSE_REVIEW.md`. Resumen: el módulo es **AGPL-3**, que
+alcanza al software servido por red — es decir, alcanzaría a DermaLand. **Hoy no
+se ha reutilizado ni una línea**, y la regla de trabajo es tomar preguntas y no
+respuestas: qué campos lleva un E45 se contesta con el XSD oficial, no copiando
+el método que los arma.
 
 ---
 
-## 6. BLOQUEANTE: falta el archivo de referencia
+## 6. El archivo de referencia — **RECIBIDO Y AUDITADO**
 
-El pliego se apoya en `l10n_do_edi.zip` (§3, §4, §5, §6 y los pasos 2–5 del §35).
+`l10n_do_edi.zip` llegó el 2026-08-04. Se extrajo **fuera del repositorio**, se
+escaneó y se auditó. Ni un archivo suyo entra en `apps/`, `supabase/` ni en el
+historial de git.
 
-**Ese archivo no está en este equipo.** Se buscó en `~/Downloads`, `~/Desktop`,
-`~/Documents` y `~/Projects`, y por nombre (`*l10n*`, `*edi*.zip`, `*dgii*.zip`).
-No aparece.
-
-Sin él no se pueden entregar:
-
-- `docs/dgii/SOURCE_MODULE_AUDIT.md`
-- `docs/dgii/THIRD_PARTY_AND_LICENSE_REVIEW.md`
-- El mapa de equivalencias Odoo ↔ DermaLand
-- El escaneo de secretos del ZIP (§35 paso 3), que el pliego marca como urgente
-  porque el módulo trae **credenciales incrustadas** de un servicio de licencia
-  de terceros
-
-Todo lo demás del pliego **no depende del ZIP** y puede avanzar.
+**Hallazgo urgente:** trae **credenciales incrustadas** de un servidor privado
+del proveedor, con permiso de escritura. Documentadas por huella —sin reproducir
+sus valores— en `SOURCE_MODULE_AUDIT.md` §1. Deben darse por comprometidas; la
+rotación es cosa del proveedor, a quien conviene avisar.
 
 ---
 
