@@ -16,12 +16,35 @@ export function stripSqlComments(sql) {
     .replace(/--[^\n]*/g, " ");
 }
 
+/**
+ * `public.` se recorta del nombre (el resto del modulo y los reportes
+ * asumen public como default implicito). Cualquier OTRO esquema explicito
+ * (p.ej. `storage`, por las policies de buckets de Storage — ver
+ * 0046_dgii_xml_storage.sql / product_images_storage_bucket) se CONSERVA en
+ * el nombre en vez de perderse: antes, `on storage.objects` capturaba
+ * "storage" como si fuera el nombre de tabla y perdia ".objects" — el
+ * `fingerprint()` de `scripts/audit-migrations.mjs` nunca podia encontrar esa
+ * clave y la migracion salia NO_APLICADA/PARCIAL aunque SI estuviera
+ * aplicada (falso negativo: le dice a un humano "esto no se aplico" cuando
+ * si se aplico, invitando a reaplicarlo).
+ */
+function qualify(schema, name) {
+  return schema && schema !== "public" ? `${schema}.${name}` : name;
+}
+
 const PATTERNS = [
   {
     kind: "table",
-    re: /\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?"?([a-z0-9_]+)"?/gi,
-    name: (m) => m[1],
+    re: /\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?(?:([a-z0-9_]+)\.)?"?([a-z0-9_]+)"?/gi,
+    name: (m) => qualify(m[1], m[2]),
   },
+  // `function`, `index` y las columnas de ALTER TABLE (mas abajo) se
+  // dejaron SOLO conscientes de `public` a proposito: ninguna migracion real
+  // crea una funcion/indice/columna en otro esquema hoy (solo tocamos
+  // `storage` con buckets + policies, que ya cubren `table` y `policy`
+  // arriba). Si algun dia una migracion declara uno de estos en un esquema
+  // no-public, va a repetir la MISMA clase de falso negativo que tenia
+  // `policy` — aplicar aqui el mismo patron `qualify()`.
   {
     kind: "function",
     re: /\bcreate\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([a-z0-9_]+)"?/gi,
@@ -29,8 +52,8 @@ const PATTERNS = [
   },
   {
     kind: "policy",
-    re: /\bcreate\s+policy\s+"?([^"\n]+?)"?\s+on\s+(?:public\.)?"?([a-z0-9_]+)"?/gi,
-    name: (m) => `${m[2]}.${m[1]}`,
+    re: /\bcreate\s+policy\s+"?([^"\n]+?)"?\s+on\s+(?:([a-z0-9_]+)\.)?"?([a-z0-9_]+)"?/gi,
+    name: (m) => `${qualify(m[2], m[3])}.${m[1]}`,
   },
   {
     kind: "index",

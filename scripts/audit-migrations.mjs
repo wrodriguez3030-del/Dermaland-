@@ -30,11 +30,31 @@ function dbUrl() {
   return m[1].trim().replace(/^["']|["']$/g, "");
 }
 
-/** Todo lo que EXISTE en public, como claves `${kind}:${name}`. */
+/**
+ * Todo lo que EXISTE, como claves `${kind}:${name}`.
+ *
+ * `public` es el esquema principal de la app; `storage` se agrega porque 2
+ * migraciones (`product_images_storage_bucket`, `0046_dgii_xml_storage`)
+ * declaran policies sobre `storage.objects` para los buckets de Storage —
+ * sin esto, `classify()` las marcaba NO_APLICADA/PARCIAL aunque SI estaban
+ * aplicadas (falso negativo: peor que un falso positivo, porque invita a
+ * reaplicar algo que ya existe). Deliberadamente NO se agregan los esquemas
+ * internos de Supabase (`auth`, `realtime`, `vault`, `extensions`,
+ * `graphql`, `pgbouncer`, etc.): ninguna migracion de este repo los declara,
+ * y agregarlos solo meteria ruido — objetos que Supabase gestiona, no que
+ * nosotros migramos. `SCHEMAS_NO_PUBLIC` es la lista explicita de que otros
+ * esquemas SI cubrimos; para las claves de ese esquema, el nombre se
+ * cualifica con el esquema (`table:storage.objects`,
+ * `policy:storage.objects.dgii_xml_select`) — el mismo formato que produce
+ * `extractObjects` (ver `qualify()` en migration-objects.mjs) para que las
+ * claves coincidan de los dos lados.
+ */
+const SCHEMAS_NO_PUBLIC = ["storage"];
+
 async function fingerprint(client) {
   const existing = new Set();
-  const q = async (sql, fn) => {
-    const { rows } = await client.query(sql);
+  const q = async (sql, fn, params = []) => {
+    const { rows } = await client.query(sql, params);
     rows.forEach((r) => existing.add(fn(r)));
   };
   await q(
@@ -60,6 +80,21 @@ async function fingerprint(client) {
     `select indexname from pg_indexes where schemaname = 'public'`,
     (r) => `index:${r.indexname}`,
   );
+
+  for (const schema of SCHEMAS_NO_PUBLIC) {
+    await q(
+      `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = $1 and c.relkind = 'r'`,
+      (r) => `table:${schema}.${r.relname}`,
+      [schema],
+    );
+    await q(
+      `select tablename, policyname from pg_policies where schemaname = $1`,
+      (r) => `policy:${schema}.${r.tablename}.${r.policyname}`,
+      [schema],
+    );
+  }
+
   return existing;
 }
 

@@ -79,6 +79,39 @@ describe("extractObjects", () => {
     ]);
   });
 
+  it("conserva el esquema storage en vez de perderlo (caso real 0046_dgii_xml_storage.sql)", () => {
+    // Bug real: `on storage.objects` capturaba "storage" como si fuera la
+    // tabla y perdia ".objects" -> `fingerprint()` nunca encontraba la clave
+    // y la migracion salia NO_APLICADA aunque SI estuviera aplicada.
+    const sql = `
+      insert into storage.buckets (id, name, public) values ('dgii-xml', 'dgii-xml', false);
+      drop policy if exists dgii_xml_select on storage.objects;
+      create policy dgii_xml_select
+        on storage.objects for select
+        using (bucket_id = 'dgii-xml');
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "policy", name: "storage.objects.dgii_xml_select" },
+    ]);
+  });
+
+  it("crea tabla en un esquema no-public conservando el esquema en el nombre", () => {
+    expect(extractObjects("create table if not exists storage.foo (id uuid primary key);")).toEqual([
+      { kind: "table", name: "storage.foo" },
+    ]);
+  });
+
+  it("sigue recortando public. en tabla y politica (no rompe el comportamiento previo)", () => {
+    const sql = `
+      create table if not exists public.products (id uuid primary key);
+      create policy "p_select" on public.products for select using (true);
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "table", name: "products" },
+      { kind: "policy", name: "products.p_select" },
+    ]);
+  });
+
   it("distingue dos sentencias alter table sobre tablas distintas en el mismo archivo", () => {
     const sql = `
       alter table clients

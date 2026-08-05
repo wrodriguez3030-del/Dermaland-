@@ -51,7 +51,7 @@
 | `0043_branch_web_fulfillment` | APLICADA | 2 | si | — |
 | `0044_client_phone_uniform_format` | INDETERMINADA | 0 | **NO** | — |
 | `0045_ecf_idempotency_and_events` | APLICADA | 13 | si | — |
-| `0046_dgii_xml_storage` | NO_APLICADA | 1 | si | policy:storage.dgii_xml_select |
+| `0046_dgii_xml_storage` | APLICADA | 1 | si | — |
 
 ## Sin archivo local (agujero real)
 
