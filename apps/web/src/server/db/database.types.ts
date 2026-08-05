@@ -1822,6 +1822,37 @@ export type Database = {
           },
         ]
       }
+      ecf_document_events: {
+        Row: {
+          id: string
+          business_id: string
+          electronic_invoice_id: string
+          status_from: string | null
+          status_to: string
+          event_type: string
+          error_class: string | null
+          message: string | null
+          actor_user_id: string | null
+          correlation_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          business_id: string
+          electronic_invoice_id: string
+          status_from?: string | null
+          status_to: string
+          event_type?: string
+          error_class?: string | null
+          message?: string | null
+          actor_user_id?: string | null
+          correlation_id?: string | null
+          created_at?: string
+        }
+        // Append-only: un disparador rechaza UPDATE y DELETE en la base.
+        Update: Record<string, never>
+        Relationships: []
+      }
       electronic_invoices: {
         Row: {
           accepted_at: string | null
@@ -1863,6 +1894,11 @@ export type Database = {
           xml_generated_path: string | null
           xml_response_path: string | null
           xml_signed_path: string | null
+          idempotency_key: string | null
+          retry_count: number
+          next_retry_at: string | null
+          last_error_class: string | null
+          last_error_message: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -1904,6 +1940,11 @@ export type Database = {
           xml_generated_path?: string | null
           xml_response_path?: string | null
           xml_signed_path?: string | null
+          idempotency_key?: string | null
+          retry_count?: number
+          next_retry_at?: string | null
+          last_error_class?: string | null
+          last_error_message?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -1945,6 +1986,11 @@ export type Database = {
           xml_generated_path?: string | null
           xml_response_path?: string | null
           xml_signed_path?: string | null
+          idempotency_key?: string | null
+          retry_count?: number
+          next_retry_at?: string | null
+          last_error_class?: string | null
+          last_error_message?: string | null
         }
         Relationships: [
           {
