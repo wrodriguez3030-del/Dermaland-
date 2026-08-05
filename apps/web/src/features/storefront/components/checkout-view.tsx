@@ -7,6 +7,7 @@ import { Loader2, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
 import type { CartSummary } from "../cart";
+import { initialFulfillment } from "../checkout-fulfillment";
 import type { DeliverableProvince } from "../shipping/quote";
 import { formatAccountNumber } from "../payments/receipt";
 
@@ -54,13 +55,30 @@ function uuidV4(): string {
 export function CheckoutView({
   branches,
   prefill,
+  recognized = false,
   cardPaymentsEnabled = false,
   provinces = [],
   bankAccounts = [],
 }: {
   branches: PublicBranch[];
-  /** Si el cliente entró con su cuenta, no tiene que reescribir sus datos. */
-  prefill?: { name: string; phone: string; email: string };
+  /**
+   * Datos que ya sabemos de él: de su cuenta, o de su último pedido desde este
+   * mismo dispositivo. Incluye la dirección solo si aquel fue un envío.
+   */
+  prefill?: {
+    name: string;
+    phone: string;
+    email: string;
+    provinceSlug?: string;
+    sector?: string;
+    address?: string;
+    reference?: string;
+  };
+  /**
+   * `true` cuando se le reconoció por el dispositivo (no por haber entrado con
+   * su cuenta). Solo entonces tiene sentido ofrecerle "no soy yo".
+   */
+  recognized?: boolean;
   /**
    * ¿Hay pasarela de verdad detrás? Lo decide el SERVIDOR. Por defecto `false`
    * para que un olvido en el llamador no produzca una promesa de cobro.
@@ -82,10 +100,23 @@ export function CheckoutView({
   const [resumen, setResumen] = React.useState<CartSummary | null>(null);
   const [enviando, setEnviando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  // Retiro por defecto: es lo que funcionaba antes de que existiera el envío, y
-  // lo que sigue funcionando si nadie configuró provincias.
-  const [entrega, setEntrega] = React.useState<"pickup" | "delivery">("pickup");
-  const [provincia, setProvincia] = React.useState("");
+  // SIN preselección cuando hay envío configurado.
+  //
+  // Esto ya causó un pedido mal guardado: el selector arrancaba en "Retiro" y
+  // quien no lo tocaba mandaba su pedido como retiro sin enterarse. Elegir cómo
+  // recibes lo que compras tiene que ser un acto, no un descuido.
+  //
+  // ⚠️ La corrección de v0.127.0 tocó las CUATRO ramas que miran `null` pero se
+  // dejó esta línea sin cambiar, así que `entrega` nunca podía ser `null` y el
+  // fallo seguía vivo con la pantalla ya escrita para evitarlo. TypeScript no
+  // lo vio: comparar contra `null` está permitido aunque el tipo no lo incluya.
+  //
+  // Si no hay ninguna provincia con tarifa, solo existe el retiro y no hay nada
+  // que elegir: ahí sí se preselecciona.
+  const [entrega, setEntrega] = React.useState<"pickup" | "delivery" | null>(
+    () => initialFulfillment(provinces.length),
+  );
+  const [provincia, setProvincia] = React.useState(prefill?.provinceSlug ?? "");
   // Efectivo por defecto: es lo que funcionaba antes de existir la
   // transferencia, y lo que sigue si el negocio no puso ninguna cuenta.
   const [metodoPago, setMetodoPago] = React.useState<"efectivo" | "transferencia">(
@@ -103,9 +134,12 @@ export function CheckoutView({
     formatDominicanPhone(prefill?.phone ?? ""),
   );
   const [correo, setCorreo] = React.useState(prefill?.email ?? "");
-  const [sector, setSector] = React.useState("");
-  const [direccion, setDireccion] = React.useState("");
-  const [referencia, setReferencia] = React.useState("");
+  // La dirección solo viene puesta si su último pedido fue un envío: rellenar
+  // un domicilio en alguien que siempre retira sería sacarse un dato de la
+  // manga.
+  const [sector, setSector] = React.useState(prefill?.sector ?? "");
+  const [direccion, setDireccion] = React.useState(prefill?.address ?? "");
+  const [referencia, setReferencia] = React.useState(prefill?.reference ?? "");
   const [nota, setNota] = React.useState("");
   const [sucursal, setSucursal] = React.useState(branches[0]?.slug ?? "");
 
@@ -151,6 +185,29 @@ export function CheckoutView({
       cancelado = true;
     };
   }, [items, mounted]);
+
+  /**
+   * "No soy yo": vacía el formulario y borra la galleta.
+   *
+   * Se borra en el SERVIDOR y no con `document.cookie` porque es `httpOnly` —el
+   * JavaScript de la página no la ve, que es justo lo que la protege de un XSS.
+   */
+  async function olvidarme() {
+    setNombre("");
+    setTelefono("");
+    setCorreo("");
+    setProvincia("");
+    setSector("");
+    setDireccion("");
+    setReferencia("");
+    try {
+      await fetch("/api/storefront/olvidarme", { method: "POST" });
+    } catch {
+      // Los campos ya están vacíos; que la galleta siga ahí solo significa que
+      // volverá a proponer los datos la próxima vez.
+    }
+    router.refresh();
+  }
 
   async function enviar() {
     if (entrega === null) {
@@ -234,6 +291,25 @@ export function CheckoutView({
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
           Tus datos
         </h2>
+
+        {/* Se le reconoció por el dispositivo, así que se dice y se ofrece la
+            salida. Rellenar el formulario con los datos de otro sin avisar es
+            lo que pasa cuando la computadora es compartida. */}
+        {recognized ? (
+          <p className="flex flex-wrap items-center gap-2 rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3 text-sm text-[color:var(--brand-fg)]/80">
+            <span>
+              Hola de nuevo{prefill?.name ? `, ${prefill.name.split(" ")[0]}` : ""}.
+              Pusimos tus datos de la última vez.
+            </span>
+            <button
+              type="button"
+              onClick={olvidarme}
+              className="cursor-pointer font-semibold text-[color:var(--brand-primary)] underline underline-offset-4"
+            >
+              No soy yo
+            </button>
+          </p>
+        ) : null}
 
         {error ? (
           <p

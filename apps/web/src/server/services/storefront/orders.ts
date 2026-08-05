@@ -66,7 +66,7 @@ export interface CreateWebOrderInput {
 }
 
 export type CreateWebOrderResult =
-  | { ok: true; token: string; number: string }
+  | { ok: true; id: string; token: string; number: string }
   | { ok: false; error: string };
 
 /**
@@ -244,6 +244,7 @@ export async function createWebOrder(
       if (previo) {
         return {
           ok: true,
+          id: previo.id,
           number: previo.number,
           token: signDocumentShareToken(tenant.businessId, previo.id),
         };
@@ -272,6 +273,7 @@ export async function createWebOrder(
 
   return {
     ok: true,
+    id: pedido.id,
     number: numero,
     token: signDocumentShareToken(tenant.businessId, pedido.id),
   };
@@ -640,7 +642,16 @@ export async function changeWebOrderFulfillment(
 export interface WebOrderForPos {
   id: string;
   number: string;
+  /** La que eligió el cliente para retirar. En un envío no significa nada. */
   branchId: string;
+  /**
+   * Desde dónde se factura: la sucursal marcada `is_web_fulfillment`.
+   *
+   * Es una decisión escrita del negocio, no una deducción. Antes se adivinaba
+   * por existencia y eso se habría mudado solo el día que otra sucursal
+   * recibiera mercancía.
+   */
+  fulfillmentBranchId: string;
   /** Ficha del ERP, si se pudo enlazar. El POS la preselecciona. */
   clientId?: string;
   contactName: string;
@@ -672,17 +683,30 @@ export async function getWebOrderForPos(
   // ofrecer cobrar algo que el negocio ya dijo que no iba a vender.
   if (pedido.status === "cancelado") return null;
 
-  const { data: lineas } = await admin
-    .from("web_order_items")
-    .select("product_id, qty")
-    .eq("order_id", pedido.id)
-    .eq("business_id", businessId)
-    .order("created_at", { ascending: true });
+  const [{ data: lineas }, { data: despacho }] = await Promise.all([
+    admin
+      .from("web_order_items")
+      .select("product_id, qty")
+      .eq("order_id", pedido.id)
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("branches")
+      .select("id")
+      .eq("business_id", businessId)
+      .eq("is_web_fulfillment", true)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .maybeSingle(),
+  ]);
 
   return {
     id: pedido.id,
     number: pedido.number,
     branchId: pedido.branch_id,
+    // Sin sucursal designada se cae a la del pedido: es lo que hacía antes, y
+    // un negocio de una sola sucursal no necesita designar nada.
+    fulfillmentBranchId: despacho?.id ?? pedido.branch_id,
     clientId: pedido.client_id ?? undefined,
     contactName: pedido.contact_name,
     fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",

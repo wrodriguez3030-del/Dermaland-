@@ -3,6 +3,7 @@ import type { CustomerRepository, RepoContext } from "../types";
 import type { Customer, CustomerNote } from "@/types";
 import { SupabaseRepositoryError, getClient } from "./client";
 import { clientRowToTs } from "./mappers";
+import { formatDominicanPhone } from "@/lib/utils/formatters";
 
 /**
  * Genera un `customer_number` simple: `CLI-XXXXXX` (6 dígitos aleatorios).
@@ -13,6 +14,22 @@ import { clientRowToTs } from "./mappers";
 function generateCustomerNumber(): string {
   const n = Math.floor(100000 + Math.random() * 900000);
   return `CLI-${n}`;
+}
+
+/**
+ * El teléfono, siempre igual: `AAA-BBB-CCCC`.
+ *
+ * Devuelve `null` para lo vacío —no una cadena vacía— porque `""` y "no tiene
+ * teléfono" son la misma cosa y guardarlos distinto obliga a distinguirlos
+ * después. Lo que no parezca un teléfono se guarda tal cual: un número
+ * extranjero o una extensión son datos reales, y perderlos por no encajar en un
+ * formato dominicano sería peor que el formato desparejo.
+ */
+function telefonoUniforme(valor: string | null | undefined): string | null {
+  const bruto = (valor ?? "").trim();
+  if (!bruto) return null;
+  const formateado = formatDominicanPhone(bruto);
+  return formateado || bruto;
 }
 
 export const customerRepository: CustomerRepository = {
@@ -92,8 +109,12 @@ export const customerRepository: CustomerRepository = {
       last_name: customer.lastName,
       document_type: customer.documentType ?? null,
       document_number: customer.documentNumber ?? null,
-      phone: customer.phone ?? null,
-      whatsapp: customer.whatsapp ?? null,
+      // Un solo formato para todos: el mostrador escribía "829-714-1975" y la
+      // tienda "8297141975", y la lista de clientes acababa pareciendo dos
+      // sistemas distintos. Se normaliza AQUÍ, en la única puerta por la que
+      // pasa todo lo que se guarda; para buscar están las columnas generadas.
+      phone: telefonoUniforme(customer.phone),
+      whatsapp: telefonoUniforme(customer.whatsapp),
       email: customer.email ?? null,
       birth_date: customer.birthDate ?? null,
       address: customer.address ?? null,
@@ -126,8 +147,8 @@ export const customerRepository: CustomerRepository = {
     if (patch.lastName !== undefined) row.last_name = patch.lastName;
     if (patch.documentType !== undefined) row.document_type = patch.documentType ?? null;
     if (patch.documentNumber !== undefined) row.document_number = patch.documentNumber ?? null;
-    if (patch.phone !== undefined) row.phone = patch.phone ?? null;
-    if (patch.whatsapp !== undefined) row.whatsapp = patch.whatsapp ?? null;
+    if (patch.phone !== undefined) row.phone = telefonoUniforme(patch.phone);
+    if (patch.whatsapp !== undefined) row.whatsapp = telefonoUniforme(patch.whatsapp);
     if (patch.email !== undefined) row.email = patch.email ?? null;
     if (patch.birthDate !== undefined) row.birth_date = patch.birthDate ?? null;
     if (patch.address !== undefined) row.address = patch.address ?? null;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MAX_LINES, MAX_QTY_PER_LINE } from "@/features/storefront/cart";
 import { toLocalPhoneDigits } from "@/features/storefront/phone";
 import { createWebOrder } from "@/server/services/storefront/orders";
+import { rememberCustomer } from "@/server/services/storefront/returning-customer";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 /**
@@ -124,6 +125,10 @@ export async function POST(request: Request) {
   if (!resultado.ok) {
     return NextResponse.json({ error: resultado.error }, { status: 422 });
   }
+
+  // Este dispositivo ya compró: la próxima vez no reescribe sus datos. Es una
+  // galleta firmada que apunta a este pedido, sin datos personales dentro.
+  await rememberCustomer(tenant.businessId, resultado.id);
 
   return NextResponse.json(
     { number: resultado.number, token: resultado.token },

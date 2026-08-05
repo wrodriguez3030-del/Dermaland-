@@ -225,6 +225,8 @@ interface PedidoWebParaPos {
   id: string;
   number: string;
   branchId: string;
+  /** Sucursal designada para despachar los pedidos web. Es desde donde factura. */
+  fulfillmentBranchId: string;
   clientId?: string;
   contactName: string;
   fulfillment: "pickup" | "delivery";
@@ -499,22 +501,33 @@ export function PosTerminal({
       // la que de verdad puede despachar y se DICE que se cambió.
       const avisos: string[] = [];
       const pedidoBranch = pedido.branchId || branchId;
+      const stockEn = (productId: string, sucursal: string) =>
+        sellableStockForBranch(lots, productId, sucursal);
+
+      // Se factura desde la sucursal que el negocio designó para los pedidos
+      // web (`is_web_fulfillment`), no desde la que eligió el cliente para
+      // retirar. Es una decisión escrita, no una deducción: adivinarla por
+      // existencia se habría mudado sola el día que otra sucursal recibiera
+      // mercancía.
+      const candidatas = [
+        pedido.fulfillmentBranchId,
+        ...activeBranches
+          .map((b) => b.id)
+          .filter((id) => id !== pedido.fulfillmentBranchId),
+      ];
+
       const eleccion = canSwitchBranch
-        ? pickBillingBranch(
-            pedido.lines,
-            pedidoBranch,
-            activeBranches.map((b) => b.id),
-            (productId, sucursal) =>
-              sellableStockForBranch(lots, productId, sucursal),
-          )
+        ? pickBillingBranch(pedido.lines, pedidoBranch, candidatas, stockEn, {
+            stickyBranchId: pedido.fulfillmentBranchId,
+          })
         : { branchId, covered: 0, changed: false };
 
       const sucursalUsada = eleccion.branchId;
       if (canSwitchBranch) {
         if (sucursalUsada !== branchId) setBranchId(sucursalUsada);
-        if (eleccion.changed) {
+        if (sucursalUsada !== pedidoBranch) {
           avisos.push(
-            `El pedido es de ${getBranchDisplayName(pedidoBranch)}, pero la mercancía está en ${getBranchDisplayName(sucursalUsada)}. Se factura desde ahí.`,
+            `El cliente eligió ${getBranchDisplayName(pedidoBranch)}; se factura desde ${getBranchDisplayName(sucursalUsada)}, que es de donde sale la mercancía.`,
           );
         }
       } else if (pedidoBranch !== branchId) {
