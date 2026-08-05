@@ -27,6 +27,12 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # La passphrase se declara a nivel de JOB, no de paso. Un `if:` que consulta
+    # una variable definida en su propio paso no es fiable en GitHub Actions, y
+    # el modo de fallo aquí es silencioso y grave: el artefacto se subiría SIN
+    # cifrar, con nombres, cédulas y teléfonos de clientes dentro.
+    env:
+      BACKUP_GPG_PASSPHRASE: ${{ secrets.BACKUP_GPG_PASSPHRASE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,23 +61,34 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: node scripts/backup/pg-dump-backup.mjs --label ci-$(date -u +%Y%m%d-%H%M)
 
-      - name: Cifrar backup (si hay passphrase)
-        if: ${{ env.BACKUP_GPG_PASSPHRASE != '' }}
-        env:
-          BACKUP_GPG_PASSPHRASE: ${{ secrets.BACKUP_GPG_PASSPHRASE }}
+      # El cifrado NO es opcional. El dump lleva nombres, cédulas y teléfonos de
+      # clientes reales: sin passphrase, el trabajo se detiene aquí en vez de
+      # producir un artefacto con datos personales en claro.
+      - name: Cifrar backup (obligatorio)
         run: |
+          if [ -z "${BACKUP_GPG_PASSPHRASE}" ]; then
+            echo "::error::Falta el secreto BACKUP_GPG_PASSPHRASE. El respaldo contiene"
+            echo "::error::datos personales de clientes y no se sube sin cifrar."
+            exit 1
+          fi
           for f in backups/*.sql.gz; do
             gpg --batch --yes --passphrase "$BACKUP_GPG_PASSPHRASE" \
               --symmetric --cipher-algo AES256 "$f"
             rm -f "$f"   # deja solo el .gpg cifrado
           done
+          # Red de seguridad: si quedó algún .sql.gz sin cifrar, abortar.
+          if ls backups/*.sql.gz >/dev/null 2>&1; then
+            echo "::error::Quedaron dumps sin cifrar. Abortando antes de subir nada."
+            exit 1
+          fi
 
       - name: Subir backup como artifact
         uses: actions/upload-artifact@v4
         with:
           name: dermaland-db-backup
-          path: |
-            backups/*.sql.gz
-            backups/*.sql.gz.gpg
+          # SOLO el cifrado. Nunca añadir aquí `backups/*.sql.gz`: bastaría un
+          # fallo del paso anterior para publicar datos personales en claro.
+          path: backups/*.sql.gz.gpg
           retention-days: 14
+          if-no-files-found: error
           if-no-files-found: error
