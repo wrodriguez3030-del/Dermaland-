@@ -7,6 +7,7 @@ import { RowActions } from "@/components/ui/row-actions";
 import {
   WEB_ORDER_STATUSES,
   webOrderStatusLabel,
+  webOrderStatusLabelFor,
   type WebOrderStatus,
 } from "@/features/storefront/orders/status";
 import { formatCurrency } from "@/lib/utils/format";
@@ -195,7 +196,7 @@ export default async function PedidosWebPage({
                               : "info"
                         }
                       >
-                        {webOrderStatusLabel(p.status)}
+                        {webOrderStatusLabelFor(p.status, p.fulfillment)}
                       </Badge>
                     </TD>
                     <TD>

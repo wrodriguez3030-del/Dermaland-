@@ -28,9 +28,25 @@ export const customerRepository: CustomerRepository = {
 
     if (opts?.search) {
       const term = opts.search.replace(/[%,]/g, "");
-      q = q.or(
-        `first_name.ilike.%${term}%,last_name.ilike.%${term}%,document_number.ilike.%${term}%,phone.ilike.%${term}%`,
-      );
+      // El teléfono se guarda con guiones ("829-714-1975"), así que buscar
+      // "8297141975" no encontraba a nadie — y quien no encuentra a un cliente
+      // lo vuelve a crear. Las columnas normalizadas (migración 0042) son solo
+      // dígitos; el término se reduce igual para que las dos formas casen.
+      // Son dígitos por construcción: no hay nada que escapar en el filtro.
+      const digitos = opts.search.replace(/\D/g, "");
+      const clausulas = [
+        `first_name.ilike.%${term}%`,
+        `last_name.ilike.%${term}%`,
+        `document_number.ilike.%${term}%`,
+        `phone.ilike.%${term}%`,
+      ];
+      if (digitos.length >= 3) {
+        clausulas.push(
+          `phone_digits.ilike.%${digitos}%`,
+          `whatsapp_digits.ilike.%${digitos}%`,
+        );
+      }
+      q = q.or(clausulas.join(","));
     }
 
     q = q.order("first_name", { ascending: true });

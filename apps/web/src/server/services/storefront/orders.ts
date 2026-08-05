@@ -19,10 +19,16 @@ import {
 import {
   parseDeliveryAddress,
   quoteShipping,
+  type DeliveryAddress,
 } from "@/features/storefront/shipping/quote";
+import {
+  checkOrderStock,
+  stockProblemMessage,
+} from "@/features/storefront/stock";
 import { loadPublishedCatalog } from "./catalog";
 import { findOrCreateClient } from "./customer-link";
 import { loadShippingRates } from "./shipping";
+import { loadWebAvailability } from "./stock";
 import { resolveStorefrontTenant } from "./tenant";
 
 /**
@@ -151,6 +157,36 @@ export async function createWebOrder(
   // menos y el total de todas sería cobrar de más.
   if (idsPorSlug.size !== resumen.lines.length) {
     return { ok: false, error: "Alguno de los productos ya no está disponible." };
+  }
+
+  // ¿Hay de verdad lo que está pidiendo?
+  //
+  // Antes no se miraba en ningún momento: se podían encargar 50 unidades de algo
+  // que tenía 1, y el fallo no salía hasta que alguien del negocio abría el
+  // pedido y tenía que llamar a deshacerlo. Decirlo AHORA, con el nombre del
+  // producto y cuántos quedan, es una molestia; decirlo mañana por teléfono es
+  // una venta perdida.
+  //
+  // Se comprueba contra la existencia menos lo apalabrado en otros pedidos web
+  // sin facturar, no contra el almacén a secas: el último frasco no se le puede
+  // vender a cinco personas.
+  //
+  // Queda una carrera abierta —dos pedidos a la vez pueden pasar los dos— y no
+  // se cierra con un bloqueo de base porque el pedido no reserva inventario por
+  // diseño. Para eso el detalle del ERP enseña la disponibilidad viva antes de
+  // confirmar.
+  const lineasConId = resumen.lines.map((l) => ({
+    productId: idsPorSlug.get(l.product.slug)!,
+    productName: l.product.title,
+    qty: l.qty,
+  }));
+  const disponible = await loadWebAvailability(
+    tenant.businessId,
+    lineasConId.map((l) => l.productId),
+  );
+  const problemas = checkOrderStock(lineasConId, disponible);
+  if (problemas.length > 0) {
+    return { ok: false, error: stockProblemMessage(problemas) };
   }
 
   const numero = await siguienteNumero(admin);
@@ -335,18 +371,39 @@ export async function countNewWebOrders(businessId: string): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * Una línea vista desde el ERP. Lleva el `productId` que la pública NO lleva:
+ * dentro hace falta para mirar el inventario y para pasar el pedido al POS.
+ */
+export interface WebOrderLineForBusiness extends WebOrderItem {
+  productId: string;
+}
+
+/** El pedido con lo que solo se enseña puertas adentro. */
+export interface WebOrderForBusiness extends Omit<WebOrder, "items"> {
+  id: string;
+  items: WebOrderLineForBusiness[];
+  /** Proforma con la que se facturó, si ya se facturó. */
+  proformaId?: string;
+  /** Sucursal que retira o despacha. Para el POS y para cambiar la entrega. */
+  branchId: string;
+  /** Slug de la provincia. `deliveryProvince` es el nombre, que no vale para
+   *  preseleccionar un desplegable. */
+  deliveryProvinceSlug?: string;
+}
+
 /** El pedido completo, para el detalle del ERP. Acotado por `business_id`. */
 export async function getWebOrderForBusiness(
   businessId: string,
   id: string,
-): Promise<(WebOrder & { id: string }) | null> {
+): Promise<WebOrderForBusiness | null> {
   const admin = createServiceRoleClient();
   if (!admin) return null;
 
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status, proforma_id",
     )
     .eq("id", id)
     .eq("business_id", businessId)
@@ -356,7 +413,7 @@ export async function getWebOrderForBusiness(
   const [{ data: lineas }, nombres] = await Promise.all([
     admin
       .from("web_order_items")
-      .select("product_name, unit_price, qty, line_total")
+      .select("product_id, product_name, unit_price, qty, line_total")
       .eq("order_id", pedido.id)
       .order("created_at", { ascending: true }),
     nombresDeSucursal(admin, businessId),
@@ -364,11 +421,14 @@ export async function getWebOrderForBusiness(
 
   return {
     id: pedido.id,
+    branchId: pedido.branch_id,
+    proformaId: pedido.proforma_id ?? undefined,
     number: pedido.number,
     status: pedido.status as WebOrderStatus,
     branchName: nombres.get(pedido.branch_id) ?? "—",
     fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",
     deliveryProvince: provinceName(pedido.delivery_province) ?? undefined,
+    deliveryProvinceSlug: pedido.delivery_province ?? undefined,
     deliverySector: pedido.delivery_sector ?? undefined,
     deliveryAddress: pedido.delivery_address ?? undefined,
     deliveryReference: pedido.delivery_reference ?? undefined,
@@ -390,6 +450,7 @@ export async function getWebOrderForBusiness(
     contactEmail: pedido.contact_email ?? undefined,
     total: Number(pedido.total),
     items: (lineas ?? []).map((l) => ({
+      productId: l.product_id,
       productName: l.product_name,
       unitPrice: Number(l.unit_price),
       qty: l.qty,
@@ -443,6 +504,302 @@ export async function advanceWebOrder(
 
   if (error) return { ok: false, error: "No se pudo cambiar el estado." };
   return { ok: true, from: desde };
+}
+
+/**
+ * Cambiar cómo se entrega un pedido ya hecho.
+ *
+ * Hace falta más de lo que parece. El cliente que se equivoca de opción llama
+ * al negocio, y hasta ahora la única salida era cancelar y volver a pedir: se
+ * perdía el número, el historial y la paciencia del cliente.
+ *
+ * El FLETE lo vuelve a calcular el servidor con las tarifas de HOY. Es lo
+ * correcto: el envío se está decidiendo ahora, no cuando se hizo el pedido. Y
+ * jamás llega un importe en la petición — quien cambia la entrega elige el
+ * destino, no lo que cuesta.
+ *
+ * Se bloquea si el pedido ya está facturado: la proforma lleva el flete dentro
+ * y cambiarlo aquí dejaría el documento diciendo una cosa y el pedido otra.
+ * Para eso está anular la proforma en el POS.
+ */
+export type ChangeFulfillmentInput =
+  | { to: "pickup"; branchId: string }
+  | {
+      to: "delivery";
+      branchId: string;
+      province: string;
+      sector: string;
+      address: string;
+      reference?: string;
+    };
+
+export async function changeWebOrderFulfillment(
+  businessId: string,
+  id: string,
+  input: ChangeFulfillmentInput,
+): Promise<{
+  ok: boolean;
+  error?: string;
+  from?: "pickup" | "delivery";
+  shippingCost?: number;
+  total?: number;
+}> {
+  const admin = createServiceRoleClient();
+  if (!admin) return { ok: false, error: "No disponible." };
+
+  const { data: actual } = await admin
+    .from("web_orders")
+    .select("status, fulfillment, subtotal, proforma_id")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!actual) return { ok: false, error: "Pedido no encontrado." };
+
+  if (actual.status === "cancelado" || actual.status === "entregado") {
+    return {
+      ok: false,
+      error: "Este pedido ya está cerrado: no se le puede cambiar la entrega.",
+    };
+  }
+  if (actual.proforma_id) {
+    return {
+      ok: false,
+      error:
+        "El pedido ya está facturado. Anula la proforma en el POS antes de cambiar la entrega.",
+    };
+  }
+
+  // La sucursal se comprueba contra las del negocio: un UUID que llegue en la
+  // petición no puede ser el de otro negocio ni el de una sucursal cerrada.
+  const { data: sucursal } = await admin
+    .from("branches")
+    .select("id")
+    .eq("id", input.branchId)
+    .eq("business_id", businessId)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!sucursal) return { ok: false, error: "Elige una sucursal válida." };
+
+  const subtotal = Number(actual.subtotal ?? 0);
+  const desde: "pickup" | "delivery" =
+    actual.fulfillment === "delivery" ? "delivery" : "pickup";
+
+  let costoEnvio = 0;
+  let direccion: DeliveryAddress | null = null;
+
+  if (input.to === "delivery") {
+    const parseada = parseDeliveryAddress({
+      province: input.province,
+      sector: input.sector,
+      address: input.address,
+      reference: input.reference,
+    });
+    if (!parseada.ok) return { ok: false, error: parseada.error };
+
+    const tarifas = await loadShippingRates(businessId);
+    const cotizacion = quoteShipping(parseada.value.province, tarifas);
+    if (!cotizacion.ok) return { ok: false, error: cotizacion.error };
+
+    costoEnvio = cotizacion.cost;
+    direccion = parseada.value;
+  }
+
+  const total = subtotal + costoEnvio;
+
+  const { error } = await admin
+    .from("web_orders")
+    .update({
+      branch_id: input.branchId,
+      fulfillment: input.to,
+      // Al pasar a retiro se BORRA la dirección. Dejarla ahí "por si acaso"
+      // haría que una pantalla futura pintara un envío que ya no existe.
+      delivery_province: direccion?.province ?? null,
+      delivery_sector: direccion?.sector ?? null,
+      delivery_address: direccion?.address ?? null,
+      delivery_reference: direccion?.reference ?? null,
+      shipping_cost: costoEnvio,
+      total,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("business_id", businessId);
+
+  if (error) return { ok: false, error: "No se pudo cambiar la entrega." };
+  return { ok: true, from: desde, shippingCost: costoEnvio, total };
+}
+
+/**
+ * Lo que el POS necesita para facturar un pedido sin que nadie lo teclee.
+ *
+ * NO lleva importes. El POS vuelve a poner el precio de cada producto de su
+ * propio catálogo, aplica ITBIS y descuentos con sus reglas y escoge lote por
+ * FEFO. Copiar aquí los precios del pedido —de hace días— sería emitir una
+ * factura con cifras que no salen de ninguna parte.
+ */
+export interface WebOrderForPos {
+  id: string;
+  number: string;
+  branchId: string;
+  /** Ficha del ERP, si se pudo enlazar. El POS la preselecciona. */
+  clientId?: string;
+  contactName: string;
+  fulfillment: "pickup" | "delivery";
+  /** Para avisar: el POS no factura el flete como línea. */
+  shippingCost: number;
+  lines: { productId: string; qty: number }[];
+  /** Ya facturado: el POS no debe volver a cobrarlo. */
+  alreadyInvoiced: boolean;
+}
+
+export async function getWebOrderForPos(
+  businessId: string,
+  id: string,
+): Promise<WebOrderForPos | null> {
+  const admin = createServiceRoleClient();
+  if (!admin) return null;
+
+  const { data: pedido } = await admin
+    .from("web_orders")
+    .select(
+      "id, number, branch_id, client_id, contact_name, fulfillment, shipping_cost, status, proforma_id",
+    )
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!pedido) return null;
+  // Un pedido cancelado no se factura. Dejar que el POS lo cargara sería
+  // ofrecer cobrar algo que el negocio ya dijo que no iba a vender.
+  if (pedido.status === "cancelado") return null;
+
+  const { data: lineas } = await admin
+    .from("web_order_items")
+    .select("product_id, qty")
+    .eq("order_id", pedido.id)
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: true });
+
+  return {
+    id: pedido.id,
+    number: pedido.number,
+    branchId: pedido.branch_id,
+    clientId: pedido.client_id ?? undefined,
+    contactName: pedido.contact_name,
+    fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",
+    shippingCost: Number(pedido.shipping_cost ?? 0),
+    lines: (lineas ?? []).map((l) => ({ productId: l.product_id, qty: l.qty })),
+    alreadyInvoiced: Boolean(pedido.proforma_id),
+  };
+}
+
+/**
+ * Deja el documento enlazado al pedido.
+ *
+ * Se llama DESPUÉS de emitir, no antes: el pedido no puede quedar marcado como
+ * facturado por una venta que luego falló. Si esta llamada se pierde, lo que se
+ * pierde es el enlace —molesto— y no la factura.
+ *
+ * Es idempotente con la MISMA proforma: un reintento del navegador no es un
+ * error. Con otra distinta sí lo es, y se rechaza: dos documentos por una venta
+ * es exactamente lo que este módulo existe para evitar.
+ */
+export async function linkProformaToWebOrder(
+  businessId: string,
+  id: string,
+  proformaId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const admin = createServiceRoleClient();
+  if (!admin) return { ok: false, error: "No disponible." };
+
+  const { data: pedido } = await admin
+    .from("web_orders")
+    .select("proforma_id, status")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!pedido) return { ok: false, error: "Pedido no encontrado." };
+
+  if (pedido.proforma_id) {
+    return pedido.proforma_id === proformaId
+      ? { ok: true }
+      : { ok: false, error: "Este pedido ya tiene otra factura enlazada." };
+  }
+
+  // La proforma tiene que ser de este negocio. Sin esto, un id de otro tenant
+  // enlazaría un documento ajeno al pedido.
+  const { data: proforma } = await admin
+    .from("proformas")
+    .select("id")
+    .eq("id", proformaId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!proforma) return { ok: false, error: "Documento no encontrado." };
+
+  const { error } = await admin
+    .from("web_orders")
+    .update({ proforma_id: proformaId, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .is("proforma_id", null);
+
+  if (error) return { ok: false, error: "No se pudo enlazar la factura." };
+  return { ok: true };
+}
+
+/** Número visible del documento con el que se facturó un pedido. */
+export async function proformaNumberFor(
+  businessId: string,
+  proformaId: string,
+): Promise<string | null> {
+  const admin = createServiceRoleClient();
+  if (!admin) return null;
+  const { data } = await admin
+    .from("proformas")
+    .select("number, ecf_number")
+    .eq("id", proformaId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!data) return null;
+  return data.ecf_number?.trim() || data.number;
+}
+
+export interface BranchOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * Sucursales que pueden retirar o despachar, para los selectores del ERP.
+ *
+ * Aquí NO se filtra por `show_on_website`: esa columna decide qué ve el
+ * público, y puertas adentro se puede despachar desde una sucursal que no esté
+ * anunciada en la tienda.
+ */
+export async function listActiveBranches(
+  businessId: string,
+): Promise<BranchOption[]> {
+  const admin = createServiceRoleClient();
+  if (!admin) return [];
+  const { data } = await admin
+    .from("branches")
+    .select("id, name, public_name")
+    .eq("business_id", businessId)
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .order("name", { ascending: true });
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    name: b.public_name?.trim() || b.name,
+  }));
+}
+
+/** Nombre COMERCIAL de cada sucursal, para el ERP. Nunca un UUID en pantalla. */
+export async function branchDisplayNames(
+  businessId: string,
+): Promise<Map<string, string>> {
+  const admin = createServiceRoleClient();
+  if (!admin) return new Map();
+  return nombresDeSucursal(admin, businessId);
 }
 
 /** Nombre COMERCIAL de cada sucursal, para no enseñar UUID en pantalla. */
