@@ -1,0 +1,80 @@
+/**
+ * Extrae de un archivo .sql los objetos que DECLARA, para poder preguntarle a
+ * la base si existen. El historial de migraciones de DermaLand no es fiable
+ * (ver docs/superpowers/specs/2026-08-05-cierre-pendientes-produccion-design.md
+ * §5), así que la fuente de verdad es la base, no el registro.
+ *
+ * Es un extractor por expresiones regulares, no un parser de SQL: suficiente
+ * para una lista de comprobación, insuficiente para ejecutar nada. Por eso el
+ * resultado se PRESENTA para autorización humana y nunca se aplica solo.
+ */
+
+/** Quita comentarios `--` de línea y `/* *\/` de bloque. */
+export function stripSqlComments(sql) {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--[^\n]*/g, " ");
+}
+
+const PATTERNS = [
+  {
+    kind: "table",
+    re: /\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?"?([a-z0-9_]+)"?/gi,
+    name: (m) => m[1],
+  },
+  {
+    kind: "column",
+    re: /\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:public\.)?"?([a-z0-9_]+)"?\s+add\s+column\s+(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?/gi,
+    name: (m) => `${m[1]}.${m[2]}`,
+  },
+  {
+    kind: "function",
+    re: /\bcreate\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([a-z0-9_]+)"?/gi,
+    name: (m) => m[1],
+  },
+  {
+    kind: "policy",
+    re: /\bcreate\s+policy\s+"?([^"\n]+?)"?\s+on\s+(?:public\.)?"?([a-z0-9_]+)"?/gi,
+    name: (m) => `${m[2]}.${m[1]}`,
+  },
+  {
+    kind: "index",
+    re: /\bcreate\s+(?:unique\s+)?index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?\s+on\b/gi,
+    name: (m) => m[1],
+  },
+];
+
+/** Objetos declarados por el SQL, en orden de aparición y sin repetidos. */
+export function extractObjects(sql) {
+  const limpio = stripSqlComments(sql);
+  const hallazgos = [];
+  for (const { kind, re, name } of PATTERNS) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(limpio)) !== null) {
+      hallazgos.push({ kind, name: name(m), at: m.index });
+    }
+  }
+  hallazgos.sort((a, b) => a.at - b.at);
+  const vistos = new Set();
+  const salida = [];
+  for (const { kind, name } of hallazgos) {
+    const clave = `${kind}:${name}`;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    salida.push({ kind, name });
+  }
+  return salida;
+}
+
+/**
+ * PARCIAL es el veredicto que justifica todo este ejercicio: marcar como
+ * "aplicada" una migración a medias convierte un problema visible en invisible.
+ */
+export function classify(objects, existing) {
+  if (objects.length === 0) return "INDETERMINADA";
+  const presentes = objects.filter((o) => existing.has(`${o.kind}:${o.name}`)).length;
+  if (presentes === objects.length) return "APLICADA";
+  if (presentes === 0) return "NO_APLICADA";
+  return "PARCIAL";
+}
