@@ -9,7 +9,7 @@
  * Uso:  node scripts/audit-migrations.mjs
  * Requiere SUPABASE_DB_URL (se lee de apps/web/.env.local si no esta en el entorno).
  */
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -155,12 +155,34 @@ const sinMatchPorNombre = historial.filter((h) => !nombresLocales.has(h.name));
  * cosmeticas minimas entre lo aplicado y el archivo local (comentarios,
  * orden, un IF NOT EXISTS de mas). 0.5 alcanza para no confundir un
  * renombrado real con dos migraciones distintas que por casualidad tocan la
- * misma tabla (comparten 1-2 objetos pero no la mayoria). En esta corrida
- * los 3 renombrados reales dieron jaccard=1.0 y los 4 huerfanos genuinos
- * dieron 0 objetos en comun con cualquier archivo local — la separacion fue
- * limpia, sin casos ambiguos cerca del umbral.
+ * misma tabla (comparten 1-2 objetos pero no la mayoria).
+ *
+ * REVISION (ronda 3): jaccard por si solo no basta cuando la interseccion es
+ * chica. `transfer_stock_atomic` casa con `0032_transfer_atomic` a
+ * jaccard=1.00 sobre UN SOLO objeto (la funcion). Eso es evidencia real en
+ * este caso, pero el mismo patron matematico tambien lo produciria un
+ * hotfix aplicado a produccion sin dejar `.sql` — la forma de drift MAS
+ * COMUN de este repositorio — si por casualidad declara el mismo objeto que
+ * un archivo local ya existente (ej. un registro hipotetico
+ * `hotfix_transfer_atomic_v2` cuyo SQL fuera solo
+ * `create or replace function transfer_stock_atomic(...)`; no existe en la
+ * base real, es el contraejemplo que se uso para probar este cambio). Un
+ * solo objeto en comun, aunque sea jaccard=1.0, no distingue esos dos casos.
+ * Por eso ahora se exige tambien `MIN_INTERSECTION` objetos en comun: los
+ * candidatos que pasan el umbral de jaccard pero no el minimo de objetos NO
+ * se confirman como renombrado — se listan aparte como DUDOSOS para que un
+ * humano decida, en vez de esconderse en "agujero real" o en "cosmetico"
+ * por igual.
+ *
+ * Ademas, el emparejamiento es 1:1: un archivo local no puede quedar
+ * "reclamado" por dos filas del historial. Si dos compiten por el mismo
+ * archivo, gana la de mayor jaccard (empate → mayor interseccion) y la otra
+ * vuelve a "sin archivo local" — ya tuvo su oportunidad de justificarse con
+ * una coincidencia mejor y perdio, asi que no es un caso dudoso, es un
+ * huerfano.
  */
 const RENAME_MATCH_THRESHOLD = 0.5;
+const MIN_INTERSECTION = 2;
 
 const localSinRegistro = filas.filter((f) => !f.version);
 const localObjSets = new Map(
@@ -172,12 +194,12 @@ const localObjSets = new Map(
   ]),
 );
 
-const renombrados = [];
-const huerfanos = [];
+// Paso 1: mejor candidato local por registro (el que alcanza el umbral de
+// jaccard), confirme o no el minimo de objetos todavia.
+const candidatos = [];
+const sinEvidencia = [];
 for (const h of sinMatchPorNombre) {
-  const histObjs = new Set(
-    h.sql_text ? extractObjects(h.sql_text).map((o) => `${o.kind}:${o.name}`) : [],
-  );
+  const histObjs = new Set(h.sql_text ? extractObjects(h.sql_text).map((o) => `${o.kind}:${o.name}`) : []);
   let mejor = null;
   if (histObjs.size > 0) {
     for (const [archivo, objs] of localObjSets) {
@@ -191,19 +213,48 @@ for (const h of sinMatchPorNombre) {
     }
   }
   if (mejor) {
-    renombrados.push({ ...h, ...mejor });
+    candidatos.push({ ...h, ...mejor });
   } else {
-    huerfanos.push(h);
+    sinEvidencia.push(h);
   }
 }
 
+// Paso 2: separar confirmados (>= MIN_INTERSECTION) de dudosos (pasan el
+// umbral de jaccard pero no el minimo de objetos).
+const confirmadosPreConflicto = candidatos.filter((c) => c.interseccion >= MIN_INTERSECTION);
+const dudosos = candidatos.filter((c) => c.interseccion < MIN_INTERSECTION);
+
+// Paso 3: 1:1 — un archivo local solo puede ganarlo un registro. Los que
+// pierden el conflicto vuelven a huerfano real (no a dudoso).
+const porArchivo = new Map();
+for (const c of confirmadosPreConflicto) {
+  const actual = porArchivo.get(c.archivo);
+  if (!actual || c.jaccard > actual.jaccard || (c.jaccard === actual.jaccard && c.interseccion > actual.interseccion)) {
+    porArchivo.set(c.archivo, c);
+  }
+}
+const renombrados = [...porArchivo.values()];
+const versionesGanadoras = new Set(renombrados.map((r) => r.version));
+const perdedoresConflicto = confirmadosPreConflicto.filter((c) => !versionesGanadoras.has(c.version));
+
+const huerfanos = [...sinEvidencia, ...perdedoresConflicto];
+
 // "Archivo sin registro": la otra direccion — archivos locales que NO
 // aparecen en el historial bajo ningun nombre (ni el suyo ni el de un
-// renombrado detectado arriba). Es contabilidad, no un agujero: la mayoria
-// son APLICADA de verdad, solo que a Supabase nunca se le aviso por
-// `supabase migration repair`.
+// renombrado CONFIRMADO detectado arriba; un dudoso NO reserva el archivo).
+// Es contabilidad, no un agujero: la mayoria son APLICADA de verdad, solo
+// que a Supabase nunca se le aviso por `supabase migration repair`.
 const nombresRenombrados = new Set(renombrados.map((r) => r.archivo));
 const archivoSinRegistro = filas.filter((f) => !f.version && !nombresRenombrados.has(f.archivo));
+
+// No es secreto: es el project ref publico de Supabase (aparece asi en toda
+// la documentacion/memoria del proyecto), no la contraseña de Postgres.
+const SUPABASE_PROJECT_REF = "sntcvyozbhrgicwmtcoh";
+// `supabase link` deja un directorio `.temp` dentro de `supabase/`. Sin eso,
+// `migration repair` exige `--db-url`/`-p` en la linea de comandos — que deja
+// la contraseña de produccion en el historial del shell.
+const linked = existsSync(path.join(root, "supabase/.temp"));
+const aplicarSinRegistro = archivoSinRegistro.filter((f) => f.veredicto === "APLICADA");
 
 const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
 const salida = path.join(root, "docs", `migration-audit-${stamp}.md`);
@@ -237,15 +288,38 @@ const lineas = [
   "",
   `Registros del historial que SI tienen un \`.sql\` local — Supabase los`,
   "registro con el nombre de una tabla o funcion en vez del nombre del",
-  `archivo. Emparejados por similitud de objetos (Jaccard >= ${RENAME_MATCH_THRESHOLD},`,
-  "ver comentario en el codigo). No representan un agujero: NO proponer",
-  "`repair` para estos, ya estan registrados (solo que con otro nombre).",
+  `archivo. Emparejados por similitud de objetos (Jaccard >= ${RENAME_MATCH_THRESHOLD} Y al`,
+  `menos ${MIN_INTERSECTION} objetos en comun — un solo objeto en comun, por mas`,
+  "perfecto que sea el jaccard, no es evidencia suficiente por si sola; ver",
+  "seccion Dudosos y el comentario en el codigo). No representan un",
+  "agujero: NO proponer `repair` para estos, ya estan registrados (solo que",
+  "con otro nombre).",
   "",
   renombrados.length
     ? renombrados
         .map(
           (r) =>
             `- \`${r.name}\` (version \`${r.version}\`) → \`${r.archivo}\` (jaccard ${r.jaccard.toFixed(2)}, ${r.interseccion}/${r.total} objetos)`,
+        )
+        .join("\n")
+    : "- Ninguno.",
+  "",
+  "## Dudosos (evidencia insuficiente — revisar a mano)",
+  "",
+  `Registros que superan el umbral de similitud (Jaccard >= ${RENAME_MATCH_THRESHOLD}) contra`,
+  `algun archivo local sin registro, pero con MENOS de ${MIN_INTERSECTION} objetos en`,
+  "comun — muy poca base para confirmar un renombrado. Un jaccard perfecto",
+  "sobre un solo objeto tambien lo daria un hotfix aplicado a produccion sin",
+  "dejar `.sql` que por casualidad declara el mismo objeto (la forma de",
+  "drift MAS COMUN de este repositorio). NO se cuentan como renombrado NI",
+  "como huerfano: ni se asumen resueltos ni se pierden de vista. Decide un",
+  "humano, no el script.",
+  "",
+  dudosos.length
+    ? dudosos
+        .map(
+          (d) =>
+            `- \`${d.name}\` (version \`${d.version}\`) → ¿\`${d.archivo}\`? (jaccard ${d.jaccard.toFixed(2)}, ${d.interseccion}/${d.total} objetos — insuficiente, minimo ${MIN_INTERSECTION})`,
         )
         .join("\n")
     : "- Ninguno.",
@@ -260,13 +334,43 @@ const lineas = [
     ? archivoSinRegistro.map((f) => `- \`${f.archivo}\` → ${f.veredicto}`).join("\n")
     : "- Ninguno.",
   "",
-  "## Comandos de reparacion propuestos — NO EJECUTADOS",
+  "## Reparacion del historial — NINGUN COMANDO EJECUTABLE PROPUESTO",
+  "",
+  `**El proyecto NO esta \`linked\`** (no existe \`supabase/.temp\`). Sin`,
+  "eso, `supabase migration repair` exige `--db-url` o `-p/--password` como",
+  "argumento en la linea de comandos — y eso deja la contraseña de",
+  "produccion en el historial del shell. Forma segura antes de reparar nada:",
   "",
   "```bash",
-  ...archivoSinRegistro
-    .filter((f) => f.veredicto === "APLICADA")
-    .map((f) => `supabase migration repair --status applied ${f.archivo.match(/^\d+/)?.[0] ?? f.archivo}`),
+  `supabase link --project-ref ${SUPABASE_PROJECT_REF}`,
+  "# pide un access token interactivo — nunca la contraseña de Postgres.",
+  "supabase migration repair --status applied <version> --linked",
+  "# NUNCA: supabase migration repair ... --db-url \"postgresql://...\" con",
+  "# la cadena pegada literal. Si hiciera falta --db-url, pasarlo como",
+  "# variable de entorno ya exportada: --db-url \"$SUPABASE_DB_URL\".",
   "```",
+  "",
+  "**Las versiones de `supabase_migrations.schema_migrations` son",
+  "timestamps de 14 digitos** (ej. `20260805020813`). Los archivos locales",
+  "de este repo usan un numero de secuencia de 4 digitos (`0007`, `0008`,",
+  "...) que NO es una version valida para `repair` — un comando con ese",
+  "numero fallaria o, peor, registraria una version que no significa nada.",
+  "Para las migraciones `APLICADA` sin fila en el historial no hay ninguna",
+  "fuente confiable de CUANDO se aplicaron realmente (por definicion: si la",
+  "hubiera, tendrian fila). Inventar un timestamp seria un `repair` mal",
+  "formado contra produccion — peor que no proponer nada. Por eso este",
+  "reporte NO emite comandos: falta que un humano decida que version",
+  "asignarle a cada una (o acepte una version \"de documentacion\", con el",
+  "entendido de que no refleja cuando se aplico de verdad).",
+  "",
+  aplicarSinRegistro.length
+    ? aplicarSinRegistro
+        .map(
+          (f) =>
+            `- \`${f.archivo}\` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr \`repair\`.`,
+        )
+        .join("\n")
+    : "- Ninguna.",
   "",
   "**Requieren decision humana** (no se propone comando):",
   "",
@@ -291,7 +395,10 @@ console.log(`Archivos locales auditados: ${archivos.length}`);
 console.log(`Sin archivo local (agujero real): ${huerfanos.length}`);
 huerfanos.forEach((h) => console.log(`  - ${h.name} (${h.version})`));
 console.log(`Registrado bajo otro nombre (cosmetico): ${renombrados.length}`);
-renombrados.forEach((r) => console.log(`  - ${r.name} -> ${r.archivo} (jaccard ${r.jaccard.toFixed(2)})`));
+renombrados.forEach((r) => console.log(`  - ${r.name} -> ${r.archivo} (jaccard ${r.jaccard.toFixed(2)}, ${r.interseccion} objetos)`));
+console.log(`Dudosos (evidencia insuficiente): ${dudosos.length}`);
+dudosos.forEach((d) => console.log(`  - ${d.name} -> ?${d.archivo} (jaccard ${d.jaccard.toFixed(2)}, ${d.interseccion} objeto(s), min ${MIN_INTERSECTION})`));
 console.log(`Archivo sin registro (contabilidad): ${archivoSinRegistro.length}`);
+console.log(`Proyecto linked: ${linked}. Ningun comando de repair propuesto/emitido (ver reporte).`);
 console.log(`Reporte → ${salida}`);
 console.log("Ningun `repair` fue ejecutado. Revisa el reporte y autoriza.");

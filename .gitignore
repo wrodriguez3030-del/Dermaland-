@@ -8,6 +8,7 @@ out
 .env.local
 .env.production
 .env.*.local
+.env.local.bak.*
 *.log
 npm-debug.log*
 pnpm-debug.log*

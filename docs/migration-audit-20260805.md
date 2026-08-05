@@ -68,13 +68,28 @@ que se aplico algo a produccion sin dejar rastro reconstruible.
 
 Registros del historial que SI tienen un `.sql` local — Supabase los
 registro con el nombre de una tabla o funcion en vez del nombre del
-archivo. Emparejados por similitud de objetos (Jaccard >= 0.5,
-ver comentario en el codigo). No representan un agujero: NO proponer
-`repair` para estos, ya estan registrados (solo que con otro nombre).
+archivo. Emparejados por similitud de objetos (Jaccard >= 0.5 Y al
+menos 2 objetos en comun — un solo objeto en comun, por mas
+perfecto que sea el jaccard, no es evidencia suficiente por si sola; ver
+seccion Dudosos y el comentario en el codigo). No representan un
+agujero: NO proponer `repair` para estos, ya estan registrados (solo que
+con otro nombre).
 
 - `create_inventory_transfers_tables` (version `20260716203725`) → `0010_inventory_transfers` (jaccard 1.00, 7/7 objetos)
-- `transfer_stock_atomic` (version `20260716203746`) → `0032_transfer_atomic` (jaccard 1.00, 1/1 objetos)
 - `purchases_module` (version `20260716213445`) → `0012_purchases` (jaccard 1.00, 18/18 objetos)
+
+## Dudosos (evidencia insuficiente — revisar a mano)
+
+Registros que superan el umbral de similitud (Jaccard >= 0.5) contra
+algun archivo local sin registro, pero con MENOS de 2 objetos en
+comun — muy poca base para confirmar un renombrado. Un jaccard perfecto
+sobre un solo objeto tambien lo daria un hotfix aplicado a produccion sin
+dejar `.sql` que por casualidad declara el mismo objeto (la forma de
+drift MAS COMUN de este repositorio). NO se cuentan como renombrado NI
+como huerfano: ni se asumen resueltos ni se pierden de vista. Decide un
+humano, no el script.
+
+- `transfer_stock_atomic` (version `20260716203746`) → ¿`0032_transfer_atomic`? (jaccard 1.00, 1/1 objetos — insuficiente, minimo 2)
 
 ## Archivo sin registro (contabilidad)
 
@@ -94,20 +109,47 @@ estan `APLICADA` de verdad, solo falta que el historial lo sepa.
 - `0020_sales_incentives` → APLICADA
 - `0021_users_vendedor_role` → INDETERMINADA
 - `0022_customer_sales_relations` → APLICADA
+- `0032_transfer_atomic` → APLICADA
 - `0044_client_phone_uniform_format` → INDETERMINADA
 
-## Comandos de reparacion propuestos — NO EJECUTADOS
+## Reparacion del historial — NINGUN COMANDO EJECUTABLE PROPUESTO
+
+**El proyecto NO esta `linked`** (no existe `supabase/.temp`). Sin
+eso, `supabase migration repair` exige `--db-url` o `-p/--password` como
+argumento en la linea de comandos — y eso deja la contraseña de
+produccion en el historial del shell. Forma segura antes de reparar nada:
 
 ```bash
-supabase migration repair --status applied 0007
-supabase migration repair --status applied 0008
-supabase migration repair --status applied 0011
-supabase migration repair --status applied 0015
-supabase migration repair --status applied 0018
-supabase migration repair --status applied 0019
-supabase migration repair --status applied 0020
-supabase migration repair --status applied 0022
+supabase link --project-ref sntcvyozbhrgicwmtcoh
+# pide un access token interactivo — nunca la contraseña de Postgres.
+supabase migration repair --status applied <version> --linked
+# NUNCA: supabase migration repair ... --db-url "postgresql://..." con
+# la cadena pegada literal. Si hiciera falta --db-url, pasarlo como
+# variable de entorno ya exportada: --db-url "$SUPABASE_DB_URL".
 ```
+
+**Las versiones de `supabase_migrations.schema_migrations` son
+timestamps de 14 digitos** (ej. `20260805020813`). Los archivos locales
+de este repo usan un numero de secuencia de 4 digitos (`0007`, `0008`,
+...) que NO es una version valida para `repair` — un comando con ese
+numero fallaria o, peor, registraria una version que no significa nada.
+Para las migraciones `APLICADA` sin fila en el historial no hay ninguna
+fuente confiable de CUANDO se aplicaron realmente (por definicion: si la
+hubiera, tendrian fila). Inventar un timestamp seria un `repair` mal
+formado contra produccion — peor que no proponer nada. Por eso este
+reporte NO emite comandos: falta que un humano decida que version
+asignarle a cada una (o acepte una version "de documentacion", con el
+entendido de que no refleja cuando se aplico de verdad).
+
+- `0007_audit_logs_insert_policy` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0008_security_advisor_fixes` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0011_invoice_numberings` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0015_cash_movements` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0018_pos_numbering_wiring` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0019_sale_seller` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0020_sales_incentives` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0022_customer_sales_relations` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
+- `0032_transfer_atomic` → APLICADA, sin fila en el historial. Falta decidir su version de 14 digitos antes de poder correr `repair`.
 
 **Requieren decision humana** (no se propone comando):
 
