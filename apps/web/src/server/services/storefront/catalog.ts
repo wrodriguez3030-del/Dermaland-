@@ -139,11 +139,27 @@ function taxonomyCounts(
  * base con la decena de consultas de abajo. La etiqueta permite que el admin de
  * catálogo lo invalide al publicar, en vez de esperar los cinco minutos.
  */
+/**
+ * Versión de lo que hay guardado. **Súbela cuando cambie el SIGNIFICADO del
+ * catálogo cacheado**, no cuando cambie la pantalla.
+ *
+ * Sin esto, al dejar de listar lo agotado la tienda siguió sirviendo el
+ * catálogo viejo: la caché de datos de Vercel sobrevive a los despliegues y la
+ * clave era la misma, así que las entradas escritas por el código anterior se
+ * daban por buenas. El resultado fue una tienda con el código nuevo y los datos
+ * de antes — 626 productos en vez de 359— y desde fuera parecía que el cambio
+ * no se había desplegado.
+ *
+ * Una entrada vieja con otro criterio no está "un poco desactualizada": está
+ * mal. Cambiar la clave es la forma de que no se pueda leer.
+ */
+const VERSION_DEL_CATALOGO = "v2-solo-con-existencia";
+
 export const loadPublishedCatalog = cache(
   async (businessId: string): Promise<PublishedCatalog> =>
     unstable_cache(
       () => leerCatalogoPublicado(businessId),
-      ["storefront-catalog", businessId],
+      ["storefront-catalog", VERSION_DEL_CATALOGO, businessId],
       {
         revalidate: SEGUNDOS_DE_CACHE,
         tags: [STOREFRONT_CATALOG_TAG],
