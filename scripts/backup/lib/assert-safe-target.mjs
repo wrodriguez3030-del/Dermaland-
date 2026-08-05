@@ -9,19 +9,26 @@
  *
  * Ante cualquier duda, aborta. Un simulacro que no corre cuesta minutos; una
  * restauracion sobre datos ajenos cuesta el negocio de otro.
+ *
+ * La huella de tablas propias de DermaLand YA NO se mantiene a mano aqui
+ * (ronda de correccion 1, 2026-08-05): la version anterior tenia 16 de las 83
+ * tablas reales de produccion, y 4 de esos 16 nombres ni siquiera existian
+ * (`sales`, `sale_items`, `categories`, `cash_sessions`). Un restore real
+ * habria abortado siempre por "tablas desconocidas" — falla del lado seguro,
+ * pero deja el flujo inservible, y una guarda que estorba siempre termina
+ * desactivada por alguien con prisa. Ahora se recibe como parametro
+ * `footprint` (Set o array), construido por quien llama a partir de las
+ * migraciones reales — ver lib/dermaland-footprint.mjs. Esta funcion se
+ * mantiene deliberadamente PURA (no lee disco) para que sus pruebas sigan
+ * siendo deterministas: si no se provee `footprint`, deny-by-default aplica
+ * con huella vacia (ninguna tabla se reconoce), nunca con una lista
+ * hardcodeada que alguien pueda olvidar actualizar.
  */
-
-/** Tablas que DermaLand reconoce como suyas (muestra, no lista completa). */
-const HUELLA_DERMALAND = new Set([
-  "businesses", "branches", "users", "clients", "products", "product_lots",
-  "sales", "sale_items", "proformas", "inventory_movements", "audit_logs",
-  "laboratories", "brands", "categories", "cash_sessions", "payments",
-]);
 
 /** Prefijos de otros inquilinos que conviven en supabase-01. */
 const PREFIJOS_AJENOS = [/^csl_/, /^palusa/, /^maintenance_/, /^material_/];
 
-export function assertSafeTarget({ tables, confirm, isProduction }) {
+export function assertSafeTarget({ tables, confirm, isProduction, footprint }) {
   if (isProduction) {
     throw new Error(
       "ABORTADO: el destino es el proyecto de PRODUCCION. El simulacro nunca escribe en produccion.",
@@ -43,7 +50,10 @@ export function assertSafeTarget({ tables, confirm, isProduction }) {
     );
   }
 
-  const desconocidas = lista.filter((t) => !HUELLA_DERMALAND.has(t));
+  // Deny-by-default: sin `footprint` explicito, no se reconoce NINGUNA
+  // tabla (huella vacia) — cualquier tabla presente en el destino aborta.
+  const huella = footprint instanceof Set ? footprint : new Set(footprint ?? []);
+  const desconocidas = lista.filter((t) => !huella.has(t));
   if (desconocidas.length) {
     throw new Error(
       `ABORTADO: el destino contiene tablas desconocidas (${desconocidas.slice(0, 5).join(", ")}). ` +

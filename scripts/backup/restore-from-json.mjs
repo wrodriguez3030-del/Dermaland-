@@ -18,14 +18,20 @@
  * SEGURIDAD: se niega a correr si el destino == el proyecto de .env.local (evita
  * escribir sobre producción por error) y, ademas, exige la guarda compartida
  * lib/assert-safe-target.mjs: el destino no puede contener tablas de otro
- * inquilino (csl-app, PalusaApp) ni tablas desconocidas, y requiere
- * DERMALAND_DR_CONFIRM explicito. Deny-by-default.
+ * inquilino (csl-app, PalusaApp) ni tablas fuera de la huella real de
+ * DermaLand (derivada de supabase/migrations/*.sql, ver
+ * lib/dermaland-footprint.mjs), y requiere DERMALAND_DR_CONFIRM explicito.
+ * Deny-by-default. Si el chequeo de contenido del destino no puede correr
+ * (red, permisos, formato inesperado), se avisa por stderr — ver
+ * lib/list-target-tables.mjs — y se sigue exigiendo la confirmacion manual.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { assertSafeTarget } from "./lib/assert-safe-target.mjs";
+import { buildDermaLandFootprint } from "./lib/dermaland-footprint.mjs";
+import { listTargetTables } from "./lib/list-target-tables.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const require = createRequire(path.join(root, "apps/web/package.json"));
@@ -50,36 +56,17 @@ try {
 
 // Guarda compartida: ademas de no ser produccion, el destino no puede contener
 // datos de otro inquilino (csl-app, PalusaApp conviven en el mismo servidor
-// self-hosted). Ver lib/assert-safe-target.mjs.
-//
-// Para listar las tablas del destino usamos el endpoint raiz de PostgREST
-// (GET {url}/rest/v1/), que devuelve el spec OpenAPI que PostgREST genera
-// automaticamente; sus claves `definitions` son los nombres de tabla/vista
-// expuestos. Es comportamiento documentado de PostgREST/Supabase, no una
-// funcion inventada. Si la llamada falla por lo que sea (red, permisos,
-// formato inesperado), NO se asume que el destino esta vacio: se cae a lista
-// vacia, y la guarda igual exige DERMALAND_DR_CONFIRM. Ante desconocimiento,
-// se aborta salvo confirmacion explicita — nunca se asume "seguro".
-async function listarTablasDestino() {
-  try {
-    const res = await fetch(`${TARGET_URL.replace(/\/$/, "")}/rest/v1/`, {
-      headers: { apikey: TARGET_KEY, Authorization: `Bearer ${TARGET_KEY}` },
-    });
-    if (!res.ok) return [];
-    const spec = await res.json();
-    const definiciones = spec?.definitions;
-    if (!definiciones || typeof definiciones !== "object") return [];
-    return Object.keys(definiciones);
-  } catch {
-    return [];
-  }
-}
-
+// self-hosted) ni tablas fuera de la huella real de DermaLand. Ver
+// lib/assert-safe-target.mjs, lib/dermaland-footprint.mjs y
+// lib/list-target-tables.mjs (ahi esta el detalle de por que NO se usa una
+// RPC `pg_tables_public` — no existe — y por que un fallo al listar las
+// tablas del destino se avisa por stderr en vez de fallar en silencio).
 try {
   assertSafeTarget({
-    tables: await listarTablasDestino(),
+    tables: await listTargetTables({ url: TARGET_URL, key: TARGET_KEY }),
     confirm: process.env.DERMALAND_DR_CONFIRM ?? "",
     isProduction: false,
+    footprint: buildDermaLandFootprint(),
   });
 } catch (e) {
   console.error(e.message);
