@@ -16,12 +16,16 @@
  *   node scripts/backup/restore-from-json.mjs [carpeta_backup]
  *
  * SEGURIDAD: se niega a correr si el destino == el proyecto de .env.local (evita
- * escribir sobre producción por error).
+ * escribir sobre producción por error) y, ademas, exige la guarda compartida
+ * lib/assert-safe-target.mjs: el destino no puede contener tablas de otro
+ * inquilino (csl-app, PalusaApp) ni tablas desconocidas, y requiere
+ * DERMALAND_DR_CONFIRM explicito. Deny-by-default.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { assertSafeTarget } from "./lib/assert-safe-target.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const require = createRequire(path.join(root, "apps/web/package.json"));
@@ -43,6 +47,44 @@ try {
     process.exit(1);
   }
 } catch { /* .env.local ausente: seguir */ }
+
+// Guarda compartida: ademas de no ser produccion, el destino no puede contener
+// datos de otro inquilino (csl-app, PalusaApp conviven en el mismo servidor
+// self-hosted). Ver lib/assert-safe-target.mjs.
+//
+// Para listar las tablas del destino usamos el endpoint raiz de PostgREST
+// (GET {url}/rest/v1/), que devuelve el spec OpenAPI que PostgREST genera
+// automaticamente; sus claves `definitions` son los nombres de tabla/vista
+// expuestos. Es comportamiento documentado de PostgREST/Supabase, no una
+// funcion inventada. Si la llamada falla por lo que sea (red, permisos,
+// formato inesperado), NO se asume que el destino esta vacio: se cae a lista
+// vacia, y la guarda igual exige DERMALAND_DR_CONFIRM. Ante desconocimiento,
+// se aborta salvo confirmacion explicita — nunca se asume "seguro".
+async function listarTablasDestino() {
+  try {
+    const res = await fetch(`${TARGET_URL.replace(/\/$/, "")}/rest/v1/`, {
+      headers: { apikey: TARGET_KEY, Authorization: `Bearer ${TARGET_KEY}` },
+    });
+    if (!res.ok) return [];
+    const spec = await res.json();
+    const definiciones = spec?.definitions;
+    if (!definiciones || typeof definiciones !== "object") return [];
+    return Object.keys(definiciones);
+  } catch {
+    return [];
+  }
+}
+
+try {
+  assertSafeTarget({
+    tables: await listarTablasDestino(),
+    confirm: process.env.DERMALAND_DR_CONFIRM ?? "",
+    isProduction: false,
+  });
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 
 const backupsDir = path.join(root, "backups");
 const dirArg = process.argv[2];
