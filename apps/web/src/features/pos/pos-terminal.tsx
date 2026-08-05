@@ -86,6 +86,7 @@ import {
   getBranchDisplayName,
 } from "@/features/tenancy/branch-store";
 import { NewLotModal } from "@/features/inventory/lot-modals";
+import { pickBillingBranch } from "@/features/storefront/orders/billing-branch";
 
 interface CartLine {
   productId: string;
@@ -490,19 +491,37 @@ export function PosTerminal({
         return;
       }
 
-      // La sucursal del pedido manda: es donde está la mercancía apartada.
-      const destino = pedido.branchId || branchId;
+      // ¿Desde dónde se factura?
+      //
+      // La respuesta obvia —la sucursal del pedido— resulta ser la equivocada
+      // más veces de lo que parece: hay sucursales anunciadas en la tienda con
+      // CERO lotes, así que el cliente puede pedir donde no hay nada. Se busca
+      // la que de verdad puede despachar y se DICE que se cambió.
       const avisos: string[] = [];
-      if (destino !== branchId) {
-        if (canSwitchBranch) {
-          setBranchId(destino);
-        } else {
+      const pedidoBranch = pedido.branchId || branchId;
+      const eleccion = canSwitchBranch
+        ? pickBillingBranch(
+            pedido.lines,
+            pedidoBranch,
+            activeBranches.map((b) => b.id),
+            (productId, sucursal) =>
+              sellableStockForBranch(lots, productId, sucursal),
+          )
+        : { branchId, covered: 0, changed: false };
+
+      const sucursalUsada = eleccion.branchId;
+      if (canSwitchBranch) {
+        if (sucursalUsada !== branchId) setBranchId(sucursalUsada);
+        if (eleccion.changed) {
           avisos.push(
-            `Este pedido es de ${getBranchDisplayName(destino)} y estás facturando en ${branchName}. Pídele a un administrador que cambie la sucursal.`,
+            `El pedido es de ${getBranchDisplayName(pedidoBranch)}, pero la mercancía está en ${getBranchDisplayName(sucursalUsada)}. Se factura desde ahí.`,
           );
         }
+      } else if (pedidoBranch !== branchId) {
+        avisos.push(
+          `Este pedido es de ${getBranchDisplayName(pedidoBranch)} y estás facturando en ${branchName}. Pídele a un administrador que cambie la sucursal.`,
+        );
       }
-      const sucursalUsada = canSwitchBranch ? destino : branchId;
 
       const lineas: CartLine[] = [];
       for (const l of pedido.lines) {
@@ -571,6 +590,7 @@ export function PosTerminal({
     lots,
     activeBranchIds,
     canSwitchBranch,
+    activeBranches,
     setBranchId,
     toast,
   ]);
