@@ -15,6 +15,32 @@
 --   - defaultBillingType: 'consumo' (default) | 'credito_fiscal'.
 --   - skinType estructurado.
 --   - Soft delete via deleted_at.
+--
+-- RENOMBRADO 2026-08-05: antes se llamaba `0002a_clients.sql`. El contenido no
+-- cambio ni una linea; solo cambia el prefijo.
+--
+-- POR QUE. La CLI de Supabase lista las migraciones locales con
+-- /^([0-9]+)_(.*)\.sql$/ y SALTA en silencio (solo aviso por stderr) las que no
+-- casan. La `a` de `0002a` rompia la expresion, asi que `supabase db push` se
+-- saltaba este archivo y la reconstruccion desde cero reventaba en
+-- 0003_dgii_pos.sql —que referencia `clients`— con un error que no señalaba la
+-- causa real.
+--
+-- POR QUE `00030` Y NO LA VERSION DEL HISTORIAL (20260519205927). Porque la
+-- posicion importa mas que el numero. Esta migracion tiene que aplicarse
+-- DESPUES de 0002 y ANTES de 0003: la `a` estaba haciendo ese trabajo. Un
+-- prefijo de 14 digitos ordena despues de TODOS los de 4 (`'0' < '2'`), o sea
+-- que mandaria `clients` al final y romperia las 8 migraciones que dependen de
+-- ella (comprobado: 1 fallo pasa a 23). Y no existe ningun prefijo `0002X_`
+-- que sirva, porque cualquier digito ordena ANTES del `_` en ASCII
+-- (`'9' 0x39 < '_' 0x5F`), asi que `00021_` cae antes de `0002_`. `00030_` es
+-- lo unico que ordena entre `0002_` y `0003_`.
+--
+-- LO QUE SI SE CONSERVA EXACTO ES EL NOMBRE. La CLI deriva de este archivo
+-- `name = 0002a_clients`, que es literalmente el nombre con que figura en
+-- supabase_migrations.schema_migrations (version 20260519205927). El `00030` es
+-- de la misma naturaleza que el `0001`..`0046` del resto del repositorio:
+-- ninguno de esos 46 numeros es tampoco la version registrada.
 -- =============================================================================
 
 create table if not exists clients (

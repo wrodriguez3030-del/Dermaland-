@@ -48,15 +48,28 @@
   de las cuatro migraciones recuperadas (154 líneas: columnas, índices,
   constraints, policies, RLS, bucket y grants) salió **idéntica** entre la base
   reconstruida y producción.
-- **Hallazgo aparte — `0002a_clients.sql` también lo salta la CLI.** Es un
-  archivo **preexistente**, no de los cuatro recuperados, pero cae en la misma
-  trampa: `0002a` lleva letra, así que `/^([0-9]+)_/` no casa. La base lo tiene
-  registrado como versión `20260519205927`, nombre `0002a_clients`. Crea la tabla
-  `clients` (+3 índices, RLS y 2 policies), de la que dependen otras **8**
-  migraciones, así que con `db push` la reconstrucción se cae en
-  `0003_dgii_pos.sql`. Remedio: `git mv supabase/migrations/0002a_clients.sql
-  supabase/migrations/20260519205927_0002a_clients.sql`. **No se aplicó aquí:**
-  es un archivo ajeno a esta tarea y merece su propio cambio.
+- **`0002a_clients.sql` caía en la misma trampa — corregido, pero NO con el
+  mismo remedio.** La `a` de `0002a` rompía `/^([0-9]+)_/`, así que la CLI
+  también lo saltaba; y como crea la tabla `clients`, de la que dependen otras
+  **8** migraciones, con `db push` la reconstrucción reventaba en
+  `0003_dgii_pos.sql` con un error que no señalaba la causa.
+  **Anteponerle su versión registrada (`20260519205927_`) lo empeora:** los
+  prefijos de 14 dígitos ordenan después de todos los de 4, así que `clients`
+  se iba al final y los fallos pasaban de **1 a 23**. Tampoco sirve ningún
+  `0002X_`: cualquier dígito ordena antes del `_` en ASCII (`'9' < '_'`), así
+  que `00021_` cae antes de `0002_`. El único prefijo que ordena **entre**
+  `0002_` y `0003_` es `00030_`, y ese es el que lleva:
+  **`00030_0002a_clients.sql`**. Conserva exacto lo que importa —la CLI deriva
+  `name = 0002a_clients`, el nombre con que figura en el historial— y el
+  `00030` es de la misma naturaleza que los `0001`…`0046` del resto: ninguno de
+  esos 46 números es tampoco la versión registrada.
+- **Los 51 archivos son visibles para la CLI.** Barrido de los 51 nombres contra
+  `/^([0-9]+)_(.*)\.sql$/`: **0 se saltan** (antes se saltaban 4, y luego 1).
+  Es lo único que demuestra que B-07 quedó cerrado por la vía documentada
+  (`supabase db push`) y no solo por un bucle de `psql`.
+- **La reconstrucción es completa, no solo aplicable:** la base levantada desde
+  cero con los 51 archivos tiene **83 tablas en `public`** y producción tiene
+  **83**, con **diferencia cero** en ambos sentidos.
 - **Hallazgo aparte — `0017_backfill_product_laboratories.sql` NO es aplicable.**
   Su `UPDATE products p ... FROM alias a JOIN laboratories l ON ... = p.business_id`
   es SQL inválido: la tabla objetivo no se puede referenciar desde el `ON` de un
@@ -64,8 +77,10 @@
   auditoría la marque `INDETERMINADA` y sin fila en el historial: **nunca corrió
   en ningún sitio**. Es un backfill de datos (asignar laboratorio por el nombre
   del producto), no crea objetos, así que no afecta la reconstrucción del
-  esquema — pero el backfill que prometía **no se hizo**. Queda pendiente de
-  decisión: corregirlo o retirarlo.
+  esquema — pero el backfill que prometía **no se hizo** (611 de 1356 productos
+  siguen sin laboratorio). **Se deja fallando a propósito:** es una decisión de
+  negocio del dueño, no técnica, y que la prueba se detenga ahí hace visible un
+  problema real en vez de taparlo.
 - **Nota sobre el entorno de prueba:** la imagen `supabase/postgres` trae los
   roles y los esquemas, pero no `auth.jwt()` ni las tablas de `storage` (en la
   nube las crean GoTrue y storage-api). Se añadieron al contenedor como andamio
