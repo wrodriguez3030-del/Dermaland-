@@ -3,7 +3,60 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-06-18
+**Última actualización:** 2026-08-05
+
+## 2026-08-05 · B-07 — el repositorio vuelve a reconstruir el esquema
+
+- **El agujero:** `supabase/migrations/` tenía **47** archivos, pero el
+  historial de producción (`supabase_migrations.schema_migrations`) registraba
+  **cuatro migraciones que nunca dejaron un `.sql`**: se aplicaron en su día con
+  `apply_migration` del MCP de Supabase. Con ellas fuera del repositorio, el
+  repositorio **no reconstruía producción desde cero**: faltaban el módulo de
+  Proveedores de IA, el bucket de fotos de producto, la tabla de pagos y el
+  `ON DELETE RESTRICT` del historial fiscal.
+- **La auditoría por objeto** (`scripts/audit-migrations.mjs` →
+  `docs/migration-audit-20260805.md`) las identificó comparando lo que declara
+  cada archivo contra lo que existe de verdad en la base, no por nombre.
+- **Recuperadas (47 → 51 archivos):**
+
+  | Archivo | Versión en el historial | Qué trae |
+  |---|---|---|
+  | `ai_providers_module.sql` | `20260711182946` | 4 tablas `ai_*` + 4 índices + RLS por `business_id` |
+  | `product_images_storage_bucket.sql` | `20260803010512` | bucket `product-images` (público en lectura) + 4 policies en `storage.objects` |
+  | `0042_payments_azul.sql` | `20260804195156` | tabla `payments` + 8 índices + RLS + `revoke` de escritura a `anon`/`authenticated` |
+  | `ecf_events_fk_restrict.sql` | `20260805020813` | FK de `ecf_document_events` → `ON DELETE RESTRICT` |
+
+- **De dónde salió el DDL:** de la columna `statements` del propio historial —
+  el SQL **literal** que se ejecutó — contrastado después objeto por objeto
+  contra el catálogo vivo. No se inventó ni una línea.
+- **Nombres sin renumerar** a propósito: cada archivo conserva el nombre con que
+  la base lo conoce (incluido el `0042` repetido). Reescribir un número ya
+  registrado es lo que creó este desorden.
+- **La prueba:** los **51** archivos se aplicaron en orden sobre un PostgreSQL
+  **17.6 vacío** (contenedor desechable `supabase/postgres:17.6.1.132`,
+  destruido al terminar). **50 de 51 aplican limpio.** La huella de los objetos
+  de las cuatro migraciones recuperadas (154 líneas: columnas, índices,
+  constraints, policies, RLS, bucket y grants) salió **idéntica** entre la base
+  reconstruida y producción.
+- **Hallazgo aparte — `0017_backfill_product_laboratories.sql` NO es aplicable.**
+  Su `UPDATE products p ... FROM alias a JOIN laboratories l ON ... = p.business_id`
+  es SQL inválido: la tabla objetivo no se puede referenciar desde el `ON` de un
+  `JOIN` del `FROM`. Falla siempre, en cualquier base. Encaja con que la
+  auditoría la marque `INDETERMINADA` y sin fila en el historial: **nunca corrió
+  en ningún sitio**. Es un backfill de datos (asignar laboratorio por el nombre
+  del producto), no crea objetos, así que no afecta la reconstrucción del
+  esquema — pero el backfill que prometía **no se hizo**. Queda pendiente de
+  decisión: corregirlo o retirarlo.
+- **Nota sobre el entorno de prueba:** la imagen `supabase/postgres` trae los
+  roles y los esquemas, pero no `auth.jwt()` ni las tablas de `storage` (en la
+  nube las crean GoTrue y storage-api). Se añadieron al contenedor como andamio
+  con las definiciones oficiales de Supabase, **fuera del repositorio**; sin
+  ellas fallaban por entorno seis migraciones ya existentes (0038, 0040, 0041,
+  0045, 0046) además de la recuperada `0042_payments_azul`.
+- **Sigue pendiente** lo que la auditoría dejó a decisión humana: las
+  migraciones `APLICADA` sin fila en el historial necesitan que alguien decida
+  su versión de 14 dígitos antes de poder correr `supabase migration repair`.
+  Eso es contabilidad del historial, no un agujero de reconstrucción.
 
 ## 2026-06-18 · R-SEC-01 Leaked Password Protection — riesgo aceptado (plan Free)
 
