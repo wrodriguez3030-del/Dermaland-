@@ -4,6 +4,7 @@ import {
   extractObjects,
   classify,
 } from "../../../../scripts/lib/migration-objects.mjs";
+import type { MigrationObject } from "../../../../scripts/lib/migration-objects.mjs";
 
 describe("stripSqlComments", () => {
   it("quita comentarios de línea y de bloque", () => {
@@ -129,7 +130,7 @@ describe("extractObjects", () => {
 });
 
 describe("classify", () => {
-  const objs = [
+  const objs: MigrationObject[] = [
     { kind: "table", name: "products" },
     { kind: "column", name: "products.barcode" },
   ];
