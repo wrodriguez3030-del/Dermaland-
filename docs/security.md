@@ -170,13 +170,27 @@ que menos se espera y el que más falta hace explicar.
 ### Cómo se verifica que sigue funcionando
 
 ```bash
-node scripts/test/mfa-break-glass-test.mjs
+DERMALAND_BREAK_GLASS_TEST_CONFIRM=<ref-del-proyecto> \
+  node scripts/test/mfa-break-glass-test.mjs
 ```
 
 Crea usuarios desechables, les enrola un TOTP real, corre el guion como lo
 correría una persona y comprueba lo que quedó en la base; borra todo al final.
-**No toca ninguna cuenta real.** Correrlo antes de cualquier cambio en el
-enforcement de 2FA.
+Correrlo antes de cualquier cambio en el enforcement de 2FA.
+
+> ⚠️ **Escribe en la base a la que apunte `apps/web/.env.local`, que hoy es
+> producción.** No toca ninguna cuenta real —usa las suyas—, pero eso no es lo
+> mismo que "no escribe": durante la corrida inserta un negocio en
+> `businesses`, 3 usuarios en `auth.users` y `public.users`, **3 factores en
+> `auth.mfa_factors`** y filas en `audit_logs`; al final borra todo eso (el
+> `DELETE` de `audit_logs` va acotado al negocio que él mismo creó).
+>
+> Por eso exige confirmación **nombrando el proyecto** (`ref` de la URL de
+> Supabase): sin ella se niega y no escribe nada. Es la misma disciplina
+> deny-by-default de `dr-drill.mjs` y `restore-from-json.mjs`
+> (`DERMALAND_DR_CONFIRM`). Si `auth.mfa_factors` tiene que seguir vacía —el
+> estado previo al despliegue del 2FA obligatorio— **no lo corras contra
+> producción**: apunta un `.env.local` a un proyecto desechable.
 
 ### Orden de activación del 2FA obligatorio (spec §6.2)
 

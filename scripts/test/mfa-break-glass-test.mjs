@@ -19,7 +19,19 @@
  *   - usuario sin negocio → aborta ANTES de retirar el factor, porque un
  *     break-glass sin registro es peor que uno que no se pudo hacer
  *
- * NO toca ningún usuario real. Uso: node scripts/test/mfa-break-glass-test.mjs
+ * ⚠️  ESTO ESCRIBE EN LA BASE A LA QUE APUNTE `apps/web/.env.local`, QUE HOY ES
+ * PRODUCCIÓN. No toca ninguna cuenta real —crea las suyas y las borra—, pero
+ * "no toca cuentas reales" no es lo mismo que "no escribe": durante la corrida
+ * inserta un negocio en `businesses`, 3 usuarios en `auth.users` y en
+ * `public.users`, 3 factores TOTP en `auth.mfa_factors`, filas en `audit_logs`,
+ * y al final las borra (el DELETE de `audit_logs` va acotado al negocio que él
+ * mismo creó).
+ *
+ * Por eso exige confirmación explícita nombrando el proyecto, igual que el
+ * resto de los guiones que pueden tocar datos de verdad. Uso:
+ *
+ *   DERMALAND_BREAK_GLASS_TEST_CONFIRM=<ref-del-proyecto> \
+ *     node scripts/test/mfa-break-glass-test.mjs
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -34,13 +46,51 @@ const { createClient } = require("@supabase/supabase-js");
 const GUION = path.join(root, "scripts", "mfa-break-glass.mjs");
 
 const env = {};
-for (const line of readFileSync(path.join(root, "apps/web/.env.local"), "utf8").split(/\r?\n/)) {
-  const m = line.match(/^([A-Z_0-9]+)=(.*)$/);
-  if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+try {
+  for (const line of readFileSync(path.join(root, "apps/web/.env.local"), "utf8").split(/\r?\n/)) {
+    const m = line.match(/^([A-Z_0-9]+)=(.*)$/);
+    if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, "");
+  }
+} catch {
+  console.error("ABORTADO: no se pudo leer apps/web/.env.local, que es de donde sale el proyecto destino.");
+  process.exit(1);
 }
 const URL_ = env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SRK = env.SUPABASE_SERVICE_ROLE_KEY;
+
+// ─── Guarda deny-by-default ──────────────────────────────────────────────────
+// Este era el único guion de la rama que escribía en producción sin la
+// disciplina de todos sus hermanos (`DERMALAND_DR_CONFIRM` en el simulacro y en
+// el restore, confirmación tecleada en `mfa-break-glass.mjs`): leía .env.local
+// sin preguntar, se hacía un cliente `service_role` y empezaba a insertar. Un
+// `node scripts/test/mfa-break-glass-test.mjs` de más —copiado de la
+// documentación, que además lo pedía "antes de cualquier cambio en el
+// enforcement de 2FA"— escribía en la base real sin una sola confirmación.
+//
+// La confirmación es el REF DEL PROYECTO, no un "si": obliga a mirar a dónde
+// apunta el .env.local antes de correrlo. Escribir mal el ref no destruye
+// nada; correrlo sin mirar, sí puede.
+if (!URL_ || !ANON || !SRK) {
+  console.error(
+    "ABORTADO: faltan NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / " +
+      "SUPABASE_SERVICE_ROLE_KEY en apps/web/.env.local.",
+  );
+  process.exit(1);
+}
+const REF_DESTINO = URL_.replace(/^https?:\/\//, "").split(".")[0];
+if ((process.env.DERMALAND_BREAK_GLASS_TEST_CONFIRM ?? "") !== REF_DESTINO) {
+  console.error(
+    `ABORTADO: esta prueba ESCRIBE en el proyecto "${REF_DESTINO}" (${URL_}).\n` +
+      "  Crea y borra sus propios datos —no toca cuentas reales—, pero durante la corrida\n" +
+      "  inserta un negocio, 3 usuarios de Auth con TOTP enrolado (auth.mfa_factors) y sus\n" +
+      "  fichas, escribe en audit_logs y al final borra todo eso.\n\n" +
+      "  Si ese proyecto es el que quieres tocar, confirmalo nombrandolo:\n" +
+      `    DERMALAND_BREAK_GLASS_TEST_CONFIRM=${REF_DESTINO} node scripts/test/mfa-break-glass-test.mjs`,
+  );
+  process.exit(1);
+}
+
 const admin = createClient(URL_, SRK, { auth: { persistSession: false } });
 const stamp = Math.random().toString(36).slice(2, 8);
 
