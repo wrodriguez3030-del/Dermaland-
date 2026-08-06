@@ -18,6 +18,7 @@ import {
   type WebProductRow,
   type WebTaxonomyRef,
 } from "./public-product";
+import { committedUnitsForCatalog } from "./stock";
 
 /**
  * Carga del catálogo YA PUBLICADO, con service-role acotado por `business_id`.
@@ -153,7 +154,7 @@ function taxonomyCounts(
  * Una entrada vieja con otro criterio no está "un poco desactualizada": está
  * mal. Cambiar la clave es la forma de que no se pueda leer.
  */
-const VERSION_DEL_CATALOGO = "v2-solo-con-existencia";
+const VERSION_DEL_CATALOGO = "v3-descuenta-apalabrado";
 
 export const loadPublishedCatalog = cache(
   async (businessId: string): Promise<PublishedCatalog> =>
@@ -264,6 +265,21 @@ const leerCatalogoPublicado = async (
       lote.product_id,
       (existencias.get(lote.product_id) ?? 0) + lote.current_quantity,
     );
+  }
+
+  // Lo apalabrado en pedidos web abiertos y sin facturar NO está disponible,
+  // aunque el frasco siga en el estante: ya tiene dueño.
+  //
+  // Sin esto el catálogo contaba distinto que el checkout —él sí lo restaba— y
+  // el resultado era ofrecer lo que luego se rechazaba: "Se nos acabó
+  // A-derma Dermalibour Barrier. Quítalo del carrito para seguir", sobre un
+  // producto cuyo último frasco estaba comprometido en el pedido WEB-000023.
+  // Publicar algo que no se va a poder vender es peor que no publicarlo.
+  const comprometido = await committedUnitsForCatalog(sb, businessId);
+  for (const [productId, unidades] of comprometido) {
+    const enEstante = existencias.get(productId);
+    if (enEstante === undefined) continue;
+    existencias.set(productId, Math.max(0, enEstante - unidades));
   }
 
   // ── 4) Marcas y categorías ───────────────────────────────────────────────

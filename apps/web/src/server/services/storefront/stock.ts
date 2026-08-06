@@ -88,6 +88,63 @@ async function cargarLotes(
  * descuenta el inventario de verdad, así que seguir contándolos aquí restaría
  * dos veces la misma mercancía.
  */
+/**
+ * Lo apalabrado de TODO el catálogo, sin filtrar por producto.
+ *
+ * Existe para que el catálogo cuente igual que el checkout. Antes no lo hacía:
+ * el catálogo sumaba lotes a secas y el checkout restaba además lo apalabrado,
+ * así que un producto cuyo último frasco estaba comprometido en un pedido
+ * abierto se anunciaba disponible y luego el checkout lo rechazaba con
+ * "se nos acabó". El cliente veía un producto que el sistema no le iba a vender.
+ *
+ * No filtra por producto a propósito: el catálogo los quiere todos, y el coste
+ * lo marca el número de PEDIDOS ABIERTOS —unos pocos— y no el de productos.
+ */
+export async function committedUnitsForCatalog(
+  admin: NonNullable<ReturnType<typeof createServiceRoleClient>>,
+  businessId: string,
+): Promise<Map<string, number>> {
+  const abiertos = await fetchAllPages<{ id: string }>(async (from, to) => {
+    const { data, error } = await admin
+      .from("web_orders")
+      .select("id")
+      .eq("business_id", businessId)
+      .in("status", ESTADOS_ABIERTOS)
+      .is("proforma_id", null)
+      .order("id", { ascending: true })
+      .range(from, to);
+    if (error) throw error;
+    return data ?? [];
+  });
+
+  const comprometido = new Map<string, number>();
+  const ids = abiertos.map((o) => o.id);
+  if (ids.length === 0) return comprometido;
+
+  for (const partePedidos of chunk(ids, ID_CHUNK)) {
+    const filas = await fetchAllPages<{ product_id: string; qty: number }>(
+      async (from, to) => {
+        const { data, error } = await admin
+          .from("web_order_items")
+          .select("product_id, qty")
+          .eq("business_id", businessId)
+          .in("order_id", partePedidos)
+          .order("id", { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        return data ?? [];
+      },
+    );
+    for (const f of filas) {
+      comprometido.set(
+        f.product_id,
+        (comprometido.get(f.product_id) ?? 0) + f.qty,
+      );
+    }
+  }
+  return comprometido;
+}
+
 async function cargarComprometido(
   admin: NonNullable<ReturnType<typeof createServiceRoleClient>>,
   businessId: string,
