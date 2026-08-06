@@ -107,7 +107,7 @@ Restaura y luego compara producción contra la copia en **7 dimensiones**
 
 | Dimensión | Por qué está | Medido 2026-08-05 |
 |---|---|---|
-| **filas** | conteo exacto por tabla: **las 83 de `public` + las 10 durables de `auth` + las 5 durables de `storage`** (lista y criterio abajo) | 98 tablas · 5,897 filas |
+| **filas** | conteo exacto por tabla: **las 83 de `public` + las 10 durables de `auth` + las 5 durables de `storage`** (lista y criterio abajo) | 98 tablas · 5,900 filas |
 | **funciones** | nombre + firma en `public` | 15 |
 | **políticas** | conteo de RLS por tabla | 106 |
 | **rls** | `relrowsecurity` encendido/apagado — un `DISABLE ROW LEVEL SECURITY` deja las políticas listadas pero sin aplicar | 83/83 de `public` encendido |

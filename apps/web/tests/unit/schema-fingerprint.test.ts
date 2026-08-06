@@ -42,6 +42,11 @@ describe("FINGERPRINT_SQL", () => {
     // Ronda 2: RLS encendido/apagado, hash de USING/WITH CHECK, FK/CHECK.
     expect(FINGERPRINT_SQL).toContain("relrowsecurity");
     expect(FINGERPRINT_SQL).toContain("md5");
+    // `permissive` entra en el hash de la política: PERMISSIVE y RESTRICTIVE
+    // con el mismo USING son la misma cadena y lógicas opuestas (OR vs AND).
+    // Sin esta columna, volver permisiva una política restrictiva daba el
+    // mismo md5 y el comparador decía "sin diferencias".
+    expect(FINGERPRINT_SQL).toContain("permissive");
     expect(FINGERPRINT_SQL).toContain("pg_constraint");
     // Ronda 2: storage.objects (5 políticas de fotos de producto) y
     // auth.users no pueden desaparecer del radar en silencio.

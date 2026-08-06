@@ -230,7 +230,15 @@ select json_build_object(
       select
         (case when schemaname = 'public' then tablename else schemaname || '.' || tablename end)
           || ':' || policyname as clave,
-        md5(coalesce(cmd, '') || '|' || coalesce(array_to_string(roles, ','), '') || '|' ||
+        -- permissive entra en el hash: PERMISSIVE y RESTRICTIVE con el mismo
+        -- USING son la misma cadena de texto y logicas OPUESTAS (las
+        -- permissive se suman con OR, las restrictive se exigen con AND). Sin
+        -- esta columna, convertir una politica restrictiva en permisiva --que
+        -- puede abrir filas de otro inquilino-- daba el mismo md5 y el
+        -- comparador decia "sin diferencias". (Sin comillas invertidas aqui:
+        -- este SQL vive dentro de un template literal de JS.)
+        md5(coalesce(cmd, '') || '|' || coalesce(permissive, '') || '|' ||
+            coalesce(array_to_string(roles, ','), '') || '|' ||
             coalesce(qual, '') || '|' || coalesce(with_check, '')) as hash
       from pg_policies
       where schemaname in ('public', 'storage')

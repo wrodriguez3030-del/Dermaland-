@@ -8,7 +8,7 @@
 | # | Archivo | Introducción |
 |---|---------|--------------|
 | 0001 | `0001_phase1_core.sql` | Tablas core: tenancia (businesses, branches, warehouses), usuarios, audit_logs, planes. RLS y funciones auth. |
-| 0002a | `0002a_clients.sql` | Tabla clients (CRM/clientes), referencias de proformas/e-CF. |
+| 0002a | `00030_0002a_clients.sql` | Tabla clients (CRM/clientes), referencias de proformas/e-CF. Se renombró desde `0002a_clients.sql`: la CLI de Supabase saltaba el nombre viejo **en silencio** (B-07). |
 | 0002 | `0002_phase2_inventory.sql` | Inventario: productos, marcas, laboratorios, lotes, movimientos, conteos físicos, cuarentena, recalls. |
 | 0003 | `0003_dgii_pos.sql` | DGII (e-CF): configuración, certificados, secuencias, POS (cajas, proformas, e-CF, cierres), recepción de facturas. |
 | 0004 | `0004_dgii_permissions_seed.sql` | Tabla `permissions` con 18 permisos DGII/cash (catálogo). |
