@@ -26,8 +26,21 @@ Si el problema fue un cambio de env var (clave rotada, flag mal puesto):
 
 ## 3. Rollback de una migración de esquema
 
-**Antes de cualquier migración a prod:** snapshot obligatorio
-(`node scripts/backup/pg-dump-backup.mjs --label premig-<version>`).
+**Antes de cualquier migración a prod:** snapshot obligatorio, **con
+`--with-drop`**:
+
+```bash
+node scripts/backup/pg-dump-backup.mjs --label premig-<version> --with-drop
+```
+
+> **Por qué `--with-drop` aquí y no en el respaldo diario.** Un snapshot
+> pre-migración existe para restaurarse **encima** de una base que ya tiene
+> objetos — es el único caso para el que ese indicador fue diseñado. Sin él, el
+> archivo no lleva los `DROP … IF EXISTS` de cabecera: cada `CREATE TABLE` choca
+> con la tabla que ya está, el `COPY` que va detrás se cae en cascada y la
+> reversión termina con tablas a medio poblar. El respaldo diario, en cambio,
+> se restaura en un proyecto nuevo y vacío: ahí el indicador solo añade riesgo,
+> y por eso **no** es el comportamiento por defecto (`lib/pg-dump-args.mjs`).
 
 Postgres no revierte DDL solo. Opciones, de menor a mayor impacto:
 
@@ -37,6 +50,38 @@ Postgres no revierte DDL solo. Opciones, de menor a mayor impacto:
 2. **Restaurar el snapshot pre-migración** (ver `docs/backup-and-restore.md`) en un
    proyecto aislado, validar, y —con autorización— repuntar la app o migrar los
    datos buenos de vuelta.
+
+### El comando de reversión, completo
+
+```bash
+# 1. Descifrar SI el respaldo viene de CI: los artifacts se cifran SIEMPRE
+#    (.github/workflows/backup.yml aborta antes que subir nada en claro), así
+#    que el archivo se llama .sql.gz.gpg y `gunzip` solo no lo abre.
+gpg --decrypt backups/dermaland-premig-<version>.sql.gz.gpg > /tmp/premig.sql.gz
+
+# 2. Restaurar DETENIÉNDOSE en el primer error.
+gunzip -c /tmp/premig.sql.gz | psql -v ON_ERROR_STOP=1 "$TARGET_DB_URL"
+echo "salida de psql: $?"     # 0 = restauró sin un solo error
+
+rm -f /tmp/premig.sql.gz      # el descifrado lleva datos personales
+```
+
+> **Los dos indicadores se midieron, no se supusieron** (2026-08-06, en un
+> Postgres 17.6 efímero: base con 3 usuarios → "migración" que borra uno y
+> añade una columna → reversión):
+>
+> | Reversión | Salida de `psql` | Usuarios recuperados | Columna sobrante |
+> |---|---|---|---|
+> | Como estaba documentada (sin `--with-drop`, sin `ON_ERROR_STOP`) | **0** ✅ | **2 de 3** ❌ | sigue ahí ❌ |
+> | Como queda documentada aquí | 0 ✅ | **3 de 3** ✅ | eliminada ✅ |
+>
+> La primera fila es el motivo de esta corrección: `psql` imprimió **6 errores,
+> se los tragó y salió 0**. El operador ve una reversión exitosa y se va a
+> dormir con un usuario perdido. Es el modo de fallo más caro que hay, porque
+> nadie vuelve a revisar algo que salió bien.
+>
+> Si la salida no es 0, **no se repunta la app**: se investiga con el log
+> completo antes de tocar nada más.
 
 > Las migraciones de DermaLand son **aditivas** (nuevas tablas/columnas/índices,
 > `CREATE OR REPLACE` de funciones). Ninguna hace `DROP`/`DELETE` de datos, así que
@@ -66,12 +111,16 @@ Si hay que **detener el piloto** rápido sin borrar nada:
 1. Vercel → poner el proyecto en mantenimiento (o redeploy de una página estática
    de "en mantenimiento") **o** revertir al sistema anterior del cliente.
 2. Apagar integraciones externas por env var (DGII ambiente, `AI_ENABLED=false`).
-3. Sacar el último backup (`pg-dump-backup.mjs`) para congelar el estado.
+3. Congelar el estado con un backup: `node scripts/backup/pg-dump-backup.mjs
+   --label killswitch-<fecha> --with-drop` — **con `--with-drop`** por lo mismo
+   que el snapshot pre-migración: si algún día hay que devolverlo, será encima
+   de una base que ya tiene objetos.
 4. Investigar con `docs/security/incident-response.md`.
 
 ## Checklist antes de cada deploy a producción
 
 - [ ] Tests verdes (`npx vitest run`), typecheck y `build` OK.
-- [ ] Si hay migración: snapshot `premig-<version>` tomado y guardado externo.
+- [ ] Si hay migración: snapshot `premig-<version>` **con `--with-drop`** tomado
+      y guardado externo.
 - [ ] Identificado el "último deploy bueno" al que volver.
 - [ ] Deploy en horario de bajo tráfico; alguien monitoreando 30 min después.

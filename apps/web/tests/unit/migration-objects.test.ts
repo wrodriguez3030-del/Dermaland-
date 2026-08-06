@@ -1,0 +1,183 @@
+import { describe, it, expect } from "vitest";
+import {
+  stripSqlComments,
+  extractObjects,
+  classify,
+} from "../../../../scripts/lib/migration-objects.mjs";
+import type { MigrationObject } from "../../../../scripts/lib/migration-objects.mjs";
+
+describe("stripSqlComments", () => {
+  it("quita comentarios de línea y de bloque", () => {
+    const sql = `
+      -- create table fantasma (id uuid);
+      create table real (id uuid);
+      /* create table otro_fantasma (id uuid); */
+    `;
+    const limpio = stripSqlComments(sql);
+    expect(limpio).not.toContain("fantasma");
+    expect(limpio).toContain("real");
+  });
+});
+
+describe("extractObjects", () => {
+  it("reconoce tablas, columnas, funciones, políticas e índices", () => {
+    const sql = `
+      create table if not exists public.products (id uuid primary key);
+      alter table public.products add column if not exists barcode text;
+      create or replace function public.emit_sale_atomic() returns void as $$ begin end; $$ language plpgsql;
+      create policy "p_select" on public.products for select using (true);
+      create unique index idx_products_barcode on public.products (barcode);
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "table", name: "products" },
+      { kind: "column", name: "products.barcode" },
+      { kind: "function", name: "emit_sale_atomic" },
+      { kind: "policy", name: "products.p_select" },
+      { kind: "index", name: "idx_products_barcode" },
+    ]);
+  });
+
+  it("reconoce vistas y vistas materializadas (caso real 0002_phase2_inventory.sql)", () => {
+    // Sin este `kind`, la huella de scripts/backup/lib/dermaland-footprint.mjs
+    // no conocía `inventory_stock_by_lot` y la guarda de destino la trataba
+    // como una relación AJENA: toda restauración legítima abortaba.
+    const sql = `
+      create or replace view inventory_stock_by_lot as
+        select business_id, id as lot_id from product_lots;
+      create materialized view public.resumen_ventas as select 1 as n;
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "view", name: "inventory_stock_by_lot" },
+      { kind: "view", name: "resumen_ventas" },
+    ]);
+  });
+
+  it("no confunde `create view` con `create table` ni al revés", () => {
+    const sql = `
+      create table product_lots (id uuid primary key);
+      create view v_lotes as select id from product_lots;
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "table", name: "product_lots" },
+      { kind: "view", name: "v_lotes" },
+    ]);
+  });
+
+  it("ignora DDL comentado", () => {
+    expect(extractObjects("-- create table fantasma (id uuid);")).toEqual([]);
+  });
+
+  it("devuelve vacío para una migración que solo inserta datos", () => {
+    const seed = `insert into public.laboratories (name) values ('ISDIN');`;
+    expect(extractObjects(seed)).toEqual([]);
+  });
+
+  it("captura TODAS las cláusulas add column de un alter table con varias (caso real 0019_sale_seller.sql)", () => {
+    const sql = `
+      alter table proformas
+        add column if not exists seller_id uuid references users(id),
+        add column if not exists seller_name text;
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "column", name: "proformas.seller_id" },
+      { kind: "column", name: "proformas.seller_name" },
+    ]);
+  });
+
+  it("captura las 7 columnas de un alter table con 7 cláusulas add column (caso real 0014_billing_settings_ecf.sql)", () => {
+    const sql = `
+      alter table cash_closings
+        add column if not exists ecf_percentage numeric(5,2),
+        add column if not exists ecf_strategy text,
+        add column if not exists ecf_target_amount numeric(14,2),
+        add column if not exists ecf_generated_amount numeric(14,2),
+        add column if not exists ecf_pending_amount numeric(14,2),
+        add column if not exists ecf_rounding_difference numeric(14,2),
+        add column if not exists ecf_generation_status text;
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "column", name: "cash_closings.ecf_percentage" },
+      { kind: "column", name: "cash_closings.ecf_strategy" },
+      { kind: "column", name: "cash_closings.ecf_target_amount" },
+      { kind: "column", name: "cash_closings.ecf_generated_amount" },
+      { kind: "column", name: "cash_closings.ecf_pending_amount" },
+      { kind: "column", name: "cash_closings.ecf_rounding_difference" },
+      { kind: "column", name: "cash_closings.ecf_generation_status" },
+    ]);
+  });
+
+  it("conserva el esquema storage en vez de perderlo (caso real 0046_dgii_xml_storage.sql)", () => {
+    // Bug real: `on storage.objects` capturaba "storage" como si fuera la
+    // tabla y perdia ".objects" -> `fingerprint()` nunca encontraba la clave
+    // y la migracion salia NO_APLICADA aunque SI estuviera aplicada.
+    const sql = `
+      insert into storage.buckets (id, name, public) values ('dgii-xml', 'dgii-xml', false);
+      drop policy if exists dgii_xml_select on storage.objects;
+      create policy dgii_xml_select
+        on storage.objects for select
+        using (bucket_id = 'dgii-xml');
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "policy", name: "storage.objects.dgii_xml_select" },
+    ]);
+  });
+
+  it("crea tabla en un esquema no-public conservando el esquema en el nombre", () => {
+    expect(extractObjects("create table if not exists storage.foo (id uuid primary key);")).toEqual([
+      { kind: "table", name: "storage.foo" },
+    ]);
+  });
+
+  it("sigue recortando public. en tabla y politica (no rompe el comportamiento previo)", () => {
+    const sql = `
+      create table if not exists public.products (id uuid primary key);
+      create policy "p_select" on public.products for select using (true);
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "table", name: "products" },
+      { kind: "policy", name: "products.p_select" },
+    ]);
+  });
+
+  it("distingue dos sentencias alter table sobre tablas distintas en el mismo archivo", () => {
+    const sql = `
+      alter table clients
+        add column if not exists credit_limit numeric(14,2),
+        add column if not exists credit_days integer;
+      alter table proformas
+        add column if not exists due_date date;
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "column", name: "clients.credit_limit" },
+      { kind: "column", name: "clients.credit_days" },
+      { kind: "column", name: "proformas.due_date" },
+    ]);
+  });
+});
+
+describe("classify", () => {
+  const objs: MigrationObject[] = [
+    { kind: "table", name: "products" },
+    { kind: "column", name: "products.barcode" },
+  ];
+
+  it("APLICADA cuando todos sus objetos existen", () => {
+    const existing = new Set(["table:products", "column:products.barcode"]);
+    expect(classify(objs, existing)).toBe("APLICADA");
+  });
+
+  it("NO_APLICADA cuando no existe ninguno", () => {
+    expect(classify(objs, new Set())).toBe("NO_APLICADA");
+  });
+
+  it("PARCIAL cuando existen unos sí y otros no", () => {
+    expect(classify(objs, new Set(["table:products"]))).toBe("PARCIAL");
+  });
+
+  it("INDETERMINADA cuando la migración no declara objetos", () => {
+    // Una migración de solo datos (ej. 0016_laboratories_seed) no declara
+    // objetos. Sin este caso, "cero de cero existen" se clasificaría como
+    // APLICADA y un `repair` la marcaría aplicada sin haberlo comprobado.
+    expect(classify([], new Set(["table:products"]))).toBe("INDETERMINADA");
+  });
+});

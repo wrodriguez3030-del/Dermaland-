@@ -10,6 +10,78 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.130.0] - 2026-08-06
+
+**Los tres bloqueadores que quedaban con "confía en mí" ahora tienen una prueba
+real detrás — y uno de los tres sigue sin encender la llave.**
+
+### B-01 (respaldos): la restauración se probó de verdad, no solo se generó
+
+`scripts/backup/dr-drill.mjs` restaura un respaldo fresco de producción en un
+contenedor Docker desechable y compara **7 dimensiones** contra producción:
+**98 tablas rastreadas, 5.900 filas, 106 políticas RLS, 15 funciones, 219
+índices, 325 restricciones — 0 errores de restauración, 0 diferencias**
+(`docs/dr-drill-20260805.md`, veredicto **PASA**, corrido 3 veces). Verificado
+contra **5 sabotajes distintos** (filas borradas, RLS apagada, índice
+eliminado, política cambiada a `USING (true)`, FK eliminada) → los 5
+detectados. El arenero se autodestruye si el proceso local muere de golpe:
+probado con `SIGKILL` real, 35 s. El dump que usa el respaldo nocturno dejó de
+ser destructivo por defecto (`--clean --if-exists` ya no es el default; hace
+falta `--with-drop` explícito). **Queda fuera a propósito:** roles del clúster
+(`pg_dumpall -g`) y los binarios de Storage. **El cron diario sigue
+desactivado** hasta fusionar la versión endurecida del workflow a `main`.
+
+### B-07 (migraciones): el repositorio vuelve a reconstruir producción desde cero
+
+`scripts/audit-migrations.mjs` audita por objeto contra la base real, no por
+el historial. Se recuperaron **4 migraciones** aplicadas por MCP que nunca
+dejaron un `.sql` en el repo, y se renombraron **5 archivos** que la CLI de
+Supabase saltaba en silencio — con el nombre viejo, `supabase db push` habría
+reconstruido una base sin el módulo de Proveedores de IA, sin el bucket de
+fotos de producto, y reventando a mitad de camino. Hoy: **51 archivos, 0
+saltados**. Reconstrucción verificada en un PostgreSQL 17.6 vacío y
+desechable: **83 tablas frente a 83 de producción, delta cero**, 106 políticas
+con hash idéntico. La huella de tablas que usa la guarda de destino de DR
+ahora se deriva de las migraciones del repo en vez de mantenerse a mano —
+la lista vieja tenía 4 nombres de tabla que ni siquiera existían.
+**Pendiente del dueño:** autorizar `supabase migration repair` para 3
+migraciones marcadas PARCIALES. **Hallazgo de negocio, no técnico:** el
+backfill de laboratorio nunca corrió (SQL inválido) — 611 de 1.356 productos
+activos (45,1 %) siguen sin laboratorio asignado.
+
+### B-04 (2FA): obligatorio para admin, con salida de emergencia — cerrado en código, sin desplegar
+
+2FA pasa a ser obligatorio para `admin`/`super_admin`/`is_platform_admin`
+(opcional para el resto, fail-open conservado). En vez de códigos de
+recuperación estáticos que alguien puede perder o robar, la recuperación de
+emergencia es una acción operativa auditada: `scripts/mfa-break-glass.mjs`
+retira el segundo factor de un usuario nombrado con la `service_role_key`,
+confirmación interactiva y rastro completo en `audit_logs` — probado **16/16**
+contra Supabase real con usuarios desechables. Durante el trabajo se cerró un
+**bypass completo del 2FA** (con la contraseña robada se podía retirar el
+factor de la víctima y enrolar el propio) y **tres formas distintas de quedar
+encerrado fuera del sistema**, dos ya presentes en producción antes de esta
+tarea.
+
+**Este bloqueador se queda a medias a propósito:** el código está probado,
+pero el enforcement **no está desplegado**. Activarlo depende de tres pasos
+del dueño, en este orden y sin saltarse ninguno (spec §6.2): enrolar su
+propio 2FA, probar el break-glass contra su propia cuenta con él presente, y
+recién entonces autorizar el despliegue. Son 3 los administradores reales en
+producción, no 2 como decía el informe anterior — uno es una cuenta de prueba
+con rol de administrador efectivo, y queda como decisión pendiente del dueño
+si se borra.
+
+### Ocho riesgos nuevos documentados
+
+`docs/riesgos.md` gana ocho entradas abiertas que salieron de construir lo de
+arriba: la cuenta de prueba con rol admin, el usuario de Preview sin
+enrolar, la `service_role_key` como punto único de fallo del 2FA, el
+enforcement que solo vive en el middleware (125 rutas de API y 6 acciones de
+servidor sin comprobar el nivel de garantía), el `matcher` que deja pasar
+rutas con extensión de imagen, una columna que nadie escribe, el respaldo
+diario desactivado, y PITR inexistente en el plan Free.
+
 ## [0.129.0] - 2026-08-04
 
 **La tienda dice qué vende, y solo enseña lo que tiene.**

@@ -1,0 +1,245 @@
+/**
+ * Guardas del simulacro de recuperacion (B-01).
+ *
+ * `assertSafeTarget` protege el DESTINO (no escribir donde no se debe) y
+ * `diffFingerprints` compara dos huellas. Entre las dos queda un hueco que una
+ * ronda de re-revision (2026-08-05) senalo, y que estas dos funciones cierran:
+ *
+ *   1. Nadie verificaba que ORIGEN y DESTINO fueran clusters distintos.
+ *      `diffFingerprints(prod, prod)` devuelve `ok: true` — un simulacro
+ *      apuntado dos veces a produccion se aprueba a si mismo y no prueba
+ *      absolutamente nada. Se compara el `system_identifier` del cluster
+ *      (pg_control_system()), que es unico por cluster e independiente del
+ *      DSN: cambiar de host, de puerto o de usuario no lo altera, asi que
+ *      no se puede burlar escribiendo la misma base de dos maneras.
+ *
+ *   2. `diffFingerprints` ya rechaza huellas de produccion DEGENERADAS
+ *      (dimension vacia o ausente), pero una huella SIMBOLICA — una tabla,
+ *      una politica — la pasa: no esta vacia. Y contra una huella simbolica
+ *      "no falta nada" se cumple trivialmente. Hace falta un piso de
+ *      MAGNITUD, no solo de presencia.
+ *
+ * Ambas lanzan; no devuelven banderas. Un simulacro que sigue adelante con
+ * una advertencia impresa es un simulacro que alguien va a leer como
+ * aprobado.
+ *
+ * Se mantienen PURAS (no leen disco, no abren conexiones) para que sus
+ * pruebas unitarias sean deterministas, igual que assert-safe-target.mjs.
+ */
+
+/**
+ * Piso de magnitud por defecto, deliberadamente por DEBAJO de la realidad
+ * medida el 2026-08-05 contra produccion: **98 tablas rastreadas** (83 en
+ * `public` + 10 durables de `auth` + 5 durables de `storage`, ver
+ * schema-fingerprint.mjs) y 106 politicas RLS (101 en `public` + 5 en
+ * storage.objects). El margen existe para que borrar una tabla legitima no
+ * rompa el simulacro, pero cualquier huella simbolica o truncada queda fuera
+ * por goleada.
+ *
+ * El piso se queda en 80 aunque la realidad haya subido de 86 a 98 (revision 4
+ * de la huella), y no es dejadez: esta guarda existe para rechazar una huella
+ * de produccion DEGENERADA, no para ser un cable trampa fino. De que falte una
+ * tabla concreta ya se encarga `diffFingerprints`, que las reporta UNA POR UNA
+ * con su nombre — incluido el caso de perder `auth` y `storage` enteros (98 →
+ * 83), que quedaria por encima de este piso pero saldria como 15 tablas
+ * ausentes. Subir el piso solo acercaria un falso positivo el dia que se borre
+ * una tabla de verdad, sin detectar nada que el diff no detecte ya.
+ */
+export const MIN_TABLAS = 80;
+export const MIN_POLITICAS = 100;
+
+/**
+ * Limites del contrato de vida del arenero, en segundos (ver el vigilante en
+ * dr-drill.mjs). El maximo es el techo de cuanto puede sobrevivir un arenero
+ * con datos de produccion dentro si el proceso local muere de golpe.
+ */
+export const LEASE_MAXIMO = 300;
+export const LEASE_MINIMO = 30;
+
+/**
+ * Resuelve el contrato a partir de lo que diga el entorno, ACOTADO.
+ *
+ * La propiedad que importa, y por la que esto es una funcion pura con pruebas
+ * en vez de una linea suelta: el entorno puede hacer el contrato mas ESTRICTO,
+ * nunca mas laxo. `DR_LEASE_SEGUNDOS=99999` no alarga la exposicion; se queda
+ * en LEASE_MAXIMO. Una variable de entorno —o un error de dedo— no puede
+ * debilitar la unica garantia que cubre el caso en que nadie limpia: el SIGKILL.
+ *
+ * El piso evita lo contrario: un contrato tan corto que el vigilante destruya
+ * el arenero a mitad de un paso sano.
+ *
+ * @param {unknown} crudo valor del entorno, sin validar
+ */
+export function calcularLease(crudo) {
+  const n = Number(crudo);
+  if (!Number.isFinite(n) || n <= 0) return LEASE_MAXIMO;
+  return Math.min(LEASE_MAXIMO, Math.max(LEASE_MINIMO, Math.floor(n)));
+}
+
+/** Normaliza el identificador de cluster a texto comparable. */
+function sysid(identidad) {
+  if (identidad === null || typeof identidad !== "object") return null;
+  const v = identidad.sysid;
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s === "" ? null : s;
+}
+
+/**
+ * Exige que el cluster de ORIGEN (produccion) y el de DESTINO (el arenero)
+ * sean distintos. Lanza si son el mismo, o si la identidad de cualquiera de
+ * los dos no se pudo establecer: comparar a ciegas es peor que no comparar.
+ *
+ * @param {{ origen: unknown, destino: unknown }} args
+ */
+export function assertOrigenDistinto({ origen, destino }) {
+  const a = sysid(origen);
+  const b = sysid(destino);
+
+  if (a === null || b === null) {
+    const cual = a === null && b === null ? "origen y destino" : a === null ? "el origen" : "el destino";
+    throw new Error(
+      `ABORTADO: no se pudo establecer la identidad del cluster de ${cual} ` +
+        "(system_identifier vacio o ausente). Sin identidad no hay forma de probar que se comparan " +
+        "dos bases distintas, y un simulacro que se compara consigo mismo aprueba siempre.",
+    );
+  }
+
+  if (a === b) {
+    throw new Error(
+      `ABORTADO: origen y destino son el MISMO cluster (system_identifier ${a}). ` +
+        "Comparar produccion contra si misma da 'todo cuadra' sin haber restaurado nada. " +
+        "Revisa a que base apunta el arenero.",
+    );
+  }
+}
+
+/**
+ * Misma comparacion que hace `assertOrigenDistinto`, pero como predicado.
+ *
+ * Existe para que `assertSafeTarget({ isProduction })` reciba un HECHO MEDIDO
+ * en vez de un `false` escrito a mano. Ronda de correccion 2 (2026-08-06)
+ * encontro que `isProduction` —la rama mas ruidosa de la guarda— estaba fijada
+ * a `false` en sus tres llamadores reales y solo valia `true` en una prueba:
+ * la guarda decia proteger produccion y en la practica nadie se lo preguntaba.
+ *
+ * Devuelve `false` cuando alguna identidad falta: quien llama no debe
+ * interpretar "no se pudo comparar" como "no es produccion", y para eso esta
+ * `assertOrigenDistinto`, que en ese caso LANZA.
+ */
+export function esElMismoCluster({ origen, destino }) {
+  const a = sysid(origen);
+  const b = sysid(destino);
+  return a !== null && b !== null && a === b;
+}
+
+/**
+ * Nombre de host de un destino escrito de cualquiera de las formas que se usan
+ * en este repo: URL (`https://ref.supabase.co`), DSN
+ * (`postgresql://u:p@host:5432/db`), `usuario@host` de ssh, o el host suelto.
+ *
+ * @returns {string|null} host en minusculas, o null si no se pudo determinar.
+ */
+export function hostDeDestino(valor) {
+  const s = String(valor ?? "").trim();
+  if (s === "") return null;
+
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) {
+    try {
+      const h = new URL(s).hostname.toLowerCase();
+      return h === "" ? null : h;
+    } catch {
+      return null;
+    }
+  }
+
+  // `usuario@host`, `host:puerto` o `host` pelado.
+  const sinUsuario = s.includes("@") ? s.slice(s.lastIndexOf("@") + 1) : s;
+  const sinPuerto = sinUsuario.replace(/:\d+$/, "").replace(/\/.*$/, "");
+  const h = sinPuerto.trim().toLowerCase();
+  return h === "" ? null : h;
+}
+
+/**
+ * Referencia de proyecto Supabase: primera etiqueta del host, y SOLO para
+ * hosts de Supabase. Restringirlo evita el falso positivo de dos hosts
+ * cualesquiera que compartan primera etiqueta (`db.uno.com` / `db.dos.com`),
+ * que en una guarda deny-by-default se paga bloqueando trabajo legitimo — el
+ * mismo error que ya obligo a rehacer la huella.
+ */
+function refSupabaseDeHost(host) {
+  if (!/(^|\.)supabase\.(co|com|net)$/.test(host)) return null;
+  const primera = host.split(".")[0];
+  return primera === "" ? null : primera;
+}
+
+/**
+ * ¿El destino es el mismo sistema que produccion?
+ *
+ * Compara host completo y, si difieren, la referencia de proyecto Supabase
+ * (primera etiqueta): `https://ref.supabase.co` y `ref.pooler.supabase.com`
+ * son el mismo proyecto escrito de dos maneras.
+ *
+ * @returns {boolean|null} `null` cuando no se pudo determinar alguno de los
+ *   dos lados. Es deliberado que NO devuelva `false` ahi: quien llama tiene
+ *   que fallar cerrado, no seguir adelante creyendo que el destino es seguro.
+ */
+export function esDestinoProduccion({ destino, produccion }) {
+  const hd = hostDeDestino(destino);
+  const hp = hostDeDestino(produccion);
+  if (hd === null || hp === null) return null;
+  if (hd === hp) return true;
+  const rd = refSupabaseDeHost(hd);
+  const rp = refSupabaseDeHost(hp);
+  return rd !== null && rp !== null && rd === rp;
+}
+
+/** Suma numerica tolerante de los valores de un objeto. */
+function suma(obj) {
+  if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return 0;
+  return Object.values(obj).reduce((acc, v) => {
+    const n = Number(v);
+    return acc + (Number.isFinite(n) ? n : 0);
+  }, 0);
+}
+
+/**
+ * Exige que la huella de produccion tenga una magnitud CREIBLE antes de dar
+ * por bueno el simulacro. `diffFingerprints` ya rechaza lo vacio; esto
+ * rechaza lo simbolico.
+ *
+ * @param {unknown} prod huella de produccion ya parseada
+ * @param {{ minTablas?: number, minPoliticas?: number }} [opts]
+ */
+export function assertMagnitudCreible(prod, { minTablas = MIN_TABLAS, minPoliticas = MIN_POLITICAS } = {}) {
+  if (prod === null || typeof prod !== "object" || Array.isArray(prod)) {
+    throw new Error(
+      "ABORTADO: la huella de produccion no es un objeto. No hay nada que medir — " +
+        "revisa que la consulta se haya ejecutado y su JSON se haya parseado.",
+    );
+  }
+
+  const filas = prod.filas;
+  const tablas =
+    filas !== null && typeof filas === "object" && !Array.isArray(filas) ? Object.keys(filas).length : 0;
+  const politicas = suma(prod.politicas);
+
+  const faltas = [];
+  if (tablas < minTablas) {
+    faltas.push(`solo ${tablas} tablas rastreadas (minimo creible: ${minTablas})`);
+  }
+  if (politicas < minPoliticas) {
+    faltas.push(`solo ${politicas} politicas RLS (minimo creible: ${minPoliticas})`);
+  }
+
+  if (faltas.length > 0) {
+    throw new Error(
+      `ABORTADO: la huella de produccion es demasiado pequena para ser real — ${faltas.join(" y ")}. ` +
+        "DermaLand en produccion tiene 98 tablas rastreadas y 106 politicas. Una huella asi de corta " +
+        "significa que la consulta no vio el esquema real (DSN equivocado, permisos, base a medio " +
+        "restaurar): contra ella 'no falta nada' se cumple sin haber probado nada.",
+    );
+  }
+
+  return { tablas, politicas };
+}

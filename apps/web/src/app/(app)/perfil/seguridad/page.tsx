@@ -5,7 +5,10 @@ import { ShieldCheck, ShieldAlert, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button, Card, CardContent, Input, Label } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
+import { useCurrentUser } from "@/features/auth/current-user";
+import { requiere2fa } from "@/lib/auth/mfa-gate";
 import { createClient } from "@/lib/supabase/client";
+import { safeNext } from "@/lib/utils/safe-next";
 
 /**
  * B-04: Seguridad de la cuenta — activar/desactivar 2FA (TOTP).
@@ -20,11 +23,29 @@ type Factor = { id: string; friendly_name?: string; status: string };
 export default function SeguridadPage() {
   const toast = useToast();
   const supabase = createClient();
+  const usuario = useCurrentUser();
+  const obligatorio = requiere2fa({
+    role: usuario.role,
+    isPlatformAdmin: usuario.isPlatformAdmin,
+  });
   const [factors, setFactors] = useState<Factor[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<{ factorId: string; qr: string; secret: string } | null>(null);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  // A dónde volver tras enrolarse. Esta página es el destino de la puerta 2FA
+  // (`?next=/la-ruta-que-pedía`). Se lee en un efecto y no en el render para no
+  // romper la hidratación: servidor y primer render cliente coinciden.
+  const [next, setNext] = useState("/");
+  const [vinoDeLaPuerta, setVinoDeLaPuerta] = useState(false);
+
+  useEffect(() => {
+    const crudo = new URLSearchParams(window.location.search).get("next");
+    if (crudo) {
+      setNext(safeNext(crudo));
+      setVinoDeLaPuerta(true);
+    }
+  }, []);
 
   const refresh = async () => {
     if (!supabase) { setLoading(false); return; }
@@ -57,6 +78,13 @@ export default function SeguridadPage() {
     if (vr.error) { toast.error("Código incorrecto. Revisá la hora del teléfono e intentá de nuevo."); return; }
     toast.success("2FA activado. Te pediremos el código en tu próximo inicio de sesión.");
     setEnrolling(null); setCode("");
+    if (vinoDeLaPuerta) {
+      // `verify` eleva la sesión a aal2 y reescribe la galleta. Recarga
+      // COMPLETA —no navegación de cliente— para que el middleware lea la
+      // galleta nueva y el administrador entre por fin donde iba.
+      window.location.href = next;
+      return;
+    }
     void refresh();
   }
 
@@ -103,6 +131,12 @@ export default function SeguridadPage() {
                   </Button>
                 </div>
               ))}
+              {obligatorio && (
+                <p className="text-xs opacity-60">
+                  Tu rol tiene 2FA obligatorio: si lo desactivás, el sistema te
+                  devolverá a esta página hasta que lo actives de nuevo.
+                </p>
+              )}
             </div>
           ) : enrolling ? (
             <div className="space-y-4">
@@ -138,10 +172,22 @@ export default function SeguridadPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 rounded-lg border border-black/5 bg-black/[0.02] p-3 text-sm">
-                <ShieldAlert className="h-4 w-4 opacity-60" />
-                <span>2FA <strong>no activo</strong>. Recomendado para administradores.</span>
-              </div>
+              {obligatorio ? (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    2FA <strong>no activo</strong>. Tu rol lo tiene{" "}
+                    <strong>obligatorio</strong>: activalo acá para poder seguir
+                    usando el sistema. Toma menos de un minuto y sólo necesitás
+                    una app de autenticación en el teléfono.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg border border-black/5 bg-black/[0.02] p-3 text-sm">
+                  <ShieldAlert className="h-4 w-4 opacity-60" />
+                  <span>2FA <strong>no activo</strong>. Recomendado para administradores.</span>
+                </div>
+              )}
               <Button disabled={busy} onClick={startEnroll}>
                 {busy ? "…" : "Activar 2FA"}
               </Button>

@@ -15,13 +15,25 @@
  *   export TARGET_SERVICE_ROLE_KEY="<service_role del destino>"
  *   node scripts/backup/restore-from-json.mjs [carpeta_backup]
  *
- * SEGURIDAD: se niega a correr si el destino == el proyecto de .env.local (evita
- * escribir sobre producción por error).
+ * SEGURIDAD: se niega a correr si el destino == el proyecto de producción (y
+ * también si NO se puede saber cuál es producción: falla cerrado, ver
+ * `urlDeProduccion()` abajo) y, ademas, exige la guarda compartida
+ * lib/assert-safe-target.mjs: el destino no puede contener tablas de otro
+ * inquilino (csl-app, PalusaApp) ni relaciones fuera de la huella real de
+ * DermaLand (tablas Y vistas, derivadas de supabase/migrations/*.sql, ver
+ * lib/dermaland-footprint.mjs), y requiere DERMALAND_DR_CONFIRM explicito.
+ * Deny-by-default. Si el chequeo de contenido del destino no puede correr
+ * (red, permisos, formato inesperado), se avisa por stderr — ver
+ * lib/list-target-tables.mjs — y se sigue exigiendo la confirmacion manual.
  */
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { assertSafeTarget } from "./lib/assert-safe-target.mjs";
+import { buildDermaLandFootprint } from "./lib/dermaland-footprint.mjs";
+import { listTargetTables } from "./lib/list-target-tables.mjs";
+import { esDestinoProduccion } from "./lib/dr-guards.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const require = createRequire(path.join(root, "apps/web/package.json"));
@@ -34,15 +46,61 @@ if (!TARGET_URL || !TARGET_KEY) {
   process.exit(1);
 }
 
-// Guarda: no restaurar sobre el proyecto de producción de .env.local.
-try {
-  const env = readFileSync(path.join(root, "apps/web/.env.local"), "utf8");
-  const prodUrl = env.match(/^NEXT_PUBLIC_SUPABASE_URL=(.*)$/m)?.[1]?.replace(/^["']|["']$/g, "");
-  if (prodUrl && TARGET_URL.includes(prodUrl.replace(/^https?:\/\//, "").split(".")[0])) {
-    console.error("ABORTADO: el destino coincide con el proyecto de producción. Usá un proyecto NUEVO.");
-    process.exit(1);
+/**
+ * Cual es el proyecto de PRODUCCION, y que pasa si no se puede saber.
+ *
+ * Antes esto era un `try { …leer .env.local… } catch { /* seguir *\/ }`: en una
+ * maquina sin `.env.local` —un equipo de recuperacion, un clon recien hecho,
+ * justo las circunstancias en que se restaura de verdad— la comprobacion se
+ * saltaba EN SILENCIO y el script quedaba dispuesto a escribir donde le
+ * dijeran. Ahora falla cerrado: si no hay forma de saber cual es produccion,
+ * no se restaura. `DERMALAND_PROD_SUPABASE_URL` es la salida para esa maquina
+ * sin `.env.local`, y exige nombrar produccion explicitamente en vez de
+ * suponerla ausente.
+ */
+function urlDeProduccion() {
+  const delEntorno = process.env.DERMALAND_PROD_SUPABASE_URL?.trim();
+  if (delEntorno) return delEntorno;
+  try {
+    const env = readFileSync(path.join(root, "apps/web/.env.local"), "utf8");
+    return env.match(/^NEXT_PUBLIC_SUPABASE_URL=(.*)$/m)?.[1]?.replace(/^["']|["']$/g, "")?.trim() ?? null;
+  } catch {
+    return null;
   }
-} catch { /* .env.local ausente: seguir */ }
+}
+
+const PROD_URL = urlDeProduccion();
+const esProduccion = PROD_URL ? esDestinoProduccion({ destino: TARGET_URL, produccion: PROD_URL }) : null;
+if (esProduccion === null) {
+  console.error(
+    "ABORTADO: no se pudo establecer cual es el proyecto de PRODUCCION, asi que no hay forma\n" +
+      "de probar que el destino NO lo es. Falta apps/web/.env.local (o su NEXT_PUBLIC_SUPABASE_URL),\n" +
+      "o el destino no es una URL valida.\n" +
+      '  Solucion en una maquina sin .env.local: export DERMALAND_PROD_SUPABASE_URL="https://<ref-de-produccion>.supabase.co"',
+  );
+  process.exit(1);
+}
+
+// Guarda compartida: ademas de no ser produccion, el destino no puede contener
+// datos de otro inquilino (csl-app, PalusaApp conviven en el mismo servidor
+// self-hosted) ni relaciones fuera de la huella real de DermaLand. Ver
+// lib/assert-safe-target.mjs, lib/dermaland-footprint.mjs y
+// lib/list-target-tables.mjs (ahi esta el detalle de por que NO se usa una
+// RPC `pg_tables_public` — no existe — y por que un fallo al listar las
+// tablas del destino se avisa por stderr en vez de fallar en silencio).
+try {
+  assertSafeTarget({
+    tables: await listTargetTables({ url: TARGET_URL, key: TARGET_KEY }),
+    confirm: process.env.DERMALAND_DR_CONFIRM ?? "",
+    // Calculado, no `false` a mano: es la guarda de "no escribas en produccion"
+    // y hasta esta correccion nadie se la preguntaba de verdad.
+    isProduction: esProduccion,
+    footprint: buildDermaLandFootprint(),
+  });
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 
 const backupsDir = path.join(root, "backups");
 const dirArg = process.argv[2];

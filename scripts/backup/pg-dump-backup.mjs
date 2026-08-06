@@ -9,6 +9,13 @@
  * Uso:
  *   node scripts/backup/pg-dump-backup.mjs
  *   node scripts/backup/pg-dump-backup.mjs --label premig-0028
+ *   node scripts/backup/pg-dump-backup.mjs --with-drop   # dump DESTRUCTIVO al restaurar
+ *
+ * Por defecto el dump NO lleva --clean/--if-exists: restaurarlo con `psql`
+ * inserta sobre una base vacia, pero NO borra nada si la base ya tenia datos.
+ * Con --with-drop, el archivo EMPIEZA con sentencias DROP — solo para
+ * restaurar sobre una base que ya contiene una version previa de DermaLand.
+ * Ver lib/pg-dump-args.mjs.
  *
  * Requiere `pg_dump` (PostgreSQL client tools v15+) en el PATH.
  */
@@ -16,6 +23,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildPgDumpArgs } from "./lib/pg-dump-args.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const DB_URL = process.env.SUPABASE_DB_URL;
@@ -44,13 +52,20 @@ const outFile = path.join(outDir, `dermaland-${label}.sql.gz`);
 console.log(`Backup → ${outFile}`);
 console.log("Ejecutando pg_dump (solo lectura)…");
 
+// Destructivo solo si se pide explicitamente. Ver lib/pg-dump-args.mjs.
+const withDrop = process.argv.includes("--with-drop");
+if (withDrop) {
+  console.warn(
+    "⚠️  --with-drop: el dump EMPEZARA con sentencias DROP. Solo para restaurar\n" +
+      "    sobre una base que ya contiene una version previa de DermaLand.",
+  );
+}
+
 // --no-owner/--no-privileges: portable a un proyecto restaurado distinto.
 // Comprimimos con gzip nativo de pg_dump (-Z 9) escribiendo a archivo.
-const res = spawnSync(
-  "pg_dump",
-  ["--no-owner", "--no-privileges", "--clean", "--if-exists", "-Z", "9", "-f", outFile, DB_URL],
-  { stdio: ["ignore", "inherit", "inherit"] },
-);
+const res = spawnSync("pg_dump", buildPgDumpArgs({ outFile, dbUrl: DB_URL, withDrop }), {
+  stdio: ["ignore", "inherit", "inherit"],
+});
 
 if (res.error) {
   console.error("ERROR ejecutando pg_dump:", res.error.message);
