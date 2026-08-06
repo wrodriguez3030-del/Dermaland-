@@ -1,185 +1,93 @@
 import { describe, expect, it } from "vitest";
-import { pickBillingBranch } from "./billing-branch";
+import { missingForBilling } from "./billing-branch";
 
-const CUTIS = "cutis";
-const PRINCIPAL = "principal";
-const SUCURSALES = [CUTIS, PRINCIPAL];
+const PRINCIPAL = "b-principal";
+const CUTIS = "b-cutis";
 
-/** `stockFor` de mentira, a partir de un mapa "producto@sucursal". */
-function stock(tabla: Record<string, number>) {
+/** Existencias de mentira, indexadas `producto@sucursal`. */
+function stockDe(mapa: Record<string, number>) {
   return (productId: string, branchId: string) =>
-    tabla[`${productId}@${branchId}`] ?? 0;
+    mapa[`${productId}@${branchId}`] ?? 0;
 }
 
-describe("pickBillingBranch", () => {
-  it("el caso real: el pedido es de Cutis y Cutis no tiene NADA", () => {
-    // "Cutis" está anunciada en la tienda con cero lotes; todo el inventario
-    // vive en Principal. Facturar obedientemente en Cutis daría un carrito
-    // vacío y el cajero tendría que teclearlo todo.
-    const pick = pickBillingBranch(
-      [
-        { productId: "aqua-gel", qty: 1 },
-        { productId: "gel-200", qty: 1 },
-      ],
-      CUTIS,
-      SUCURSALES,
-      stock({ "aqua-gel@principal": 3, "gel-200@principal": 8 }),
-      { stickyBranchId: CUTIS },
-    );
-    expect(pick.branchId).toBe(PRINCIPAL);
-    expect(pick.covered).toBe(2);
-    expect(pick.changed).toBe(true);
-  });
-
-  it("si la del pedido lo cubre todo, no se mueve", () => {
-    const pick = pickBillingBranch(
-      [{ productId: "a", qty: 2 }],
-      CUTIS,
-      SUCURSALES,
-      stock({ "a@cutis": 5, "a@principal": 99 }),
-      { stickyBranchId: CUTIS },
-    );
-    expect(pick.branchId).toBe(CUTIS);
-    expect(pick.changed).toBe(false);
-  });
-
-  it("empatar no basta para mover la venta de sitio", () => {
-    // Si las dos cubren lo mismo, se queda donde el cliente quedó en pasar.
-    const pick = pickBillingBranch(
-      [
-        { productId: "a", qty: 1 },
-        { productId: "b", qty: 1 },
-      ],
-      CUTIS,
-      SUCURSALES,
-      stock({ "a@cutis": 1, "b@principal": 1 }),
-      { stickyBranchId: CUTIS },
-    );
-    expect(pick.branchId).toBe(CUTIS);
-    expect(pick.covered).toBe(1);
-    expect(pick.changed).toBe(false);
-  });
-
-  it("NO se muda sola porque otra cubra una línea más", () => {
-    // Cutis cubre 1 de 3 y Principal cubriría 2. Se queda igualmente: mover la
-    // facturación es una decisión del negocio, y cambiarla en silencio porque
-    // hoy salen mejor los números es exactamente lo que no debe pasar.
-    const pick = pickBillingBranch(
-      [
-        { productId: "a", qty: 1 },
-        { productId: "b", qty: 1 },
-        { productId: "c", qty: 1 },
-      ],
-      CUTIS,
-      SUCURSALES,
-      stock({
-        "a@cutis": 1,
-        "a@principal": 1,
-        "b@principal": 1,
-        "c@principal": 0,
-      }),
-      { stickyBranchId: CUTIS },
-    );
-    expect(pick.branchId).toBe(CUTIS);
-    expect(pick.covered).toBe(1);
-  });
-
-  it("solo se mueve si en la designada no se puede despachar NADA", () => {
-    // La red de seguridad contra el carrito vacío, y nada más.
-    const pick = pickBillingBranch(
-      [{ productId: "a", qty: 1 }],
-      CUTIS,
-      SUCURSALES,
-      stock({ "a@principal": 4 }),
-      { stickyBranchId: CUTIS },
-    );
-    expect(pick.branchId).toBe(PRINCIPAL);
-    expect(pick.covered).toBe(1);
-  });
-
-  it("cubrir una línea es tenerla ENTERA, no un poco", () => {
-    const pick = pickBillingBranch(
-      [{ productId: "a", qty: 5 }],
-      CUTIS,
-      SUCURSALES,
-      stock({ "a@cutis": 4, "a@principal": 5 }),
-      { stickyBranchId: CUTIS },
-    );
-    expect(pick.branchId).toBe(PRINCIPAL);
-  });
-
-  it("si no hay en ningún lado se queda en la del pedido", () => {
-    // Moverse no arregla nada: hay que llamar al cliente igual.
-    const pick = pickBillingBranch(
-      [{ productId: "a", qty: 1 }],
-      CUTIS,
-      SUCURSALES,
-      stock({}),
-      { stickyBranchId: CUTIS },
-    );
-    expect(pick.branchId).toBe(CUTIS);
-    expect(pick.covered).toBe(0);
-    expect(pick.changed).toBe(false);
-  });
-
-  it("un pedido sin líneas no mueve nada", () => {
-    const pick = pickBillingBranch([], CUTIS, SUCURSALES, stock({}), {
-      stickyBranchId: CUTIS,
-    });
-    expect(pick.branchId).toBe(CUTIS);
-    expect(pick.changed).toBe(false);
-  });
-
-  it("con una sola sucursal no hay a dónde ir", () => {
-    const pick = pickBillingBranch(
-      [{ productId: "a", qty: 1 }],
-      CUTIS,
+describe("missingForBilling", () => {
+  it("no reporta nada cuando la Principal cubre todo", () => {
+    const falta = missingForBilling(
+      [{ productId: "p1", qty: 2 }],
+      PRINCIPAL,
       [CUTIS],
-      stock({}),
-      { stickyBranchId: CUTIS },
+      stockDe({ "p1@b-principal": 5, "p1@b-cutis": 99 }),
     );
-    expect(pick.branchId).toBe(CUTIS);
-  });
-});
-
-describe("pickBillingBranch — envío a domicilio (sin sucursal del cliente)", () => {
-  it("en un envío la sucursal del pedido NO tiene privilegio", () => {
-    // El cliente no pisa ninguna sucursal: la que quedó guardada en el pedido
-    // es la que la tienda puso por defecto y no significa nada. Esto es lo que
-    // dejaba el POS abierto en Cutis con el carrito vacío.
-    const pick = pickBillingBranch(
-      [{ productId: "a", qty: 1 }],
-      CUTIS,
-      [PRINCIPAL, CUTIS],
-      stock({ "a@cutis": 5, "a@principal": 5 }),
-    );
-    expect(pick.branchId).toBe(PRINCIPAL);
-    expect(pick.changed).toBe(true);
+    expect(falta).toEqual([]);
   });
 
-  it("sin existencia en ninguna, factura desde la primera de la lista", () => {
-    // `candidateBranchIds` viene ordenada por existencia: la primera es el
-    // almacén principal, que es desde donde se despacha cualquier envío.
-    const pick = pickBillingBranch(
-      [{ productId: "a", qty: 1 }],
-      CUTIS,
-      [PRINCIPAL, CUTIS],
-      stock({}),
+  it("dice cuánto falta y de qué sucursal puede salir", () => {
+    // El caso que motivó la política: el cliente pidió 3, la Principal tiene 1
+    // y Cutis tiene 10. Hay que transferir 2, no facturar desde Cutis.
+    const falta = missingForBilling(
+      [{ productId: "p1", qty: 3 }],
+      PRINCIPAL,
+      [CUTIS],
+      stockDe({ "p1@b-principal": 1, "p1@b-cutis": 10 }),
     );
-    expect(pick.branchId).toBe(PRINCIPAL);
+    expect(falta).toHaveLength(1);
+    expect(falta[0]).toMatchObject({
+      productId: "p1",
+      needed: 3,
+      available: 1,
+      missing: 2,
+    });
+    expect(falta[0]?.sources).toEqual([{ branchId: CUTIS, available: 10 }]);
   });
 
-  it("aun así gana la que de verdad cubre más", () => {
-    const pick = pickBillingBranch(
-      [
-        { productId: "a", qty: 1 },
-        { productId: "b", qty: 1 },
-      ],
+  it("con la Principal en cero, sigue siendo la sucursal de facturación", () => {
+    // Antes esto mudaba la venta a Cutis. Ahora se queda y pide transferencia:
+    // la mercancía se mueve, no la factura.
+    const falta = missingForBilling(
+      [{ productId: "p1", qty: 1 }],
+      PRINCIPAL,
+      [CUTIS],
+      stockDe({ "p1@b-cutis": 4 }),
+    );
+    expect(falta[0]?.available).toBe(0);
+    expect(falta[0]?.missing).toBe(1);
+    expect(falta[0]?.sources[0]?.branchId).toBe(CUTIS);
+  });
+
+  it("sin existencia en ninguna sucursal, no propone origen", () => {
+    // Distinguir "hay que transferir" de "no hay en ningún lado" importa: la
+    // segunda no se arregla con una transferencia, se arregla comprando.
+    const falta = missingForBilling(
+      [{ productId: "p1", qty: 1 }],
+      PRINCIPAL,
+      [CUTIS],
+      stockDe({}),
+    );
+    expect(falta[0]?.sources).toEqual([]);
+  });
+
+  it("ordena los orígenes de más a menos existencia", () => {
+    const TERCERA = "b-tercera";
+    const falta = missingForBilling(
+      [{ productId: "p1", qty: 10 }],
+      PRINCIPAL,
+      [CUTIS, TERCERA],
+      stockDe({ "p1@b-cutis": 2, "p1@b-tercera": 7 }),
+    );
+    expect(falta[0]?.sources.map((s) => s.branchId)).toEqual([TERCERA, CUTIS]);
+  });
+
+  it("nunca propone la propia sucursal de facturación como origen", () => {
+    const falta = missingForBilling(
+      [{ productId: "p1", qty: 5 }],
       PRINCIPAL,
       [PRINCIPAL, CUTIS],
-      stock({ "a@cutis": 1, "b@cutis": 1, "a@principal": 1 }),
+      stockDe({ "p1@b-principal": 1, "p1@b-cutis": 9 }),
     );
-    expect(pick.branchId).toBe(CUTIS);
-    expect(pick.covered).toBe(2);
+    expect(falta[0]?.sources.map((s) => s.branchId)).toEqual([CUTIS]);
+  });
+
+  it("un pedido sin líneas no falta de nada", () => {
+    expect(missingForBilling([], PRINCIPAL, [CUTIS], stockDe({}))).toEqual([]);
   });
 });

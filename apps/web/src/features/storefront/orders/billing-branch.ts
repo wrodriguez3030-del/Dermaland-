@@ -1,103 +1,89 @@
-// ¿Desde qué sucursal se factura este pedido web?
+// ¿Desde qué sucursal se factura un pedido web, y qué falta para poder hacerlo?
 //
-// La respuesta obvia —la del pedido— resulta ser la equivocada más veces de lo
-// que parece. En esta base, la sucursal "Cutis" está anunciada en la tienda y
-// tiene **cero lotes**: todo el inventario vive en "DermaLand Principal". El
-// cliente que elige Cutis para retirar está pidiendo en un sitio donde no hay
-// nada, y la tienda se lo permite.
+// POLÍTICA DEL NEGOCIO (decidida por el dueño el 2026-08-06)
 //
-// Si el POS se abriera obedientemente en la sucursal del pedido, el cajero
-// vería un carrito vacío con dos avisos y tendría que teclearlo todo a mano.
-// Así que se busca la sucursal que de verdad puede despachar, se factura desde
-// ahí y se DICE que se cambió. Nunca en silencio: quien cobra tiene que saber
-// de qué estante sale la mercancía.
+// Un pedido web se factura **SIEMPRE desde la sucursal de despacho web**
+// (`is_web_fulfillment`, hoy "DermaLand Principal"). Sin excepciones y sin
+// mudarse solo.
 //
-// Solo aplica si el usuario puede elegir sucursal (admin/manager). Para el
-// resto la sucursal es la suya y punto.
-
-export interface BranchPick {
-  branchId: string;
-  /** Cuántas líneas del pedido puede cubrir entera esa sucursal. */
-  covered: number;
-  /** `true` si no es la del pedido: hay que decirlo en pantalla. */
-  changed: boolean;
-}
+// Si ahí no hay existencia, la respuesta NO es facturar desde otro sitio: es
+// que un administrador **transfiera la mercancía** desde la otra sucursal a la
+// Principal, y entonces se factura. Para eso existe el módulo de
+// transferencias, que descuenta y acredita de verdad.
+//
+// QUÉ HABÍA ANTES, Y POR QUÉ CAMBIÓ
+//
+// El POS elegía la sucursal "que más líneas cubriera". Nació de un problema
+// real —Cutis estaba anunciada en la tienda con cero lotes y el POS se abría
+// ahí con el carrito vacío—, pero resolvía el síntoma: dejaba la mercancía
+// donde estaba y mudaba la venta. El resultado es que el inventario nunca se
+// consolida y que dos ventas del mismo día pueden salir de estantes distintos
+// sin que nadie lo decidiera.
+//
+// La política nueva ataca la causa: la mercancía se mueve, no la factura.
+//
+// La tienda ya publica la existencia SUMADA de las dos sucursales (ver
+// `sellableByProduct`), así que el cliente puede pedir lo que hay en Cutis; lo
+// que este módulo resuelve es cómo llega eso a la factura.
 
 export interface OrderLineNeed {
   productId: string;
   qty: number;
 }
 
-export interface PickBillingBranchOptions {
+/** Una línea que la sucursal de facturación no puede cubrir por sí sola. */
+export interface MissingLine {
+  productId: string;
+  /** Lo que pidió el cliente. */
+  needed: number;
+  /** Lo que hay en la sucursal desde la que se factura. */
+  available: number;
+  /** Cuánto falta (`needed - available`). Siempre > 0. */
+  missing: number;
   /**
-   * Sucursal con derecho a ganar los empates: aquella a la que el cliente **va
-   * a ir**. Solo existe en un retiro.
-   *
-   * En un **envío no hay ninguna**. El cliente no pisa una sucursal; la que
-   * quedó guardada en el pedido es la que la tienda eligió por defecto y no
-   * significa nada. Privilegiarla fue justo lo que dejó el POS abierto en
-   * "Cutis" —cero lotes— con el carrito vacío.
+   * De dónde puede salir lo que falta, de más a menos existencia. Vacío
+   * significa que no está en ninguna sucursal: no hay transferencia que
+   * resuelva esto, hay que comprar.
    */
-  stickyBranchId?: string;
+  sources: { branchId: string; available: number }[];
 }
 
 /**
- * La sucursal desde la que conviene facturar.
+ * Qué le falta a la sucursal de facturación para despachar el pedido entero.
  *
- * Gana la que cubre más líneas enteras. En un retiro, la sucursal del cliente
- * gana los empates: si puede hacerlo igual de bien, no hay motivo para mover la
- * venta de donde él quedó en pasar a buscarla. En un envío no hay empate que
- * proteger y gana la que más cubra; a igualdad, la primera de la lista — por eso
- * `candidateBranchIds` debe venir ordenada por existencia, de más a menos.
+ * Devuelve una lista vacía cuando puede con todo. Cada elemento dice **cuánto**
+ * falta y **de dónde** puede salir, que es exactamente lo que el administrador
+ * necesita para crear la transferencia sin tener que ir a buscarlo.
  *
  * `stockFor` desacopla esto del store de lotes del POS, que es lo que lo hace
  * probable sin montar medio inventario.
  */
-export function pickBillingBranch(
+export function missingForBilling(
   lines: readonly OrderLineNeed[],
-  orderBranchId: string,
-  candidateBranchIds: readonly string[],
+  billingBranchId: string,
+  otherBranchIds: readonly string[],
   stockFor: (productId: string, branchId: string) => number,
-  options: PickBillingBranchOptions = {},
-): BranchPick {
-  const cobertura = (branchId: string) =>
-    lines.filter((l) => stockFor(l.productId, branchId) >= l.qty).length;
+): MissingLine[] {
+  const faltantes: MissingLine[] = [];
 
-  const sticky = options.stickyBranchId;
+  for (const linea of lines) {
+    const enSucursal = stockFor(linea.productId, billingBranchId);
+    if (enSucursal >= linea.qty) continue;
 
-  // El punto de partida: la sucursal del cliente si existe, y si no la primera
-  // candidata —la de más existencia—. Nunca la del pedido a secas: en un envío
-  // esa sucursal es la que puso la tienda por defecto y no significa nada.
-  let mejorId = sticky ?? candidateBranchIds[0] ?? orderBranchId;
-  let mejor = cobertura(mejorId);
+    const sources = otherBranchIds
+      .filter((id) => id !== billingBranchId)
+      .map((id) => ({ branchId: id, available: stockFor(linea.productId, id) }))
+      .filter((s) => s.available > 0)
+      .sort((a, b) => b.available - a.available);
 
-  // Si el punto de partida lo cubre todo, no hay nada que decidir.
-  if (lines.length > 0 && mejor === lines.length) {
-    return { branchId: mejorId, covered: mejor, changed: mejorId !== orderBranchId };
+    faltantes.push({
+      productId: linea.productId,
+      needed: linea.qty,
+      available: enSucursal,
+      missing: linea.qty - enSucursal,
+      sources,
+    });
   }
 
-  // Con sucursal designada, moverse es una RED DE SEGURIDAD, no una
-  // optimización: solo si ahí no se puede despachar ni una sola línea. Que la
-  // facturación se mude sola porque otra sucursal cubre una línea más sería un
-  // cambio en silencio de una decisión que tomó el negocio.
-  const soloSiVacia = sticky !== undefined;
-  if (soloSiVacia && mejor > 0) {
-    return { branchId: mejorId, covered: mejor, changed: mejorId !== orderBranchId };
-  }
-
-  for (const id of candidateBranchIds) {
-    if (id === mejorId) continue;
-    const n = cobertura(id);
-    // `>` estricto: empatar no basta para mover la venta de sitio.
-    if (n > mejor) {
-      mejor = n;
-      mejorId = id;
-    }
-  }
-
-  return {
-    branchId: mejorId,
-    covered: mejor,
-    changed: mejorId !== orderBranchId,
-  };
+  return faltantes;
 }

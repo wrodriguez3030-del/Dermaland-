@@ -86,7 +86,7 @@ import {
   getBranchDisplayName,
 } from "@/features/tenancy/branch-store";
 import { NewLotModal } from "@/features/inventory/lot-modals";
-import { pickBillingBranch } from "@/features/storefront/orders/billing-branch";
+import { missingForBilling } from "@/features/storefront/orders/billing-branch";
 
 interface CartLine {
   productId: string;
@@ -510,35 +510,46 @@ export function PosTerminal({
       const stockEn = (productId: string, sucursal: string) =>
         sellableStockForBranch(lots, productId, sucursal);
 
-      // Se factura desde la sucursal que el negocio designó para los pedidos
-      // web (`is_web_fulfillment`), no desde la que eligió el cliente para
-      // retirar. Es una decisión escrita, no una deducción: adivinarla por
-      // existencia se habría mudado sola el día que otra sucursal recibiera
-      // mercancía.
-      const candidatas = [
-        pedido.fulfillmentBranchId,
-        ...activeBranches
-          .map((b) => b.id)
-          .filter((id) => id !== pedido.fulfillmentBranchId),
-      ];
+      // Un pedido web se factura SIEMPRE desde la sucursal de despacho web
+      // (`is_web_fulfillment`). Nunca se muda sola: si ahí falta mercancía, la
+      // respuesta es transferirla, no facturar desde otro estante. Ver la
+      // cabecera de `billing-branch.ts`.
+      const sucursalUsada = pedido.fulfillmentBranchId || pedidoBranch;
 
-      const eleccion = canSwitchBranch
-        ? pickBillingBranch(pedido.lines, pedidoBranch, candidatas, stockEn, {
-            stickyBranchId: pedido.fulfillmentBranchId,
-          })
-        : { branchId, covered: 0, changed: false };
-
-      const sucursalUsada = eleccion.branchId;
       if (canSwitchBranch) {
         if (sucursalUsada !== branchId) setBranchId(sucursalUsada);
         if (sucursalUsada !== pedidoBranch) {
           avisos.push(
-            `El cliente eligió ${getBranchDisplayName(pedidoBranch)}; se factura desde ${getBranchDisplayName(sucursalUsada)}, que es de donde sale la mercancía.`,
+            `El cliente eligió ${getBranchDisplayName(pedidoBranch)}; se factura desde ${getBranchDisplayName(sucursalUsada)}, que es la sucursal de despacho web.`,
           );
         }
-      } else if (pedidoBranch !== branchId) {
+      } else if (sucursalUsada !== branchId) {
         avisos.push(
-          `Este pedido es de ${getBranchDisplayName(pedidoBranch)} y estás facturando en ${branchName}. Pídele a un administrador que cambie la sucursal.`,
+          `Este pedido se factura desde ${getBranchDisplayName(sucursalUsada)} y estás en ${branchName}. Pídele a un administrador que cambie la sucursal.`,
+        );
+      }
+
+      // Lo que falta en la sucursal de facturación y de dónde puede salir. Se
+      // dice ANTES de armar el carrito, con el número exacto, para que el
+      // administrador cree la transferencia sin ir a buscar los datos.
+      const faltantes = missingForBilling(
+        pedido.lines,
+        sucursalUsada,
+        activeBranches.map((b) => b.id),
+        stockEn,
+      );
+      for (const f of faltantes) {
+        const nombre =
+          products.find((p) => p.id === f.productId)?.name ?? "Un producto";
+        if (f.sources.length === 0) {
+          avisos.push(
+            `${nombre}: faltan ${f.missing} y no hay en ninguna sucursal.`,
+          );
+          continue;
+        }
+        const origen = f.sources[0]!;
+        avisos.push(
+          `${nombre}: faltan ${f.missing} en ${getBranchDisplayName(sucursalUsada)}. Hay ${origen.available} en ${getBranchDisplayName(origen.branchId)} — transfiérelos antes de facturar.`,
         );
       }
 
