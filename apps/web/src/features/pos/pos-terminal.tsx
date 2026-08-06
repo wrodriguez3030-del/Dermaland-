@@ -735,6 +735,12 @@ export function PosTerminal({
     // Orden: primero razón del lote (cuarentena/recall/vencido/sin-lote/inactiva),
     // luego cantidad vs stock vendible — igual que addProduct.
     for (const line of cart) {
+      // Una línea de servicio (el envío) no tiene lote ni existencia: pedírselos
+      // bloqueaba la venta entera con "Envío a domicilio — Sin lote registrado
+      // en esta sucursal", que es cierto y no significa nada. No hay lote que
+      // registrar para un flete.
+      if (line.kind === "servicio") continue;
+
       const block = lotBlockReason(lots, line.productId, branchId, activeBranchIds);
       if (block) {
         return `No puedes facturar: "${line.productName}" — ${blockReasonLabel(block)}.`;
