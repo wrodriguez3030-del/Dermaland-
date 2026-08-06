@@ -606,7 +606,11 @@ export function PosTerminal({
           productId: "",
           productSku: "ENVIO",
           productName: "Envío a domicilio",
-          lotId: "",
+          // Identificador propio de la línea. Las acciones de la fila (cambiar
+          // cantidad, descuento, quitar) buscan por `lotId`, y con "" el
+          // servicio dependía de ser la única línea sin lote. No llega a la
+          // base: `nullableUuid` descarta lo que no es UUID.
+          lotId: "servicio:envio",
           lotNumber: "",
           expiresAt: "",
           unitPrice: pedido.shippingCost,
@@ -1453,25 +1457,44 @@ export function PosTerminal({
           )}
           <ul className="divide-y divide-black/5">
             {cart.map((l) => {
-              const currentStock = sellableStockForBranch(lots, l.productId, branchId);
+              // Una línea de servicio (el envío) no tiene lote, ni vencimiento,
+              // ni existencia que consultar. Pintarlos reventaba la página
+              // entera: `formatDate("")` lanza `RangeError: Invalid time value`
+              // y se lleva por delante todo el POS, no solo esa fila.
+              const esServicio = l.kind === "servicio";
+              const currentStock = esServicio
+                ? 0
+                : sellableStockForBranch(lots, l.productId, branchId);
               const amt = lineAmounts(l);
               const hasDiscount = l.discountType !== "none" && amt.discountInclusive > 0;
               return (
-                <li key={l.lotId} className="px-4 py-3">
+                <li
+                  // El servicio no tiene lote, así que su clave sale del SKU.
+                  key={l.lotId || `servicio-${l.productSku}`}
+                  className="px-4 py-3"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium leading-tight">
                         {l.productName}
                       </div>
-                      <div className="mt-0.5 font-mono text-[10px] opacity-60">
-                        Lote {l.lotNumber} · vence {formatDate(l.expiresAt)}
-                      </div>
+                      {esServicio ? (
+                        <div className="mt-0.5 text-[10px] opacity-60">
+                          Servicio · sin inventario
+                        </div>
+                      ) : (
+                        <div className="mt-0.5 font-mono text-[10px] opacity-60">
+                          Lote {l.lotNumber} · vence {formatDate(l.expiresAt)}
+                        </div>
+                      )}
                       <div className="mt-1 text-xs opacity-70">
                         {formatCurrency(l.unitPrice)} c/u · ITBIS {l.itbisRate}%
                       </div>
-                      <div className="text-[10px] opacity-50">
-                        Disponible: {currentStock} unid.
-                      </div>
+                      {!esServicio && (
+                        <div className="text-[10px] opacity-50">
+                          Disponible: {currentStock} unid.
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => setDiscountLot(l.lotId)}

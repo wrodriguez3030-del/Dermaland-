@@ -33,19 +33,47 @@ export function formatNumber(value: number): string {
   return intFormatter.format(value);
 }
 
-export function formatDate(value: Date | string): string {
+/**
+ * Lo que se pinta cuando no hay fecha que pintar. Una raya dice "aquí no va
+ * nada" sin fingir un dato.
+ */
+const SIN_FECHA = "—";
+
+/**
+ * ¿Es una fecha que `Intl` puede formatear?
+ *
+ * POR QUÉ ESTA GUARDA EXISTE
+ *
+ * `Intl.DateTimeFormat.format()` no devuelve "Invalid Date": **lanza**
+ * `RangeError: Invalid time value`. Y como estos formateadores se llaman en
+ * pleno render, esa excepción no rompe una celda: sube hasta el límite de error
+ * de Next y **tumba la página entera** con "Application error: a client-side
+ * exception has occurred".
+ *
+ * Pasó en producción el 2026-08-06: una línea de servicio del POS (el envío de
+ * un pedido web) no tiene fecha de vencimiento, llegó como `""`, y el POS
+ * completo dejó de cargar. El origen se arregló, pero un formateador capaz de
+ * derribar la aplicación por un dato ausente es una trampa esperando al
+ * siguiente `""`.
+ */
+function fechaValida(value: Date | string): Date | null {
   const d = typeof value === "string" ? new Date(value) : value;
-  return dateFormatter.format(d);
+  return d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+}
+
+export function formatDate(value: Date | string): string {
+  const d = fechaValida(value);
+  return d ? dateFormatter.format(d) : SIN_FECHA;
 }
 
 export function formatDateTime(value: Date | string): string {
-  const d = typeof value === "string" ? new Date(value) : value;
-  return dateTimeFormatter.format(d);
+  const d = fechaValida(value);
+  return d ? dateTimeFormatter.format(d) : SIN_FECHA;
 }
 
 export function formatTime(value: Date | string): string {
-  const d = typeof value === "string" ? new Date(value) : value;
-  return timeFormatter.format(d);
+  const d = fechaValida(value);
+  return d ? timeFormatter.format(d) : SIN_FECHA;
 }
 
 export function relativeTime(value: Date | string): string {
