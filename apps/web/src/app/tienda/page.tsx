@@ -98,12 +98,20 @@ export default async function TiendaPage({
             Ver todo el catálogo
           </Link>
           {/* Dos tiendas físicas es lo que distingue a este negocio de una web
-              cualquiera. Se dice arriba, no escondido en el pie. */}
+              cualquiera. Se dice arriba, no escondido en el pie.
+
+              Cada sucursal lleva SU propio pin. Antes se unían con " · " y el
+              resultado ("Cutis · E. León Jiménez") se leía como el nombre de un
+              solo local, así que la segunda tienda desaparecía de hecho. */}
           {tenant.branches.length > 0 ? (
-            <p className="flex items-center gap-2 text-sm text-white/80">
-              <MapPin aria-hidden className="h-4 w-4 shrink-0" />
-              {tenant.branches.map((s) => s.name).join(" · ")}
-            </p>
+            <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-white/80">
+              {tenant.branches.map((s) => (
+                <li key={s.name} className="flex items-center gap-1.5">
+                  <MapPin aria-hidden className="h-4 w-4 shrink-0" />
+                  {s.name}
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
       </section>

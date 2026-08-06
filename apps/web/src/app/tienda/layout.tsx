@@ -98,8 +98,18 @@ export default async function TiendaLayout({
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <Link
               href="/tienda"
-              className="flex min-h-11 items-center gap-3 rounded-lg px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)]"
+              className="flex min-h-11 items-center gap-2.5 rounded-lg px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)]"
             >
+              {/* Mismo archivo de marca que usan la barra lateral del ERP y los
+                  PDF. Decorativo: el nombre va al lado en texto, así que un
+                  `alt` repetiría lo que el lector de pantalla ya lee. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/dermaland-logo.svg"
+                alt=""
+                aria-hidden
+                className="h-8 w-8 shrink-0 object-contain sm:h-9 sm:w-9"
+              />
               <span className="text-lg font-bold tracking-tight text-[color:var(--brand-primary)] sm:text-xl">
                 {tenant.siteName}
               </span>
