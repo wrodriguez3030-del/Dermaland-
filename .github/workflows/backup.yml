@@ -37,10 +37,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar cliente de PostgreSQL (pg_dump 16)
+      - name: Instalar cliente de PostgreSQL 17 (pg_dump debe ser >= version del servidor)
+        # El paquete `postgresql-client` de los repos de Ubuntu trae la v16, pero
+        # producción corre PostgreSQL 17.6. pg_dump se niega a volcar un servidor
+        # de version mayor a la suya ("aborting because of server version mismatch"),
+        # asi que hace falta el repositorio oficial PGDG para instalar la v17.
         run: |
+          sudo apt-get install -y curl ca-certificates gnupg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | \
+            sudo gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql-keyring.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | \
+            sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
 
       - name: Setup Node
         uses: actions/setup-node@v4
