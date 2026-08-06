@@ -2,8 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
+      "_comment": "Cola fiscal DGII. El plan Hobby de Vercel SOLO admite crons diarios: una expresion mas frecuente (p. ej. */15) hace FALLAR EL DESPLIEGUE ENTERO, no solo el cron. Paso caro de aprender: la fusion de DGII trajo */15 y dejo caidos todos los despliegues siguientes, incluido un arreglo urgente de autenticacion. Con la emision apagada esto no cuesta nada: el trabajador solo adelanta validar/firmar en local, y el boton 'procesar ahora' (permiso dgii.retry) sigue disponible para cuando alguien no quiera esperar. Si algun dia se sube a Pro, se puede volver a */15.",
       "path": "/api/dgii/cola",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 7 * * *"
     }
   ]
 }
