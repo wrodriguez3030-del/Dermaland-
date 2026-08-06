@@ -120,6 +120,19 @@ teléfono. La alternativa elegida no guarda ningún secreto nuevo en ningún lad
   de retirar el factor** y pide `--business-id <uuid>`. Un break-glass sin
   registro es peor que uno que no se pudo hacer.
 
+> ⚠️ **La confirmación interactiva es una salvaguarda contra equivocaciones, no
+> una barrera de autorización.** Se salta con una tubería —
+> `echo correo | node scripts/mfa-break-glass.mjs correo` — y el propio arnés de
+> pruebas lo hace así a propósito. Está para que nadie retire el factor
+> equivocado por inercia, no para detener a quien quiera retirarlo.
+>
+> **El único control real es poseer la `SUPABASE_SERVICE_ROLE_KEY`.** Quien la
+> tenga puede retirar el segundo factor de cualquiera, con confirmación o sin
+> ella, y también puede hacerlo directamente contra la Admin API sin pasar por
+> este guion. Trátala como lo que es: la llave que anula el 2FA de todo el
+> sistema. Si se filtra, el 2FA obligatorio deja de significar nada — rotarla es
+> la respuesta, no endurecer este guion.
+
 Opciones útiles:
 
 | Opción | Para qué |
@@ -138,6 +151,12 @@ cuántos factores se retiraron. **La operación es visible, no silenciosa.**
 Si el registro fallara después de haber retirado el factor, el guion lo avisa a
 gritos, imprime la fila exacta para anotarla a mano y **sale con código
 distinto de 0**. Ese aviso no se ignora.
+
+Si la tanda se corta a la mitad —varios factores y falla el segundo— también
+queda registro de **lo que sí se retiró**, con `resultado: INCOMPLETO: se
+retiraron N de M…` y el mensaje del fallo. Antes, ese camino salía con código 1
+**antes** de auditar: quedaban factores retirados y cero rastro, justo el estado
+que menos se espera y el que más falta hace explicar.
 
 ### Después de usarlo
 

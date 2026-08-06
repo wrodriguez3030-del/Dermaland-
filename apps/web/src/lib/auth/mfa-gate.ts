@@ -80,32 +80,56 @@ export function nivelAal(valor: unknown): NivelAal {
   return valor === "aal1" || valor === "aal2" ? valor : null;
 }
 
+/** Forma mínima de un usuario recién leído del servidor. */
+export interface UsuarioConFactores {
+  factors?:
+    | ReadonlyArray<{ status?: string | null } | null | undefined>
+    | null;
+}
+
 /**
- * Corrige `nextLevel` con la lista de factores RECIÉN leída del servidor.
+ * ¿Consta un factor VERIFICADO en esta lista?
+ *
+ * Un enrolamiento abandonado a medias (`unverified`) no cuenta: mandar a un
+ * desafío a quien no tiene nada que verificar es un bucle.
+ *
+ * La ausencia de la lista se lee como "ninguno", igual que hace
+ * `supabase.auth.mfa.listFactors()` (`user?.factors ?? []`, GoTrueClient.js
+ * :4496). Que las dos lecturas usen el mismo criterio no es cosmético: si
+ * discreparan, el navegador y el middleware se mandarían el uno al otro.
+ */
+export function tieneFactorVerificado(
+  factors: UsuarioConFactores["factors"],
+): boolean {
+  return (
+    Array.isArray(factors) && factors.some((f) => f?.status === "verified")
+  );
+}
+
+/**
+ * Nivel siguiente REAL, según la lectura fresca del usuario.
  *
  * `getAuthenticatorAssuranceLevel()` deriva `nextLevel` de la sesión guardada
- * en la galleta, que puede ser anterior al enrolamiento: quien activó 2FA en el
- * teléfono seguiría figurando "sin factor" en la laptop hasta que el token se
- * refresque. Con la puerta cerrada eso no es un detalle cosmético — es un
- * administrador dando vueltas por `/perfil/seguridad` mientras la página le
- * dice que su 2FA está activa.
+ * en la galleta, y esa galleta miente en los dos sentidos:
  *
- * `middleware.ts` ya llama a `supabase.auth.getUser()`, que sí va al servidor,
- * así que la lista fresca sale gratis. Sólo puede AÑADIR certeza de que hay
- * factor, nunca quitarla: `factors` es opcional en la respuesta y su ausencia
- * no distingue "no tiene" de "no vino".
+ * - **De menos**: quien activó 2FA en el teléfono figura "sin factor" en la
+ *   laptop hasta que el token se refresque. Acabaría en `/perfil/seguridad`
+ *   leyendo que su 2FA ya está activa, sin salida.
+ * - **De más**: tras un break-glass, la galleta sigue anunciando un factor que
+ *   ya no existe. Con la exención condicional (ver `middleware.ts`) eso es un
+ *   ping-pong entre `/login/mfa` y `/perfil/seguridad` que no termina nunca.
+ *
+ * La lista de `getUser()` —que el middleware ya consulta contra el servidor— es
+ * la MISMA fuente que usa `listFactors()` en el navegador, así que mandarla a
+ * decidir hace imposible que las dos discrepen. Sólo se cae a lo que diga la
+ * sesión si no hubo lectura fresca del usuario.
  */
 export function nivelSiguienteConFactores(
-  nextLevel: NivelAal,
-  factors:
-    | ReadonlyArray<{ status?: string | null } | null | undefined>
-    | null
-    | undefined,
+  nextLevelDeLaSesion: NivelAal,
+  usuarioFresco: UsuarioConFactores | null | undefined,
 ): NivelAal {
-  if (Array.isArray(factors) && factors.some((f) => f?.status === "verified")) {
-    return "aal2";
-  }
-  return nextLevel;
+  if (!usuarioFresco) return nextLevelDeLaSesion;
+  return tieneFactorVerificado(usuarioFresco.factors) ? "aal2" : "aal1";
 }
 
 /**

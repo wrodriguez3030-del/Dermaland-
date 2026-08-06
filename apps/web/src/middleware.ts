@@ -4,6 +4,7 @@ import {
   mfaGateDecision,
   nivelAal,
   nivelSiguienteConFactores,
+  type DecisionMfa,
   type NivelAal,
 } from "@/lib/auth/mfa-gate";
 
@@ -73,31 +74,43 @@ export const MFA_ENROLL_PATH = "/perfil/seguridad";
 /** A dónde manda la puerta de 2FA a quien tiene factor y no lo ha usado. */
 export const MFA_CHALLENGE_PATH = "/login/mfa";
 
-/**
- * Rutas exentas de la puerta 2FA.
- *
- * NO son públicas: siguen exigiendo sesión y personal del negocio. Son el
- * DESTINO al que la propia puerta redirige, así que si la puerta las vigilara
- * se mordería la cola: se manda al administrador a enrolarse y la redirección
- * lo vuelve a redirigir, para siempre.
- */
-const MFA_EXEMPT_PATHS: ReadonlyArray<string> = [
-  MFA_ENROLL_PATH,
-  MFA_CHALLENGE_PATH,
-];
+/** A dónde manda la puerta según lo que haya decidido. */
+const destinoDeLaPuerta = (decision: DecisionMfa): string | null =>
+  decision === "enrolar"
+    ? MFA_ENROLL_PATH
+    : decision === "desafiar"
+      ? MFA_CHALLENGE_PATH
+      : null;
 
 /**
  * ¿Esta ruta está exenta de la puerta de 2FA?
+ *
+ * La exención es CONDICIONAL a lo que la puerta haya decidido: exenta es la
+ * ruta a la que mandaríamos, y sólo esa. Ni una más.
+ *
+ * Antes `/perfil/seguridad` estaba exenta siempre, y eso era un bypass entero
+ * del segundo factor. Esa página ofrece `unenroll` (y `enroll` desde la
+ * consola), y la aplicación no comprobaba el nivel de garantía allí: delegaba
+ * ese control en GoTrue. Con sólo robar la contraseña se entraba en `aal1`, se
+ * iba derecho a `/perfil/seguridad` sin pasar por el desafío, se retiraba el
+ * factor de la víctima y se enrolaba el propio. El segundo factor dejaba de
+ * proteger. Ahora, si la puerta dice `"desafiar"`, esa ruta se vigila como
+ * cualquier otra y el atacante va a parar al desafío que no puede superar.
+ *
+ * No crea bucle: el único sitio exento es exactamente el destino, y la decisión
+ * no depende de la ruta pedida, así que la cadena termina en un salto.
  *
  * Match por SEGMENTO igual que `isPublic` (DL-07): `/perfil/seguridad-falsa` no
  * puede heredar la exención de `/perfil/seguridad` por empezar igual.
  *
  * Se exporta para poder probarlo: un fallo aquí no es ruidoso — o encierra a
- * los administradores en un bucle, o abre un agujero por el que se salta el
- * segundo factor.
+ * los administradores en un bucle, o abre el agujero de arriba.
  */
-export const isMfaExempt = (pathname: string) =>
-  MFA_EXEMPT_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+export const isMfaExempt = (pathname: string, decision: DecisionMfa) => {
+  const destino = destinoDeLaPuerta(decision);
+  if (!destino) return false;
+  return pathname === destino || pathname.startsWith(destino + "/");
+};
 
 /**
  * ¿Esta ruta se sirve SIN sesión?
@@ -196,7 +209,12 @@ export async function middleware(request: NextRequest) {
   //
   // La decisión vive en `src/lib/auth/mfa-gate.ts`, pura y probada caso por
   // caso: es la que puede dejar sin entrar a los dos únicos administradores.
-  if (!isMfaExempt(pathname)) {
+  //
+  // La decisión se toma SIEMPRE, antes de mirar la ruta: la exención depende de
+  // lo decidido. `/perfil/seguridad` sólo se libra de la puerta cuando lo que
+  // toca es ir a enrolarse; a quien le falta superar el desafío se le vigila
+  // también ahí, porque esa página retira factores (ver `isMfaExempt`).
+  {
     let currentLevel: NivelAal = null;
     let nextLevel: NivelAal = null;
     let chequeoFallo = false;
@@ -213,13 +231,12 @@ export async function middleware(request: NextRequest) {
       chequeoFallo = true;
     }
 
-    // `nextLevel` se deriva de la sesión guardada en la galleta, que puede ser
-    // ANTERIOR al enrolamiento: quien activó 2FA en el teléfono seguiría
-    // figurando "sin factor" en la laptop hasta el próximo refresco del token,
-    // y con la puerta cerrada eso es un administrador dando vueltas. `user`
-    // viene del `getUser()` de arriba —que sí consulta al servidor—, así que su
-    // lista de factores es la fresca y no cuesta una llamada extra.
-    nextLevel = nivelSiguienteConFactores(nextLevel, user.factors);
+    // `nextLevel` se deriva de la sesión guardada en la galleta, que miente en
+    // los dos sentidos —se queda corta tras un enrolamiento y se queda larga
+    // tras un break-glass—. `user` viene del `getUser()` de arriba, que sí
+    // consulta al servidor y es la misma fuente que lee el navegador con
+    // `listFactors()`: mandarla a decidir hace imposible que discrepen.
+    nextLevel = nivelSiguienteConFactores(nextLevel, user);
 
     // Claims SIEMPRE de `app_metadata` (SEC-001): `user_metadata` lo escribe el
     // propio usuario con `auth.updateUser`, así que dejarle elegir su rol aquí
@@ -235,7 +252,7 @@ export async function middleware(request: NextRequest) {
       chequeoFallo,
     });
 
-    if (decision !== "permitir") {
+    if (decision !== "permitir" && !isMfaExempt(pathname, decision)) {
       const url = request.nextUrl.clone();
       url.pathname =
         decision === "enrolar" ? MFA_ENROLL_PATH : MFA_CHALLENGE_PATH;

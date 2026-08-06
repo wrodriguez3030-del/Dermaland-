@@ -87,19 +87,34 @@ describe("isPublic", () => {
 });
 
 /**
- * La puerta de 2FA redirige a estas dos rutas. Si las vigilara, redirigiría a
- * quien ya está en el destino: bucle infinito para los dos únicos
+ * La puerta de 2FA redirige a dos rutas. Si vigilara la ruta a la que ella
+ * misma manda, redirigiría a quien ya llegó: bucle infinito para los dos únicos
  * administradores del sistema. Y si eximiera de más, sería la forma de saltarse
- * el segundo factor. Por eso también se comprueba en los DOS sentidos.
+ * el segundo factor. Por eso la exención es CONDICIONAL a lo decidido y se
+ * comprueba en los DOS sentidos.
  */
 describe("isMfaExempt", () => {
-  it.each([
-    "/perfil/seguridad",
-    "/login/mfa",
+  it("con 'enrolar', exime sólo la página de enrolamiento", () => {
+    expect(isMfaExempt("/perfil/seguridad", "enrolar")).toBe(true);
     // Cualquier recurso colgado del destino (por si mañana la página crece).
-    "/perfil/seguridad/respaldo",
-  ])("exime %s", (ruta) => {
-    expect(isMfaExempt(ruta)).toBe(true);
+    expect(isMfaExempt("/perfil/seguridad/respaldo", "enrolar")).toBe(true);
+    expect(isMfaExempt("/login/mfa", "enrolar")).toBe(false);
+  });
+
+  it("con 'desafiar', exime sólo el desafío — NO la página de seguridad", () => {
+    // Éste es el bypass que se cerró: `/perfil/seguridad` retira factores, así
+    // que a quien le falta superar el desafío se le vigila también ahí. Con la
+    // exención incondicional bastaba robar la contraseña para entrar en aal1,
+    // ir derecho a esa página, retirar el factor de la víctima y enrolar el
+    // propio.
+    expect(isMfaExempt("/login/mfa", "desafiar")).toBe(true);
+    expect(isMfaExempt("/perfil/seguridad", "desafiar")).toBe(false);
+    expect(isMfaExempt("/perfil/seguridad/respaldo", "desafiar")).toBe(false);
+  });
+
+  it("con 'permitir' no exime nada: no hay ningún destino que proteger", () => {
+    expect(isMfaExempt("/perfil/seguridad", "permitir")).toBe(false);
+    expect(isMfaExempt("/login/mfa", "permitir")).toBe(false);
   });
 
   it.each([
@@ -112,8 +127,10 @@ describe("isMfaExempt", () => {
     "/perfil/seguridades",
     "/login/mfa-falso",
     "/loginmfa",
-  ])("NO exime %s", (ruta) => {
-    expect(isMfaExempt(ruta)).toBe(false);
+  ])("NO exime %s con ninguna decisión", (ruta) => {
+    expect(isMfaExempt(ruta, "enrolar")).toBe(false);
+    expect(isMfaExempt(ruta, "desafiar")).toBe(false);
+    expect(isMfaExempt(ruta, "permitir")).toBe(false);
   });
 });
 

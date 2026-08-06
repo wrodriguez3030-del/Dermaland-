@@ -287,6 +287,56 @@ if (respuesta.trim().toLowerCase() !== correo.trim().toLowerCase()) {
   process.exit(1);
 }
 
+// ── El rastro importa tanto como la operación ────────────────────────────────
+// Sin UUID ni JSON crudo en `metadata`: la pantalla de Auditoría lo muestra tal
+// cual a un usuario de negocio.
+//
+// Está en una función porque hay DOS caminos que tienen que registrar: la tanda
+// completa y la que se cortó a la mitad. Un retiro parcial sin rastro es
+// exactamente lo que el resto del guion se esfuerza en evitar — y es peor que
+// el completo, porque además deja al usuario en un estado que nadie esperaba.
+async function auditar(retirados, corte) {
+  const metadata = {
+    factores_retirados: retirados.length,
+    motivo: motivo?.trim() || "break-glass ejecutado desde la línea de comandos",
+    ejecutado_por: "línea de comandos con service_role (fuera de la aplicación)",
+  };
+  if (corte) {
+    metadata.resultado = `INCOMPLETO: se retiraron ${retirados.length} de ${lista.length} factores y la operación se cortó`;
+    metadata.fallo = corte;
+  }
+  if (!usuarioAuditoria) {
+    metadata.nota =
+      "El usuario no tiene ficha en el sistema; el registro queda sin enlace.";
+  }
+
+  const registro = {
+    business_id: negocioId,
+    user_id: usuarioAuditoria,
+    user_name: correo,
+    action: "user.mfa_break_glass",
+    entity: "user",
+    entity_id: usuario.id,
+    metadata,
+  };
+
+  const { error: errLog } = await admin.from("audit_logs").insert(registro);
+
+  // Se avisa a gritos porque es lo último que queda en pantalla: un break-glass
+  // sin registro es la única forma de que esto se vuelva peligroso.
+  if (errLog) {
+    console.error(
+      "\n⚠️  AVISO: el factor se retiró pero NO se pudo auditar:",
+      errLog.message,
+    );
+    console.error("Regístralo a mano; la operación no puede quedar invisible:");
+    console.error(JSON.stringify(registro, null, 2));
+    return false;
+  }
+  console.log("Registrado en auditoría.");
+  return true;
+}
+
 // ── Retirar ──────────────────────────────────────────────────────────────────
 const retirados = [];
 for (const f of lista) {
@@ -300,6 +350,8 @@ for (const f of lista) {
       console.error(
         `Ya se habían retirado ${retirados.length} de ${lista.length}: el usuario quedó a medias. Vuelve a correrlo.`,
       );
+      // Lo retirado ya no se puede deshacer, así que como mínimo que conste.
+      await auditar(retirados, error.message);
     }
     process.exit(1);
   }
@@ -307,45 +359,8 @@ for (const f of lista) {
   console.log(`Factor retirado: ${f.friendly_name ?? f.factor_type}`);
 }
 
-// ── El rastro importa tanto como la operación ────────────────────────────────
-// Sin UUID ni JSON crudo en `metadata`: la pantalla de Auditoría lo muestra tal
-// cual a un usuario de negocio.
-const metadata = {
-  factores_retirados: retirados.length,
-  motivo: motivo?.trim() || "break-glass ejecutado desde la línea de comandos",
-  ejecutado_por: "línea de comandos con service_role (fuera de la aplicación)",
-};
-if (!usuarioAuditoria) {
-  metadata.nota =
-    "El usuario no tiene ficha en el sistema; el registro queda sin enlace.";
-}
-
-const registro = {
-  business_id: negocioId,
-  user_id: usuarioAuditoria,
-  user_name: correo,
-  action: "user.mfa_break_glass",
-  entity: "user",
-  entity_id: usuario.id,
-  metadata,
-};
-
-const { error: errLog } = await admin.from("audit_logs").insert(registro);
-
 console.log(
   `\n✅ ${correo} puede entrar con contraseña. Debe volver a enrolar 2FA en /perfil/seguridad.`,
 );
 
-// Se avisa al final y a gritos porque es lo último que queda en pantalla: un
-// break-glass sin registro es la única forma de que esto se vuelva peligroso.
-if (errLog) {
-  console.error(
-    "\n⚠️  AVISO: el factor se retiró pero NO se pudo auditar:",
-    errLog.message,
-  );
-  console.error("Regístralo a mano; la operación no puede quedar invisible:");
-  console.error(JSON.stringify(registro, null, 2));
-  process.exitCode = 1;
-} else {
-  console.log("Registrado en auditoría.");
-}
+if (!(await auditar(retirados, null))) process.exitCode = 1;

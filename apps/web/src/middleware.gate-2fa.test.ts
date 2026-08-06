@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *
  * `mfa-gate.test.ts` prueba la DECISIÓN; esto prueba el CABLE: que el destino
  * de cada redirección esté exento de la propia puerta (sin eso, enrolarse es un
- * bucle infinito), que la exención no se cuele en rutas que sólo empiezan
- * igual, y que un fallo del chequeo cierre la puerta al administrador sin
- * cerrársela al cajero.
+ * bucle infinito), que la exención no vaya ni un milímetro más allá del destino
+ * (con eso se saltaba el segundo factor entero), y que un fallo del chequeo
+ * cierre la puerta al administrador sin cerrársela al cajero.
  *
  * Son 2 administradores y ningún tercero: aquí no hay margen para suponer.
  */
@@ -36,9 +36,15 @@ import { NextRequest } from "next/server";
 import { middleware } from "./middleware";
 
 const NEGOCIO = "00000000-0000-0000-0000-00000000d001";
+const FACTOR_VERIFICADO = [{ status: "verified", factor_type: "totp" }];
 
 function usuario(role: string, extra: Record<string, unknown> = {}) {
   return { app_metadata: { business_id: NEGOCIO, role, ...extra } };
+}
+
+/** El mismo usuario, con un factor TOTP verificado según el servidor. */
+function conFactor(u: Record<string, unknown>) {
+  return { ...u, factors: FACTOR_VERIFICADO };
 }
 
 /** Estado que devuelve el chequeo de niveles cuando todo va bien. */
@@ -82,11 +88,13 @@ describe("puerta 2FA — administrador", () => {
   });
 
   it("con factor pero sin desafío completado, lo manda al desafío", async () => {
+    supabaseFalso.user = conFactor(usuario("admin"));
     supabaseFalso.aal = niveles("aal1", "aal2");
     expect(await destinoDe("/ventas")).toBe("/login/mfa?next=%2Fventas");
   });
 
   it("con el desafío completado, pasa", async () => {
+    supabaseFalso.user = conFactor(usuario("admin"));
     supabaseFalso.aal = niveles("aal2", "aal2");
     expect(await destinoDe("/ventas")).toBe(null);
   });
@@ -130,7 +138,7 @@ describe("puerta 2FA — administrador", () => {
 
   it("con el chequeo caído pero factor conocido, lo manda al desafío (que sí tiene salida)", async () => {
     supabaseFalso.aalLanza = true;
-    supabaseFalso.user = { ...usuario("admin"), factors: [{ status: "verified" }] };
+    supabaseFalso.user = conFactor(usuario("admin"));
     expect(await destinoDe("/ventas")).toBe("/login/mfa?next=%2Fventas");
   });
 
@@ -139,8 +147,17 @@ describe("puerta 2FA — administrador", () => {
     // "sin factor". Sin esto lo mandaríamos a enrolarse a una página que le
     // dice que su 2FA ya está activa: encierro hasta el próximo refresco.
     supabaseFalso.aal = niveles("aal1", "aal1");
-    supabaseFalso.user = { ...usuario("admin"), factors: [{ status: "verified" }] };
+    supabaseFalso.user = conFactor(usuario("admin"));
     expect(await destinoDe("/ventas")).toBe("/login/mfa?next=%2Fventas");
+  });
+
+  it("cree a la lista fresca también cuando dice que YA NO hay factor", async () => {
+    // Caso break-glass: se le retiró el factor pero su galleta sigue
+    // anunciándolo. Si le creyéramos a la galleta lo mandaríamos a un desafío
+    // que ya no existe, y de ahí a la página de seguridad, y vuelta: bucle.
+    supabaseFalso.aal = niveles("aal1", "aal2");
+    supabaseFalso.user = usuario("admin"); // el servidor ya no reporta factores
+    expect(await destinoDe("/ventas")).toBe("/perfil/seguridad?next=%2Fventas");
   });
 
   it("un enrolamiento abandonado sin verificar no cuenta como factor", async () => {
@@ -165,6 +182,51 @@ describe("puerta 2FA — administrador", () => {
   });
 });
 
+/**
+ * El bypass que encontró la auditoría. `/perfil/seguridad` ofrece `unenroll`
+ * —y `enroll` desde la consola— y la aplicación no comprobaba allí el nivel de
+ * garantía: lo delegaba entero en GoTrue. Con la exención incondicional, quien
+ * sólo tenía la contraseña robada entraba en aal1, iba derecho a esa página sin
+ * pasar por el desafío, retiraba el factor de la víctima y enrolaba el suyo.
+ */
+describe("puerta 2FA — el bypass de /perfil/seguridad en aal1", () => {
+  beforeEach(() => {
+    // Contraseña robada: sesión en aal1. La víctima SÍ tiene 2FA enrolado.
+    supabaseFalso.user = conFactor(usuario("admin"));
+    supabaseFalso.aal = niveles("aal1", "aal2");
+  });
+
+  it("con factor y sesión en aal1, /perfil/seguridad manda al desafío en vez de servirse", async () => {
+    expect(await destinoDe("/perfil/seguridad")).toBe(
+      "/login/mfa?next=%2Fperfil%2Fseguridad",
+    );
+  });
+
+  it("tampoco se cuela por un subrecurso de esa página", async () => {
+    expect(await destinoDe("/perfil/seguridad/respaldo")).toBe(
+      "/login/mfa?next=%2Fperfil%2Fseguridad%2Frespaldo",
+    );
+  });
+
+  it("le pasa igual a un cajero con 2FA activo: el bypass no era sólo de admin", async () => {
+    supabaseFalso.user = conFactor(usuario("cashier"));
+    expect(await destinoDe("/perfil/seguridad")).toBe(
+      "/login/mfa?next=%2Fperfil%2Fseguridad",
+    );
+  });
+
+  it("superado el desafío, la página vuelve a servirse con normalidad", async () => {
+    supabaseFalso.aal = niveles("aal2", "aal2");
+    expect(await destinoDe("/perfil/seguridad")).toBe(null);
+  });
+
+  it("y quien NO tiene factor sigue llegando a enrolarse (no se rompió el camino)", async () => {
+    supabaseFalso.user = usuario("admin");
+    supabaseFalso.aal = niveles("aal1", "aal1");
+    expect(await destinoDe("/perfil/seguridad")).toBe(null);
+  });
+});
+
 describe("puerta 2FA — cajero (2FA opcional)", () => {
   beforeEach(() => {
     supabaseFalso.user = usuario("cashier");
@@ -175,6 +237,7 @@ describe("puerta 2FA — cajero (2FA opcional)", () => {
   });
 
   it("si SÍ activó 2FA, se le exige el desafío igual", async () => {
+    supabaseFalso.user = conFactor(usuario("cashier"));
     supabaseFalso.aal = niveles("aal1", "aal2");
     expect(await destinoDe("/ventas")).toBe("/login/mfa?next=%2Fventas");
   });
@@ -218,17 +281,32 @@ describe("puerta 2FA — lo que sigue igual", () => {
 
 /**
  * La prueba que de verdad importa: cualquier redirección de la puerta tiene que
- * caer en un sitio que la puerta NO vigile. Se recorre la cadena entera desde
- * cada ruta y cada estado posible y se exige que termine.
+ * caer en un sitio que la puerta NO vigile CON ESA MISMA DECISIÓN. Se recorre
+ * la cadena entera desde cada ruta y cada estado posible y se exige que
+ * termine.
+ *
+ * El recorrido incluye el salto que hace el NAVEGADOR, no sólo los del
+ * servidor: `/login/mfa` es pública, así que el middleware la sirve sin mirar,
+ * pero la página se redirige sola a `/perfil/seguridad` si no encuentra ningún
+ * factor verificado (`login/mfa/page.tsx`). Ese salto es justo el que podría
+ * cerrar un bucle con la exención condicional, así que se modela aquí.
  */
 describe("puerta 2FA — la cadena de redirecciones siempre termina", () => {
   const estados = [
-    { nombre: "sin factor", aal: niveles("aal1", "aal1"), factors: undefined, lanza: false },
-    { nombre: "con factor sin desafío", aal: niveles("aal1", "aal2"), factors: undefined, lanza: false },
-    { nombre: "con desafío superado", aal: niveles("aal2", "aal2"), factors: undefined, lanza: false },
-    { nombre: "chequeo caído", aal: null, factors: undefined, lanza: true },
-    { nombre: "chequeo caído con factor", aal: null, factors: [{ status: "verified" }], lanza: true },
-    { nombre: "niveles nulos", aal: niveles(null, null), factors: undefined, lanza: false },
+    { nombre: "sin factor", aal: niveles("aal1", "aal1"), factors: null, lanza: false },
+    { nombre: "con factor sin desafío", aal: niveles("aal1", "aal2"), factors: FACTOR_VERIFICADO, lanza: false },
+    { nombre: "con desafío superado", aal: niveles("aal2", "aal2"), factors: FACTOR_VERIFICADO, lanza: false },
+    { nombre: "chequeo caído", aal: null, factors: null, lanza: true },
+    { nombre: "chequeo caído con factor", aal: null, factors: FACTOR_VERIFICADO, lanza: true },
+    { nombre: "niveles nulos", aal: niveles(null, null), factors: null, lanza: false },
+    // La galleta miente por defecto: enroló en otro dispositivo.
+    { nombre: "galleta corta (enroló en otro sitio)", aal: niveles("aal1", "aal1"), factors: FACTOR_VERIFICADO, lanza: false },
+    // La galleta miente por exceso: le hicieron break-glass y su sesión sigue
+    // anunciando un factor que ya no existe. Éste es el que crea el bucle si el
+    // middleware le cree a la galleta en vez de al servidor.
+    { nombre: "galleta larga (break-glass reciente)", aal: niveles("aal1", "aal2"), factors: null, lanza: false },
+    { nombre: "galleta larga y sesión ya en aal2", aal: niveles("aal2", "aal2"), factors: null, lanza: false },
+    { nombre: "enrolamiento a medias sin verificar", aal: niveles("aal1", "aal1"), factors: [{ status: "unverified" }], lanza: false },
   ] as const;
 
   const rutas = ["/", "/ventas", "/api/products", "/super-admin", "/perfil", "/perfil/seguridad", "/login/mfa"];
@@ -242,6 +320,18 @@ describe("puerta 2FA — la cadena de redirecciones siempre termina", () => {
           ? { ...usuario(rol), factors: estado.factors }
           : usuario(rol);
 
+        // Lo que hace la PÁGINA `/login/mfa` al montarse: si el servidor no le
+        // da ningún factor verificado, no hay nada que verificar y se va a
+        // `/perfil/seguridad`. Misma fuente que el middleware (`getUser`), así
+        // que no pueden discrepar — y esta simulación lo comprueba.
+        const tieneFactorVerificado = (estado.factors ?? []).some(
+          (f) => f.status === "verified",
+        );
+        const saltoDelNavegador = (ruta: string, servida: boolean) =>
+          servida && ruta.split("?")[0] === "/login/mfa" && !tieneFactorVerificado
+            ? `/perfil/seguridad?next=${encodeURIComponent(ruta)}`
+            : null;
+
         for (const inicio of rutas) {
           const visitadas = new Set<string>();
           let actual: string | null = inicio;
@@ -249,9 +339,10 @@ describe("puerta 2FA — la cadena de redirecciones siempre termina", () => {
           while (actual) {
             expect(visitadas.has(actual), `bucle en ${inicio}: ${[...visitadas].join(" → ")}`).toBe(false);
             visitadas.add(actual);
-            actual = await destinoDe(actual);
+            const servidor: string | null = await destinoDe(actual);
+            actual = servidor ?? saltoDelNavegador(actual, true);
             saltos += 1;
-            expect(saltos, `demasiados saltos desde ${inicio}`).toBeLessThan(5);
+            expect(saltos, `demasiados saltos desde ${inicio}`).toBeLessThan(6);
           }
         }
       });

@@ -4,6 +4,7 @@ import {
   nivelAal,
   nivelSiguienteConFactores,
   requiere2fa,
+  tieneFactorVerificado,
   type DecisionMfa,
   type NivelAal,
 } from "./mfa-gate";
@@ -219,30 +220,53 @@ describe("nivelAal", () => {
   });
 });
 
-describe("nivelSiguienteConFactores", () => {
-  it("sube a aal2 cuando el servidor confirma un factor verificado", () => {
-    // Caso real: enroló en el teléfono; la galleta de la laptop es anterior.
-    expect(nivelSiguienteConFactores("aal1", [{ status: "verified" }])).toBe("aal2");
+describe("tieneFactorVerificado", () => {
+  it("sólo cuenta los factores verificados", () => {
+    expect(tieneFactorVerificado([{ status: "verified" }])).toBe(true);
+    expect(tieneFactorVerificado([{ status: "unverified" }, { status: "verified" }])).toBe(true);
+    // Un enrolamiento abandonado a medias no es un factor: si contara, el
+    // middleware mandaría al desafío a quien no tiene nada que verificar.
+    expect(tieneFactorVerificado([{ status: "unverified" }])).toBe(false);
   });
 
-  it("no sube por un enrolamiento abandonado sin verificar", () => {
-    // Si subiera, el middleware mandaría al desafío a alguien que no tiene nada
-    // que verificar y `/login/mfa` lo devolvería: bucle infinito.
-    expect(nivelSiguienteConFactores("aal1", [{ status: "unverified" }])).toBe("aal1");
-  });
-
-  it("respeta el nivel del chequeo cuando no hay lista fresca", () => {
-    // `factors` es opcional en la respuesta: su ausencia NO significa "no tiene".
-    expect(nivelSiguienteConFactores("aal2", undefined)).toBe("aal2");
-    expect(nivelSiguienteConFactores("aal1", undefined)).toBe("aal1");
-    expect(nivelSiguienteConFactores("aal1", null)).toBe("aal1");
-    expect(nivelSiguienteConFactores(null, undefined)).toBe(null);
+  it("la ausencia de lista se lee como 'ninguno', igual que listFactors()", () => {
+    // `listFactors()` hace `user?.factors ?? []`. Si aquí se leyera distinto,
+    // navegador y middleware se mandarían el uno al otro sin parar.
+    expect(tieneFactorVerificado(undefined)).toBe(false);
+    expect(tieneFactorVerificado(null)).toBe(false);
+    expect(tieneFactorVerificado([])).toBe(false);
   });
 
   it("aguanta una lista con huecos o formas inesperadas", () => {
-    expect(nivelSiguienteConFactores("aal1", [])).toBe("aal1");
-    expect(nivelSiguienteConFactores("aal1", [null, undefined])).toBe("aal1");
-    expect(nivelSiguienteConFactores("aal1", [{}, { status: null }])).toBe("aal1");
-    expect(nivelSiguienteConFactores("aal1", [{ status: "unverified" }, { status: "verified" }])).toBe("aal2");
+    expect(tieneFactorVerificado([null, undefined])).toBe(false);
+    expect(tieneFactorVerificado([{}, { status: null }])).toBe(false);
+  });
+});
+
+describe("nivelSiguienteConFactores", () => {
+  it("sube a aal2 cuando el servidor confirma un factor verificado", () => {
+    // Caso real: enroló en el teléfono; la galleta de la laptop es anterior y
+    // todavía dice aal1.
+    expect(nivelSiguienteConFactores("aal1", { factors: [{ status: "verified" }] })).toBe("aal2");
+  });
+
+  it("BAJA a aal1 cuando el servidor dice que ya no hay factor", () => {
+    // Caso break-glass: se le retiró el factor, pero su galleta sigue
+    // anunciándolo. Sin esta bajada, la puerta lo mandaría eternamente a un
+    // desafío que ya no existe.
+    expect(nivelSiguienteConFactores("aal2", { factors: [] })).toBe("aal1");
+    expect(nivelSiguienteConFactores("aal2", { factors: undefined })).toBe("aal1");
+    expect(nivelSiguienteConFactores("aal2", {})).toBe("aal1");
+  });
+
+  it("un enrolamiento sin verificar no cuenta como factor", () => {
+    expect(nivelSiguienteConFactores("aal1", { factors: [{ status: "unverified" }] })).toBe("aal1");
+    expect(nivelSiguienteConFactores("aal2", { factors: [{ status: "unverified" }] })).toBe("aal1");
+  });
+
+  it("sin lectura fresca del usuario, se queda con lo que diga la sesión", () => {
+    expect(nivelSiguienteConFactores("aal2", null)).toBe("aal2");
+    expect(nivelSiguienteConFactores("aal1", undefined)).toBe("aal1");
+    expect(nivelSiguienteConFactores(null, null)).toBe(null);
   });
 });
