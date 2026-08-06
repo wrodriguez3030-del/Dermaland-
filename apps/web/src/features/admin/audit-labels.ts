@@ -52,6 +52,7 @@ const ACTION_LABELS: Record<string, string> = {
   update: "Actualización",
   update_full: "Actualización completa",
   "user.invite": "Usuario invitado",
+  "user.mfa_break_glass": "Segundo factor retirado (emergencia)",
   "users.created": "Usuario creado",
   "users.updated": "Usuario actualizado",
 };

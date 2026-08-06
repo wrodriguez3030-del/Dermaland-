@@ -15,6 +15,15 @@ describe("auditActionLabel", () => {
     expect(auditActionLabel("cash_register.open")).toBe("Caja abierta");
   });
 
+  it("el break-glass de 2FA se lee, no se deduce del código", () => {
+    // Lo escribe `scripts/mfa-break-glass.mjs`. Sin etiqueta, la pantalla de
+    // Auditoría mostraría "User mfa break glass" el día que alguien revise por
+    // qué un administrador se quedó sin segundo factor.
+    expect(auditActionLabel("user.mfa_break_glass")).toBe(
+      "Segundo factor retirado (emergencia)",
+    );
+  });
+
   it("acción desconocida → prettify (sin puntos/guiones)", () => {
     const label = auditActionLabel("algo.no_mapeado");
     expect(label).toBe("Algo no mapeado");
