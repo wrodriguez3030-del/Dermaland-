@@ -91,8 +91,29 @@ const FILTRO_TABLAS_EXTRA_RLS = TABLAS_EXTRA_RLS.map(
   ({ schema, tabla }) => `(n.nspname = '${schema}' and c.relname = '${tabla}')`,
 ).join("\n         or ");
 
-/** Devuelve la huella completa como un unico valor JSON en la columna `huella`. */
+/**
+ * Devuelve la huella completa como un unico valor JSON en la columna `huella`.
+ *
+ * El `set search_path = pg_catalog` NO es decorativo (revision 3, 2026-08-05,
+ * encontrado corriendo el simulacro de verdad): `pg_policies.qual` y
+ * `with_check` no guardan texto, se DEPARSAN en cada consulta, y el deparser
+ * omite el esquema de todo lo que ya este en el search_path de QUIEN
+ * PREGUNTA. La misma politica se lee `auth.uid()` conectado como el rol
+ * `postgres` de Supabase Cloud y `uid()` conectado como `supabase_admin` en
+ * un contenedor (cuyo search_path incluye `auth`). Resultado: 12 de 106
+ * politicas IDENTICAS aparecian como "definicion distinta" — un falso
+ * positivo que hace ruido justo en la dimension mas grave, la que detecta
+ * fugas entre inquilinos. Fijar el search_path a `pg_catalog` en ambos lados
+ * fuerza la calificacion completa (`auth.uid()`, `public.auth_business_id()`)
+ * y vuelve el hash comparable entre clusters. Va DENTRO del SQL, no en quien
+ * llama, para que sea imposible olvidarlo en un lado.
+ *
+ * Correr con `psql -q`: sin `-q` el `SET` imprime la linea `SET` antes del
+ * JSON. Aun asi, conviene que el consumidor extraiga el JSON de la salida en
+ * vez de asumir que es la unica linea.
+ */
 export const FINGERPRINT_SQL = `
+set search_path = pg_catalog;
 select json_build_object(
   'filas', (
     select coalesce(json_object_agg(clave, filas), '{}'::json) from (

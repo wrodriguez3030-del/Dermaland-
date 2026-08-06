@@ -24,6 +24,102 @@
 | **RTO** (tiempo de recuperación) | ≤ 4 h | Restaurar el último dump a un proyecto Supabase nuevo + repuntar Vercel |
 | **RPO con Supabase Pro** | ≤ 24 h (daily) o ≤ 2 min (PITR add-on) | Upgrade a Pro |
 
+## Simulacro de recuperación (B-01) ✅ CORRIDO DE PUNTA A PUNTA
+
+> **Un respaldo que nunca se ha restaurado es una hipótesis, no un respaldo.**
+> B-01 estaba abierto por eso: *«restauración nunca probada»*. Ya no.
+>
+> **Última corrida: 2026-08-05 — veredicto PASA.** Reporte:
+> [`docs/dr-drill-20260805.md`](dr-drill-20260805.md) (lo escribe el script; no
+> se edita a mano).
+
+### El comando
+
+```bash
+DERMALAND_DR_CONFIRM=si node scripts/backup/dr-drill.mjs
+```
+
+Sale con código **0 solo si el simulacro PASA**. Sin `DERMALAND_DR_CONFIRM` se
+niega a empezar, no toca el servidor y no escribe reporte.
+
+### Dónde corre
+
+Entero dentro de **`supabase-01`**, por `ssh` + `docker`. Ni el respaldo ni la
+cadena de conexión pasan por el portátil.
+
+- **Origen:** producción (`sntcvyozbhrgicwmtcoh`), **solo lectura**. Lo único que
+  la toca es un `pg_dump`.
+- **Destino:** contenedor efímero **`dermaland-dr-db`** (`supabase/postgres:17.6.1.132`,
+  la versión exacta de producción), **sin puerto expuesto** — se opera solo por
+  `docker exec`. Se destruye al terminar *pase lo que pase*: también si algo
+  revienta a mitad, también con `Ctrl-C`.
+- ⚠️ **`supabase-01` aloja la producción de otro cliente** (`supabase-*` de
+  csl-app, `palusa-*` de PalusaApp). El script tiene salvaguardas en los dos
+  lados —cliente y servidor— para no aceptar jamás un destino con esos nombres,
+  y al terminar **compara el inventario de contenedores contra el de antes**: la
+  corrida del 2026-08-05 dejó `diferencias=0`.
+- **El secreto nunca aparece en `argv`** (ni en la Mac ni en el servidor) ni en
+  un log. Viaja por stdin de `ssh`, se materializa en un `mktemp -d` con
+  `umask 077` y muere en un `trap`. La contraseña va en un `.pgpass` modo 600
+  montado de solo lectura, **no** en el `--env-file`: así ni `docker inspect`
+  del contenedor efímero la revela.
+
+### Qué compara
+
+Restaura y luego compara producción contra la copia en **7 dimensiones**
+(`lib/schema-fingerprint.mjs`). Falla si falta cualquier cosa:
+
+| Dimensión | Por qué está | Medido 2026-08-05 |
+|---|---|---|
+| **filas** | conteo exacto por tabla (`public` + `auth.users` + `storage.*`) | 86 tablas · 5,897 filas |
+| **funciones** | nombre + firma en `public` | 15 |
+| **políticas** | conteo de RLS por tabla | 106 |
+| **rls** | `relrowsecurity` encendido/apagado — un `DISABLE ROW LEVEL SECURITY` deja las políticas listadas pero sin aplicar | 86/86 encendido |
+| **definiciones** | hash del `USING`/`WITH CHECK` — el conteo puede cuadrar con `USING (true)` por debajo, que es fuga total entre inquilinos | 106 hashes |
+| **índices** | presencia por nombre | 219 |
+| **restricciones** | FK y CHECK — un restore puede terminar «sin un solo error» y perderlas | 325 |
+
+Además, y **antes** de dar nada por bueno (`lib/dr-guards.mjs`):
+
+1. **Origen ≠ destino.** Se compara el `system_identifier` del clúster, único por
+   clúster e independiente del DSN. Sin esto, un simulacro apuntado dos veces a
+   producción se aprobaría a sí mismo: `diffFingerprints(prod, prod)` da `ok`.
+2. **Piso de magnitud, no solo de presencia.** Una huella *vacía* ya se
+   rechazaba; una *simbólica* (una tabla, una política) pasaba, y contra ella «no
+   falta nada» se cumple trivialmente. Se exige ≥80 tablas y ≥100 políticas.
+3. **Cero errores de restauración.** En un desastre no existe el error benigno.
+
+Los flags del `pg_dump` salen de `lib/pg-dump-args.mjs`, **los mismos** que usa
+el respaldo nocturno: se prueba el artefacto real, no una variante.
+
+### Qué NO cubre (decirlo importa)
+
+- **Objetos globales del clúster.** `pg_dump` no exporta roles. Aquí vinieron de
+  la imagen `supabase/postgres`. Un DR completo necesita además `pg_dumpall -g`.
+- **Los archivos de Storage.** Las 642 filas de `storage.objects` son
+  **metadatos**; los binarios (fotos de producto) viven fuera de la base y
+  necesitan su propio respaldo. Restaurar esta base deja el catálogo intacto y
+  las imágenes rotas.
+- **Restaurar como el rol `postgres` de un proyecto Supabase Cloud nuevo.** Aquí
+  se restauró como `supabase_admin` (superusuario). Medido: como `postgres` —que
+  en la imagen NO es superusuario— el mismo respaldo produce **517 errores** en
+  `auth`/`storage`/`realtime`. Este respaldo se restaura en un clúster con forma
+  de Supabase operado con privilegios plenos, no en un Cloud recién creado.
+- **El RTO extremo a extremo.** Se midió el ciclo dump→restore→comparación (entre
+  1 y 2 minutos; el valor exacto de cada corrida está en su reporte), no
+  aprovisionar proyecto + DNS + secretos + redeploy.
+- **La autenticidad del servidor de producción.** La conexión va con
+  `PGSSLMODE=require`: cifra, pero **no verifica el certificado** del servidor.
+  Es la misma postura de cualquier cadena de conexión de Supabase, y el
+  simulacro solo *lee*; aun así, `verify-full` exigiría meter el CA de Supabase
+  en el contenedor y no se hizo.
+
+### Cada cuánto repetirlo
+
+**Antes de cada cambio grande de esquema** y, como mínimo, **trimestral**. El
+reporte se versiona (`docs/dr-drill-<AAAAMMDD>.md`), así que la serie histórica
+queda en el repo.
+
 ## Opción A — recomendada: subir a Supabase Pro (US$25/mes)
 
 Habilita **backups diarios automáticos con 7 días de retención** y permite el
