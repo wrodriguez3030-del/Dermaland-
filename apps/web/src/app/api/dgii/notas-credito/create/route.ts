@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import { getSession } from "@/server/auth/context";
 import { mockElectronicInvoices } from "@/lib/mock-data/integrations";
 import {
@@ -38,6 +39,10 @@ interface CreateNcBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Rol, no solo sesión: la RLS valida el `business_id` y no el rol (DL-01).
+  const authDgii = await authorizeDgii("dgii.issue");
+  if (!authDgii.ok) return authDgii.res;
+
   // DL-25: defensa en profundidad a nivel de ruta (no depender solo del middleware),
   // consistente con el resto de rutas DGII. Aunque sea demo, firma XML.
   const session = await getSession();

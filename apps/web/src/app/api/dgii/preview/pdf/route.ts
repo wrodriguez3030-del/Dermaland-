@@ -1,5 +1,6 @@
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import type { Proforma } from "@/types";
 import {
   mapProformaToEcfInput,
@@ -32,6 +33,11 @@ const PAYMENT_LABELS: Record<string, string> = {
  * Body: `{ proforma: Proforma }`
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // La RLS valida el `business_id`, no el rol (DL-01): sin esto,
+  // cualquier usuario con sesión del negocio entraba aquí.
+  const auth = await authorizeDgii("dgii.view");
+  if (!auth.ok) return auth.res;
+
   let proforma: Proforma;
   try {
     const body = (await req.json()) as { proforma?: Proforma };

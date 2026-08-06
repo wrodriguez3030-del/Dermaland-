@@ -39,6 +39,12 @@ import type {
  */
 
 /** Sello de valor mágico para indicar tipos no implementados todavía. */
+import {
+  effectiveRulesFor,
+  isKnownEcfType,
+  checkTypeRules,
+} from "@/features/dgii/ecf-type-rules";
+
 export class EcfBuilderUnsupported extends Error {
   constructor(message: string) {
     super(message);
@@ -65,7 +71,8 @@ const RNC_RE = /^(?:\d{9}|\d{11})$/;
 // secuencia de 10 dígitos = 13 chars. Antes se aceptaba cualquier
 // alfanumérico de 13 chars, lo que dejaba pasar eNCF malformados de
 // inputs externos.
-const ENCF_RE = /^E(?:3[1-4]|4[1345])\d{10}$/;
+// Los diez tipos: 31-34 y 41, 43, 44, 45, 46, 47. El 42 no existe.
+const ENCF_RE = /^E(?:3[1-4]|4[13-7])\d{10}$/;
 /**
  * `NCFModificado` (e-CF 33/34) puede ser un NCF legado (11 chars: 'B0100000001')
  * o un eNCF nuevo (13 chars: 'E310000000001'). El XSD lo declara como
@@ -74,21 +81,12 @@ const ENCF_RE = /^E(?:3[1-4]|4[1345])\d{10}$/;
 const NCF_MODIFICADO_RE = /^[a-zA-Z0-9]{11,19}$/;
 const TELEFONO_RE = /^\d{3}-\d{3}-\d{4}$/;
 
-/** Tipos e-CF soportados por el builder actual. */
-const SUPPORTED_TYPES: ReadonlySet<string> = new Set(["31", "32", "33", "34"]);
-
-/** Tipos que requieren obligatoriamente `<InformacionReferencia>`. */
-const TYPES_REQUIRING_INFO_REFERENCIA: ReadonlySet<string> = new Set([
-  "33",
-  "34",
-]);
-
-/** Tipos donde RNCComprador y RazonSocialComprador son obligatorios. */
-const TYPES_REQUIRING_COMPRADOR_RNC: ReadonlySet<string> = new Set([
-  "31",
-  "33",
-  "34",
-]);
+// Qué admite cada tipo NO se decide aquí: vive en `ecf-type-rules.ts`, sacado
+// de los XSD oficiales y con una prueba que lo compara contra ellos.
+//
+// Antes eran tres conjuntos escritos a mano en este archivo, y uno de ellos
+// —el del RNC obligatorio en las notas 33 y 34— resultó no ser lo que dice el
+// esquema, sino una regla de la casa. Mezcladas no se distinguía cuál era cuál.
 
 // Las fechas fiscales SIEMPRE se expresan en hora de República Dominicana
 // (AST, UTC-4 fijo, sin horario de verano) — NUNCA en el TZ del proceso: en
@@ -189,16 +187,22 @@ function buildIdDoc(
   idDoc.ele("TipoeCF").txt(input.tipoEcf);
   idDoc.ele("eNCF").txt(input.eNcf);
 
-  // Orden por tipo (basado en XSDs oficiales DGII):
-  //   e-CF 31/33: FechaVencimientoSecuencia → [indicadores opcionales] → TipoIngresos
-  //   e-CF 32:    [indicadores opcionales] → TipoIngresos (NO emite FechaVencimientoSecuencia)
-  //   e-CF 34:    IndicadorNotaCredito → [indicadores opcionales] → TipoIngresos
-  //               (NO emite FechaVencimientoSecuencia; el slot lo ocupa IndicadorNotaCredito)
-  if (input.tipoEcf === "31" || input.tipoEcf === "33") {
+  // Qué va aquí y qué NO lo dicen los XSD oficiales, tipo por tipo, a través de
+  // `ecf-type-rules.ts`. Antes eran tres `if` con los tipos escritos a mano, y
+  // se quedaron cortos en cuanto entraron los seis nuevos: el 45 exige
+  // `FechaVencimientoSecuencia` y el builder no la emitía, así que la DGII
+  // habría rechazado el comprobante entero.
+  //
+  // El ORDEN importa: el esquema es una secuencia, no un conjunto.
+  const reglas = effectiveRulesFor(input.tipoEcf);
+
+  if (reglas.fechaVencimientoSecuencia !== "forbidden") {
     idDoc
       .ele("FechaVencimientoSecuencia")
       .txt(formatDgiiDate(input.fechaVencimientoSecuencia));
-  } else if (input.tipoEcf === "34") {
+  }
+
+  if (reglas.indicadorNotaCredito === "required") {
     if (input.indicadorNotaCredito === undefined) {
       throw new EcfBuilderInvalidInput(
         "indicadorNotaCredito",
@@ -207,15 +211,22 @@ function buildIdDoc(
     }
     idDoc.ele("IndicadorNotaCredito").txt(String(input.indicadorNotaCredito));
   }
-  // (e-CF 32 no emite ninguno de los dos)
 
   if (input.indicadorMontoGravado !== undefined) {
     idDoc.ele("IndicadorMontoGravado").txt(String(input.indicadorMontoGravado));
   }
-  idDoc.ele("TipoIngresos").txt(input.tipoIngresos);
+  // El 41, 43 y 47 no declaran `TipoIngresos`: emitirlo los invalida.
+  if (reglas.tipoIngresos !== "forbidden") {
+    idDoc.ele("TipoIngresos").txt(input.tipoIngresos);
+  }
   idDoc.ele("TipoPago").txt(String(input.tipoPago));
 
-  if (input.formasPago && input.formasPago.length > 0) {
+  // El 34 y el 43 no declaran `TablaFormasPago`: emitirla los invalida.
+  if (
+    reglas.formasPago !== "forbidden" &&
+    input.formasPago &&
+    input.formasPago.length > 0
+  ) {
     if (input.formasPago.length > 7) {
       throw new EcfBuilderInvalidInput(
         "formasPago",
@@ -385,6 +396,25 @@ function buildItem(parent: ReturnType<typeof create>, item: EcfItem): void {
   const i = parent.ele("Item");
   i.ele("NumeroLinea").txt(String(item.numeroLinea));
   i.ele("IndicadorFacturacion").txt(String(item.indicadorFacturacion));
+
+  // `Retencion` va AQUÍ, entre IndicadorFacturacion y NombreItem: el esquema es
+  // una secuencia y el orden no es negociable. Obligatoria en el 41 y el 47.
+  if (item.retencion) {
+    const r = i.ele("Retencion");
+    r.ele("IndicadorAgenteRetencionoPercepcion").txt(
+      String(item.retencion.indicadorAgenteRetencionoPercepcion),
+    );
+    if (item.retencion.montoItbisRetenido !== undefined) {
+      r.ele("MontoITBISRetenido").txt(
+        formatDgiiAmount(item.retencion.montoItbisRetenido),
+      );
+    }
+    if (item.retencion.montoIsrRetenido !== undefined) {
+      r.ele("MontoISRRetenido").txt(
+        formatDgiiAmount(item.retencion.montoIsrRetenido),
+      );
+    }
+  }
   i.ele("NombreItem").txt(item.nombreItem);
   i.ele("IndicadorBienoServicio").txt(String(item.indicadorBienoServicio));
   if (item.descripcionItem) i.ele("DescripcionItem").txt(item.descripcionItem);
@@ -546,7 +576,7 @@ export function assertEcfArithmetic(input: EcfBuilderInput): void {
 }
 
 export function buildEcfXml(input: EcfBuilderInput): string {
-  if (!SUPPORTED_TYPES.has(input.tipoEcf)) {
+  if (!isKnownEcfType(input.tipoEcf)) {
     throw new EcfBuilderUnsupported(
       `Tipo e-CF ${input.tipoEcf} aún no soportado (Fase L cubre 31-34).`,
     );
@@ -555,7 +585,7 @@ export function buildEcfXml(input: EcfBuilderInput): string {
   assertEncf(input.eNcf);
 
   // Reglas por tipo
-  if (TYPES_REQUIRING_COMPRADOR_RNC.has(input.tipoEcf)) {
+  if (effectiveRulesFor(input.tipoEcf).rncComprador === "required") {
     if (!input.comprador.rncComprador) {
       throw new EcfBuilderInvalidInput(
         "comprador.rncComprador",
@@ -569,7 +599,7 @@ export function buildEcfXml(input: EcfBuilderInput): string {
       );
     }
   }
-  if (TYPES_REQUIRING_INFO_REFERENCIA.has(input.tipoEcf)) {
+  if (effectiveRulesFor(input.tipoEcf).informacionReferencia === "required") {
     if (!input.informacionReferencia) {
       throw new EcfBuilderInvalidInput(
         "informacionReferencia",
@@ -598,7 +628,11 @@ export function buildEcfXml(input: EcfBuilderInput): string {
   encabezado.ele("Version").txt("1.0");
   buildIdDoc(encabezado, input);
   buildEmisor(encabezado, input.emisor);
-  buildComprador(encabezado, input.comprador);
+  // El 43 —Gastos Menores— no lleva comprador: es un gasto propio, no una
+  // venta a nadie. Llamar aquí sin comprobarlo reventaba con un `undefined`.
+  if (effectiveRulesFor(input.tipoEcf).comprador !== "forbidden") {
+    buildComprador(encabezado, input.comprador);
+  }
   buildTotales(encabezado, input.totales);
 
   // Sección DetallesItems — 1..1000
@@ -632,7 +666,11 @@ export function buildEcfXmlPretty(input: EcfBuilderInput): string {
   encabezado.ele("Version").txt("1.0");
   buildIdDoc(encabezado, input);
   buildEmisor(encabezado, input.emisor);
-  buildComprador(encabezado, input.comprador);
+  // El 43 —Gastos Menores— no lleva comprador: es un gasto propio, no una
+  // venta a nadie. Llamar aquí sin comprobarlo reventaba con un `undefined`.
+  if (effectiveRulesFor(input.tipoEcf).comprador !== "forbidden") {
+    buildComprador(encabezado, input.comprador);
+  }
   buildTotales(encabezado, input.totales);
   const detalles = ecf.ele("DetallesItems");
   for (const item of input.items) {

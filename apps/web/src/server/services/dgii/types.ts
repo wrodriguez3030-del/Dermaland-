@@ -23,7 +23,10 @@
 // Codificaciones DGII (extraídas del XSD e-CF 31 v1.0)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** TipoeCFType del XSD. Los tipos vigentes para Fase D son 31..34. */
+/**
+ * TipoeCFType del XSD. **Los diez tipos**, cada uno con su esquema oficial en
+ * `docs/dgii/xsd/`. El 42 no existe en la nomenclatura de la DGII.
+ */
 export type TipoEcf =
   | "31" // Factura de Crédito Fiscal Electrónica
   | "32" // Factura de Consumo Electrónica
@@ -191,10 +194,26 @@ export interface EcfTotales {
   montoTotal: number;
 }
 
+/**
+ * Retención dentro de una línea. **Obligatoria en el 41 y el 47.**
+ *
+ * Son los dos comprobantes que emite quien PAGA: al comprar a alguien que no
+ * factura, y al pagar al exterior. En los dos el emisor retiene, y el esquema
+ * lo exige línea por línea, no solo en los totales.
+ */
+export interface EcfItemRetencion {
+  /** 1 = sí es agente de retención o percepción. */
+  indicadorAgenteRetencionoPercepcion: 1 | 2;
+  montoItbisRetenido?: number;
+  montoIsrRetenido?: number;
+}
+
 export interface EcfItem {
   /** 1..1000 según XSD. */
   numeroLinea: number;
   indicadorFacturacion: IndicadorFacturacion;
+  /** Va ANTES de `nombreItem` en el XML: el esquema es una secuencia. */
+  retencion?: EcfItemRetencion;
   nombreItem: string;
   indicadorBienoServicio: IndicadorBienoServicio;
   descripcionItem?: string;

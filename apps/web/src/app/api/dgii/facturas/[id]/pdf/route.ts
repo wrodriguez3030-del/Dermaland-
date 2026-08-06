@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import { mockElectronicInvoices } from "@/lib/mock-data/integrations";
 import { renderEcfFromMock, DgiiDemoRendererError } from "@/server/services/dgii/demo-renderer";
 
@@ -18,6 +19,11 @@ export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  // La RLS valida el `business_id`, no el rol (DL-01): sin esto,
+  // cualquier usuario con sesión del negocio entraba aquí.
+  const auth = await authorizeDgii("dgii.view");
+  if (!auth.ok) return auth.res;
+
   const { id } = await ctx.params;
   const invoice = mockElectronicInvoices.find((i) => i.id === id);
   if (!invoice) {

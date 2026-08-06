@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { authorizeDgii } from "@/server/auth/require-role";
 import { getSession } from "@/server/auth/context";
 import {
   runTestecfPreflight,
@@ -26,6 +27,10 @@ import {
  * el endpoint ignora `live` para ser inmune a accidentes.
  */
 export async function POST(req: Request) {
+  // Rol, no solo sesión: la RLS valida el `business_id` y no el rol (DL-01).
+  const authDgii = await authorizeDgii("dgii.certification_run");
+  if (!authDgii.ok) return authDgii.res;
+
   const session = await getSession();
   if (!session) {
     return NextResponse.json(

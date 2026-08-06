@@ -1,0 +1,315 @@
+# Auditoría del módulo fiscal actual de DermaLand
+
+> **Fecha:** 2026-08-04 · **Rama:** `feat/dgii-reformulacion`
+> **Alcance:** estado REAL del módulo DGII hoy, medido contra el pliego de
+> reformulación (`PROMPT_CLAUDE_REFORMULAR_MODULO_DGII_DERMALAND.md`).
+> **Método:** lectura del código, del esquema en Supabase de producción y de la
+> suite de pruebas. **No se llamó a DGII.** No se envió ningún XML.
+>
+> Sustituye a `auditoria-modulo-dgii-existente.md` (2026-05-17), que quedó
+> desactualizada: aquel documento describe como *stubs* piezas que hoy están
+> implementadas (firma, validación XSD, cliente testecf).
+
+---
+
+## 0. Resumen en una línea
+
+El módulo **no está en cero ni cerca de terminado**: tiene el camino de emisión
+—construir, validar contra XSD, firmar, autenticar y transmitir— escrito y
+probado para cuatro tipos de comprobante, y le faltan enteros el modelo de
+documentos recibidos, la aprobación comercial, los permisos fiscales, la cola de
+reintentos y seis de los diez tipos e-CF.
+
+**Recomendación: NO-GO** para producción fiscal. Los motivos están en §7 y
+ninguno es discutible.
+
+---
+
+## 1. Lo que EXISTE y funciona
+
+### 1.1 Código
+
+| Pieza | Archivo | Estado |
+|---|---|---|
+| Constructor de XML e-CF | `server/services/dgii/builder.ts` | Real, tipos 31–34 |
+| Validación XSD | `server/services/dgii/validator.ts` | Real, vía `xmllint` |
+| Firma XMLDSig | `server/services/dgii/signer.ts` | `signEcfXml` + `verifyEcfSignature` |
+| Código de seguridad | `server/services/dgii/security-code.ts` | Real |
+| QR / URL de consulta | `server/services/dgii/qr.ts` | Real |
+| Cliente testecf | `server/services/dgii/testecf-client.ts` | Semilla → firma → token → recepción |
+| Certificado (cifrado) | `features/dgii/certificate-actions.ts` | AES con `DGII_CERT_ENCRYPTION_KEY` |
+| Secuencias e-NCF | `features/dgii/numbering-*.ts` | Real, con historial |
+| PDF del comprobante | `server/services/dgii/pdf.ts` | Real |
+| Evaluador de habilitación | `features/dgii/enablement-evaluator.ts` | Real, 10 pasos |
+
+**285 pruebas** pasan en `server/services/dgii` + `features/dgii`.
+
+### 1.2 Esquema en Supabase (producción)
+
+Ya existen **13 tablas**: `dgii_settings`, `dgii_certificates`, `dgii_submissions`,
+`dgii_status_logs`, `dgii_logs`, `dgii_received_ecf`, `dgii_commercial_approvals`,
+`ecf_sequences`, `electronic_invoices`, `electronic_invoice_items`,
+`invoice_numberings`, `proforma_to_ecf_logs`, `cash_closing_ecf_items`.
+
+Es decir: **el modelo conceptual del pliego (§8) ya está cubierto en más de la
+mitad**, con otros nombres. Reformular NO debe empezar creando tablas nuevas.
+
+### 1.3 XSD
+
+`docs/dgii/xsd/` contiene **4 esquemas oficiales**: e-CF 31, 32, 33 y 34 v1.0.
+El validador ya resuelve dos trampas reales: el BOM UTF-8 de los XSD 32/33/34 y
+un typo del XSD 31.
+
+### 1.4 Aislamiento
+
+- `DGII_TESTECF_SEND_ENABLED` por defecto **`false`**.
+- El CTA «Enviar pruebas a DGII testecf» está **deshabilitado a propósito**.
+- QA pre-Fase G: **14/14 verde** en Preview (2026-05-21), sin una sola llamada a
+  DGII real.
+
+---
+
+## 2. Lo que FALTA contra el pliego
+
+| § del pliego | Qué pide | Estado |
+|---|---|---|
+| 10 | Diez tipos e-CF (31,32,33,34,41,43,44,45,46,47) | **4 de 10.** El tipo `EcfType` ya nombra 41–47 pero no hay builder ni XSD |
+| 12 | E32 + RFCE con límite RD$250 000 | **No existe** el camino RFCE |
+| 21 | Aprobación comercial | Tabla creada, **flujo no implementado** |
+| 22 | Recepción de e-CF de terceros | Tabla creada, **endpoint receptor no existe** |
+| 18 | Outbox / cola / reintentos con backoff | **Parcial.** Idempotencia y clasificación de errores hechas y forzadas en la base; falta el trabajador que consume la cola |
+| 19 | Job de consulta de `trackId` | **No existe** (es la Fase H, bloqueada) |
+| ~~25~~ | ~~13 permisos `dgii.*` granulares~~ | **HECHO** |
+| ~~9~~ | ~~Máquina de estados explícita~~ | **HECHO.** `features/dgii/document-state.ts` + historial append-only en la base |
+| 15 | Alertas de vencimiento del certificado (30/15/7/3/1/0) | **No existe** |
+| 28 | Métricas y alertas | **No existe** |
+
+---
+
+## 3. Hallazgos de seguridad
+
+### 3.1 — MEDIO · Ocho rutas de API fiscal sin control de rol — **CERRADO**
+
+Estas rutas no llamaban `getSession` ni `authorizeRole`:
+
+```
+/api/dgii/certificate/current
+/api/dgii/certificacion/run-test
+/api/dgii/preview/pdf
+/api/dgii/preview/xml-signed
+/api/dgii/preview/xml-unsigned
+/api/dgii/facturas/[id]/pdf
+/api/dgii/facturas/[id]/xml-signed
+/api/dgii/facturas/[id]/xml-unsigned
+```
+
+No estaban abiertas a internet —el middleware exige sesión del negocio—, pero
+**DL-01 dice que la RLS valida el `business_id`, no el rol**: cualquier usuario
+con sesión, incluido el de inventario, entraba.
+
+**Corrección de la primera versión de este documento.** Aquí se afirmó que se
+podía descargar «el XML firmado de una factura fiscal». Al leer las rutas: las
+de `facturas/[id]` sirven **facturas mock** (`mockElectronicInvoices`) y todas
+firman con un **certificado ficticio** (`getDgiiDemoKeyPair`), no con el del
+negocio. `certificate/current` devuelve solo metadatos y ya resolvía la sesión
+por dentro. No había, por tanto, exposición de documentos fiscales reales ni de
+material del certificado. Por eso esto es **MEDIO y no ALTO**.
+
+Lo que sí había y valía cerrar: `preview/xml-signed` acepta una proforma
+cualquiera en el cuerpo y devuelve XML firmado — una máquina de firmar al
+alcance de cualquier usuario con sesión.
+
+**Estado: las 18 rutas de `/api/dgii` exigen ahora un permiso fiscal**, y una
+prueba de propiedad (`routes-guarded.test.ts`) falla si aparece una sin él.
+
+### 3.2 — MEDIO · No hay permisos fiscales — **CERRADO**
+
+El único rastro de `dgii.*` en el código eran **nombres de acciones de
+auditoría** (`dgii.numbering_created`…), no permisos.
+
+**Estado: creados los 13 del §25** en `features/dgii/permissions.ts`, cada uno
+declarando sus roles. Se implementan con roles y no con una tabla de permisos
+por usuario a propósito: es lo que el sistema ya sabe hacer, y un modelo de
+autorización paralelo solo para lo fiscal sería un segundo sitio donde
+equivocarse.
+
+### 3.3 — BAJO · `DgiiService` legacy sigue enrutado — **CERRADO**
+
+`service.ts` conservaba un objeto `dgiiService` con `submitToDgii`,
+`getTrackStatus`, `cancelInvoice` y `createCreditNote` lanzando
+`DgiiNotImplemented`. **No lo usaba nadie**, pero vivía junto a las piezas que
+sí funcionan y convivía con `testecf-client.ts`, que es el envío de verdad.
+
+Eliminado. El archivo queda como barril de reexportaciones, de 168 a 70 líneas.
+Un solo camino de envío.
+
+---
+
+## 4. Diferencias con el módulo Odoo de referencia
+
+Ver `SOURCE_MODULE_AUDIT.md`. En una tabla:
+
+| | `l10n_do_edi` (Odoo) | DermaLand hoy |
+|---|---|---|
+| Tipos e-CF | 10 | 4 |
+| XSD incluidos | **1** para 10 tipos | 4 para 4 tipos |
+| Pruebas | **0** | 285 |
+| Rutas públicas sin auth | **6**, una con IDOR | 0 |
+| Permisos | Abiertos a todos, incluido `res.company` | 13 granulares |
+| Dependencia de un servidor ajeno para emitir | **Sí** | No |
+| Contraseña del certificado | Campo de la empresa, en claro | Cifrada, fuera de la base |
+| RFCE | Sí | **No** |
+| Recepción y aprobación comercial | Sí | **No** |
+| Cola / reintentos | Cron cada 15 min, sin idempotencia | **No** |
+
+Lo que DermaLand debe tomar de ahí es el **inventario de reglas fiscales**, no
+la ingeniería. Lo que le falta a DermaLand y el otro sí tiene: RFCE, recepción,
+aprobación comercial y los seis tipos e-CF que faltan.
+
+---
+
+## 5. Riesgo de licencia
+
+Ver `THIRD_PARTY_AND_LICENSE_REVIEW.md`. Resumen: el módulo es **AGPL-3**, que
+alcanza al software servido por red — es decir, alcanzaría a DermaLand. **Hoy no
+se ha reutilizado ni una línea**, y la regla de trabajo es tomar preguntas y no
+respuestas: qué campos lleva un E45 se contesta con el XSD oficial, no copiando
+el método que los arma.
+
+---
+
+## 6. El archivo de referencia — **RECIBIDO Y AUDITADO**
+
+`l10n_do_edi.zip` llegó el 2026-08-04. Se extrajo **fuera del repositorio**, se
+escaneó y se auditó. Ni un archivo suyo entra en `apps/`, `supabase/` ni en el
+historial de git.
+
+**Hallazgo urgente:** trae **credenciales incrustadas** de un servidor privado
+del proveedor, con permiso de escritura. Documentadas por huella —sin reproducir
+sus valores— en `SOURCE_MODULE_AUDIT.md` §1. Deben darse por comprometidas; la
+rotación es cosa del proveedor, a quien conviene avisar.
+
+---
+
+## 7. GO / NO-GO
+
+**NO-GO** para envío fiscal real. Motivos, en el lenguaje del §34:
+
+1. Faltan XSD: 4 de 10 tipos.
+2. Faltan pruebas reales: nunca se ha transmitido a DGII, ni a testecf.
+3. Faltan credenciales: las 4 validaciones externas siguen sin confirmar
+   (acta de designación, vigencia y no revocación del certificado, titularidad
+   frente al RNC, RNC emisor correcto).
+4. ~~La idempotencia no está probada porque no hay cola.~~ **Probada contra la
+   base real** (§9). Falta el trabajador que consume la cola.
+5. No hay rollback fiscal documentado.
+6. Certificación DGII no completada.
+7. **Producción no ha sido autorizada por el propietario.**
+
+Los puntos 3 y 7 no los cierra ningún trabajo de programación.
+
+---
+
+## 8. Orden de trabajo propuesto
+
+Respeta la política vigente: **Fase G, testecf y producción fiscal siguen
+bloqueadas y requieren autorización explícita por turno.** Nada de lo de abajo la
+toca.
+
+| # | Trabajo | Depende del ZIP |
+|---|---|---|
+| ~~1~~ | ~~Cerrar el hallazgo 3.1: rol en las ocho rutas~~ · **HECHO** | No |
+| ~~2~~ | ~~Crear los 13 permisos `dgii.*` y aplicarlos~~ · **HECHO** | No |
+| 3 | Retirar el `DgiiService` legacy y dejar un solo camino | No |
+| 4 | Máquina de estados explícita + eventos append-only | No |
+| 5 | Outbox, idempotencia y reintentos con backoff | No |
+| 6 | XSD y builders para 41, 43, 44, 45, 46, 47 | No |
+| 7 | E32 + RFCE con el límite como constante única | No |
+| 8 | Endpoint receptor y aprobación comercial | No |
+| 9 | Alertas de vencimiento del certificado | No |
+| 10 | Auditoría del módulo Odoo y revisión de licencia | **Sí** |
+
+El punto 1 es el único que arregla algo que hoy está mal en producción; el resto
+construye lo que falta.
+
+
+---
+
+## 9. Cimientos puestos el 2026-08-04
+
+Se eligieron estas cuatro cosas y no otras porque son las únicas puertas del §31
+que no dependen de la DGII ni del contador, **y porque no se pueden retrofitear**
+sin rehacer lo que se construya encima.
+
+### Máquina de estados
+
+`features/dgii/document-state.ts`, sobre los **doce estados que ya tenía el
+CHECK** de `electronic_invoices`. No se inventó ninguno: cambiar el CHECK de una
+tabla fiscal para que encaje con un documento de diseño es empezar la casa por
+el tejado.
+
+Las dos reglas que importan, con prueba cada una:
+
+- **Un documento aceptado no retrocede.** Ni una respuesta repetida, ni una
+  consulta que llega tarde, ni un reintento devuelven a `submitted` algo que la
+  DGII ya autorizó.
+- **Un documento firmado no se edita.** El XML firmado *es* el documento.
+
+Y una distinción que evita alarmas inútiles: repetir un estado es `duplicada`
+(se ignora), llegar tarde es `fuera-de-orden` (se registra y se ignora), pedir
+un imposible es `invalida` (eso sí lo mira alguien).
+
+### Clasificación de errores
+
+`features/dgii/error-classification.ts`. Ocho clases y, sobre todo, **el caso
+que puede duplicar un comprobante**: un tiempo de espera agotado *después* de
+entregar el XML no se reintenta — se consulta por `trackId`. La DGII pudo
+recibirlo y perderse la respuesta.
+
+Reintentos exponenciales **con ruido**: sin él, cien comprobantes que fallaron
+por el mismo corte de red vuelven todos en el mismo instante y tumban otra vez
+lo que se estaba recuperando.
+
+### Idempotencia
+
+`features/dgii/idempotency.ts` + migración `0045`.
+
+    business_id : ambiente : e-NCF : operación
+
+El **ambiente** entra en la llave a propósito: sin él, haber probado con un
+e-NCF impediría emitirlo de verdad.
+
+La llave va en claro y no como hash porque cuando alguien mire a las dos de la
+mañana por qué un envío no salió, `d001:ecf:E310000000001:submit` le dice qué
+pasó y un hash no.
+
+**La barrera está en la base, no en TypeScript.** En Vercel hay varias funciones
+sin servidor atendiendo a la vez y «leer, comprobar, escribir» no es atómico
+entre ellas: dos peticiones simultáneas leen las dos «no existe» y las dos
+envían. Solo un índice único lo impide.
+
+### Historial append-only
+
+Tabla `ecf_document_events` con un disparador que **rechaza `UPDATE` y `DELETE`**
+aunque los lance la clave de servicio. Sin el disparador, «append-only» sería una
+intención escrita en un comentario.
+
+### Verificado contra la base de producción
+
+| Prueba | Resultado |
+|---|---|
+| Doble clic / dos funciones a la vez, misma llave | Rechazado por la base |
+| Mismo e-NCF, mismo ambiente | Rechazado |
+| Mismo e-NCF en producción tras probarlo en `testecf` | **Permitido**, como debe ser |
+| `UPDATE` del historial | Rechazado |
+| `DELETE` del historial | Rechazado |
+| Borrar un comprobante que ya tiene historial | Rechazado |
+
+Las seis, ejecutadas sobre Supabase de producción y con las filas de prueba
+retiradas después.
+
+**Hallazgo de la propia verificación:** la clave foránea era `ON DELETE CASCADE`,
+así que borrar un comprobante intentaba borrar su historial, el disparador lo
+impedía y el mensaje hablaba de «append-only» en vez de decir lo que pasaba.
+Cambiada a `RESTRICT`, que dice la verdad: un comprobante con historial fiscal no
+se borra.

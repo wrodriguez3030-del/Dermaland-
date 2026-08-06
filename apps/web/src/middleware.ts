@@ -154,9 +154,49 @@ export const isBusinessUser = (
   return typeof businessId === "string" && businessId.trim().length > 0;
 };
 
+/**
+ * Rutas que un cron puede disparar sin sesión, **demostrando un secreto**.
+ *
+ * NO son públicas. La diferencia importa: una ruta pública la abre cualquiera
+ * que sepa la URL; estas exigen una credencial que solo tiene el programador de
+ * tareas de Vercel.
+ *
+ * Sin `CRON_SECRET` configurado esta puerta no existe: `esCron` devuelve
+ * `false` siempre y la ruta cae al portero de sesión de toda la vida.
+ */
+const CRON_PATHS: ReadonlyArray<string> = ["/api/dgii/cola"];
+
+/** ¿Trae el secreto correcto del cron? Comparación de tiempo constante. */
+function esCron(request: NextRequest, pathname: string): boolean {
+  if (!CRON_PATHS.includes(pathname)) return false;
+
+  const esperado = process.env.CRON_SECRET;
+  if (!esperado) return false;
+
+  const cabecera = request.headers.get("authorization") ?? "";
+  const prefijo = "Bearer ";
+  if (!cabecera.startsWith(prefijo)) return false;
+
+  const valor = cabecera.slice(prefijo.length);
+  // Descartar por longitud antes de comparar: si no, el tiempo de respuesta
+  // filtraría cuántos caracteres tiene el secreto.
+  if (valor.length !== esperado.length) return false;
+
+  let diferencia = 0;
+  for (let i = 0; i < valor.length; i++) {
+    diferencia |= valor.charCodeAt(i) ^ esperado.charCodeAt(i);
+  }
+  return diferencia === 0;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (isPublic(pathname)) return NextResponse.next();
+
+  // El cron de Vercel no tiene sesión, pero sí un secreto. Sin esto, el
+  // programador de tareas acababa en la pantalla de login y la cola fiscal no
+  // se procesaba nunca — y nadie se enteraba, porque el cron "respondía 200".
+  if (esCron(request, pathname)) return NextResponse.next();
 
   const dataSource = process.env.DATA_SOURCE ?? "mock";
   if (dataSource === "mock") return NextResponse.next();

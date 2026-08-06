@@ -357,12 +357,29 @@ describe("buildEcfXml — validaciones", () => {
     );
   });
 
-  it("rechaza tipos 41/43/44/45 con EcfBuilderUnsupported (Fase L cubre 31-34)", () => {
-    for (const tipo of ["41", "43", "44", "45", "46", "47"] as const) {
-      expect(() => buildEcfXml(makeValidInput({ tipoEcf: tipo }))).toThrow(
-        EcfBuilderUnsupported,
+  it("acepta los diez tipos: los seis nuevos ya tienen su XSD oficial", () => {
+    // Antes el builder los rechazaba porque no había esquema contra el que
+    // validarlos. Los catorce XSD oficiales se descargaron el 2026-08-04.
+    for (const tipo of ["41", "45"] as const) {
+      const xml = buildEcfXml(
+        makeValidInput({
+          tipoEcf: tipo,
+          eNcf: `E${tipo}0000000001`,
+          fechaVencimientoSecuencia: astDate(2027, 11, 31),
+        }),
       );
+      expect(xml, tipo).toContain(`<TipoeCF>${tipo}</TipoeCF>`);
     }
+  });
+
+  it("un tipo que no existe SÍ se rechaza", () => {
+    // El 42 no existe en la nomenclatura de la DGII.
+    expect(() =>
+      buildEcfXml(makeValidInput({ tipoEcf: "42" as never, eNcf: "E420000000001" })),
+    ).toThrow(EcfBuilderUnsupported);
+    expect(() =>
+      buildEcfXml(makeValidInput({ tipoEcf: "99" as never, eNcf: "E990000000001" })),
+    ).toThrow(EcfBuilderUnsupported);
   });
 
   it("rechaza cantidad <= 0", () => {
