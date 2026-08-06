@@ -45,6 +45,19 @@ const PATTERNS = [
   // arriba). Si algun dia una migracion declara uno de estos en un esquema
   // no-public, va a repetir la MISMA clase de falso negativo que tenia
   // `policy` — aplicar aqui el mismo patron `qualify()`.
+  // Las vistas se declaran igual que las tablas y viven en el mismo espacio de
+  // nombres de `pg_class`: para todo lo que pregunta "que objetos del esquema
+  // son nuestros" (la huella de scripts/backup/lib/dermaland-footprint.mjs, la
+  // guarda de destino) una vista cuenta tanto como una tabla. Antes no se
+  // extraia, y eso hacia que la guarda de restauracion tratara
+  // `inventory_stock_by_lot` —la unica vista del repo, declarada en
+  // 0002_phase2_inventory.sql— como una tabla AJENA y abortara toda
+  // restauracion legitima. Ver la cabecera de dermaland-footprint.mjs.
+  {
+    kind: "view",
+    re: /\bcreate\s+(?:or\s+replace\s+)?(?:materialized\s+)?view\s+(?:if\s+not\s+exists\s+)?(?:([a-z0-9_]+)\.)?"?([a-z0-9_]+)"?/gi,
+    name: (m) => qualify(m[1], m[2]),
+  },
   {
     kind: "function",
     re: /\bcreate\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([a-z0-9_]+)"?/gi,

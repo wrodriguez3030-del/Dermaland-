@@ -61,10 +61,16 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertSafeTarget } from "./lib/assert-safe-target.mjs";
-import { buildDermaLandFootprint } from "./lib/dermaland-footprint.mjs";
+import { buildDermaLandFootprint, sqlRelacionesDelDestino } from "./lib/dermaland-footprint.mjs";
 import { buildPgDumpArgs } from "./lib/pg-dump-args.mjs";
 import { FINGERPRINT_SQL, diffFingerprints } from "./lib/schema-fingerprint.mjs";
-import { assertMagnitudCreible, assertOrigenDistinto, calcularLease } from "./lib/dr-guards.mjs";
+import {
+  assertMagnitudCreible,
+  assertOrigenDistinto,
+  calcularLease,
+  esDestinoProduccion,
+  esElMismoCluster,
+} from "./lib/dr-guards.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -379,9 +385,26 @@ for (const senal of ["SIGINT", "SIGTERM"]) {
 //      otra terminal.
 //
 // Sin confirmacion: no se toca el servidor, no se escribe reporte, se sale 1.
+//
+// `isProduction` sale de comparar el servidor al que se va a hablar (`DR_HOST`,
+// que ES parametrizable por entorno) contra el host de produccion del DSN. Es
+// la unica propiedad del destino que se conoce antes de abrir un socket, y es
+// la que un error de dedo puede torcer: exportar `DR_HOST` apuntando a la base
+// de produccion mandaria el simulacro entero contra ella. Antes iba `false`
+// escrito a mano — la guarda decia proteger produccion sin que nadie se lo
+// preguntara nunca.
 const footprint = buildDermaLandFootprint();
+const destinoEsProduccion = esDestinoProduccion({ destino: HOST, produccion: PROD.host });
+if (destinoEsProduccion === null) {
+  console.error(
+    "\n❌ El simulacro no llego a empezar: no se pudo determinar el host del servidor " +
+      "del arenero (DR_HOST) o el de produccion (SUPABASE_DB_URL). Sin poder comprobar " +
+      "que son distintos, no se sigue.",
+  );
+  process.exit(1);
+}
 try {
-  assertSafeTarget({ tables: [], confirm: CONFIRM, isProduction: false, footprint });
+  assertSafeTarget({ tables: [], confirm: CONFIRM, isProduction: destinoEsProduccion, footprint });
 } catch (e) {
   console.error(`\n❌ El simulacro no llego a empezar: ${e.message}`);
   console.error("   No se toco el servidor y no se escribio reporte.");
@@ -489,16 +512,26 @@ printf '%s\\n' "$INV_ANTES"`);
   anotar(`Origen  (produccion): cluster ${identidadProd.sysid} · Postgres ${identidadProd.version}`);
   anotar(`Destino (arenero):    cluster ${identidadCopia.sysid} · Postgres ${identidadCopia.version}`);
 
-  const tablasDestino = psqlArenero(
-    `select coalesce(string_agg(tablename, ','), '') from pg_tables where schemaname = 'public';`,
-  ).trim();
+  // El listado sale de `sqlRelacionesDelDestino()`, el MISMO criterio con que
+  // se construye `footprint`. Antes era un `pg_tables` escrito aqui a mano, que
+  // omite vistas mientras el otro llamador de esta guarda
+  // (restore-from-json.mjs, via PostgREST) si las ve: la guarda quedaba
+  // probada contra un destino y rota contra el otro. Ver la cabecera de
+  // lib/dermaland-footprint.mjs.
+  const relacionesDestino = psqlArenero(sqlRelacionesDelDestino()).trim();
+  const listaDestino = relacionesDestino ? relacionesDestino.split(",").filter(Boolean) : [];
   assertSafeTarget({
-    tables: tablasDestino ? tablasDestino.split(",").filter(Boolean) : [],
+    tables: listaDestino,
     confirm: CONFIRM,
-    isProduction: false,
+    // El destino ES produccion si su cluster resulta ser el mismo que el de
+    // origen. `assertOrigenDistinto` ya lo rechazo dos lineas mas arriba con su
+    // propio mensaje; se pasa igual —y calculado, no `false` a mano— para que
+    // la rama de produccion de la guarda quede cableada a un hecho medido: si
+    // alguien reordena o borra esa comprobacion, esta sigue negandose.
+    isProduction: esElMismoCluster({ origen: identidadProd, destino: identidadCopia }),
     footprint,
   });
-  anotar(`Destino verificado: ${tablasDestino ? tablasDestino.split(",").length : 0} tablas en public, aislado y desechable.`);
+  anotar(`Destino verificado: ${listaDestino.length} relaciones en public, aislado y desechable.`);
 
   // ── 3. Respaldo fresco de produccion (SOLO LECTURA) ───────────────────────
   paso(3, "Generando respaldo fresco de produccion (solo lectura)…");

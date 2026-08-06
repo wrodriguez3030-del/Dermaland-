@@ -34,6 +34,28 @@ export function assertOrigenDistinto(args: {
 }): void;
 
 /**
+ * Misma comparación que `assertOrigenDistinto`, como predicado, para alimentar
+ * `assertSafeTarget({ isProduction })` con un hecho medido. `false` también
+ * cuando falta alguna identidad (ahí la que lanza es `assertOrigenDistinto`).
+ */
+export function esElMismoCluster(args: {
+  origen: ClusterIdentity | null | undefined;
+  destino: ClusterIdentity | null | undefined;
+}): boolean;
+
+/** Host de un destino escrito como URL, DSN, `usuario@host` o host suelto. */
+export function hostDeDestino(valor: unknown): string | null;
+
+/**
+ * ¿El destino es el mismo sistema que producción? `null` = no se pudo
+ * determinar; quien llama debe fallar cerrado, nunca leerlo como `false`.
+ */
+export function esDestinoProduccion(args: {
+  destino: unknown;
+  produccion: unknown;
+}): boolean | null;
+
+/**
  * Lanza si la huella de producción es demasiado pequeña para ser real.
  * Devuelve las magnitudes medidas cuando pasa.
  */

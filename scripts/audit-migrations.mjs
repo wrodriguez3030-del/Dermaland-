@@ -62,6 +62,16 @@ async function fingerprint(client) {
      where n.nspname = 'public' and c.relkind = 'r'`,
     (r) => `table:${r.relname}`,
   );
+  // Las vistas ('v') y materializadas ('m') se preguntan aparte de las tablas
+  // ('r') porque `extractObjects` las distingue: sin esta consulta, la unica
+  // vista del repo (`inventory_stock_by_lot`, 0002) saldria como objeto
+  // faltante y la migracion se reportaria a medias aunque este aplicada — el
+  // mismo falso negativo que ya obligo a agregar el esquema `storage`.
+  await q(
+    `select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind in ('v', 'm')`,
+    (r) => `view:${r.relname}`,
+  );
   await q(
     `select table_name, column_name from information_schema.columns
      where table_schema = 'public'`,

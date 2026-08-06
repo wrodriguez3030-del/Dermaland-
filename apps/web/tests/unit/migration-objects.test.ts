@@ -37,6 +37,32 @@ describe("extractObjects", () => {
     ]);
   });
 
+  it("reconoce vistas y vistas materializadas (caso real 0002_phase2_inventory.sql)", () => {
+    // Sin este `kind`, la huella de scripts/backup/lib/dermaland-footprint.mjs
+    // no conocía `inventory_stock_by_lot` y la guarda de destino la trataba
+    // como una relación AJENA: toda restauración legítima abortaba.
+    const sql = `
+      create or replace view inventory_stock_by_lot as
+        select business_id, id as lot_id from product_lots;
+      create materialized view public.resumen_ventas as select 1 as n;
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "view", name: "inventory_stock_by_lot" },
+      { kind: "view", name: "resumen_ventas" },
+    ]);
+  });
+
+  it("no confunde `create view` con `create table` ni al revés", () => {
+    const sql = `
+      create table product_lots (id uuid primary key);
+      create view v_lotes as select id from product_lots;
+    `;
+    expect(extractObjects(sql)).toEqual([
+      { kind: "table", name: "product_lots" },
+      { kind: "view", name: "v_lotes" },
+    ]);
+  });
+
   it("ignora DDL comentado", () => {
     expect(extractObjects("-- create table fantasma (id uuid);")).toEqual([]);
   });

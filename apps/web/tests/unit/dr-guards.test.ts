@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import {
   MIN_TABLAS,
   MIN_POLITICAS,
@@ -7,6 +9,9 @@ import {
   assertOrigenDistinto,
   assertMagnitudCreible,
   calcularLease,
+  esDestinoProduccion,
+  esElMismoCluster,
+  hostDeDestino,
 } from "../../../../scripts/backup/lib/dr-guards.mjs";
 
 /**
@@ -36,6 +41,110 @@ const ARENERO = {
   inicio: "2026-08-05 21:50:11.987654+00",
   version: "17.6",
 };
+
+describe("la comprobación de producción está CABLEADA (no fijada a false)", () => {
+  // Ronda de corrección 2 (2026-08-06): `isProduction` es la rama más ruidosa
+  // de `assertSafeTarget` y sus tres llamadores reales la pasaban como `false`
+  // literal — sólo valía `true` en una prueba. La guarda decía proteger
+  // producción sin que nadie se lo preguntara nunca. Estas pruebas fijan las
+  // dos mitades: que los predicados hacen su trabajo, y que ningún llamador
+  // vuelve a escribir el `false`.
+
+  const leerScript = (rel: string) =>
+    readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+
+  it("esElMismoCluster: true sólo cuando los system_identifier coinciden", () => {
+    expect(esElMismoCluster({ origen: PRODUCCION, destino: { ...PRODUCCION } })).toBe(true);
+    expect(esElMismoCluster({ origen: PRODUCCION, destino: ARENERO })).toBe(false);
+  });
+
+  it("esElMismoCluster: sin identidad devuelve false — de lanzar se encarga assertOrigenDistinto", () => {
+    expect(esElMismoCluster({ origen: null, destino: ARENERO })).toBe(false);
+    expect(esElMismoCluster({ origen: PRODUCCION, destino: {} })).toBe(false);
+  });
+
+  it("hostDeDestino entiende URL, DSN, usuario@host y host suelto", () => {
+    expect(hostDeDestino("https://sntcvyozbhrgicwmtcoh.supabase.co")).toBe(
+      "sntcvyozbhrgicwmtcoh.supabase.co",
+    );
+    expect(hostDeDestino("postgresql://postgres.ref:clave@aws-1-us-east-2.pooler.supabase.com:5432/postgres")).toBe(
+      "aws-1-us-east-2.pooler.supabase.com",
+    );
+    expect(hostDeDestino("cibaocloud@supabase-01")).toBe("supabase-01");
+    expect(hostDeDestino("supabase-01")).toBe("supabase-01");
+    expect(hostDeDestino("  ")).toBeNull();
+    expect(hostDeDestino(undefined)).toBeNull();
+  });
+
+  it("esDestinoProduccion: el mismo proyecto escrito de dos maneras sigue siendo producción", () => {
+    expect(
+      esDestinoProduccion({
+        destino: "https://sntcvyozbhrgicwmtcoh.supabase.co",
+        produccion: "https://sntcvyozbhrgicwmtcoh.supabase.co",
+      }),
+    ).toBe(true);
+    expect(
+      esDestinoProduccion({
+        destino: "https://sntcvyozbhrgicwmtcoh.supabase.co",
+        produccion: "sntcvyozbhrgicwmtcoh.pooler.supabase.com",
+      }),
+    ).toBe(true);
+  });
+
+  it("esDestinoProduccion: un proyecto DESTINO nuevo no es producción", () => {
+    expect(
+      esDestinoProduccion({
+        destino: "https://otroproyectonuevo.supabase.co",
+        produccion: "https://sntcvyozbhrgicwmtcoh.supabase.co",
+      }),
+    ).toBe(false);
+  });
+
+  it("esDestinoProduccion: el servidor del arenero no es el host de producción", () => {
+    expect(
+      esDestinoProduccion({
+        destino: "cibaocloud@supabase-01",
+        produccion: "aws-1-us-east-2.pooler.supabase.com",
+      }),
+    ).toBe(false);
+    // …y si alguien apunta DR_HOST a la base de producción, sí lo es.
+    expect(
+      esDestinoProduccion({
+        destino: "cibaocloud@aws-1-us-east-2.pooler.supabase.com",
+        produccion: "aws-1-us-east-2.pooler.supabase.com",
+      }),
+    ).toBe(true);
+  });
+
+  it("esDestinoProduccion: dos hosts que no son de Supabase y comparten primera etiqueta NO se confunden", () => {
+    // Comparar sólo la primera etiqueta fuera de Supabase daría un falso
+    // positivo, y en una guarda deny-by-default eso se paga bloqueando trabajo
+    // legítimo — el error que ya obligó a rehacer la huella.
+    expect(esDestinoProduccion({ destino: "db.uno.example", produccion: "db.dos.example" })).toBe(false);
+  });
+
+  it("esDestinoProduccion: devuelve null (no false) cuando no se puede determinar", () => {
+    expect(esDestinoProduccion({ destino: "https://x.supabase.co", produccion: "" })).toBeNull();
+    expect(esDestinoProduccion({ destino: null, produccion: "https://x.supabase.co" })).toBeNull();
+  });
+
+  it("ningún llamador real vuelve a fijar isProduction en false", () => {
+    for (const script of ["../../../../scripts/backup/dr-drill.mjs", "../../../../scripts/backup/restore-from-json.mjs"]) {
+      expect(leerScript(script), `${script} volvió a fijar isProduction: false`).not.toMatch(
+        /isProduction:\s*false/,
+      );
+    }
+  });
+
+  it("restore-from-json falla cerrado si no puede saber cuál es producción", () => {
+    const fuente = leerScript("../../../../scripts/backup/restore-from-json.mjs");
+    // El `catch { /* seguir */ }` de antes se saltaba la comprobación entera en
+    // una máquina sin .env.local — justo la de un equipo de recuperación.
+    expect(fuente).not.toMatch(/catch\s*\{\s*\/\*\s*\.env\.local ausente: seguir/);
+    expect(fuente).toMatch(/esProduccion === null/);
+    expect(fuente).toContain("DERMALAND_PROD_SUPABASE_URL");
+  });
+});
 
 describe("assertOrigenDistinto", () => {
   it("acepta dos clusters distintos", () => {

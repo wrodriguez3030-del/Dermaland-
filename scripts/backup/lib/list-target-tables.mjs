@@ -20,6 +20,19 @@
  * contenido no llego a correr y solo la confirmacion manual protege". Esta
  * version avisa por stderr en TODOS los casos en que el chequeo no corrio,
  * y se queda en silencio SOLO cuando corrio y confirmo que no hay tablas.
+ *
+ * ─── Que devuelve exactamente, y por que importa ─────────────────────────────
+ * `definitions` trae TABLAS Y VISTAS, no solo tablas. Medido contra produccion
+ * el 2026-08-06: 84 claves = 83 tablas + la vista `inventory_stock_by_lot`.
+ *
+ * Aqui NO se filtran las vistas, y es a proposito: desde el spec no se
+ * distinguen de forma fiable (`inventory_stock_by_lot` es auto-actualizable,
+ * asi que PostgREST le publica POST/PATCH/DELETE igual que a una tabla). El
+ * criterio compartido vive en lib/dermaland-footprint.mjs
+ * (`CLASES_DE_RELACION`), que reconoce tablas y vistas; el otro llamador de la
+ * guarda —dr-drill.mjs— lista su destino con `sqlRelacionesDelDestino()`, que
+ * sale de la MISMA lista. Cuando los dos lados no coincidian, la restauracion
+ * legitima abortaba siempre acusando al destino de estar contaminado.
  */
 
 /**

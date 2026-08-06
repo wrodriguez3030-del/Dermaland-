@@ -114,6 +114,86 @@ export function assertOrigenDistinto({ origen, destino }) {
   }
 }
 
+/**
+ * Misma comparacion que hace `assertOrigenDistinto`, pero como predicado.
+ *
+ * Existe para que `assertSafeTarget({ isProduction })` reciba un HECHO MEDIDO
+ * en vez de un `false` escrito a mano. Ronda de correccion 2 (2026-08-06)
+ * encontro que `isProduction` —la rama mas ruidosa de la guarda— estaba fijada
+ * a `false` en sus tres llamadores reales y solo valia `true` en una prueba:
+ * la guarda decia proteger produccion y en la practica nadie se lo preguntaba.
+ *
+ * Devuelve `false` cuando alguna identidad falta: quien llama no debe
+ * interpretar "no se pudo comparar" como "no es produccion", y para eso esta
+ * `assertOrigenDistinto`, que en ese caso LANZA.
+ */
+export function esElMismoCluster({ origen, destino }) {
+  const a = sysid(origen);
+  const b = sysid(destino);
+  return a !== null && b !== null && a === b;
+}
+
+/**
+ * Nombre de host de un destino escrito de cualquiera de las formas que se usan
+ * en este repo: URL (`https://ref.supabase.co`), DSN
+ * (`postgresql://u:p@host:5432/db`), `usuario@host` de ssh, o el host suelto.
+ *
+ * @returns {string|null} host en minusculas, o null si no se pudo determinar.
+ */
+export function hostDeDestino(valor) {
+  const s = String(valor ?? "").trim();
+  if (s === "") return null;
+
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) {
+    try {
+      const h = new URL(s).hostname.toLowerCase();
+      return h === "" ? null : h;
+    } catch {
+      return null;
+    }
+  }
+
+  // `usuario@host`, `host:puerto` o `host` pelado.
+  const sinUsuario = s.includes("@") ? s.slice(s.lastIndexOf("@") + 1) : s;
+  const sinPuerto = sinUsuario.replace(/:\d+$/, "").replace(/\/.*$/, "");
+  const h = sinPuerto.trim().toLowerCase();
+  return h === "" ? null : h;
+}
+
+/**
+ * Referencia de proyecto Supabase: primera etiqueta del host, y SOLO para
+ * hosts de Supabase. Restringirlo evita el falso positivo de dos hosts
+ * cualesquiera que compartan primera etiqueta (`db.uno.com` / `db.dos.com`),
+ * que en una guarda deny-by-default se paga bloqueando trabajo legitimo — el
+ * mismo error que ya obligo a rehacer la huella.
+ */
+function refSupabaseDeHost(host) {
+  if (!/(^|\.)supabase\.(co|com|net)$/.test(host)) return null;
+  const primera = host.split(".")[0];
+  return primera === "" ? null : primera;
+}
+
+/**
+ * ¿El destino es el mismo sistema que produccion?
+ *
+ * Compara host completo y, si difieren, la referencia de proyecto Supabase
+ * (primera etiqueta): `https://ref.supabase.co` y `ref.pooler.supabase.com`
+ * son el mismo proyecto escrito de dos maneras.
+ *
+ * @returns {boolean|null} `null` cuando no se pudo determinar alguno de los
+ *   dos lados. Es deliberado que NO devuelva `false` ahi: quien llama tiene
+ *   que fallar cerrado, no seguir adelante creyendo que el destino es seguro.
+ */
+export function esDestinoProduccion({ destino, produccion }) {
+  const hd = hostDeDestino(destino);
+  const hp = hostDeDestino(produccion);
+  if (hd === null || hp === null) return null;
+  if (hd === hp) return true;
+  const rd = refSupabaseDeHost(hd);
+  const rp = refSupabaseDeHost(hp);
+  return rd !== null && rp !== null && rd === rp;
+}
+
 /** Suma numerica tolerante de los valores de un objeto. */
 function suma(obj) {
   if (obj === null || typeof obj !== "object" || Array.isArray(obj)) return 0;

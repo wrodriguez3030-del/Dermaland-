@@ -16,7 +16,7 @@
 export function stripSqlComments(sql: string): string;
 
 /** Tipos de objeto SQL que `extractObjects` reconoce. Ver PATTERNS en el .mjs. */
-export type MigrationObjectKind = "table" | "column" | "function" | "policy" | "index";
+export type MigrationObjectKind = "table" | "view" | "column" | "function" | "policy" | "index";
 
 export interface MigrationObject {
   kind: MigrationObjectKind;
