@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  accionDelDesafio,
   mfaGateDecision,
   nivelAal,
   nivelSiguienteConFactores,
@@ -220,13 +221,25 @@ describe("nivelAal", () => {
   });
 });
 
+const TOTP_OK = { status: "verified", factor_type: "totp" };
+
 describe("tieneFactorVerificado", () => {
   it("sólo cuenta los factores verificados", () => {
-    expect(tieneFactorVerificado([{ status: "verified" }])).toBe(true);
-    expect(tieneFactorVerificado([{ status: "unverified" }, { status: "verified" }])).toBe(true);
+    expect(tieneFactorVerificado([TOTP_OK])).toBe(true);
+    expect(tieneFactorVerificado([{ status: "unverified", factor_type: "totp" }, TOTP_OK])).toBe(true);
     // Un enrolamiento abandonado a medias no es un factor: si contara, el
     // middleware mandaría al desafío a quien no tiene nada que verificar.
-    expect(tieneFactorVerificado([{ status: "unverified" }])).toBe(false);
+    expect(tieneFactorVerificado([{ status: "unverified", factor_type: "totp" }])).toBe(false);
+  });
+
+  it("sólo cuenta TOTP: es lo único que la página del desafío sabe verificar", () => {
+    // `listFactors()` reparte por tipo y `/login/mfa` lee SÓLO el cubo `totp`.
+    // Si aquí contáramos un `phone` o un `webauthn`, el middleware diría
+    // "desafía" y la página diría "no hay nada que verificar": bucle.
+    expect(tieneFactorVerificado([{ status: "verified", factor_type: "phone" }])).toBe(false);
+    expect(tieneFactorVerificado([{ status: "verified", factor_type: "webauthn" }])).toBe(false);
+    // Y con los dos, manda el TOTP.
+    expect(tieneFactorVerificado([{ status: "verified", factor_type: "phone" }, TOTP_OK])).toBe(true);
   });
 
   it("la ausencia de lista se lee como 'ninguno', igual que listFactors()", () => {
@@ -240,6 +253,73 @@ describe("tieneFactorVerificado", () => {
   it("aguanta una lista con huecos o formas inesperadas", () => {
     expect(tieneFactorVerificado([null, undefined])).toBe(false);
     expect(tieneFactorVerificado([{}, { status: null }])).toBe(false);
+    // Sin tipo no se puede afirmar que sea TOTP.
+    expect(tieneFactorVerificado([{ status: "verified" }])).toBe(false);
+  });
+});
+
+/**
+ * La página del desafío. Lo que se prueba aquí no es cosmética: cada una de
+ * estas respuestas provocaba, con el salto automático que tenía la página, un
+ * ping-pong infinito contra la puerta de 2FA.
+ */
+describe("accionDelDesafio", () => {
+  type FactorTotp = { id?: string | null; status?: string | null };
+  const listado = (totp: ReadonlyArray<FactorTotp | null | undefined>) => ({
+    data: { totp },
+    error: null,
+  });
+
+  it("con un TOTP verificado, pide el código", () => {
+    expect(accionDelDesafio(listado([{ id: "f-1", status: "verified" }]))).toEqual({
+      accion: "pedir-codigo",
+      factorId: "f-1",
+    });
+  });
+
+  it("con el cubo TOTP vacío, no hay nada que verificar", () => {
+    // Aquí cae el usuario con un factor `phone` o `webauthn`: `listFactors()`
+    // lo pone en OTRO cubo, así que el cubo `totp` llega vacío.
+    expect(accionDelDesafio(listado([]))).toEqual({ accion: "sin-factor" });
+    expect(accionDelDesafio({ data: {}, error: null })).toEqual({ accion: "sin-factor" });
+    expect(accionDelDesafio({ data: { totp: null }, error: null })).toEqual({ accion: "sin-factor" });
+  });
+
+  it("un fallo NO es 'no tiene factor'", () => {
+    // `listFactors()` devuelve `{ data: null, error }` ante cualquier fallo de
+    // `getUser()`: red, un 5xx de GoTrue, una carrera del refresco entre
+    // pestañas. Confundirlo con "no tiene" dejaba dando vueltas a alguien con
+    // un TOTP perfectamente normal.
+    expect(accionDelDesafio({ data: null, error: new Error("network") })).toEqual({
+      accion: "no-se-pudo-comprobar",
+    });
+    expect(accionDelDesafio({ data: null, error: null })).toEqual({ accion: "no-se-pudo-comprobar" });
+    expect(accionDelDesafio(null)).toEqual({ accion: "no-se-pudo-comprobar" });
+    expect(accionDelDesafio(undefined)).toEqual({ accion: "no-se-pudo-comprobar" });
+  });
+
+  it("no pide código con un factor sin id utilizable", () => {
+    expect(accionDelDesafio(listado([{ status: "verified" }]))).toEqual({ accion: "sin-factor" });
+    expect(accionDelDesafio(listado([{ id: "", status: "verified" }]))).toEqual({ accion: "sin-factor" });
+    expect(accionDelDesafio(listado([null, undefined]))).toEqual({ accion: "sin-factor" });
+  });
+
+  it("NINGUNA respuesta posible produce una navegación automática", () => {
+    // Ésta es la propiedad que mata la clase entera de bucle. Si mañana alguien
+    // añade una acción que navega sola, esta prueba se lo dice.
+    const respuestas = [
+      null, undefined,
+      { data: null, error: new Error("x") },
+      { data: {}, error: null },
+      listado([]),
+      listado([{ id: "f-1", status: "verified" }]),
+      listado([{ id: "f-2", status: "unverified" }]),
+    ];
+    for (const r of respuestas) {
+      expect(["pedir-codigo", "sin-factor", "no-se-pudo-comprobar"]).toContain(
+        accionDelDesafio(r).accion,
+      );
+    }
   });
 });
 
@@ -247,7 +327,16 @@ describe("nivelSiguienteConFactores", () => {
   it("sube a aal2 cuando el servidor confirma un factor verificado", () => {
     // Caso real: enroló en el teléfono; la galleta de la laptop es anterior y
     // todavía dice aal1.
-    expect(nivelSiguienteConFactores("aal1", { factors: [{ status: "verified" }] })).toBe("aal2");
+    expect(nivelSiguienteConFactores("aal1", { factors: [TOTP_OK] })).toBe("aal2");
+  });
+
+  it("un factor verificado que NO es TOTP no sube el nivel", () => {
+    // La página del desafío no sabría qué verificar: mandarlo allí sería
+    // mandarlo a rebotar. Con "aal1" cae en "enrolar", llega a
+    // `/perfil/seguridad` —exenta— y puede enrolar un TOTP de verdad.
+    expect(
+      nivelSiguienteConFactores("aal2", { factors: [{ status: "verified", factor_type: "webauthn" }] }),
+    ).toBe("aal1");
   });
 
   it("BAJA a aal1 cuando el servidor dice que ya no hay factor", () => {
@@ -260,8 +349,9 @@ describe("nivelSiguienteConFactores", () => {
   });
 
   it("un enrolamiento sin verificar no cuenta como factor", () => {
-    expect(nivelSiguienteConFactores("aal1", { factors: [{ status: "unverified" }] })).toBe("aal1");
-    expect(nivelSiguienteConFactores("aal2", { factors: [{ status: "unverified" }] })).toBe("aal1");
+    const aMedias = [{ status: "unverified", factor_type: "totp" }];
+    expect(nivelSiguienteConFactores("aal1", { factors: aMedias })).toBe("aal1");
+    expect(nivelSiguienteConFactores("aal2", { factors: aMedias })).toBe("aal1");
   });
 
   it("sin lectura fresca del usuario, se queda con lo que diga la sesión", () => {

@@ -83,26 +83,37 @@ export function nivelAal(valor: unknown): NivelAal {
 /** Forma mínima de un usuario recién leído del servidor. */
 export interface UsuarioConFactores {
   factors?:
-    | ReadonlyArray<{ status?: string | null } | null | undefined>
+    | ReadonlyArray<
+        { status?: string | null; factor_type?: string | null } | null | undefined
+      >
     | null;
 }
 
 /**
- * ¿Consta un factor VERIFICADO en esta lista?
+ * ¿Consta un factor TOTP VERIFICADO en esta lista?
  *
- * Un enrolamiento abandonado a medias (`unverified`) no cuenta: mandar a un
- * desafío a quien no tiene nada que verificar es un bucle.
+ * Dos filtros, y los dos son la diferencia entre funcionar y dar vueltas:
+ *
+ * - **`status === "verified"`**: un enrolamiento abandonado a medias no cuenta.
+ *   Mandar a un desafío a quien no tiene nada que verificar es un bucle.
+ * - **`factor_type === "totp"`**: `listFactors()` reparte los factores en cubos
+ *   por tipo (`GoTrueClient.js:4489-4500`) y la página del desafío lee SÓLO el
+ *   cubo `totp` — que es lo único que esta aplicación sabe enrolar y verificar.
+ *   Contar aquí un factor `phone` o `webauthn` haría que el middleware dijera
+ *   "desafía" mientras la página dice "no hay nada que verificar": los dos
+ *   lados discrepando, que es exactamente de lo que están hechos los bucles.
+ *
+ * Si algún día se soportan otros tipos, hay que cambiar los dos sitios a la vez.
  *
  * La ausencia de la lista se lee como "ninguno", igual que hace
- * `supabase.auth.mfa.listFactors()` (`user?.factors ?? []`, GoTrueClient.js
- * :4496). Que las dos lecturas usen el mismo criterio no es cosmético: si
- * discreparan, el navegador y el middleware se mandarían el uno al otro.
+ * `listFactors()` (`user?.factors ?? []`).
  */
 export function tieneFactorVerificado(
   factors: UsuarioConFactores["factors"],
 ): boolean {
   return (
-    Array.isArray(factors) && factors.some((f) => f?.status === "verified")
+    Array.isArray(factors) &&
+    factors.some((f) => f?.status === "verified" && f?.factor_type === "totp")
   );
 }
 
@@ -130,6 +141,60 @@ export function nivelSiguienteConFactores(
 ): NivelAal {
   if (!usuarioFresco) return nextLevelDeLaSesion;
   return tieneFactorVerificado(usuarioFresco.factors) ? "aal2" : "aal1";
+}
+
+/**
+ * Qué puede hacer la página del desafío (`/login/mfa`) con lo que le devolvió
+ * `listFactors()`.
+ *
+ * Ninguna de las tres acciones es "navegar sola", y eso es el punto. La página
+ * saltaba automáticamente a `/perfil/seguridad` cuando no encontraba un TOTP
+ * que verificar, y con la exención condicional de la puerta eso se volvía un
+ * ping-pong infinito en cuanto el middleware y la página discrepaban. Discrepar
+ * es fácil: basta que `getUser()` falle —red, un 5xx de GoTrue, una carrera del
+ * refresco entre pestañas— para que `listFactors()` devuelva `data: null` y la
+ * página crea que no hay factor **teniendo uno perfectamente normal**.
+ *
+ * Alinear los criterios (ver `tieneFactorVerificado`) quita las discrepancias
+ * que sabemos nombrar. Quitar el salto automático quita la clase entera: un
+ * salto que exige un clic no puede dar vueltas solo, ni por los dos casos
+ * conocidos ni por el que todavía no se nos ha ocurrido.
+ *
+ * Vive aquí, pura, para que la prueba de la cadena de redirecciones use ESTA
+ * función y no una imitación escrita a mano: una simulación que copia el
+ * criterio del código hereda su punto ciego y no prueba nada.
+ */
+export type AccionDesafio =
+  /** Hay un TOTP verificado: pedir el código de 6 dígitos. */
+  | { accion: "pedir-codigo"; factorId: string }
+  /** El servidor respondió y no hay nada que verificar. */
+  | { accion: "sin-factor" }
+  /** No se pudo preguntar. NO es lo mismo que "no tiene". */
+  | { accion: "no-se-pudo-comprobar" };
+
+export function accionDelDesafio(
+  respuesta:
+    | {
+        data?: {
+          totp?: ReadonlyArray<
+            { id?: string | null; status?: string | null } | null | undefined
+          > | null;
+        } | null;
+        error?: unknown;
+      }
+    | null
+    | undefined,
+): AccionDesafio {
+  // `listFactors()` devuelve `{ data: null, error }` ante CUALQUIER fallo de
+  // `getUser()`. Confundir eso con "no tiene factor" es el bucle B.
+  if (!respuesta || respuesta.error || !respuesta.data) {
+    return { accion: "no-se-pudo-comprobar" };
+  }
+  const totp = respuesta.data.totp?.find(
+    (f) => f?.status === "verified" && typeof f?.id === "string" && f.id !== "",
+  );
+  if (!totp?.id) return { accion: "sin-factor" };
+  return { accion: "pedir-codigo", factorId: totp.id };
 }
 
 /**

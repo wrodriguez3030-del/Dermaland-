@@ -33,6 +33,7 @@ vi.mock("@supabase/ssr", () => ({
 }));
 
 import { NextRequest } from "next/server";
+import { accionDelDesafio } from "@/lib/auth/mfa-gate";
 import { middleware } from "./middleware";
 
 const NEGOCIO = "00000000-0000-0000-0000-00000000d001";
@@ -293,59 +294,140 @@ describe("puerta 2FA — lo que sigue igual", () => {
  */
 describe("puerta 2FA — la cadena de redirecciones siempre termina", () => {
   const estados = [
-    { nombre: "sin factor", aal: niveles("aal1", "aal1"), factors: null, lanza: false },
-    { nombre: "con factor sin desafío", aal: niveles("aal1", "aal2"), factors: FACTOR_VERIFICADO, lanza: false },
-    { nombre: "con desafío superado", aal: niveles("aal2", "aal2"), factors: FACTOR_VERIFICADO, lanza: false },
-    { nombre: "chequeo caído", aal: null, factors: null, lanza: true },
-    { nombre: "chequeo caído con factor", aal: null, factors: FACTOR_VERIFICADO, lanza: true },
-    { nombre: "niveles nulos", aal: niveles(null, null), factors: null, lanza: false },
+    { nombre: "sin factor", aal: niveles("aal1", "aal1"), factors: null, lanza: false, listFactorsFalla: false },
+    { nombre: "con factor sin desafío", aal: niveles("aal1", "aal2"), factors: FACTOR_VERIFICADO, lanza: false, listFactorsFalla: false },
+    { nombre: "con desafío superado", aal: niveles("aal2", "aal2"), factors: FACTOR_VERIFICADO, lanza: false, listFactorsFalla: false },
+    { nombre: "chequeo caído", aal: null, factors: null, lanza: true, listFactorsFalla: false },
+    { nombre: "chequeo caído con factor", aal: null, factors: FACTOR_VERIFICADO, lanza: true, listFactorsFalla: false },
+    { nombre: "niveles nulos", aal: niveles(null, null), factors: null, lanza: false, listFactorsFalla: false },
     // La galleta miente por defecto: enroló en otro dispositivo.
-    { nombre: "galleta corta (enroló en otro sitio)", aal: niveles("aal1", "aal1"), factors: FACTOR_VERIFICADO, lanza: false },
+    { nombre: "galleta corta (enroló en otro sitio)", aal: niveles("aal1", "aal1"), factors: FACTOR_VERIFICADO, lanza: false, listFactorsFalla: false },
     // La galleta miente por exceso: le hicieron break-glass y su sesión sigue
     // anunciando un factor que ya no existe. Éste es el que crea el bucle si el
     // middleware le cree a la galleta en vez de al servidor.
-    { nombre: "galleta larga (break-glass reciente)", aal: niveles("aal1", "aal2"), factors: null, lanza: false },
-    { nombre: "galleta larga y sesión ya en aal2", aal: niveles("aal2", "aal2"), factors: null, lanza: false },
-    { nombre: "enrolamiento a medias sin verificar", aal: niveles("aal1", "aal1"), factors: [{ status: "unverified" }], lanza: false },
-  ] as const;
+    { nombre: "galleta larga (break-glass reciente)", aal: niveles("aal1", "aal2"), factors: null, lanza: false, listFactorsFalla: false },
+    { nombre: "galleta larga y sesión ya en aal2", aal: niveles("aal2", "aal2"), factors: null, lanza: false, listFactorsFalla: false },
+    { nombre: "enrolamiento a medias sin verificar", aal: niveles("aal1", "aal1"), factors: [{ status: "unverified", factor_type: "totp" }], lanza: false, listFactorsFalla: false },
+    // Los dos que encontró la auditoría en la ronda 2.
+    { nombre: "factor verificado que NO es TOTP", aal: niveles("aal1", "aal2"), factors: [{ status: "verified", factor_type: "webauthn" }], lanza: false, listFactorsFalla: false },
+    { nombre: "listFactors falla con un TOTP normal", aal: niveles("aal1", "aal2"), factors: FACTOR_VERIFICADO, lanza: false, listFactorsFalla: true },
+  ];
 
   const rutas = ["/", "/ventas", "/api/products", "/super-admin", "/perfil", "/perfil/seguridad", "/login/mfa"];
+
+  /**
+   * `listFactors()` tal y como lo construye auth-js: reparte en cubos POR TIPO
+   * y sólo los verificados, y devuelve `data: null` ante cualquier fallo de
+   * `getUser()` (`GoTrueClient.js:4482-4506`).
+   *
+   * Se simula la respuesta —no la decisión— justamente para que la decisión la
+   * tome `accionDelDesafio`, que es la MISMA función que usa la página. Antes
+   * esta prueba reimplementaba a mano el criterio de la página y por eso
+   * heredaba su punto ciego: las dos partes no podían discrepar dentro de la
+   * prueba, y el bucle vive precisamente en que discrepen.
+   */
+  function listFactorsSimulado(
+    factors: ReadonlyArray<{ status?: string; factor_type?: string }> | null,
+    falla: boolean,
+  ) {
+    if (falla) return { data: null, error: new Error("getUser falló") };
+    const verificados = (factors ?? []).filter((f) => f.status === "verified");
+    return {
+      data: {
+        all: factors ?? [],
+        totp: verificados.filter((f) => f.factor_type === "totp").map((f, i) => ({ ...f, id: `f-${i}` })),
+        phone: verificados.filter((f) => f.factor_type === "phone"),
+        webauthn: verificados.filter((f) => f.factor_type === "webauthn"),
+      },
+      error: null,
+    };
+  }
+
+  /**
+   * El salto que da el NAVEGADOR en `/login/mfa`.
+   *
+   * `saltoAutomatico` reproduce la página ANTERIOR, que se iba sola a
+   * `/perfil/seguridad` cuando no encontraba un TOTP. La de ahora no navega:
+   * enseña un mensaje con un enlace. Se deja parametrizado para poder
+   * demostrar, abajo, que ese clic es lo único que rompe el ciclo.
+   */
+  const saltoDelNavegador = (
+    ruta: string,
+    estado: (typeof estados)[number],
+    saltoAutomatico: boolean,
+  ): string | null => {
+    if (ruta.split("?")[0] !== "/login/mfa") return null;
+    const decision = accionDelDesafio(
+      listFactorsSimulado(estado.factors, estado.listFactorsFalla),
+    );
+    // Con un TOTP que verificar la página se queda pidiendo el código.
+    if (decision.accion === "pedir-codigo") return null;
+    return saltoAutomatico
+      ? `/perfil/seguridad?next=${encodeURIComponent(ruta)}`
+      : null;
+  };
+
+  async function recorrer(
+    estado: (typeof estados)[number],
+    rol: string,
+    saltoAutomatico: boolean,
+  ): Promise<string | null> {
+    supabaseFalso.aal = estado.aal;
+    supabaseFalso.aalLanza = estado.lanza;
+    supabaseFalso.user = estado.factors
+      ? { ...usuario(rol), factors: estado.factors }
+      : usuario(rol);
+
+    for (const inicio of rutas) {
+      const visitadas = new Set<string>();
+      let actual: string | null = inicio;
+      let saltos = 0;
+      while (actual) {
+        if (visitadas.has(actual)) {
+          return `bucle en ${inicio}: ${[...visitadas].join(" → ")} → ${actual}`;
+        }
+        visitadas.add(actual);
+        const servidor: string | null = await destinoDe(actual);
+        actual = servidor ?? saltoDelNavegador(actual, estado, saltoAutomatico);
+        saltos += 1;
+        if (saltos > 6) return `demasiados saltos desde ${inicio}`;
+      }
+    }
+    return null;
+  }
 
   for (const rol of ["admin", "super_admin", "cashier", "manager"]) {
     for (const estado of estados) {
       it(`${rol} · ${estado.nombre}`, async () => {
-        supabaseFalso.aal = estado.aal;
-        supabaseFalso.aalLanza = estado.lanza;
-        supabaseFalso.user = estado.factors
-          ? { ...usuario(rol), factors: estado.factors }
-          : usuario(rol);
-
-        // Lo que hace la PÁGINA `/login/mfa` al montarse: si el servidor no le
-        // da ningún factor verificado, no hay nada que verificar y se va a
-        // `/perfil/seguridad`. Misma fuente que el middleware (`getUser`), así
-        // que no pueden discrepar — y esta simulación lo comprueba.
-        const tieneFactorVerificado = (estado.factors ?? []).some(
-          (f) => f.status === "verified",
-        );
-        const saltoDelNavegador = (ruta: string, servida: boolean) =>
-          servida && ruta.split("?")[0] === "/login/mfa" && !tieneFactorVerificado
-            ? `/perfil/seguridad?next=${encodeURIComponent(ruta)}`
-            : null;
-
-        for (const inicio of rutas) {
-          const visitadas = new Set<string>();
-          let actual: string | null = inicio;
-          let saltos = 0;
-          while (actual) {
-            expect(visitadas.has(actual), `bucle en ${inicio}: ${[...visitadas].join(" → ")}`).toBe(false);
-            visitadas.add(actual);
-            const servidor: string | null = await destinoDe(actual);
-            actual = servidor ?? saltoDelNavegador(actual, true);
-            saltos += 1;
-            expect(saltos, `demasiados saltos desde ${inicio}`).toBeLessThan(6);
-          }
-        }
+        expect(await recorrer(estado, rol, false)).toBe(null);
       });
     }
   }
+
+  /**
+   * Y la prueba de que el clic es lo que aguanta el peso.
+   *
+   * Con el salto automático de la página anterior, `listFactors()` caído deja a
+   * un administrador con un TOTP perfectamente normal dando vueltas sin fin. No
+   * hace falta ninguna configuración rara: basta un fallo de red en el peor
+   * momento. Si alguien quita la pantalla con enlace y devuelve el salto, esta
+   * prueba pasa a decir "ya no da vueltas" y falla, señalando el sitio.
+   */
+  it("con el salto automático de antes, un listFactors caído daba vueltas sin fin", async () => {
+    const estado = estados.find((e) => e.listFactorsFalla)!;
+    const problema = await recorrer(estado, "admin", true);
+    expect(problema).toMatch(/^bucle en/);
+    expect(problema).toContain("/login/mfa");
+    expect(problema).toContain("/perfil/seguridad");
+  });
+
+  /**
+   * El factor no-TOTP, en cambio, está arreglado DE RAÍZ: alineados los
+   * criterios, el middleware ya no manda al desafío a quien no tiene un TOTP,
+   * así que la cadena termina incluso con el salto automático puesto.
+   */
+  it("el factor que no es TOTP ya no da vueltas ni con el salto automático", async () => {
+    const estado = estados.find((e) => e.nombre === "factor verificado que NO es TOTP")!;
+    expect(await recorrer(estado, "admin", true)).toBe(null);
+  });
 });
