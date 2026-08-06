@@ -14,6 +14,11 @@ where not exists (
   select 1 from laboratories l where l.business_id = b.id and lower(l.name) = lower(v.name)
 );
 
+-- FIX 2026-08-06: `l.business_id = p.business_id` estaba dentro del ON del JOIN,
+-- que no incluye a `p` (la tabla del UPDATE) en su alcance. Postgres lo rechaza:
+--   ERROR: invalid reference to FROM-clause entry for table "p"
+-- Nunca se aplico ni quedo registrada (ver docs/migration-audit-20260805.md),
+-- asi que se corrige en el mismo archivo en vez de crear uno nuevo.
 with alias(lab_name, pat) as (values
   ('ISDIN', '%isdin%'),
   ('La Roche-Posay', '%la roche%'),
@@ -50,10 +55,11 @@ with alias(lab_name, pat) as (values
 update products p
 set laboratory_id = l.id, updated_at = now()
 from alias a
-join laboratories l on lower(l.name) = lower(a.lab_name) and l.business_id = p.business_id
+join laboratories l on lower(l.name) = lower(a.lab_name)
 where p.laboratory_id is null
   and p.deleted_at is null
-  and lower(p.name) like a.pat;
+  and lower(p.name) like a.pat
+  and l.business_id = p.business_id;
 
 -- Resumen (informativo): correr aparte para ver el resultado.
 -- select count(*) total, count(laboratory_id) con_lab,

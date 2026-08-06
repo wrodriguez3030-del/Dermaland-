@@ -62,11 +62,27 @@ esta entrada es el resumen con los números reales.
   `businesses_select`/`clients_select` → `*_sel`/`_ins`/`_upd`/`_del`), drift
   cosmético que se revisa a mano. El bloqueo de los 14 es decidir su **versión
   de 14 dígitos**; la auditoría deliberadamente no la inventa.
-- **Conocido y sin resolver, decisión de negocio, no técnica:**
-  `0017_backfill_product_laboratories.sql` es SQL inválido y nunca corrió en
-  ningún entorno. **611 de 1.356 productos activos (45,1 %) no tienen
-  laboratorio**, así que la regla de vencimiento por laboratorio no se puede
-  aplicar a casi medio catálogo hasta que alguien decida el backfill de verdad.
+- **2026-08-06 · Backfill de laboratorios — reducido de 45,1 % a 24,9 %.**
+  `0017_backfill_product_laboratories.sql` tenía SQL inválido (`p` referenciado
+  dentro del `ON` de un `JOIN` que no la incluía) y nunca corrió en ningún
+  entorno; corregido moviendo la condición al `WHERE`. Pero el arreglo de
+  sintaxis por sí solo solo cubría 8 de 611 productos: la mayoría de marcas
+  reales del catálogo nunca estuvieron en la lista de 30 patrones de texto.
+  Migración nueva (`20260806172849_backfill_laboratories_missing_brands.sql`):
+  creó 12 laboratorios que faltaban (IDCP, Medihealth, Babé, Sensilis,
+  Primaderm, Darrow, EltaMD, Colorescience, Rilastil, Neutrogena, Pilopeptan,
+  Abravia) y vinculó `products.laboratory_id` por `brand_id` — dato
+  estructurado ya limpio, no por texto del nombre. Resultado real: **1.018 de
+  1.356 con laboratorio (75,1 %), 338 sin (24,9 %)**. Los 338 restantes **no
+  tienen `brand_id` en absoluto** (ítems como "Melina Loción 100 ML" o
+  "Vaseline Blueseal") — no es un problema de mapeo, es catalogación manual
+  pendiente, fuera de alcance de un backfill automático.
+  `country` y `min_shelf_life_days` de los 12 laboratorios nuevos quedan en
+  `NULL` a propósito: es política de negocio (acuerdos de recepción con cada
+  proveedor), igual que **67 de los 68** laboratorios ya sembrados en 0016.
+  La regla de vencimiento por laboratorio sigue inerte donde no se configure
+  el umbral, tengan o no productos vinculados — pendiente del dueño en
+  Configuración → Laboratorios.
 
 ### B-04 · 2FA — CERRADO EN CÓDIGO, SIN DESPLEGAR
 
@@ -176,6 +192,9 @@ diario desactivado, y PITR inexistente en plan Free.
   siguen sin laboratorio). **Se deja fallando a propósito:** es una decisión de
   negocio del dueño, no técnica, y que la prueba se detenga ahí hace visible un
   problema real en vez de taparlo.
+  *(Actualización 2026-08-06: el bug de sintaxis se corrigió en el mismo
+  archivo — nunca se había registrado, sin riesgo de desajuste — y se cerró el
+  hueco real por otra vía. Ver la entrada de arriba.)*
 - **Nota sobre el entorno de prueba:** la imagen `supabase/postgres` trae los
   roles y los esquemas, pero no `auth.jwt()` ni las tablas de `storage` (en la
   nube las crean GoTrue y storage-api). Se añadieron al contenedor como andamio

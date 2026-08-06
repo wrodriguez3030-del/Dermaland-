@@ -55,12 +55,17 @@ Detalle completo en `docs/estado-actual.md` (entrada `2026-08-06`) y
       la versión endurecida (los mismos fixes que pasó `dr-drill.mjs`) llegue
       a `main`. Los secretos `SUPABASE_DB_URL` y `BACKUP_GPG_PASSPHRASE` ya
       están configurados; la passphrase está en el Llavero.
-- [ ] **Decidir el backfill de laboratorio.**
-      `0017_backfill_product_laboratories.sql` es SQL inválido y nunca corrió;
-      **611 de 1.356 productos activos (45,1 %) no tienen laboratorio**, así
-      que la regla de vencimiento por laboratorio no aplica a casi medio
-      catálogo. Decisión de negocio: reescribir el backfill, o asignar
-      laboratorio a mano donde importe.
+- [ ] **Configurar `min_shelf_life_days` por laboratorio.**
+      El backfill se corrigió y amplió el 2026-08-06 (bug de sintaxis + 12
+      laboratorios nuevos vinculados por `brand_id`): de 611 (45,1 %) a 338
+      (24,9 %) productos sin laboratorio. Pero de los **80** laboratorios que
+      existen hoy, solo **1** (A-Derma) tiene el umbral de vencimiento
+      configurado — la regla no puede aplicarse en los otros 79 aunque tengan
+      productos vinculados. Decisión de negocio, en Configuración →
+      Laboratorios.
+- [ ] **338 productos sin `brand_id`** no pueden vincularse a un laboratorio
+      por dato estructurado (ítems como "Melina Loción" o "Vaseline
+      Blueseal"). Catalogación manual, no backfill automático.
 - [ ] **`preview-admin@dermaland.do` sin 2FA** (`docs/riesgos.md` R-SEC-03):
       al desplegar el enforcement, los smokes de Preview que inicien sesión
       como ese usuario fallarán hasta que se enrole a mano o se le baje el
