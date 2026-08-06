@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isBusinessUser, isPublic } from "./middleware";
+import { isBusinessUser, isMfaExempt, isPublic } from "./middleware";
 
 /**
  * La lista de rutas públicas es la frontera entre lo que ve cualquiera en
@@ -76,8 +76,44 @@ describe("isPublic", () => {
     // El PDF público exige el patrón completo.
     "/api/proformas/9f0c2f5e/pdf/extra",
     "/api/proformas",
+    // Estar EXENTA de la puerta 2FA no es ser pública: aquí se activa el
+    // segundo factor de la propia cuenta, así que sin sesión no hay nada que
+    // hacer. Si esta línea empieza a fallar, la exención se convirtió en
+    // agujero.
+    "/perfil/seguridad",
   ])("exige sesión en %s", (ruta) => {
     expect(isPublic(ruta)).toBe(false);
+  });
+});
+
+/**
+ * La puerta de 2FA redirige a estas dos rutas. Si las vigilara, redirigiría a
+ * quien ya está en el destino: bucle infinito para los dos únicos
+ * administradores del sistema. Y si eximiera de más, sería la forma de saltarse
+ * el segundo factor. Por eso también se comprueba en los DOS sentidos.
+ */
+describe("isMfaExempt", () => {
+  it.each([
+    "/perfil/seguridad",
+    "/login/mfa",
+    // Cualquier recurso colgado del destino (por si mañana la página crece).
+    "/perfil/seguridad/respaldo",
+  ])("exime %s", (ruta) => {
+    expect(isMfaExempt(ruta)).toBe(true);
+  });
+
+  it.each([
+    "/",
+    "/ventas",
+    "/api/products",
+    "/perfil",
+    // Match por SEGMENTO: empezar igual no basta (DL-07).
+    "/perfil/seguridad-falsa",
+    "/perfil/seguridades",
+    "/login/mfa-falso",
+    "/loginmfa",
+  ])("NO exime %s", (ruta) => {
+    expect(isMfaExempt(ruta)).toBe(false);
   });
 });
 

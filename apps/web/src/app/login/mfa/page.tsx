@@ -29,7 +29,16 @@ function MfaChallenge() {
       if (!supabase) { window.location.href = next; return; }
       const { data } = await supabase.auth.mfa.listFactors();
       const totp = data?.totp?.find((f) => f.status === "verified");
-      if (!totp) { window.location.href = next; return; } // sin factor → nada que verificar
+      if (!totp) {
+        // Sin factor no hay nada que verificar. Se va a la página de seguridad
+        // y NO a `next`: si el middleware nos mandó aquí porque la sesión
+        // guardada decía "tiene factor" —por ejemplo, porque se desactivó 2FA
+        // desde otro dispositivo—, volver a `next` nos traería de vuelta aquí
+        // en bucle. `/perfil/seguridad` está exenta de la puerta, así que la
+        // cadena termina siempre, y es donde de verdad se puede actuar.
+        window.location.href = `/perfil/seguridad?next=${encodeURIComponent(next)}`;
+        return;
+      }
       setFactorId(totp.id);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

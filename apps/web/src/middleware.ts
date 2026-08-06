@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import {
+  mfaGateDecision,
+  nivelAal,
+  nivelSiguienteConFactores,
+  type NivelAal,
+} from "@/lib/auth/mfa-gate";
 
 /**
  * Middleware de auth.
@@ -61,6 +67,37 @@ const PUBLIC_PATHS = [
 // PDF público firmado del comprobante: `/api/proformas/[id]/pdf?t=<token>`.
 // El endpoint valida el token internamente (service-role acotado por business).
 const PUBLIC_PATH_PATTERNS = [/^\/api\/proformas\/[^/]+\/pdf$/];
+
+/** A dónde manda la puerta de 2FA a quien todavía no tiene factor. */
+export const MFA_ENROLL_PATH = "/perfil/seguridad";
+/** A dónde manda la puerta de 2FA a quien tiene factor y no lo ha usado. */
+export const MFA_CHALLENGE_PATH = "/login/mfa";
+
+/**
+ * Rutas exentas de la puerta 2FA.
+ *
+ * NO son públicas: siguen exigiendo sesión y personal del negocio. Son el
+ * DESTINO al que la propia puerta redirige, así que si la puerta las vigilara
+ * se mordería la cola: se manda al administrador a enrolarse y la redirección
+ * lo vuelve a redirigir, para siempre.
+ */
+const MFA_EXEMPT_PATHS: ReadonlyArray<string> = [
+  MFA_ENROLL_PATH,
+  MFA_CHALLENGE_PATH,
+];
+
+/**
+ * ¿Esta ruta está exenta de la puerta de 2FA?
+ *
+ * Match por SEGMENTO igual que `isPublic` (DL-07): `/perfil/seguridad-falsa` no
+ * puede heredar la exención de `/perfil/seguridad` por empezar igual.
+ *
+ * Se exporta para poder probarlo: un fallo aquí no es ruidoso — o encierra a
+ * los administradores en un bucle, o abre un agujero por el que se salta el
+ * segundo factor.
+ */
+export const isMfaExempt = (pathname: string) =>
+  MFA_EXEMPT_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
 /**
  * ¿Esta ruta se sirve SIN sesión?
@@ -151,21 +188,63 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // B-04: enforcement 2FA. Si el usuario tiene un factor TOTP verificado pero la
-  // sesión aún está en aal1 (solo contraseña), exigimos completar el challenge
-  // antes de cualquier ruta privada. Solo afecta a quien ACTIVÓ 2FA (los demás
-  // tienen nextLevel=aal1 → no se redirige). `/login/mfa` es público → no hay bucle.
-  // Fail-open ante error para no bloquear el acceso por un fallo del chequeo.
-  try {
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal && aal.nextLevel === "aal2" && aal.currentLevel === "aal1") {
+  // B-04: enforcement 2FA. Antes esto sólo exigía el segundo factor a quien YA
+  // lo había activado, así que un administrador que nunca escaneó el QR no veía
+  // un solo prompt: 2FA existía sin proteger a nadie. Ahora, para los roles
+  // obligados, se exige TENER factor y HABERLO usado; para el resto 2FA sigue
+  // siendo opcional, pero si lo activaron se respeta.
+  //
+  // La decisión vive en `src/lib/auth/mfa-gate.ts`, pura y probada caso por
+  // caso: es la que puede dejar sin entrar a los dos únicos administradores.
+  if (!isMfaExempt(pathname)) {
+    let currentLevel: NivelAal = null;
+    let nextLevel: NivelAal = null;
+    let chequeoFallo = false;
+    try {
+      const { data: aal, error } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      currentLevel = nivelAal(aal?.currentLevel);
+      nextLevel = nivelAal(aal?.nextLevel);
+      // Sin sesión, esta llamada devuelve niveles NULOS y `error: null`. Sin
+      // esta comprobación ese caso pasaría por un "aal1" legítimo. Si no
+      // sabemos en qué nivel está la sesión, no la damos por buena.
+      if (error || !aal || currentLevel === null) chequeoFallo = true;
+    } catch {
+      chequeoFallo = true;
+    }
+
+    // `nextLevel` se deriva de la sesión guardada en la galleta, que puede ser
+    // ANTERIOR al enrolamiento: quien activó 2FA en el teléfono seguiría
+    // figurando "sin factor" en la laptop hasta el próximo refresco del token,
+    // y con la puerta cerrada eso es un administrador dando vueltas. `user`
+    // viene del `getUser()` de arriba —que sí consulta al servidor—, así que su
+    // lista de factores es la fresca y no cuesta una llamada extra.
+    nextLevel = nivelSiguienteConFactores(nextLevel, user.factors);
+
+    // Claims SIEMPRE de `app_metadata` (SEC-001): `user_metadata` lo escribe el
+    // propio usuario con `auth.updateUser`, así que dejarle elegir su rol aquí
+    // sería dejarle elegir si le toca 2FA.
+    const decision = mfaGateDecision({
+      role:
+        typeof user.app_metadata?.role === "string"
+          ? user.app_metadata.role
+          : undefined,
+      isPlatformAdmin: user.app_metadata?.is_platform_admin === true,
+      currentLevel,
+      nextLevel,
+      chequeoFallo,
+    });
+
+    if (decision !== "permitir") {
       const url = request.nextUrl.clone();
-      url.pathname = "/login/mfa";
+      url.pathname =
+        decision === "enrolar" ? MFA_ENROLL_PATH : MFA_CHALLENGE_PATH;
+      // Limpiar la query original: el destino sólo entiende `next` y arrastrar
+      // los parámetros de la ruta bloqueada no aporta nada.
+      url.search = "";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
-  } catch {
-    // No bloquear si el chequeo de aal falla (evita lockout).
   }
 
   // Bloqueo super-admin: requiere claim `is_platform_admin` de `app_metadata`
