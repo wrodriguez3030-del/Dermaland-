@@ -32,10 +32,21 @@ Detalle completo en `docs/estado-actual.md` (entrada `2026-08-06`) y
       (`@example.com`, basura de una corrida vieja) con `role: admin` efectivo
       en producción vía `app_metadata` (ver `docs/riesgos.md` R-SEC-02).
       Borrarla requiere confirmación explícita (datos reales de producción).
-- [ ] **Autorizar `supabase migration repair`** para las **3 migraciones
-      marcadas PARCIALES** que dejó `docs/migration-audit-20260805.md`. La
-      auditoría no propone comando para ellas a propósito — exige decisión
-      humana sobre qué versión de 14 dígitos les corresponde.
+- [ ] **Autorizar `supabase migration repair` para los 14 archivos «sin
+      registro»** que dejó `docs/migration-audit-20260805.md` — **no** para las
+      3 PARCIALES. Las 3 PARCIALES (`0001_phase1_core`,
+      `0002_phase2_inventory`, `00030_0002a_clients`) **ya tienen fila en el
+      historial**: un `repair --status applied` sobre ellas no cambia nada.
+      Lo que les falta son objetos que migraciones posteriores **renombraron**
+      (verificado contra producción: `products_barcode_unique` hoy es
+      `products_barcode_live_unique`; `businesses_select`/`clients_select` se
+      partieron en `*_sel`/`_ins`/`_upd`/`_del`), o sea drift cosmético que se
+      revisa a mano, no se repara.
+      Los que sí necesitan `repair` son los **14 «Archivo sin registro»** (9 de
+      ellos ya `APLICADA`); el bloqueo real ahí es **decidir qué versión de 14
+      dígitos** asignarles: el historial usa timestamps y los archivos usan
+      secuencia de 4 dígitos, así que no hay fuente confiable de cuándo se
+      aplicaron. La auditoría no inventa el timestamp a propósito.
 
 ## Prioridad 1 — cerca de cerrar
 

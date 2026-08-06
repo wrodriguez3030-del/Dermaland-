@@ -54,9 +54,14 @@ esta entrada es el resumen con los números reales.
 - Reconstrucción desde cero verificada en un PostgreSQL 17.6 vacío y desechable:
   **83 tablas frente a 83 de producción, delta cero**, 106 políticas con md5
   idéntico.
-- **Pendiente del dueño:** autorizar los `supabase migration repair` para **3
-  migraciones marcadas PARCIALES** que exigen decisión humana — la auditoría
-  deliberadamente no propone comando para ellas.
+- **Pendiente del dueño:** autorizar `supabase migration repair` para los **14
+  archivos «sin registro»** (9 ya `APLICADA`). No es para las 3 PARCIALES: esas
+  **ya están registradas** y un `repair` sobre ellas no hace nada — lo que les
+  falta son objetos que migraciones posteriores renombraron (verificado en
+  producción: `products_barcode_unique` → `products_barcode_live_unique`,
+  `businesses_select`/`clients_select` → `*_sel`/`_ins`/`_upd`/`_del`), drift
+  cosmético que se revisa a mano. El bloqueo de los 14 es decidir su **versión
+  de 14 dígitos**; la auditoría deliberadamente no la inventa.
 - **Conocido y sin resolver, decisión de negocio, no técnica:**
   `0017_backfill_product_laboratories.sql` es SQL inválido y nunca corrió en
   ningún entorno. **611 de 1.356 productos activos (45,1 %) no tienen
