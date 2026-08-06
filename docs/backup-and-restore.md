@@ -156,8 +156,20 @@ Además, y **antes** de dar nada por bueno (`lib/dr-guards.mjs`):
    falta nada» se cumple trivialmente. Se exige ≥80 tablas y ≥100 políticas.
 3. **Cero errores de restauración.** En un desastre no existe el error benigno.
 
-Los flags del `pg_dump` salen de `lib/pg-dump-args.mjs`, **los mismos** que usa
-el respaldo nocturno: se prueba el artefacto real, no una variante.
+Los flags del `pg_dump` salen de `lib/pg-dump-args.mjs`, el mismo constructor que
+usa el respaldo nocturno — **pero no con los mismos argumentos**, y decirlo
+importa: el simulacro fuerza `withDrop: true` y el nocturno no. O sea que el
+artefacto que el simulacro prueba es el **modo destructivo** (`--clean
+--if-exists`, el que se usa para restaurar encima de una base con objetos, ver
+Opción C), no el archivo que produce el cron. Lo que queda probado de punta a
+punta es la variante destructiva; la del nocturno comparte el 90 % del camino
+pero **no** se ha restaurado en este simulacro.
+
+`withDrop: true` es obligatorio aquí, no una preferencia: la imagen del arenero
+ya trae `auth.users` y compañía con la forma de una versión vieja de GoTrue, y
+sin `--clean --if-exists` el `CREATE TABLE` choca, el `COPY` se cae detrás y
+`auth.users` queda con 0 de 3 filas — el simulacro reportaría FALLA por un
+problema del destino, no del respaldo.
 
 ### Qué NO cubre (decirlo importa)
 
@@ -293,20 +305,43 @@ Elegir uno:
 **Obligatorio** antes de aplicar cualquier migración a producción:
 
 ```bash
-node scripts/backup/pg-dump-backup.mjs --label premig-0028
+node scripts/backup/pg-dump-backup.mjs --label premig-0028 --with-drop
 ```
 
+`--with-drop` **aquí sí**: este snapshot existe para restaurarse **encima** de
+una base que ya tiene objetos —el único caso para el que ese indicador fue
+diseñado—. Sin él el archivo no lleva los `DROP … IF EXISTS` de cabecera, cada
+`CREATE TABLE` choca con la que ya está y el `COPY` de detrás se cae en cascada:
+la reversión termina a medias. En el respaldo diario, que se restaura en un
+proyecto nuevo y vacío, el indicador solo añadiría riesgo — por eso no es el
+comportamiento por defecto (`lib/pg-dump-args.mjs`).
+
 Guardar el archivo fuera del entorno de la BD. Si la migración corrompe datos, se
-restaura este snapshot.
+restaura este snapshot: el procedimiento completo (descifrado incluido) está en
+[`docs/rollback-plan.md`](rollback-plan.md) §3.
 
 ## Procedimiento de RESTAURACIÓN (probar en aislado, NO en prod)
 
 1. Crear un **proyecto Supabase nuevo** (o una branch) — nunca restaurar encima de
    la prod viva sin autorización.
-2. Restaurar el dump:
+2. Restaurar el dump. **Los respaldos de CI vienen cifrados siempre**
+   (`.sql.gz.gpg`: el workflow aborta antes que subir nada en claro), así que
+   primero se descifran:
    ```bash
-   gunzip -c backups/dermaland-YYYYMMDD-HHMM.sql.gz | psql "$TARGET_DB_URL"
+   # Solo si el archivo termina en .gpg (los de CI, siempre):
+   gpg --decrypt backups/dermaland-YYYYMMDD-HHMM.sql.gz.gpg > /tmp/restore.sql.gz
+
+   gunzip -c /tmp/restore.sql.gz | psql -v ON_ERROR_STOP=1 "$TARGET_DB_URL"
+   echo "salida de psql: $?"      # 0 = restauró sin un solo error
+
+   rm -f /tmp/restore.sql.gz      # el descifrado lleva datos personales
    ```
+   `ON_ERROR_STOP=1` no es cosmético: sin él `psql` imprime los errores, **sigue
+   adelante y sale 0**. Una restauración con media tabla perdida se ve idéntica
+   a una buena. Medido dos veces: con el rol equivocado son **517 errores** con
+   salida 0 (simulacro 2026-08-05), y una reversión sin este indicador dejó
+   **2 de 3 usuarios** también con salida 0 (ensayo 2026-08-06, ver
+   [`docs/rollback-plan.md`](rollback-plan.md) §3).
 3. Verificar conteos clave contra lo esperado:
    ```sql
    select count(*) from products;      -- 1358 (baseline 2026-07-26)
@@ -333,8 +368,10 @@ tabla de rastreo `supabase_migrations.schema_migrations` solo registra 13 de los
 reconstruir en una BD limpia de forma confiable:
 
 ```bash
-# aplicar TODOS los archivos en orden lexicográfico
-for f in supabase/migrations/00*.sql; do psql "$TARGET_DB_URL" -f "$f"; done
+# aplicar TODOS los archivos en orden lexicográfico, parando en el primer error
+for f in supabase/migrations/00*.sql; do
+  psql -v ON_ERROR_STOP=1 "$TARGET_DB_URL" -f "$f" || { echo "FALLÓ: $f"; break; }
+done
 ```
 
 Remediación recomendada (con autorización, no destructiva): `supabase migration
