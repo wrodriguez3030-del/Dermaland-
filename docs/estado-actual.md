@@ -3,7 +3,97 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-08-05
+**Última actualización:** 2026-08-06
+
+## 2026-08-06 · Cierre de B-01, B-07 y B-04
+
+Cierre de los tres bloqueadores restantes de `docs/production-readiness-report.md`
+que dependían de prueba real, no de código sin verificar. Detalle técnico completo
+en `.superpowers/sdd/2026-08-05-cierre-pendientes-produccion/task-{7,8,9}-report.md`;
+esta entrada es el resumen con los números reales.
+
+### B-01 · Respaldos — CERRADO
+
+- `scripts/backup/dr-drill.mjs`: simulacro de un comando que restaura un respaldo
+  fresco de producción en un arenero efímero (contenedor Docker desechable en
+  `supabase-01`) y compara **7 dimensiones** contra producción. Veredicto real en
+  `docs/dr-drill-20260805.md`: **PASA**.
+- Números de la última corrida: **98 tablas rastreadas, 5.900 filas, 106 políticas
+  RLS, 15 funciones, 219 índices, 325 restricciones, 0 errores de restauración, 0
+  diferencias**.
+- Verificado por auditoría independiente con **5 sabotajes distintos** (filas
+  borradas, RLS apagada, índice eliminado, política cambiada a `USING (true)`, FK
+  eliminada) → **los 5 detectados**. Reproducido con un arenero nuevo cada vez; el
+  `system_identifier` del clúster destino cambia en cada corrida — es la prueba de
+  que la restauración ocurre de verdad, no un resultado guardado.
+- El arenero se autodestruye si el proceso local muere de golpe: verificado con
+  `SIGKILL` real, destruido en **35 s** (contrato de 300 s, renovado en cada paso).
+- **Lo que NO cubre, dicho a propósito:** `pg_dump` no exporta los roles del
+  clúster (haría falta `pg_dumpall -g`) ni los **archivos binarios de Storage** —
+  las 642 filas de `storage.objects` son metadatos; las fotos de producto viven
+  fuera de la base.
+- **El respaldo diario automático sigue DESACTIVADO** (`gh workflow disable`)
+  hasta que la versión endurecida de `.github/workflows/backup.yml` llegue a
+  `main`. Los secretos `SUPABASE_DB_URL` y `BACKUP_GPG_PASSPHRASE` ya están
+  configurados; la passphrase está en el Llavero
+  (`security find-generic-password -s dermaland-backup-gpg -w`).
+
+### B-07 · Migraciones — CERRADO
+
+- `scripts/audit-migrations.mjs` audita **por objeto contra la base real**, no
+  por el historial de `schema_migrations`.
+- Se recuperaron **4 migraciones** aplicadas en su día por `apply_migration` del
+  MCP de Supabase que nunca dejaron un `.sql` en el repo (`ai_providers_module`,
+  `product_images_storage_bucket`, `ecf_events_fk_restrict`, `0042_payments_azul`),
+  reconstruidas **byte a byte** desde `schema_migrations.statements`.
+- Se trajeron 2 migraciones de la rama DGII cuyos archivos solo vivían ahí.
+- Se renombraron 5 archivos que **la CLI de Supabase saltaba en silencio** —
+  `supabase db push` habría reconstruido una base sin las tablas `ai_*`, sin el
+  bucket de imágenes, y reventando en `0003_dgii_pos.sql`. Hoy: **51 archivos, 0
+  saltados**.
+- Reconstrucción desde cero verificada en un PostgreSQL 17.6 vacío y desechable:
+  **83 tablas frente a 83 de producción, delta cero**, 106 políticas con md5
+  idéntico.
+- **Pendiente del dueño:** autorizar los `supabase migration repair` para **3
+  migraciones marcadas PARCIALES** que exigen decisión humana — la auditoría
+  deliberadamente no propone comando para ellas.
+- **Conocido y sin resolver, decisión de negocio, no técnica:**
+  `0017_backfill_product_laboratories.sql` es SQL inválido y nunca corrió en
+  ningún entorno. **611 de 1.356 productos activos (45,1 %) no tienen
+  laboratorio**, así que la regla de vencimiento por laboratorio no se puede
+  aplicar a casi medio catálogo hasta que alguien decida el backfill de verdad.
+
+### B-04 · 2FA — CERRADO EN CÓDIGO, SIN DESPLEGAR
+
+- 2FA obligatorio para `admin`, `super_admin` e `is_platform_admin`; opcional
+  para el resto, con fail-open conservado para quien no está obligado.
+- `scripts/mfa-break-glass.mjs`: retira el factor de **un** usuario nombrado,
+  con confirmación interactiva y rastro en `audit_logs`. Probado contra Supabase
+  real con usuarios desechables y TOTP verificado real: **16/16**.
+- Durante el trabajo se cerró un **bypass completo del 2FA** (con la contraseña
+  robada se podía retirar el factor de la víctima desde `/perfil/seguridad` y
+  enrolar el propio) y **tres formas distintas de quedar encerrado fuera del
+  sistema**, dos de ellas ya presentes en producción antes de esta tarea.
+- **Pendiente del dueño, orden no negociable (spec §6.2):** 1) enrolar su propio
+  2FA en `/perfil/seguridad`; 2) probar el break-glass contra su propia cuenta,
+  con él presente; 3) autorizar el despliegue (merge `feat/cierre-pendientes-produccion`
+  → `main`) en ese mismo momento.
+- **Dato corregido respecto al informe anterior: son 3 administradores reales**
+  en `auth.users`, no 2 (`wrodriguez3030@gmail.com`, `preview-admin@dermaland.do`,
+  `cnttest-ct5jmp@example.com`), todos con `role: admin` en `app_metadata` y
+  **ninguno con factor enrolado**. `cnttest-ct5jmp@example.com` es basura de una
+  corrida de prueba vieja — decisión del dueño si se borra antes de encender el
+  enforcement (ver `docs/riesgos.md`).
+
+### Riesgos nuevos registrados
+
+Ocho hallazgos quedaron como riesgos abiertos en `docs/riesgos.md`
+(`R-SEC-02` a `R-SEC-07`, `R-BACKUP-01`, `R-BACKUP-02`): la cuenta de prueba con
+rol admin, el preview-admin sin enrolar, la `service_role_key` como punto único
+de fallo del 2FA, el enforcement solo en middleware (125 rutas de API y 6
+acciones de servidor sin comprobar AAL), el `matcher` que deja pasar rutas con
+extensión de imagen, `public.users.two_factor_enabled` sin escribir, el respaldo
+diario desactivado, y PITR inexistente en plan Free.
 
 ## 2026-08-05 · B-07 — el repositorio vuelve a reconstruir el esquema
 

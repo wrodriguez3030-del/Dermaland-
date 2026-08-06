@@ -5,6 +5,175 @@ riesgo se cierra, mover la entrada al final con `[CERRADO YYYY-MM-DD]`.
 
 ---
 
+## R-SEC-02 · Cuenta de prueba con rol admin efectivo en producción
+
+**Fecha:** 2026-08-06
+**Severidad:** Alta
+**Dueño:** el dueño decide si se borra.
+
+`cnttest-ct5jmp@example.com` es basura de una corrida vieja de
+`scripts/test/count-adjustment-test.mjs` que no limpió. Tiene `role: admin` en
+`app_metadata` —el claim que manda por SEC-001— pero `role: cashier` en su
+ficha de `public.users`. Como el enforcement de 2FA (y cualquier gate de rol)
+lee los claims, esta cuenta de prueba es hoy un **administrador real y
+funcional** del sistema en producción, sin que nadie lo haya decidido así.
+
+### Mitigación / plan de salida
+
+Borrarla es una acción sobre datos reales de producción y requiere
+confirmación explícita del dueño (regla dura del proyecto). Mientras exista,
+al desplegar el enforcement de 2FA (B-04) esta cuenta también queda obligada
+a enrolar 2FA como cualquier admin — lo cual, perversamente, la legitimaría
+más en vez de resolver el problema de fondo.
+
+---
+
+## R-SEC-03 · `preview-admin@dermaland.do` sin 2FA romperá los smokes de Preview
+
+**Fecha:** 2026-08-06
+**Severidad:** Media
+**Dueño:** por decidir (dueño del proyecto).
+
+Los despliegues Preview de Vercel usan `DATA_SOURCE=supabase` contra la misma
+base que producción, y el usuario seed `preview-admin@dermaland.do` tiene
+`role: admin`. Al encender el 2FA obligatorio (B-04), ese usuario también
+queda obligado a enrolar — y ningún script puede hacerlo por él (2FA exige un
+dispositivo TOTP humano). Cualquier smoke test de Preview que dependa de
+iniciar sesión como `preview-admin` empezará a fallar hasta que alguien lo
+enrole a mano o se le cambie el rol.
+
+### Mitigación / plan de salida
+
+Decidir antes de desplegar: enrolar `preview-admin` con un TOTP de servicio
+(alguien lo custodia), o bajarle el rol a uno no obligado. Ninguna de las dos
+es responsabilidad del código.
+
+---
+
+## R-SEC-04 · `service_role_key` es el punto único de fallo del 2FA
+
+**Fecha:** 2026-08-06
+**Severidad:** Alta
+
+Quien tenga la `SUPABASE_SERVICE_ROLE_KEY` puede retirar el segundo factor de
+cualquier usuario —vía `scripts/mfa-break-glass.mjs` o directamente contra la
+Admin API— sin pasar por ninguna confirmación de la aplicación. La
+confirmación interactiva del script es una salvaguarda contra equivocaciones,
+no una barrera de autorización: se salta trivialmente (`echo correo | node
+...`), a propósito, porque el control real ya está en quién posee la clave.
+No hay ningún control técnico que limite esto desde la aplicación — no puede
+haberlo, por diseño de Supabase Auth.
+
+### Mitigación / plan de salida
+
+Si la `service_role_key` se filtra alguna vez, el 2FA obligatorio deja de
+significar nada. La respuesta es **rotarla**, no endurecer el script.
+Guardarla donde ningún proceso automático la lea nunca (fuera de CI, fuera de
+logs). Documentado en `docs/security.md`.
+
+---
+
+## R-SEC-05 · El 2FA se aplica solo en el middleware
+
+**Fecha:** 2026-08-06
+**Severidad:** Media · diferido a otra iteración
+
+Ninguna de las **125 rutas de API** ni las **6 acciones de servidor**
+comprueban el nivel de garantía (AAL) por su cuenta — todas confían en que el
+middleware ya bloqueó la petición antes de llegar. Si algún día una ruta
+nueva se monta fuera del alcance del `matcher` del middleware (ver R-SEC-06),
+esa ruta queda con el 2FA completamente apagado sin que nada lo señale.
+
+### Mitigación / plan de salida
+
+Por ahora, disciplina: toda ruta nueva de API/Server Action debe caer dentro
+del `matcher`. Mitigación estructural (comprobar AAL en cada handler) queda
+para una iteración aparte — no es parte de B-04.
+
+---
+
+## R-SEC-06 · El `matcher` del middleware deja pasar rutas con extensión de imagen
+
+**Fecha:** 2026-08-06
+**Severidad:** Baja hoy · trampa latente
+
+El patrón del `matcher` excluye rutas terminadas en extensión de imagen
+(p. ej. `/dashboard.webp` no ejecuta el middleware, ni el gate de 2FA ni el de
+sesión). Hoy no es explotable porque no existe ninguna ruta comodín que sirva
+contenido dinámico bajo esos sufijos. Se vuelve real el día que alguien añada
+una ruta comodín (`/[...slug]`) que también sirva HTML/JSON.
+
+### Mitigación / plan de salida
+
+Vigilar en code review: cualquier ruta comodín nueva debe verificarse contra
+el `matcher` antes de mergear. Endurecer el patrón es un cambio pequeño y
+aislado si se prioriza.
+
+---
+
+## R-SEC-07 · `public.users.two_factor_enabled` no lo escribe nadie
+
+**Fecha:** 2026-08-06
+**Severidad:** Baja · confunde, no es agujero de seguridad
+
+Ni el flujo de enrolamiento (`/perfil/seguridad`) ni el break-glass
+(`scripts/mfa-break-glass.mjs`) tocan esta columna. Las pantallas de usuarios
+la muestran como "2FA activo/inactivo", así que hoy **miente en las dos
+direcciones**: puede decir "inactivo" con un TOTP verificado real, o "activo"
+tras un break-glass que lo retiró.
+
+### Mitigación / plan de salida
+
+La fuente de verdad real es `auth.mfa_factors` (vía Admin API), no esta
+columna. Corregirlo es una tarea aparte: escribirla desde los mismos dos
+lugares que ya tocan el factor, o dejar de mostrarla y consultar
+`auth.mfa_factors` directamente desde la pantalla.
+
+---
+
+## R-BACKUP-01 · Respaldo diario automático desactivado
+
+**Fecha:** 2026-08-06
+**Severidad:** Alta mientras siga así
+
+`.github/workflows/backup.yml` está deshabilitado (`gh workflow disable`)
+hasta que la versión endurecida del workflow (los mismos fixes que pasó
+`dr-drill.mjs`: dump no destructivo por defecto, huella derivada del repo,
+guarda de destino deny-by-default) llegue a `main`. Los secretos
+`SUPABASE_DB_URL` y `BACKUP_GPG_PASSPHRASE` ya están configurados en el repo;
+la passphrase vive en el Llavero
+(`security find-generic-password -s dermaland-backup-gpg -w`). Mientras el
+workflow siga apagado, **no hay respaldo automático corriendo** —el simulacro
+de recuperación (B-01) prueba que un respaldo restaura, no que se esté
+generando uno todos los días.
+
+### Mitigación / plan de salida
+
+Reactivar el workflow (`gh workflow enable`) en cuanto la rama con las
+correcciones de esta tarea se fusione a `main`. Hasta entonces, backups
+manuales si se necesita uno reciente.
+
+---
+
+## R-BACKUP-02 · PITR sigue sin existir (plan Free)
+
+**Fecha:** 2026-08-06
+**Severidad:** Alta para producción plena
+
+El proyecto Supabase sigue en plan **Free** → sin *Point-in-Time Recovery*.
+El simulacro de B-01 prueba que el respaldo lógico diario **restaura
+completo**; no permite volver al minuto anterior a un borrado o corrupción —
+el RPO real es "desde el último respaldo lógico", no "desde hace un
+instante".
+
+### Mitigación / plan de salida
+
+Solo se resuelve con un upgrade a Supabase Pro (o superior). Mientras tanto,
+el respaldo lógico diario (una vez reactivado, ver R-BACKUP-01) es el único
+mecanismo de recuperación.
+
+---
+
 ## R-FIS-01 · Reglas documentales POS sin política fiscal final confirmada
 
 **Fecha:** 2026-05-07
@@ -132,3 +301,35 @@ negocio sólo vea las suyas. La ruta de impresión pasará a:
 
 Mientras tanto, comunicar a usuarios que **el ticket sólo se puede imprimir
 desde el navegador donde se emitió la proforma**.
+
+---
+
+## Riesgos cerrados
+
+## R-BACKUP-00 · Restauración de backup nunca probada (B-01) `[CERRADO 2026-08-06]`
+
+**Fecha de apertura:** 2026-07-12 (bloqueador B-01 de
+`docs/production-readiness-report.md`)
+**Cierre:** `scripts/backup/dr-drill.mjs` restauró producción real en un
+arenero efímero y comparó 7 dimensiones sin diferencias (98 tablas, 5.900
+filas, 106 políticas, 0 errores). Verificado con 5 sabotajes distintos, los 5
+detectados; sobrevive a un `SIGKILL` real del proceso local (autodestrucción
+en 35 s). Detalle: `docs/dr-drill-20260805.md`,
+`.superpowers/sdd/2026-08-05-cierre-pendientes-produccion/task-7-report.md`.
+**No cerrado por esto:** el respaldo diario automático (`R-BACKUP-01`, arriba)
+y PITR (`R-BACKUP-02`, arriba) siguen abiertos — son riesgos distintos al de
+"¿un respaldo restaura de verdad?", que es lo que esta entrada cerraba.
+
+## R-SEC-00-MFA · Ninguna cuenta admin con 2FA — código `[CERRADO EN CÓDIGO 2026-08-06]`
+
+**Fecha de apertura:** 2026-07-13 (bloqueador B-04 de
+`docs/production-readiness-report.md`)
+**Cierre parcial:** 2FA obligatorio para `admin`/`super_admin`/
+`is_platform_admin` implementado, con `scripts/mfa-break-glass.mjs` probado
+16/16 contra Supabase real. Durante el trabajo se cerraron un bypass completo
+del 2FA y tres formas de encierro. **Sigue sin desplegar** — el enforcement no
+está activo en producción. No se marca `[CERRADO]` sin calificar porque el
+riesgo original ("ninguna cuenta admin tiene 2FA") sigue siendo cierto en
+producción hoy: `auth.mfa_factors` está vacía. Pendientes exactos y en orden
+no negociable (spec §6.2) en `docs/proximos-pasos.md`. Riesgos nuevos que
+aparecieron al construirlo: `R-SEC-02` a `R-SEC-07`, arriba.

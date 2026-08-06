@@ -7,6 +7,15 @@ Vercel `dermaland`.
 Auditoría basada en evidencia real (BD de producción vía MCP, código, migraciones,
 pruebas ejecutadas), no en "compila y abre".
 
+> **Actualización 2026-08-06 (cierre de B-01, B-07 y B-04):** los §3 y §11 de abajo
+> reflejan el resultado real y verificado del cierre — el resto del documento (§1, §2,
+> §4-§10, §12) sigue fechado 2026-07-12 y no se reescribió entero en esta pasada.
+> Detalle completo, con comandos y números, en `docs/estado-actual.md` (entrada
+> `2026-08-06`) y en `docs/dr-drill-20260805.md` / `docs/migration-audit-20260805.md`.
+> **B-04 está cerrado en código, no en producción:** el enforcement de 2FA sigue sin
+> desplegar — activarlo depende de tres pasos del dueño (spec §6.2, orden no
+> negociable) documentados en `docs/proximos-pasos.md`.
+
 ---
 
 ## 1. Veredicto ejecutivo
@@ -50,13 +59,13 @@ una sucursal con controles diarios**, y todas tienen mitigación clara.
 
 | ID | Sev | Bloqueador | Área | Estado | Acción requerida |
 |----|-----|-----------|------|--------|------------------|
-| B-01 | **Alta** | Plan Free sin backups automáticos/PITR; **restauración nunca probada** | DR/Backups | 🟡 **PARCIAL** | Backup de DATOS por REST **probado en vivo** (57/57 tablas, 3081 filas, `rest-json-backup.mjs`) + pg_dump en CI listo. **Falta (usuario):** setear secreto `SUPABASE_DB_URL` en CI (o Supabase Pro) y **ejecutar un drill de restauración** a un proyecto destino |
+| B-01 | **Alta** | Plan Free sin backups automáticos/PITR; **restauración nunca probada** | DR/Backups | ✅ **CERRADO 2026-08-06** (simulacro real, corrido 3 veces) | `scripts/backup/dr-drill.mjs` restauró un respaldo fresco de producción en un arenero efímero y comparó **7 dimensiones**: **98 tablas rastreadas, 5.900 filas, 106 políticas RLS, 15 funciones, 219 índices, 325 restricciones — 0 errores de restauración, 0 diferencias** (`docs/dr-drill-20260805.md`). Verificado contra **5 sabotajes** (filas borradas, RLS apagada, índice eliminado, política a `USING (true)`, FK eliminada) → los 5 detectados. Autodestrucción probada con `SIGKILL` real (≤35 s). **Fuera de alcance, dicho a propósito:** no exporta roles del clúster (falta `pg_dumpall -g`) ni los binarios de Storage (`storage.objects` es solo metadatos). **El cron diario (`.github/workflows/backup.yml`) sigue DESACTIVADO** hasta fusionar la versión endurecida a `main` — acción del dueño |
 | B-02 | **Alta** | Emisión de venta y descuento de inventario **no atómicos**; venta puede quedar sin descontar stock, sin rollback | POS/Inventario | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC transaccional `emit_sale_atomic` (mig `0029`); verificado en vivo 14/14 |
 | B-03 | Media | **Anular venta no reingresa stock**; Nota de Crédito es demo | Devoluciones | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | RPC `void_sale_atomic` reingresa stock (atómico e idempotente); NC sigue demo (pre-Fase G) |
-| B-04 | Media | **MFA no habilitado** para admin | Auth | 🟡 **PARCIAL** (código desplegado en v0.73.0; falta que el admin enrole) | Flujo 2FA completo implementado: enrolamiento (`/perfil/seguridad`), challenge en login (`/login/mfa`), enforcement en middleware (solo afecta a quien activó 2FA). Verificado en vivo 6/6. **Falta (usuario):** el admin escanea el QR en `/perfil/seguridad` |
+| B-04 | Media | **MFA no habilitado** para admin | Auth | 🟡 **CERRADO EN CÓDIGO 2026-08-06 · SIN DESPLEGAR** | 2FA obligatorio para `admin`/`super_admin`/`is_platform_admin`, opcional para el resto, fail-open conservado. `scripts/mfa-break-glass.mjs` probado **16/16** contra Supabase real. Durante el trabajo se cerró un **bypass completo del 2FA** y **tres formas distintas de quedar encerrado** (dos ya presentes en producción). **Falta (dueño, orden no negociable, spec §6.2):** 1) enrolar su propio 2FA en `/perfil/seguridad`; 2) probar el break-glass contra su cuenta, con él presente; 3) autorizar el despliegue (merge a `main`) en ese momento. **Dato corregido:** son **3** administradores reales en `auth.users`, no 2 — uno (`cnttest-ct5jmp@example.com`) es una cuenta de prueba con `role: admin` efectivo (ver riesgo abierto en `docs/riesgos.md`) |
 | B-05 | Media | **Vistas de conteo físico = mock**; `approve` no ajusta stock | Conteo | ✅ **CORREGIDO** (código + RPC en prod; pendiente deploy) | Vistas cableadas a la API real (`counts-store`, fallback demo); `approve` ajusta stock atómico (`apply_count_adjustments`, mig `0030`), verificado 9/9. Fix bug latente: `difference_quantity` es generada |
 | B-06 | Baja | `product_lots` sin CHECK `current_quantity >= 0` (solo el RPC lo protege) | Inventario | ✅ **CERRADO** | CHECK aplicado a prod (mig `0028`, 0 filas violaban) |
-| B-07 | Baja | Historial de migraciones incompleto (13/27 rastreadas; 0007–0022 fuera de banda) | Migraciones | Abierto | `supabase migration repair` con autorización (no destructivo) |
+| B-07 | Baja | Historial de migraciones incompleto (13/27 rastreadas; 0007–0022 fuera de banda) | Migraciones | ✅ **CERRADO 2026-08-06** | `scripts/audit-migrations.mjs` audita **por objeto contra la base real**, no por el historial. Recuperadas 4 migraciones aplicadas por MCP que nunca dejaron `.sql`; renombradas 5 que la CLI de Supabase saltaba en silencio. Hoy **51 archivos, 0 saltados**. Reconstrucción desde cero verificada: **83 tablas vs 83 de producción, delta cero**, 106 políticas con md5 idéntico. **Pendiente (dueño):** autorizar `supabase migration repair` para **3 migraciones marcadas PARCIALES** — la auditoría no propone comando para ellas por ser decisión humana. **Hallazgo aparte sin resolver, es decisión de negocio:** `0017_backfill_product_laboratories.sql` es SQL inválido y nunca corrió; **611 de 1.356 productos activos (45,1 %) siguen sin laboratorio**, así que la regla de vencimiento por laboratorio no aplica a casi medio catálogo |
 
 > **Resueltos en esta auditoría:** el `cashier_name` hardcodeado ("Rosa Peralta")
 > que se persistía en cada factura → ahora deriva de la sesión (JWT). Ver §8.
@@ -202,17 +211,17 @@ Detalle completo en `docs/production-pilot-plan.md`. Resumen:
 Producción / go-live:
 
 - [ ] **Base de producción** definida (Supabase `sntcvyozbhrgicwmtcoh`) ✅ (existe)
-- [x] **Migraciones** aplicadas (esquema completo) — ⚠️ rastreo incompleto (B-07)
+- [x] **Migraciones** aplicadas (esquema completo) — B-07 ✅ **CERRADO 2026-08-06**: 51 archivos, 0 saltados por la CLI, reconstrucción desde cero delta cero (83/83 tablas). ⚠️ 3 migraciones marcadas PARCIALES por el historial esperan `supabase migration repair` con autorización del dueño
 - [x] **RLS** en 56/56 tablas
 - [x] **Cross-tenant** verificado en vivo (7/7)
 - [x] **Roles** validados server-side
-- [ ] **MFA** para admin (B-04)
+- [ ] **MFA** para admin (B-04) — 🟡 **código cerrado y probado 2026-08-06** (2FA obligatorio + break-glass 16/16); **sin desplegar**: falta que el dueño enrole su 2FA, pruebe el break-glass contra su cuenta, y autorice el despliegue (spec §6.2)
 - [x] **POS** persiste correctamente + **atomicidad venta+stock** (B-02 ✅ `emit_sale_atomic`)
 - [x] **Inventario** con decremento atómico y sin negativos (0 hoy)
 - [x] **Compras** reales
 - [x] **Devoluciones** (anulación) con reingreso de stock (B-03 ✅ `void_sale_atomic`)
-- [ ] **Backups** automáticos/probados (B-01) ← **crítico**
-- [ ] **Restauración** probada (B-01) ← **crítico**
+- [x] **Backups** — restauración **probada de verdad** (B-01 ✅ `docs/dr-drill-20260805.md`, PASA); ⚠️ el cron diario sigue desactivado hasta fusionar la versión endurecida a `main`
+- [x] **Restauración** probada (B-01 ✅) — 98 tablas, 5.900 filas, 0 errores, 0 diferencias, verificado con 5 sabotajes distintos (los 5 detectados)
 - [x] **Logs / Auditoría** (`audit_logs` + Vercel)
 - [ ] **Alertas** automáticas (piloto: revisión manual diaria)
 - [ ] **Dominio** productivo confirmado

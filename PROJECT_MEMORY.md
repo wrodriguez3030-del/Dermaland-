@@ -3,7 +3,93 @@
 > Archivo vivo. Actualizar al cerrar cualquier cambio importante.
 > Léelo después de `CLAUDE.md` antes de empezar a trabajar.
 
-**Última actualización:** 2026-05-21
+**Última actualización:** 2026-08-06
+
+> **Nota de vigencia:** las secciones §2 "Estado actual" y §4 "Qué está
+> pendiente" más abajo describen el proyecto **antes** de que Supabase pasara
+> a ser la única fuente de datos (junio 2026) — hoy `DATA_SOURCE=supabase` es
+> el único modo, no un plan futuro. Para el estado real y vigente, usar
+> `docs/estado-actual.md` (historial fechado) y `docs/proximos-pasos.md`
+> (lista priorizada, purgada en esta misma sesión). Esta entrada (§0.0h) es
+> el snapshot más reciente de qué funciona y qué falta.
+
+---
+
+## 0.0h · Sesión 2026-08-06 — Cierre de B-01 (respaldos), B-07 (migraciones) y B-04 (2FA) + activación pendiente del dueño
+
+**Resultado:** los tres bloqueadores restantes de
+`docs/production-readiness-report.md` que dependían de prueba real (no de
+código sin verificar) quedaron cerrados con evidencia medida contra Supabase
+real. **B-04 está cerrado en código, no en producción** — el enforcement de
+2FA sigue sin desplegar hasta que el dueño complete tres pasos suyos, en
+orden no negociable (spec §6.2). Detalle completo con comandos y salidas
+literales en `docs/estado-actual.md` (entrada `2026-08-06`) y en
+`.superpowers/sdd/2026-08-05-cierre-pendientes-produccion/task-{7,8,9}-report.md`.
+
+### Qué funciona ahora
+
+- **Restauración de backup probada de verdad.** `scripts/backup/dr-drill.mjs`
+  restaura un respaldo fresco de producción en un contenedor Docker
+  desechable y compara **7 dimensiones**: **98 tablas, 5.900 filas, 106
+  políticas RLS, 15 funciones, 219 índices, 325 restricciones — 0 errores, 0
+  diferencias** (`docs/dr-drill-20260805.md`, veredicto **PASA**, corrido 3
+  veces). Verificado contra 5 sabotajes distintos (los 5 detectados) y
+  sobrevive a un `SIGKILL` real del proceso local (autodestrucción en 35 s).
+- **El repositorio reconstruye producción desde cero.**
+  `scripts/audit-migrations.mjs` audita por objeto contra la base real; los
+  **51 archivos** de `supabase/migrations/` aplican sobre un PostgreSQL 17.6
+  vacío sin que la CLI de Supabase salte ninguno, y la reconstrucción da
+  **83 tablas frente a 83 de producción, delta cero**
+  (`docs/migration-audit-20260805.md`).
+- **2FA obligatorio implementado y probado** para `admin`/`super_admin`/
+  `is_platform_admin` — enrolamiento (`/perfil/seguridad`), desafío
+  (`/login/mfa`), enforcement en middleware, y recuperación de emergencia
+  (`scripts/mfa-break-glass.mjs`, probado **16/16** contra Supabase real con
+  usuarios desechables). El resto de roles conserva 2FA opcional.
+- **Suite de pruebas y typecheck en verde:** `pnpm --filter web typecheck`
+  limpio, `pnpm --filter web test` → **2.576 pruebas, 235 archivos**, todas
+  en verde.
+
+### Qué sigue faltando
+
+- **B-04 sin desplegar.** El dueño debe, en este orden: 1) enrolar su propio
+  2FA en `/perfil/seguridad`; 2) probar el break-glass contra su propia
+  cuenta, con él presente; 3) autorizar el merge de
+  `feat/cierre-pendientes-produccion` a `main` en ese mismo momento. Hasta
+  entonces, `auth.mfa_factors` sigue vacía y nadie tiene 2FA activo en
+  producción.
+- **3 migraciones marcadas PARCIALES** en el historial de
+  `schema_migrations` esperan que el dueño autorice `supabase migration
+  repair` — la auditoría no propone comando para ellas porque es decisión
+  humana, no técnica.
+- **Backfill de laboratorio sin resolver.**
+  `0017_backfill_product_laboratories.sql` nunca corrió (SQL inválido); 611
+  de 1.356 productos activos (45,1 %) siguen sin laboratorio asignado.
+  Decisión de negocio, no técnica.
+- **El respaldo diario automático sigue desactivado**
+  (`.github/workflows/backup.yml`, `gh workflow disable`) hasta fusionar la
+  versión endurecida a `main`. Los secretos ya están configurados.
+- **PITR sigue sin existir** — solo lo resuelve un upgrade a Supabase Pro.
+- **8 riesgos nuevos documentados** en `docs/riesgos.md`
+  (`R-SEC-02`–`R-SEC-07`, `R-BACKUP-01`, `R-BACKUP-02`): destaca
+  `cnttest-ct5jmp@example.com`, una cuenta de prueba con `role: admin`
+  efectivo en producción — decisión del dueño si se borra.
+- **No cubierto por el simulacro de DR, a propósito:** roles del clúster
+  (`pg_dumpall -g`) y los binarios de Storage (`storage.objects` es solo
+  metadatos; las fotos viven fuera de la base).
+
+### Decisiones de diseño de esta sesión
+
+Registradas con su porqué completo en `docs/decisiones.md`: arenero efímero
+en vez de base compartida para el simulacro de DR; break-glass en vez de
+códigos de recuperación para la emergencia de 2FA; el dump deja de ser
+destructivo por defecto; la huella de tablas se deriva de las migraciones en
+vez de mantenerse a mano.
+
+**Commits** (rama `feat/cierre-pendientes-produccion`, sin publicar a Gitea
+hasta que el coordinador lo decida): `312660c`, `d765739`, `7014b10`,
+`6ef4c4c`, `72c27bb`, `190f89d`, `1fb03b5`, `0154a0e`, `ce6a189`, `f4be719`,
+`8b30d9e`, `e22c333`, `c4bf615`, más los de esta tarea de documentación.
 
 ---
 
