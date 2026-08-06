@@ -521,7 +521,11 @@ export const proformaRepository: ProformaRepository = {
         subtotal: toDbMoney(it.subtotal, "subtotal"),
         itbis: toDbMoney(it.itbis, "ITBIS"),
         total: toDbMoney(it.total, "total"),
-        kind: "bien",
+        // Estaba fijo en "bien" aunque la base admite `servicio` desde siempre.
+        // El envío de un pedido web es una línea sin producto ni lote, y sin
+        // esto no había forma de facturarlo: se cobraba aparte, fuera de la
+        // factura.
+        kind: it.kind === "servicio" ? "servicio" : "bien",
       }));
       const paymentsPayload = (proforma.payments ?? []).map((p) => ({
         method_code: mapPaymentMethod(p.method),

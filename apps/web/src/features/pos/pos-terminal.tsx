@@ -107,6 +107,12 @@ interface CartLine {
   discountReason?: string;
   /** Stock vendible en la sucursal al momento de agregar al carrito. */
   maxStock: number;
+  /**
+   * `servicio` = línea sin producto ni lote (hoy solo el envío de un pedido
+   * web). Ausente equivale a `bien`. Una línea de servicio NO entra en el plan
+   * de descuento de stock ni se valida contra existencias.
+   */
+  kind?: "bien" | "servicio";
 }
 
 function blockReasonLabel(reason: LotBlockReason): string {
@@ -577,13 +583,30 @@ export function PosTerminal({
         });
       }
 
-      // El flete no entra como línea: el POS factura productos con lote, y un
-      // "Envío" sin lote rompería FEFO y el descuento de inventario. Se avisa
-      // para que se cobre aparte, en vez de emitir una factura corta callando.
+      // El envío SÍ entra como línea, de tipo `servicio`: sin producto y sin
+      // lote, así que no toca FEFO ni descuenta inventario (los descuentos de
+      // stock viajan en un array aparte y esta línea no está en él).
+      //
+      // Antes solo se avisaba "cóbralo aparte", y el flete quedaba fuera de la
+      // factura: el cliente pagaba un monto que su comprobante no reflejaba.
+      // Va exento de ITBIS por decisión del negocio (2026-08-06).
       if (pedido.fulfillment === "delivery" && pedido.shippingCost > 0) {
-        avisos.push(
-          `Este pedido lleva ${formatCurrency(pedido.shippingCost)} de envío que NO se factura como línea. Cóbralo aparte.`,
-        );
+        lineas.push({
+          productId: "",
+          productSku: "ENVIO",
+          productName: "Envío a domicilio",
+          lotId: "",
+          lotNumber: "",
+          expiresAt: "",
+          unitPrice: pedido.shippingCost,
+          itbisRate: 0,
+          quantity: 1,
+          discount: 0,
+          discountType: "none",
+          discountValue: 0,
+          maxStock: 1,
+          kind: "servicio",
+        });
       }
 
       setPedidoWeb(pedido);
@@ -924,6 +947,12 @@ export function PosTerminal({
     // completa. Si el snapshot ya muestra stock insuficiente, ni siquiera emitimos.
     const stockDecrements: { lotId: string; qty: number; reason?: string }[] = [];
     for (const line of cart) {
+      // Una línea de servicio (hoy: el envío) no tiene producto ni lote que
+      // descontar. Sin este corte, `fefoLotsForBranch` no encontraría lotes
+      // para un productId vacío y la venta se bloquearía con un "stock
+      // insuficiente para Envío a domicilio" que no significa nada.
+      if (line.kind === "servicio") continue;
+
       let remaining = line.quantity;
       const fefoLots = fefoLotsForBranch(lots, line.productId, branchId);
       for (const lot of fefoLots) {
@@ -980,6 +1009,9 @@ export function PosTerminal({
           subtotal: a.netBase,
           itbis: a.itbis,
           total: a.total,
+          // Sin esto el envío llegaría al repositorio como `bien` y la factura
+          // volvería a mentir sobre lo que es.
+          kind: l.kind ?? "bien",
         };
       }),
       subtotal,

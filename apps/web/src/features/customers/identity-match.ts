@@ -81,17 +81,24 @@ export interface ClientMatch {
 /**
  * De todas las fichas que comparten teléfono o correo, ¿cuál es esta persona?
  *
- * El CORREO manda sobre el teléfono. Una casa comparte la línea; una bandeja de
- * entrada no. Un correo igual es la misma persona, y ahí ni se mira el nombre:
- * la gente se casa, se apellida distinto en cada sitio y escribe su nombre de
- * cinco maneras.
+ * REGLA DE NEGOCIO (decidida por el dueño el 2026-08-06): **mismo teléfono o
+ * mismo correo = misma persona.** El nombre NO se exige.
  *
- * Por TELÉFONO hace falta además que el nombre encaje, y si empatan varias gana
- * la más antigua: es la que lleva el historial.
+ * Antes se pedía además que el nombre encajara para aceptar una ficha por
+ * teléfono, y el resultado en la práctica fue el contrario del buscado: la
+ * tienda creó `pedro perez` y `Rodrigo Rodríguez` sobre el número de
+ * `WILLIAN R RODRIGUEZ`, y al facturar el cajero se encontraba tres fichas del
+ * mismo número sin saber cuál era. El dueño lo reportó dos veces.
  *
- * Devolver `null` significa "no me consta", y el llamador creará una ficha
- * nueva. Eso es lo correcto ante la duda: una ficha de más se fusiona, una
- * compra en la ficha de otro no se ve.
+ * QUÉ SE ACEPTA A CAMBIO, dicho sin adornos: si dos personas comparten un dato
+ * —el teléfono de casa entre padre e hijo es el caso real de esta base— la
+ * compra de una se carga en la ficha de la otra, y eso no se ve en pantalla. Es
+ * una decisión consciente del negocio: prefiere una ficha por número antes que
+ * el historial partido en tres. `namesCompatible` se conserva porque lo usa el
+ * detector de duplicados del mostrador, donde sí hay alguien mirando.
+ *
+ * Entre varias candidatas gana la MÁS ANTIGUA: es la que lleva el historial.
+ * El correo se mira primero solo para etiquetar bien el motivo.
  */
 export function pickClientMatch(
   candidatos: readonly ClientCandidate[],
@@ -110,16 +117,10 @@ export function pickClientMatch(
   }
 
   if (telefono) {
-    const mismoNumero = porFecha.filter(
+    const porTelefono = porFecha.find(
       (c) => c.phoneDigits === telefono || c.whatsappDigits === telefono,
     );
-    const conNombre = mismoNumero.find((c) =>
-      namesCompatible(
-        `${c.firstName ?? ""} ${c.lastName ?? ""}`,
-        identidad.fullName,
-      ),
-    );
-    if (conNombre) return { id: conNombre.id, reason: "telefono" };
+    if (porTelefono) return { id: porTelefono.id, reason: "telefono" };
   }
 
   return null;

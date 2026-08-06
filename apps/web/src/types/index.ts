@@ -465,6 +465,19 @@ export interface SaleItem {
   subtotal: number;
   itbis: number;
   total: number;
+  /**
+   * `bien` = mercancía con lote, que descuenta inventario. `servicio` = línea
+   * sin producto ni lote (hoy: el envío de un pedido web).
+   *
+   * Ausente equivale a `bien`, que es lo que era todo antes de que existiera
+   * esta distinción. La base ya lo admitía: `proforma_items.kind` tiene el
+   * CHECK `bien|servicio` y `product_id`/`product_lot_id` son nulables; lo que
+   * estaba fijo en `bien` era el código.
+   *
+   * Un `servicio` NUNCA entra en el plan de descuento de stock: no tiene lote
+   * que descontar, así que no toca FEFO ni el inventario.
+   */
+  kind?: "bien" | "servicio";
 }
 
 export interface Payment {

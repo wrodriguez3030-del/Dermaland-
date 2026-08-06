@@ -92,24 +92,46 @@ describe("pickClientMatch", () => {
     expect(m?.id).toBe("cli-420678");
   });
 
-  it("NO le mete la compra al hermano que comparte la línea de casa", () => {
-    // Alan lleva el número de Willian en su WhatsApp. Si Alan pide en la
-    // tienda, su pedido tiene que ir a la ficha de Alan y no a la de Willian.
+  it("un teléfono ya conocido NO abre ficha nueva, aunque el nombre no encaje", () => {
+    // La regla del negocio (2026-08-06): mismo teléfono = misma persona. Es el
+    // caso que se reportó dos veces: la tienda creaba `pedro perez` y
+    // `Rodrigo Rodríguez` sobre el número de Willian, y al facturar aparecían
+    // tres fichas del mismo número.
     const m = pickClientMatch([WILLIAN, ALAN], {
-      fullName: "Alan Rodriguez Bisono",
+      fullName: "Rodrigo Rodríguez",
       phone: "8297141975",
     });
-    expect(m?.id).toBe("cli-521212");
+    expect(m?.id).toBe("cli-420678");
+    expect(m?.reason).toBe("telefono");
   });
 
-  it("ante un nombre que no encaja con ninguna, prefiere no adivinar", () => {
-    // La esposa compra con el teléfono de casa. Ninguna ficha es suya: se le
-    // hace una. Una ficha de más se fusiona; una compra ajena no se ve.
+  it("el riesgo aceptado: quien comparte la línea de casa cae en la ficha del otro", () => {
+    // Esta prueba NO celebra el comportamiento, lo FIJA. Es el precio que el
+    // negocio acepta a cambio de no partir el historial: la esposa que compra
+    // con el teléfono de casa entra en la ficha más antigua de ese número.
+    // Si algún día se decide volver atrás, esta prueba es la que hay que
+    // cambiar, y su nombre dice por qué existe.
     const m = pickClientMatch([WILLIAN, ALAN], {
       fullName: "Maria Fernandez",
       phone: "8297141975",
     });
-    expect(m).toBeNull();
+    expect(m?.id).toBe("cli-420678");
+  });
+
+  it("el correo manda sobre el teléfono cuando apuntan a fichas distintas", () => {
+    // Una casa comparte la línea; una bandeja de entrada no. Si el correo
+    // señala a una ficha y el teléfono a otra, gana el correo.
+    const conCorreo: ClientCandidate = {
+      ...ALAN,
+      emailNormalized: "alan@example.com",
+    };
+    const m = pickClientMatch([WILLIAN, conCorreo], {
+      fullName: "Quien sea",
+      phone: "8297141975", // apunta a WILLIAN
+      email: "alan@example.com", // apunta a Alan — y este manda
+    });
+    expect(m?.id).toBe("cli-521212");
+    expect(m?.reason).toBe("correo");
   });
 
   it("el correo manda sobre el teléfono y no mira el nombre", () => {
