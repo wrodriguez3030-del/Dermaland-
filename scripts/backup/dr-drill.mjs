@@ -18,6 +18,26 @@
  *
  * Sale con codigo 0 solo si el simulacro PASA.
  *
+ * ─── Que el arenero no sobreviva a nadie ─────────────────────────────────────
+ * Hay TRES caminos de destruccion, y son independientes a proposito:
+ *
+ *   1. `finally` → paso 6. El camino normal, tambien cuando algo revienta.
+ *   2. SIGINT/SIGTERM. Un Ctrl-C tampoco deja el arenero vivo.
+ *   3. Un VIGILANTE en el servidor (paso 1) con un contrato de
+ *      LEASE_SEGUNDOS que se renueva en cada interaccion.
+ *
+ * El tercero existe porque los dos primeros comparten un supuesto que una
+ * revision (2026-08-05) demostro falso matando el proceso con SIGKILL a los
+ * 78 s: suponen que el proceso local llega a ejecutar algo. Un SIGKILL, un
+ * corte de red o suspender el portatil no ejecutan nada — y lo que quedaba vivo
+ * era el arenero con `auth.users` ya restaurada (cuentas reales con sus hashes
+ * de contrasena), su volumen, y el respaldo integro de produccion en /tmp. En
+ * el servidor de otro cliente, y hasta que alguien volviera a correr esto.
+ *
+ * El vigilante no depende de la Mac: si la Mac deja de renovar el contrato —da
+ * igual por que— destruye contenedor, volumen y respaldo. Techo de exposicion:
+ * LEASE_SEGUNDOS + LEASE_INTERVALO.
+ *
  * ─── Manejo del secreto ──────────────────────────────────────────────────────
  * La cadena de conexion de produccion NUNCA aparece en argv (ni en la Mac ni en
  * el servidor) ni en un log. Viaja por stdin de `ssh`, se materializa en el
@@ -30,6 +50,11 @@
  * lectura. Verificado: `docker inspect` del contenedor efimero muestra el host
  * y el usuario, pero NO la contrasena — que es la mejora concreta sobre meter
  * PGPASSWORD en el --env-file, donde `docker inspect` si la revelaria.
+ *
+ * Y a la SALIDA, `sanear()`: todo lo que va al reporte pasa por ahi. El reporte
+ * se commitea, y el `stderr` crudo de un fallo remoto trae el host y el usuario
+ * de produccion. Sin ese filtro, la promesa del parrafo anterior se rompia justo
+ * en el camino del error, que es el que nadie prueba.
  */
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -39,7 +64,7 @@ import { assertSafeTarget } from "./lib/assert-safe-target.mjs";
 import { buildDermaLandFootprint } from "./lib/dermaland-footprint.mjs";
 import { buildPgDumpArgs } from "./lib/pg-dump-args.mjs";
 import { FINGERPRINT_SQL, diffFingerprints } from "./lib/schema-fingerprint.mjs";
-import { assertMagnitudCreible, assertOrigenDistinto } from "./lib/dr-guards.mjs";
+import { assertMagnitudCreible, assertOrigenDistinto, calcularLease } from "./lib/dr-guards.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -49,6 +74,38 @@ const VOLUMEN = "dermaland-dr-data";
 const DIR_TRABAJO = "/tmp/dermaland-dr-taller";
 const IMAGEN = "supabase/postgres:17.6.1.132";
 const CONFIRM = process.env.DERMALAND_DR_CONFIRM ?? "";
+
+/**
+ * Contrato de vida del arenero, en segundos (ver el vigilante en el paso 1).
+ *
+ * 300 s no es un tiempo maximo de simulacro: el contrato se RENUEVA en cada
+ * interaccion con el servidor, y la corrida entera dura ~75 s. Es el techo de
+ * lo que puede quedar vivo si el proceso local desaparece de golpe. Tiene que
+ * ser comodamente mayor que el paso mas largo (dump + restore, ~40 s) para no
+ * suicidarse a mitad de una corrida sana, y lo mas corto posible para acotar
+ * la exposicion. 5 minutos cumple las dos cosas.
+ */
+/**
+ * `DR_LEASE_SEGUNDOS` existe para poder PROBAR el vigilante sin esperar cinco
+ * minutos. `calcularLease` lo acota: el entorno puede hacer el contrato mas
+ * ESTRICTO, nunca mas laxo (ver lib/dr-guards.mjs, con pruebas).
+ */
+const LEASE_SEGUNDOS = calcularLease(process.env.DR_LEASE_SEGUNDOS);
+/** Cada cuanto despierta el vigilante a mirar el reloj. */
+const LEASE_INTERVALO = 15;
+const ARCHIVO_LEASE = `${DIR_TRABAJO}/lease`;
+
+/**
+ * Solo se renueva el contrato mientras haya algo que proteger. Se enciende al
+ * lanzar el vigilante y se apaga al empezar a destruir: si siguiera encendido,
+ * la comprobacion final de inventario volveria a crear `DIR_TRABAJO` justo
+ * despues de borrarlo y dejaria un directorio huerfano en el servidor.
+ */
+let leaseActivo = false;
+/** Donde el vigilante deja su PID para poder cancelarlo en una salida limpia. */
+const ARCHIVO_VIGILANTE = `${DIR_TRABAJO}/vigilante.pid`;
+/** Separa la cabecera del listado de contenedores en la respuesta del paso 1. */
+const MARCA_INVENTARIO = "---INVENTARIO---";
 
 /**
  * El restore corre como `supabase_admin`, no como `postgres`.
@@ -121,6 +178,36 @@ const PROD = dsnProduccion();
 const escaparPgpass = (s) => s.replace(/([\\:])/g, "\\$1");
 
 /**
+ * Tapa los datos de produccion en cualquier texto que vaya a un log o —peor— al
+ * `.md` que se commitea.
+ *
+ * Encontrado en revision (2026-08-05): ante un fallo remoto, `remoto()` levanta
+ * un Error con el `stderr` CRUDO del servidor dentro, el `catch` lo mete en
+ * `problemas`, y el reporte escribe `problemas` literal. Un `psql: error: could
+ * not connect to server "aws-1-us-east-2.pooler.supabase.com" user
+ * "postgres.sntcv…"` acabaria versionado en git. La cabecera de este archivo
+ * promete que la cadena de conexion no aparece en un log; sin esto, la promesa
+ * era falsa en el unico camino que importa, el del fallo.
+ *
+ * Se tapa por VALOR, no por patron: la clave primero (es lo unico irrecuperable
+ * si se escapa) y despues host y usuario. El orden importa — si el usuario
+ * fuera subcadena del host, tapar el host primero dejaria basura a medias.
+ */
+function sanear(texto) {
+  let t = String(texto ?? "");
+  // Cualquier DSN completo que se haya colado, venga de donde venga.
+  t = t.replace(/postgres(?:ql)?:\/\/[^\s"'<>]+/gi, "‹dsn-produccion›");
+  for (const [valor, marca] of [
+    [PROD.clave, "‹clave-produccion›"],
+    [PROD.host, "‹host-produccion›"],
+    [PROD.usuario, "‹usuario-produccion›"],
+  ]) {
+    if (valor && valor.length >= 4) t = t.split(valor).join(marca);
+  }
+  return t;
+}
+
+/**
  * Prefijo bash que materializa el secreto en el servidor. `$SEC` queda
  * disponible para el cuerpo; el `trap` lo borra pase lo que pase.
  */
@@ -154,15 +241,27 @@ ${cuerpo}
  * del guion se traga el resto del guion si no se le redirige la entrada. Todo
  * comando `-i` de aqui en adelante lleva `</dev/null` o un heredoc explicito.
  */
-function remoto(script, { permitirFallo = false } = {}) {
+function remoto(script, { permitirFallo = false, renovar = true } = {}) {
+  // Renovar el contrato en CADA interaccion (y no con un latido aparte) tiene
+  // una propiedad que un temporizador no tiene: si la Mac deja de hablar con el
+  // servidor —da igual si por SIGKILL, por corte de red o porque se suspendio—
+  // el contrato deja de renovarse solo, sin que nadie tenga que darse cuenta.
+  const prefijo =
+    leaseActivo && renovar
+      ? `mkdir -p ${DIR_TRABAJO} 2>/dev/null || true\n` +
+        `echo $(( $(date +%s) + ${LEASE_SEGUNDOS} )) > ${ARCHIVO_LEASE} 2>/dev/null || true\n`
+      : "";
+
   const res = spawnSync("ssh", [HOST, "bash", "-s"], {
-    input: script,
+    input: prefijo + script,
     encoding: "utf8",
     maxBuffer: 256 * 1024 * 1024,
   });
-  if (res.error) throw new Error(`No se pudo abrir ssh a ${HOST}: ${res.error.message}`);
+  if (res.error) throw new Error(`No se pudo abrir ssh a ${HOST}: ${sanear(res.error.message)}`);
   if (res.status !== 0 && !permitirFallo) {
-    throw new Error(`Fallo remoto (codigo ${res.status}):\n${(res.stderr ?? "").trim()}`);
+    // `sanear` aqui no es paranoia decorativa: este mensaje termina en
+    // `problemas`, y `problemas` se escribe literal en el .md que se commitea.
+    throw new Error(`Fallo remoto (codigo ${res.status}):\n${sanear((res.stderr ?? "").trim())}`);
   }
   return { salida: res.stdout ?? "", error: res.stderr ?? "", codigo: res.status ?? 0 };
 }
@@ -222,23 +321,38 @@ const anotar = (linea) => {
   console.log(`   ${linea}`);
 };
 
-let creado = false;
 let destruido = false;
 
 /** El paso 6 corre siempre, incluso si algo revento antes. */
 function destruir() {
   if (destruido) return;
   destruido = true;
+  // Se apaga ANTES de destruir para que ninguna llamada posterior vuelva a
+  // crear DIR_TRABAJO renovando un contrato que ya no protege nada.
+  leaseActivo = false;
   try {
-    remoto(`set -uo pipefail
+    remoto(
+      `set -uo pipefail
+# Cancelar el vigilante primero: si se dejara vivo seguiria dando vueltas hasta
+# que venza el contrato. Se lee su PID ANTES de borrar el directorio, que es
+# donde vive. Y si el kill falla, tampoco pasa nada: al desaparecer el archivo
+# de contrato el vigilante se encuentra sin lease, destruye (idempotente) y sale
+# solo. Dos caminos independientes, el mismo final.
+VPID=$(cat ${ARCHIVO_VIGILANTE} 2>/dev/null || true)
+if [ -n "$VPID" ]; then kill "$VPID" >/dev/null 2>&1 || true; fi
 docker rm -f ${CONTENEDOR} >/dev/null 2>&1 || true
 docker volume rm ${VOLUMEN} >/dev/null 2>&1 || true
 rm -rf ${DIR_TRABAJO}
-echo destruido`);
+echo destruido`,
+      { renovar: false },
+    );
     console.log("   Arenero destruido y respaldo temporal borrado del servidor.");
   } catch (e) {
-    console.error("   AVISO: no se pudo destruir el arenero:", e.message);
-    console.error(`   Hazlo a mano: ssh ${HOST} 'docker rm -f ${CONTENEDOR}; docker volume rm ${VOLUMEN}; rm -rf ${DIR_TRABAJO}'`);
+    console.error("   AVISO: no se pudo destruir el arenero:", sanear(e.message));
+    console.error(
+      `   El vigilante lo destruira solo en <= ${LEASE_SEGUNDOS + LEASE_INTERVALO} s. Para no esperar: ` +
+        `ssh ${HOST} 'docker rm -f ${CONTENEDOR}; docker volume rm ${VOLUMEN}; rm -rf ${DIR_TRABAJO}'`,
+    );
   }
 }
 
@@ -275,7 +389,7 @@ try {
 }
 
 const inicio = Date.now();
-let inventarioAntes = "";
+let inventarioAntes = [];
 let veredicto = false;
 let problemas = [];
 let erroresRestore = 0;
@@ -295,12 +409,44 @@ try {
 case "${CONTENEDOR}" in
   supabase-*|palusa*|realtime*) echo "ABORTADO: contenedor prohibido"; exit 1;;
 esac
-docker ps -a --format '{{.Names}}' | sort > /tmp/dermaland-dr-inventario-antes.txt
+# El inventario de referencia se toma ANTES de crear nada y viaja de vuelta a la
+# Mac, que es quien lo compara al final. Antes vivia en un /tmp/*.txt del
+# servidor que quedaba fuera de ${DIR_TRABAJO} y al que no llegaba el borrado:
+# el propio simulacro dejaba basura mientras verificaba no haber dejado basura.
+INV_ANTES=$(docker ps -a --format '{{.Names}}' | sort)
 docker rm -f ${CONTENEDOR} >/dev/null 2>&1 || true
 docker volume rm ${VOLUMEN} >/dev/null 2>&1 || true
 rm -rf ${DIR_TRABAJO}
 mkdir -p ${DIR_TRABAJO}
 chmod 700 ${DIR_TRABAJO}
+
+# ── Vigilante ────────────────────────────────────────────────────────────────
+# Sin esto, una muerte abrupta del proceso local (SIGKILL, corte de red, el
+# portatil que se suspende) deja el arenero VIVO con datos de produccion dentro
+# —usuarios reales con sus hashes de contrasena— y el respaldo entero en
+# ${DIR_TRABAJO}, en el servidor que aloja la produccion de otro cliente, hasta
+# que alguien vuelva a correr el simulacro. Los manejadores de SIGINT/SIGTERM y
+# el bloque finally no cubren ese caso: ninguno llega a ejecutarse.
+#
+# El vigilante vive en el SERVIDOR y no depende de que la Mac siga ahi. Destruye
+# todo en cuanto el contrato vence, y el contrato solo se renueva mientras el
+# proceso local siga hablando con el servidor.
+echo $(( $(date +%s) + ${LEASE_SEGUNDOS} )) > ${ARCHIVO_LEASE}
+setsid nohup bash -c 'echo $$ > ${ARCHIVO_VIGILANTE}
+while :; do
+  sleep ${LEASE_INTERVALO}
+  vence=$(cat ${ARCHIVO_LEASE} 2>/dev/null || echo 0)
+  case "$vence" in (""|*[!0-9]*) vence=0 ;; esac
+  if [ "$(date +%s)" -gt "$vence" ]; then
+    docker rm -f ${CONTENEDOR} >/dev/null 2>&1 || true
+    docker volume rm ${VOLUMEN} >/dev/null 2>&1 || true
+    rm -rf ${DIR_TRABAJO}
+    exit 0
+  fi
+done' </dev/null >/dev/null 2>&1 &
+# Dar al vigilante el respiro justo para dejar su PID antes de seguir.
+for i in $(seq 1 20); do [ -s ${ARCHIVO_VIGILANTE} ] && break; sleep 0.1; done
+
 docker volume create ${VOLUMEN} >/dev/null
 # Sin -p: el arenero NO expone puerto. Se opera solo por docker exec.
 docker run -d --name ${CONTENEDOR} \\
@@ -317,13 +463,20 @@ for i in $(seq 1 90); do
   sleep 2
 done
 if [ "$listo" != "1" ]; then echo "ABORTADO: el arenero no acepta conexiones"; exit 1; fi
-echo "inventario_antes=$(wc -l < /tmp/dermaland-dr-inventario-antes.txt)"
 docker inspect -f '{{.Config.Image}}' ${CONTENEDOR}
-docker port ${CONTENEDOR} | wc -l`);
-  creado = true;
-  const [invLinea, imagenUsada, puertosPublicados] = arranque.salida.trim().split("\n");
-  inventarioAntes = invLinea;
-  anotar(`Arenero listo · imagen ${imagenUsada} · puertos publicados: ${puertosPublicados.trim()}`);
+docker port ${CONTENEDOR} | wc -l
+echo "${MARCA_INVENTARIO}"
+printf '%s\\n' "$INV_ANTES"`);
+  // A partir de aqui hay algo que proteger: que el contrato se renueve.
+  leaseActivo = true;
+
+  const [cabecera, invCrudo = ""] = arranque.salida.split(`${MARCA_INVENTARIO}\n`);
+  const [imagenUsada, puertosPublicados] = cabecera.trim().split("\n");
+  inventarioAntes = invCrudo.split("\n").map((l) => l.trim()).filter(Boolean).sort();
+  anotar(
+    `Arenero listo · imagen ${imagenUsada} · puertos publicados: ${puertosPublicados.trim()} · ` +
+      `vigilante armado (${LEASE_SEGUNDOS} s, se renueva en cada paso)`,
+  );
 
   // ── 2. Comprobar que el destino es seguro ANTES de escribir nada ──────────
   paso(2, "Comprobando que el destino es seguro y NO es produccion…");
@@ -392,7 +545,7 @@ echo "errores=$(grep -c '^ERROR' ${DIR_TRABAJO}/restore.err || true)"
 grep '^ERROR' ${DIR_TRABAJO}/restore.err | sed 's/"[^"]*"/"X"/g' | sort | uniq -c | sort -rn | head -20 || true`);
   const lineasRestore = restore.salida.trim().split("\n");
   erroresRestore = Number((lineasRestore[0] ?? "errores=0").split("=")[1] ?? 0);
-  detalleErrores = lineasRestore.slice(1).join("\n").trim();
+  detalleErrores = sanear(lineasRestore.slice(1).join("\n").trim());
   if (erroresRestore > 0) {
     console.warn(`   ⚠️  ${erroresRestore} errores durante la restauracion:`);
     console.warn(detalleErrores.replace(/^/gm, "      "));
@@ -420,29 +573,61 @@ grep '^ERROR' ${DIR_TRABAJO}/restore.err | sed 's/"[^"]*"/"X"/g' | sort | uniq -
   // desastre no existe el error benigno.
   veredicto = diff.ok && erroresRestore === 0;
 } catch (e) {
-  problemas = [e.message];
+  // `sanear` en el origen: este mensaje va al .md que se commitea.
+  problemas = [sanear(e.message)];
   veredicto = false;
-  console.error("\n❌ El simulacro se detuvo:", e.message);
+  console.error("\n❌ El simulacro se detuvo:", sanear(e.message));
 } finally {
   paso(6, "Destruyendo el arenero…");
   destruir();
 
   // Confirmar que el servidor quedo EXACTAMENTE como estaba.
   try {
-    const inv = remoto(`set -uo pipefail
-docker ps -a --format '{{.Names}}' | sort > /tmp/dermaland-dr-inventario-despues.txt
-echo "despues=$(wc -l < /tmp/dermaland-dr-inventario-despues.txt)"
+    // Todo lo que se mide sale de comandos que NO escriben en el servidor: la
+    // comprobacion de que no quedo basura no puede dejar basura.
+    const inv = remoto(
+      `set -uo pipefail
 echo "sobrantes=$(docker ps -a --format '{{.Names}}' | grep -c '^dermaland' || true)"
 echo "volumenes=$(docker volume ls --format '{{.Name}}' | grep -c '^dermaland' || true)"
-if [ -f /tmp/dermaland-dr-inventario-antes.txt ]; then
-  echo "diferencias=$(diff /tmp/dermaland-dr-inventario-antes.txt /tmp/dermaland-dr-inventario-despues.txt | grep -c '^[<>]' || true)"
-fi
+echo "restos_tmp=$(ls -d ${DIR_TRABAJO} 2>/dev/null | wc -l)"
 echo "vecinos_corriendo=$(docker ps --format '{{.Names}}' | grep -cE '^(supabase|palusa|realtime)' || true)"
-rm -f /tmp/dermaland-dr-inventario-antes.txt /tmp/dermaland-dr-inventario-despues.txt`);
-    console.log(`   Inventario del servidor: ${inv.salida.trim().split("\n").join(" · ")}`);
-    bitacora.push(`Inventario tras el simulacro: ${inv.salida.trim().split("\n").join(" · ")}`);
+echo "${MARCA_INVENTARIO}"
+docker ps -a --format '{{.Names}}' | sort`,
+      { renovar: false },
+    );
+
+    const [cabecera, invCrudo = ""] = inv.salida.split(`${MARCA_INVENTARIO}\n`);
+    const inventarioDespues = invCrudo.split("\n").map((l) => l.trim()).filter(Boolean).sort();
+    const sobran = inventarioDespues.filter((n) => !inventarioAntes.includes(n));
+    const faltan = inventarioAntes.filter((n) => !inventarioDespues.includes(n));
+
+    const resumen = [
+      ...cabecera.trim().split("\n").filter(Boolean),
+      `antes=${inventarioAntes.length}`,
+      `despues=${inventarioDespues.length}`,
+      `diferencias=${sobran.length + faltan.length}`,
+    ].join(" · ");
+    console.log(`   Inventario del servidor: ${resumen}`);
+    bitacora.push(`Inventario tras el simulacro: ${resumen}`);
+
+    // Que FALTE un contenedor del vecino es mucho peor que que sobre uno mio:
+    // significaria que este simulacro tumbo produccion ajena. Se grita.
+    if (faltan.length > 0) {
+      const aviso = `⚠️  DESAPARECIERON contenedores que existian antes: ${faltan.join(", ")}`;
+      console.error(`   ${aviso}`);
+      bitacora.push(aviso);
+      problemas.push(aviso);
+      veredicto = false;
+    }
+    if (sobran.length > 0) {
+      const aviso = `⚠️  Quedaron contenedores que no estaban antes: ${sobran.join(", ")}`;
+      console.error(`   ${aviso}`);
+      bitacora.push(aviso);
+      problemas.push(aviso);
+      veredicto = false;
+    }
   } catch (e) {
-    console.error("   AVISO: no se pudo verificar el inventario del servidor:", e.message);
+    console.error("   AVISO: no se pudo verificar el inventario del servidor:", sanear(e.message));
   }
 }
 
@@ -472,6 +657,13 @@ const md = [
   `- **Respaldo:** \`pg_dump --no-owner --no-privileges --clean --if-exists -Z 9\` (los mismos flags que`,
   "  el respaldo nocturno, via `lib/pg-dump-args.mjs`).",
   `- **Restaurado como:** \`${ROL_RESTAURACION}\`.`,
+  `- **Filas verificadas en:** las ${magnitudes.tablas} tablas durables — todas las de \`public\` mas`,
+  "  las de `auth` y `storage` que guardan identidad, credenciales enroladas y configuracion",
+  "  (incluida `auth.mfa_factors`, de la que depende el 2FA obligatorio). El estado en vuelo",
+  "  (sesiones, retos, subidas a medias) se respalda pero NO se compara: ver mas abajo.",
+  `- **Vigilante:** contrato de ${LEASE_SEGUNDOS} s renovado en cada paso. Si el proceso local muere de`,
+  `  golpe (SIGKILL, corte de red, portatil suspendido) el arenero y el respaldo se destruyen solos`,
+  `  en <= ${LEASE_SEGUNDOS + LEASE_INTERVALO} s sin que nadie intervenga.`,
   "",
   "## Numeros",
   "",
@@ -520,6 +712,13 @@ const md = [
   "  Postgres con forma de Supabase operado con privilegios plenos (self-hosted, o",
   "  con soporte de Supabase), no en un proyecto Cloud recien creado usando solo el",
   "  rol `postgres`.",
+  "- **El conteo de filas del estado EFIMERO de `auth` y `storage`.** 13 tablas de `auth`",
+  "  (`sessions`, `refresh_tokens`, `mfa_amr_claims`, los retos, los codigos de un solo uso,",
+  "  `audit_log_entries`…) y 3 de `storage` (las subidas a medias y su libro de migraciones)",
+  "  SI vienen dentro del respaldo, pero su conteo no se compara: cambia entre el dump y la",
+  "  comparacion, asi que exigir que cuadre haria fallar el simulacro SIEMPRE. Consecuencia",
+  "  honesta: si el respaldo perdiera filas de esas tablas, este simulacro no lo veria. Se",
+  "  acepta porque son estado reconstruible — un usuario vuelve a entrar y se crea otra sesion.",
   "- **El tiempo real de un desastre.** Aqui se midio el ciclo dump→restore→comparacion,",
   "  no el RTO extremo a extremo (aprovisionar proyecto, DNS, secretos, redeploy).",
   "- **La autenticidad del servidor de produccion.** La conexion usa `PGSSLMODE=require`:",
@@ -533,7 +732,12 @@ const md = [
   "",
 ].join("\n");
 
-writeFileSync(salida, md, "utf8");
+// Segundo pase de saneado, sobre el documento COMPLETO y justo antes de tocar
+// el disco. Es deliberadamente redundante con el `sanear` de cada origen: este
+// archivo se commitea, y basta con que un solo camino nuevo olvide sanear en el
+// origen para publicar el host y el usuario de produccion en git. Aqui no hay
+// forma de olvidarlo — pasa todo por el mismo embudo.
+writeFileSync(salida, sanear(md), "utf8");
 console.log(`\nReporte → ${salida}`);
 
 if (!veredicto) {

@@ -52,7 +52,8 @@ cadena de conexión pasan por el portátil.
 - **Destino:** contenedor efímero **`dermaland-dr-db`** (`supabase/postgres:17.6.1.132`,
   la versión exacta de producción), **sin puerto expuesto** — se opera solo por
   `docker exec`. Se destruye al terminar *pase lo que pase*: también si algo
-  revienta a mitad, también con `Ctrl-C`.
+  revienta a mitad, también con `Ctrl-C`, **también si el proceso local muere de
+  golpe** (ver el vigilante abajo).
 - ⚠️ **`supabase-01` aloja la producción de otro cliente** (`supabase-*` de
   csl-app, `palusa-*` de PalusaApp). El script tiene salvaguardas en los dos
   lados —cliente y servidor— para no aceptar jamás un destino con esos nombres,
@@ -62,7 +63,42 @@ cadena de conexión pasan por el portátil.
   un log. Viaja por stdin de `ssh`, se materializa en un `mktemp -d` con
   `umask 077` y muere en un `trap`. La contraseña va en un `.pgpass` modo 600
   montado de solo lectura, **no** en el `--env-file`: así ni `docker inspect`
-  del contenedor efímero la revela.
+  del contenedor efímero la revela. Y **a la salida**, todo lo que va al reporte
+  pasa por un saneador: el `stderr` crudo de un fallo remoto trae el host y el
+  usuario de producción, y el reporte se commitea.
+
+### El vigilante: que nada sobreviva a una muerte abrupta
+
+Hay **tres** caminos de destrucción, independientes a propósito:
+
+1. El bloque `finally` → paso 6. El camino normal, también cuando algo revienta.
+2. Los manejadores de `SIGINT`/`SIGTERM`. Un `Ctrl-C` tampoco deja rastro.
+3. Un **vigilante en el servidor**, con un contrato (*lease*) de 5 minutos que se
+   renueva en **cada** interacción con el servidor.
+
+El tercero existe porque los dos primeros comparten un supuesto que resultó
+falso: suponen que el proceso local llega a ejecutar *algo*. Un `SIGKILL`, un
+corte de red o suspender el portátil no ejecutan nada. Medido en revisión: un
+`SIGKILL` a los 78 s dejaba `dermaland-dr-db` *Up (healthy)* con `auth.users` ya
+restaurada —**cuentas reales con sus hashes de contraseña**—, su volumen, y el
+respaldo íntegro de producción en `/tmp/dermaland-dr-taller/`. En el servidor que
+aloja la producción de otro cliente, y hasta que alguien volviera a correr el
+simulacro.
+
+El vigilante vive en el servidor y **no depende de que la Mac siga ahí**: si el
+contrato deja de renovarse —da igual por qué— destruye contenedor, volumen y
+respaldo. Renovar en cada interacción, en vez de con un latido aparte, tiene la
+propiedad de que **la Mac no puede “olvidar” dejar de renovar**: si deja de
+hablar, el contrato vence solo.
+
+- **Techo de exposición:** contrato + intervalo de chequeo = **≤ 315 s**.
+- **Verificado con un `SIGKILL` real** (2026-08-05, contrato acortado a 30 s para
+  la prueba): a los 42 s de arranque se mató el proceso con `-9`; el arenero
+  quedó vivo con el respaldo en `/tmp`, y **23 segundos después el vigilante lo
+  había destruido todo solo** — contenedor, volumen y respaldo.
+- `DR_LEASE_SEGUNDOS` permite acortar el contrato para probarlo. Está **acotado
+  por arriba**: el entorno puede hacerlo más estricto, nunca más laxo. Exportar
+  `99999` no alarga la exposición (`calcularLease`, con pruebas unitarias).
 
 ### Qué compara
 
@@ -71,13 +107,44 @@ Restaura y luego compara producción contra la copia en **7 dimensiones**
 
 | Dimensión | Por qué está | Medido 2026-08-05 |
 |---|---|---|
-| **filas** | conteo exacto por tabla (`public` + `auth.users` + `storage.*`) | 86 tablas · 5,897 filas |
+| **filas** | conteo exacto por tabla: **las 83 de `public` + las 10 durables de `auth` + las 5 durables de `storage`** (lista y criterio abajo) | 98 tablas · 5,897 filas |
 | **funciones** | nombre + firma en `public` | 15 |
 | **políticas** | conteo de RLS por tabla | 106 |
-| **rls** | `relrowsecurity` encendido/apagado — un `DISABLE ROW LEVEL SECURITY` deja las políticas listadas pero sin aplicar | 86/86 encendido |
+| **rls** | `relrowsecurity` encendido/apagado — un `DISABLE ROW LEVEL SECURITY` deja las políticas listadas pero sin aplicar | 83/83 de `public` encendido |
 | **definiciones** | hash del `USING`/`WITH CHECK` — el conteo puede cuadrar con `USING (true)` por debajo, que es fuga total entre inquilinos | 106 hashes |
 | **índices** | presencia por nombre | 219 |
 | **restricciones** | FK y CHECK — un restore puede terminar «sin un solo error» y perderlas | 325 |
+
+#### Qué tablas de `auth` y `storage` entran en `filas`, y por qué
+
+Hasta la revisión 3 solo se rastreaba `auth.users`, o sea que **22 de las 23
+tablas de `auth` quedaban fuera del radar**. El agujero era concreto: si el
+respaldo perdiera entera `auth.mfa_factors`, el simulacro habría impreso PASA y
+«las siete dimensiones cuadran al 100 %» — y de esa tabla depende el 2FA
+obligatorio (B-04). Los datos **sí** venían en el dump; era un hueco de
+*verificación*, que es peor: certificaba como intacto un respaldo mutilado.
+
+El criterio es uno solo:
+
+> Se rastrea lo **durable** —identidad, credenciales enroladas y configuración de
+> tenant, lo que un desastre perdería sin remedio—. Se deja fuera el estado **en
+> vuelo** (sesiones, retos, códigos de un solo uso, subidas a medias) y los
+> libros internos del propio servicio.
+
+| | Se rastrea (15) | Se deja fuera (16) |
+|---|---|---|
+| **`auth`** (23) | `users`, `identities`, `mfa_factors`, `webauthn_credentials`, `sso_providers`, `sso_domains`, `saml_providers`, `oauth_clients`, `oauth_consents`, `custom_oauth_providers` | `sessions`, `refresh_tokens`, `mfa_amr_claims` (estado de sesión, cambia en cada login) · `mfa_challenges`, `webauthn_challenges`, `flow_state`, `one_time_tokens`, `saml_relay_states`, `oauth_authorizations`, `oauth_client_states` (retos e intercambios en vuelo) · `audit_log_entries` (bitácora que GoTrue poda) · `schema_migrations` (libro interno del servicio) · `instances` (legado sin uso) |
+| **`storage`** (8) | `buckets`, `objects`, `buckets_analytics`, `buckets_vectors`, `vector_indexes` | `s3_multipart_uploads`, `s3_multipart_uploads_parts` (subidas a medias) · `migrations` (libro interno) |
+
+Dos precisiones que evitan malentendidos:
+
+- **Las excluidas siguen viniendo dentro del respaldo** (`pg_dump` es completo).
+  Lo único que no se hace es exigir que su conteo de filas coincida — hacerlo
+  haría fallar el simulacro *siempre*, incluso con una restauración perfecta, y
+  un comparador que siempre grita se termina ignorando.
+- **Una tabla durable con cero filas se rastrea igual.** `auth.mfa_factors` hoy
+  está vacía; si desapareciera entera de la copia, el comparador la reporta como
+  «Tabla ausente». Para B-04 esa es justo la garantía que hacía falta.
 
 Además, y **antes** de dar nada por bueno (`lib/dr-guards.mjs`):
 

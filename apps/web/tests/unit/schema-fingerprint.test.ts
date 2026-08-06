@@ -48,6 +48,55 @@ describe("FINGERPRINT_SQL", () => {
     expect(FINGERPRINT_SQL).toContain("storage");
     expect(FINGERPRINT_SQL).toContain("auth");
   });
+
+  /**
+   * Ronda 3 de revisión: la huella solo rastreaba `auth.users` e ignoraba las
+   * otras 22 tablas de `auth`. Si el respaldo perdiera entera
+   * `auth.mfa_factors`, el simulacro habría impreso PASA — y de esa tabla
+   * depende el 2FA obligatorio (B-04). Estas pruebas clavan la lista para que
+   * nadie la recorte sin darse cuenta.
+   */
+  it("rastrea las tablas DURABLES de auth, no solo auth.users", () => {
+    for (const tabla of [
+      "users",
+      "identities",
+      "mfa_factors",
+      "webauthn_credentials",
+      "sso_providers",
+      "sso_domains",
+      "saml_providers",
+      "oauth_clients",
+      "oauth_consents",
+      "custom_oauth_providers",
+    ]) {
+      expect(FINGERPRINT_SQL).toContain(`n.nspname = 'auth' and c.relname = '${tabla}'`);
+    }
+  });
+
+  it("rastrea las tablas DURABLES de storage", () => {
+    for (const tabla of ["buckets", "objects", "buckets_analytics", "buckets_vectors", "vector_indexes"]) {
+      expect(FINGERPRINT_SQL).toContain(`n.nspname = 'storage' and c.relname = '${tabla}'`);
+    }
+  });
+
+  it("NO rastrea el estado efímero: incluirlo haría fallar el simulacro siempre", () => {
+    // sessions y refresh_tokens cambian cada vez que alguien entra; exigir que
+    // su conteo coincida entre producción "ahora" y una copia restaurada
+    // después es pedir que el comparador grite siempre, y un comparador que
+    // siempre grita se termina ignorando.
+    for (const tabla of [
+      "sessions",
+      "refresh_tokens",
+      "mfa_challenges",
+      "mfa_amr_claims",
+      "flow_state",
+      "one_time_tokens",
+      "audit_log_entries",
+      "s3_multipart_uploads",
+    ]) {
+      expect(FINGERPRINT_SQL).not.toContain(`c.relname = '${tabla}'`);
+    }
+  });
 });
 
 describe("diffFingerprints", () => {
@@ -155,6 +204,31 @@ describe("diffFingerprints", () => {
     const r = diffFingerprints(huella(), copia);
     expect(r.ok).toBe(false);
     expect(r.problemas.join(" ")).toMatch(/storage\.objects/);
+  });
+
+  it("detecta que la copia perdió auth.mfa_factors ENTERA, aunque esté vacía en producción", () => {
+    // El agujero exacto de la ronda 3: `auth.mfa_factors` tiene 0 filas hoy, y
+    // una tabla vacía "que falta" es justo la que se cuela sin ruido. De ella
+    // depende B-04, así que perderla en el respaldo y enterarse después sería
+    // quedarse sin los factores 2FA de los dos únicos admins.
+    const prod = huella();
+    prod.filas["auth.mfa_factors"] = 0;
+    const copia = huella();
+    const r = diffFingerprints(prod, copia);
+    expect(r.ok).toBe(false);
+    expect(r.problemas.join(" ")).toMatch(/auth\.mfa_factors/);
+  });
+
+  it("detecta que la copia perdió filas de auth.identities", () => {
+    // Sin `identities` nadie puede volver a entrar con su proveedor, aunque
+    // `auth.users` esté intacta.
+    const prod = huella();
+    prod.filas["auth.identities"] = 3;
+    const copia = huella();
+    copia.filas["auth.identities"] = 0;
+    const r = diffFingerprints(prod, copia);
+    expect(r.ok).toBe(false);
+    expect(r.problemas.join(" ")).toMatch(/auth\.identities/);
   });
 });
 

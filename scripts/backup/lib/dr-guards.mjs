@@ -29,14 +29,52 @@
 
 /**
  * Piso de magnitud por defecto, deliberadamente por DEBAJO de la realidad
- * medida el 2026-08-05 contra produccion (86 tablas rastreadas — 83 en
- * `public` + auth.users + storage.buckets + storage.objects — y 106
- * politicas RLS: 101 en `public` + 5 en storage.objects). El margen existe
- * para que borrar una tabla legitima no rompa el simulacro, pero cualquier
- * huella simbolica o truncada queda fuera por goleada.
+ * medida el 2026-08-05 contra produccion: **98 tablas rastreadas** (83 en
+ * `public` + 10 durables de `auth` + 5 durables de `storage`, ver
+ * schema-fingerprint.mjs) y 106 politicas RLS (101 en `public` + 5 en
+ * storage.objects). El margen existe para que borrar una tabla legitima no
+ * rompa el simulacro, pero cualquier huella simbolica o truncada queda fuera
+ * por goleada.
+ *
+ * El piso se queda en 80 aunque la realidad haya subido de 86 a 98 (revision 4
+ * de la huella), y no es dejadez: esta guarda existe para rechazar una huella
+ * de produccion DEGENERADA, no para ser un cable trampa fino. De que falte una
+ * tabla concreta ya se encarga `diffFingerprints`, que las reporta UNA POR UNA
+ * con su nombre — incluido el caso de perder `auth` y `storage` enteros (98 →
+ * 83), que quedaria por encima de este piso pero saldria como 15 tablas
+ * ausentes. Subir el piso solo acercaria un falso positivo el dia que se borre
+ * una tabla de verdad, sin detectar nada que el diff no detecte ya.
  */
 export const MIN_TABLAS = 80;
 export const MIN_POLITICAS = 100;
+
+/**
+ * Limites del contrato de vida del arenero, en segundos (ver el vigilante en
+ * dr-drill.mjs). El maximo es el techo de cuanto puede sobrevivir un arenero
+ * con datos de produccion dentro si el proceso local muere de golpe.
+ */
+export const LEASE_MAXIMO = 300;
+export const LEASE_MINIMO = 30;
+
+/**
+ * Resuelve el contrato a partir de lo que diga el entorno, ACOTADO.
+ *
+ * La propiedad que importa, y por la que esto es una funcion pura con pruebas
+ * en vez de una linea suelta: el entorno puede hacer el contrato mas ESTRICTO,
+ * nunca mas laxo. `DR_LEASE_SEGUNDOS=99999` no alarga la exposicion; se queda
+ * en LEASE_MAXIMO. Una variable de entorno —o un error de dedo— no puede
+ * debilitar la unica garantia que cubre el caso en que nadie limpia: el SIGKILL.
+ *
+ * El piso evita lo contrario: un contrato tan corto que el vigilante destruya
+ * el arenero a mitad de un paso sano.
+ *
+ * @param {unknown} crudo valor del entorno, sin validar
+ */
+export function calcularLease(crudo) {
+  const n = Number(crudo);
+  if (!Number.isFinite(n) || n <= 0) return LEASE_MAXIMO;
+  return Math.min(LEASE_MAXIMO, Math.max(LEASE_MINIMO, Math.floor(n)));
+}
 
 /** Normaliza el identificador de cluster a texto comparable. */
 function sysid(identidad) {
@@ -117,7 +155,7 @@ export function assertMagnitudCreible(prod, { minTablas = MIN_TABLAS, minPolitic
   if (faltas.length > 0) {
     throw new Error(
       `ABORTADO: la huella de produccion es demasiado pequena para ser real — ${faltas.join(" y ")}. ` +
-        "DermaLand en produccion tiene 86 tablas rastreadas y 106 politicas. Una huella asi de corta " +
+        "DermaLand en produccion tiene 98 tablas rastreadas y 106 politicas. Una huella asi de corta " +
         "significa que la consulta no vio el esquema real (DSN equivocado, permisos, base a medio " +
         "restaurar): contra ella 'no falta nada' se cumple sin haber probado nada.",
     );

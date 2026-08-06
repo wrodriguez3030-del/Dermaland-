@@ -17,6 +17,16 @@ export interface ClusterIdentity {
 export declare const MIN_TABLAS: number;
 export declare const MIN_POLITICAS: number;
 
+/** Límites del contrato de vida del arenero, en segundos (ver dr-guards.mjs). */
+export declare const LEASE_MAXIMO: number;
+export declare const LEASE_MINIMO: number;
+
+/**
+ * Resuelve el contrato del vigilante desde el entorno, acotado a
+ * [LEASE_MINIMO, LEASE_MAXIMO]. El entorno solo puede hacerlo más estricto.
+ */
+export function calcularLease(crudo: unknown): number;
+
 /** Lanza si origen y destino son el mismo cluster, o si falta la identidad de alguno. */
 export function assertOrigenDistinto(args: {
   origen: ClusterIdentity | null | undefined;

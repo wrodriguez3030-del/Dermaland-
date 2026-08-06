@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   MIN_TABLAS,
   MIN_POLITICAS,
+  LEASE_MAXIMO,
+  LEASE_MINIMO,
   assertOrigenDistinto,
   assertMagnitudCreible,
+  calcularLease,
 } from "../../../../scripts/backup/lib/dr-guards.mjs";
 
 /**
@@ -92,6 +95,60 @@ describe("assertOrigenDistinto", () => {
   });
 });
 
+/**
+ * Ronda 3 de revisión: un SIGKILL al proceso local dejaba el arenero vivo con
+ * `auth.users` ya restaurada —cuentas reales con sus hashes— y el respaldo
+ * íntegro de producción en /tmp, en el servidor que aloja la producción de otro
+ * cliente. Ni `finally` ni SIGINT/SIGTERM cubren ese caso: ninguno se ejecuta.
+ * Lo cubre un vigilante en el servidor con un contrato acotado, y estas pruebas
+ * clavan la única propiedad que hace que el contrato valga algo.
+ */
+describe("calcularLease", () => {
+  it("sin variable de entorno usa el máximo", () => {
+    expect(calcularLease(undefined)).toBe(LEASE_MAXIMO);
+    expect(calcularLease("")).toBe(LEASE_MAXIMO);
+    expect(calcularLease(null)).toBe(LEASE_MAXIMO);
+  });
+
+  it("EL ENTORNO NO PUEDE ALARGAR LA EXPOSICIÓN: se acota al máximo", () => {
+    // La propiedad de seguridad entera. Si esto se rompe, una variable de
+    // entorno (o un error de dedo) deja datos de producción vivos en el
+    // servidor de otro cliente durante el tiempo que le dé la gana.
+    expect(calcularLease(99999)).toBe(LEASE_MAXIMO);
+    expect(calcularLease("86400")).toBe(LEASE_MAXIMO);
+    expect(calcularLease(Number.MAX_SAFE_INTEGER)).toBe(LEASE_MAXIMO);
+    expect(calcularLease(Infinity)).toBe(LEASE_MAXIMO);
+  });
+
+  it("permite acortarlo, que es para lo que existe (probar el vigilante)", () => {
+    expect(calcularLease(30)).toBe(30);
+    expect(calcularLease("45")).toBe(45);
+  });
+
+  it("no deja bajar del piso: un contrato demasiado corto se suicida a mitad de un paso sano", () => {
+    expect(calcularLease(1)).toBe(LEASE_MINIMO);
+    expect(calcularLease(29)).toBe(LEASE_MINIMO);
+  });
+
+  it("la basura no desactiva el contrato: cae al máximo, nunca a cero ni a infinito", () => {
+    for (const basura of ["no", "12abc", NaN, -5, 0, {}, [], true]) {
+      const v = calcularLease(basura);
+      expect(v).toBeGreaterThanOrEqual(LEASE_MINIMO);
+      expect(v).toBeLessThanOrEqual(LEASE_MAXIMO);
+    }
+  });
+
+  it("devuelve siempre un entero: va dentro de aritmética de shell", () => {
+    expect(Number.isInteger(calcularLease(42.7))).toBe(true);
+    expect(calcularLease(42.7)).toBe(42);
+  });
+
+  it("los límites son coherentes entre sí", () => {
+    expect(LEASE_MINIMO).toBeLessThan(LEASE_MAXIMO);
+    expect(LEASE_MAXIMO).toBeLessThanOrEqual(600); // nunca más de 10 minutos
+  });
+});
+
 describe("assertMagnitudCreible", () => {
   /** Construye una huella con `n` tablas y `p` políticas repartidas. */
   const huella = (n: number, p: number) => ({
@@ -100,9 +157,24 @@ describe("assertMagnitudCreible", () => {
   });
 
   it("acepta la magnitud real de producción y devuelve lo que midió", () => {
-    // 86 tablas rastreadas (83 en public + auth.users + storage.buckets +
-    // storage.objects) y 106 políticas (101 en public + 5 en storage.objects).
+    // Revisión 4 de la huella: 98 tablas rastreadas (83 en public + 10 durables
+    // de auth + 5 durables de storage) y 106 políticas (101 en public + 5 en
+    // storage.objects).
+    expect(assertMagnitudCreible(huella(98, 106))).toEqual({ tablas: 98, politicas: 106 });
+  });
+
+  it("sigue aceptando la magnitud de la revisión 3 (86 tablas): el piso no se subió", () => {
+    // Deliberado: el piso rechaza huellas DEGENERADAS, no hace de cable trampa
+    // fino. De que falte una tabla concreta se encarga diffFingerprints, que la
+    // nombra una por una.
     expect(assertMagnitudCreible(huella(86, 106))).toEqual({ tablas: 86, politicas: 106 });
+  });
+
+  it("perder auth y storage enteros (98 → 83) NO lo atrapa el piso: es trabajo del diff", () => {
+    // Documenta el límite de esta guarda a propósito. 83 sigue por encima de 80,
+    // así que pasa el piso — y debe pasarlo. `diffFingerprints` reporta las 15
+    // tablas ausentes con su nombre, que es el mecanismo correcto.
+    expect(() => assertMagnitudCreible(huella(83, 106))).not.toThrow();
   });
 
   it("rechaza una huella SIMBÓLICA: una tabla y una política", () => {

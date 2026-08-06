@@ -6,16 +6,15 @@
  * Siete dimensiones (revision 2, 2026-08-05 — la revision 1 solo tenia
  * cuatro y una revision de codigo encontro que eran insuficientes):
  *   filas         — conteo EXACTO por tabla (no la estimacion de
- *                    pg_stat_user_tables). Cubre public + tres tablas
- *                    puntuales fuera de public que SI importan para DR:
- *                    auth.users (la base de usuarios entera) y
- *                    storage.buckets/storage.objects (las fotos de
- *                    producto). Deliberadamente NO se barren todas las
- *                    tablas de auth/storage: la mayoria (auth.sessions,
- *                    auth.refresh_tokens, storage.s3_multipart_uploads...)
- *                    son estado efimero que NUNCA va a coincidir entre
- *                    produccion "ahora mismo" y una copia restaurada
- *                    despues — meterlas haria que el comparador falle
+ *                    pg_stat_user_tables). Cubre TODA `public` mas las
+ *                    tablas DURABLES de `auth` y `storage` (ver
+ *                    TABLAS_EXTRA_FILAS abajo, donde esta la lista
+ *                    completa con el porque de cada inclusion y de cada
+ *                    exclusion). Sigue sin barrerse el estado efimero
+ *                    (auth.sessions, auth.refresh_tokens,
+ *                    storage.s3_multipart_uploads...): eso NUNCA va a
+ *                    coincidir entre produccion "ahora mismo" y una copia
+ *                    restaurada despues, haria fallar el comparador
  *                    SIEMPRE incluso con una restauracion perfecta, y un
  *                    comparador que siempre grita se termina ignorando.
  *   funciones     — nombre + firma (solo public: son las funciones propias
@@ -70,14 +69,83 @@
  * (coincide con dermaland-footprint.mjs), 101 politicas RLS en public + 5
  * en storage.objects = 106 en total, las 83 tablas de public con
  * relrowsecurity=true, 219 indices, 219 FK + 106 CHECK = 325 restricciones,
- * 642 filas en storage.objects, 3 en storage.buckets, 3 en auth.users.
+ * 642 filas en storage.objects, 3 en storage.buckets, 3 en auth.users, 3 en
+ * auth.identities y 0 en auth.mfa_factors (que se rastrea vacia a proposito:
+ * ver TABLAS_EXTRA_FILAS). Con la revision 4 la dimension `filas` pasa de 86
+ * a 98 tablas rastreadas: 83 de public + 10 de auth + 5 de storage.
  */
 
-/** Tablas fuera de `public` cuyo conteo de filas SI se rastrea (ver docstring). */
+/**
+ * Tablas fuera de `public` cuyo conteo de filas SI se rastrea.
+ *
+ * REVISION 4 (2026-08-05) — una revision de codigo encontro que la revision
+ * anterior solo rastreaba `auth.users` y por tanto **ignoraba 22 de las 23
+ * tablas de `auth`**. El agujero era concreto y grave: si el respaldo perdiera
+ * entera `auth.mfa_factors`, el simulacro seguiria imprimiendo PASA y "las
+ * siete dimensiones cuadran al 100 %" — y esa tabla es justo de la que depende
+ * el 2FA obligatorio (B-04). Los datos SI estaban en el dump (es un `pg_dump`
+ * completo): era un hueco de VERIFICACION, no de respaldo. Peor por eso: el
+ * simulacro habria certificado como intacto un respaldo mutilado.
+ *
+ * El criterio para entrar aqui, aplicado a las 23 de `auth` y las 8 de
+ * `storage`, es uno solo:
+ *
+ *   Se rastrea lo DURABLE — identidad, credenciales enroladas y configuracion
+ *   de tenant, o sea lo que un desastre perderia de forma irrecuperable.
+ *   Se deja fuera el estado EN VUELO (sesiones, retos, codigos de un solo uso,
+ *   subidas a medias) y los libros internos del propio servicio.
+ *
+ * Una tabla durable con CERO filas se rastrea igual, y no es un descuido: si
+ * desaparece entera de la copia, `diffFingerprints` la reporta como "Tabla
+ * ausente". Para `auth.mfa_factors` —hoy vacia, mañana con los factores de los
+ * dos admins— esa es exactamente la garantia que hacia falta.
+ *
+ * Contado en produccion el 2026-08-05: auth 23 tablas (10 durables, 13
+ * efimeras), storage 8 (5 durables, 3 efimeras).
+ *
+ * ── auth: por que se DEJAN FUERA 13 ──────────────────────────────────────────
+ *   sessions, refresh_tokens, mfa_amr_claims  estado de sesion; cambia cada vez
+ *                                             que alguien entra o refresca. Con
+ *                                             8 y 4 filas vivas, incluirlas
+ *                                             haria fallar el simulacro siempre.
+ *   mfa_challenges, webauthn_challenges       retos EN VUELO, viven segundos.
+ *   flow_state, one_time_tokens               PKCE y enlaces de un solo uso.
+ *   saml_relay_states, oauth_authorizations,  intercambios a medio completar.
+ *   oauth_client_states
+ *   audit_log_entries                         bitacora que crece con cada evento
+ *                                             de auth y que GoTrue va podando.
+ *   schema_migrations                         libro interno de GoTrue: describe
+ *                                             la VERSION del servicio, no
+ *                                             nuestros datos.
+ *   instances                                 registro multi-instancia heredado,
+ *                                             sin uso en Supabase Cloud.
+ *
+ * ── storage: por que se DEJAN FUERA 3 ────────────────────────────────────────
+ *   s3_multipart_uploads, ..._parts           subidas a medias; puro estado en
+ *                                             vuelo.
+ *   migrations                                libro interno del servicio Storage.
+ *
+ * Todas las excluidas SIGUEN viniendo dentro del respaldo (`pg_dump` es
+ * completo); lo que no se hace es exigir que su conteo de filas coincida.
+ */
 const TABLAS_EXTRA_FILAS = [
-  { schema: "auth", tabla: "users" },
+  // auth — identidad y credenciales enroladas (10 de 23).
+  { schema: "auth", tabla: "users" }, // la base de usuarios entera
+  { schema: "auth", tabla: "identities" }, // sin esto nadie puede volver a entrar con su proveedor
+  { schema: "auth", tabla: "mfa_factors" }, // los factores 2FA enrolados — de esto depende B-04
+  { schema: "auth", tabla: "webauthn_credentials" }, // llaves de acceso enroladas; misma clase que mfa_factors
+  { schema: "auth", tabla: "sso_providers" },
+  { schema: "auth", tabla: "sso_domains" },
+  { schema: "auth", tabla: "saml_providers" },
+  { schema: "auth", tabla: "oauth_clients" },
+  { schema: "auth", tabla: "oauth_consents" }, // consentimientos concedidos; sobreviven a la sesion
+  { schema: "auth", tabla: "custom_oauth_providers" },
+  // storage — que buckets existen y que hay dentro (5 de 8).
   { schema: "storage", tabla: "buckets" },
-  { schema: "storage", tabla: "objects" },
+  { schema: "storage", tabla: "objects" }, // los METADATOS de las fotos; los binarios viven fuera
+  { schema: "storage", tabla: "buckets_analytics" },
+  { schema: "storage", tabla: "buckets_vectors" },
+  { schema: "storage", tabla: "vector_indexes" },
 ];
 
 /** Tablas fuera de `public` cuyas politicas/RLS SI se rastrean (ver docstring). */
