@@ -50,7 +50,19 @@ jobs:
             sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          # El runner trae un pg_dump v16 preinstalado en /usr/bin, que tiene
+          # prioridad en el PATH. GITHUB_PATH solo surte efecto a partir del
+          # SIGUIENTE paso, por eso la comprobacion va en un paso aparte.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Verificar que pg_dump quedo en v17 (falla ruidoso si no)
+        run: |
+          version_output="$(pg_dump --version)"
+          echo "$version_output"
+          if ! echo "$version_output" | grep -q "pg_dump (PostgreSQL) 17\."; then
+            echo "::error::pg_dump no quedo en v17, sigue siendo: $version_output"
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
