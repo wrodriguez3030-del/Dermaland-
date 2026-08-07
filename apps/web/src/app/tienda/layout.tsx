@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   AtSign,
+  Link2 as LinkIcon,
   MapPin,
   MessageCircle,
   Navigation,
@@ -280,6 +281,56 @@ export default async function TiendaLayout({
                 );
               })}
             </div>
+
+            {/* Contacto y redes del NEGOCIO, no de una sucursal en concreto.
+                Van juntos y una sola vez: repetir el mismo WhatsApp bajo cada
+                sucursal sugiere que son números distintos.
+
+                Todos abren en pestaña nueva con `noopener noreferrer`, y el
+                Linktree viene normalizado por `normalizePublicUrl`, así que
+                aquí nunca llega un `javascript:`. */}
+            {whatsapp || tenant.instagramUrl || tenant.linktreeUrl ? (
+              <div className="mt-8 border-t border-black/5 pt-6">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+                  Síguenos y escríbenos
+                </h2>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {whatsapp ? (
+                    <a
+                      href={whatsapp}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-sm font-medium text-[color:var(--brand-fg)] transition-colors hover:border-[color:var(--brand-primary)]/40 hover:text-[color:var(--brand-primary)]"
+                    >
+                      <MessageCircle aria-hidden className="h-4 w-4 shrink-0" />
+                      WhatsApp
+                    </a>
+                  ) : null}
+                  {tenant.instagramUrl ? (
+                    <a
+                      href={tenant.instagramUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-sm font-medium text-[color:var(--brand-fg)] transition-colors hover:border-[color:var(--brand-primary)]/40 hover:text-[color:var(--brand-primary)]"
+                    >
+                      <AtSign aria-hidden className="h-4 w-4 shrink-0" />
+                      {instagramHandle(tenant.instagramUrl) ?? "Instagram"}
+                    </a>
+                  ) : null}
+                  {tenant.linktreeUrl ? (
+                    <a
+                      href={tenant.linktreeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-black/10 px-4 text-sm font-medium text-[color:var(--brand-fg)] transition-colors hover:border-[color:var(--brand-primary)]/40 hover:text-[color:var(--brand-primary)]"
+                    >
+                      <LinkIcon aria-hidden className="h-4 w-4 shrink-0" />
+                      Todos nuestros enlaces
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-10 flex flex-col gap-2 border-t border-black/5 pt-6 text-xs text-[color:var(--brand-fg)]/60 sm:flex-row sm:items-center sm:justify-between">
               <p>

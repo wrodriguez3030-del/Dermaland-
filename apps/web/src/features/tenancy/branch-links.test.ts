@@ -3,6 +3,7 @@ import {
   instagramHandle,
   normalizeInstagram,
   normalizeMapsUrl,
+  normalizePublicUrl,
 } from "./branch-links";
 
 /** Atajo: la URL cuando salió bien, o el error si falló (para que el fallo se lea). */
@@ -76,6 +77,34 @@ describe("normalizeMapsUrl", () => {
     const r = normalizeMapsUrl("https://waze.com/ul?ll=19.45,-70.69");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain("waze.com");
+  });
+});
+
+describe("normalizePublicUrl", () => {
+  it("acepta un Linktree", () => {
+    expect(url(normalizePublicUrl("https://linktr.ee/dermaland"))).toBe(
+      "https://linktr.ee/dermaland",
+    );
+  });
+
+  it("acepta cualquier servicio: no es solo Linktree", () => {
+    // El dueño puede usar Beacons, Carrd o su propia web. No hay lista blanca.
+    expect(url(normalizePublicUrl("beacons.ai/dermaland"))).toBe(
+      "https://beacons.ai/dermaland",
+    );
+  });
+
+  it("vacío es válido", () => {
+    expect(url(normalizePublicUrl(""))).toBeUndefined();
+  });
+
+  it("rechaza javascript: — acaba en un href público", () => {
+    // eslint-disable-next-line no-script-url
+    expect(normalizePublicUrl("javascript:alert(1)").ok).toBe(false);
+  });
+
+  it("rechaza un nombre sin dominio", () => {
+    expect(normalizePublicUrl("https://algo").ok).toBe(false);
   });
 });
 

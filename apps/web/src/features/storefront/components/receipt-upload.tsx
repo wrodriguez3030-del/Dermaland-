@@ -95,7 +95,10 @@ export function ReceiptUpload({
           name="comprobante"
           type="file"
           required
-          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+          // Se listan tipos Y extensiones: varios selectores de archivos de
+          // Android filtran por extensión y con sólo los MIME dejaban el PDF
+          // en gris, imposible de elegir.
+          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf,.jpg,.jpeg,.png,.webp,.heic,.pdf"
           className="mt-1 block w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[color:var(--brand-primary)]/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[color:var(--brand-primary)]"
         />
         <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">

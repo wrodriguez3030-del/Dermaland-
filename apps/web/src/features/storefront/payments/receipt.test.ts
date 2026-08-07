@@ -9,6 +9,42 @@ import {
 describe("validateReceiptUpload", () => {
   const OK = { mimeType: "image/jpeg", sizeBytes: 500_000, fileName: "foto.jpg" };
 
+  it("acepta un PDF que el movil declara como octet-stream", () => {
+    // Android manda esto al elegir un PDF desde el gestor de archivos. Antes se
+    // rechazaba, y el cliente leia "sube una foto o un PDF" mientras subia
+    // exactamente un PDF.
+    const r = validateReceiptUpload({
+      ...OK,
+      mimeType: "application/octet-stream",
+      fileName: "comprobante.pdf",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.extension).toBe("pdf");
+      // El MIME servido es el canonico, NUNCA el que declaro el cliente.
+      expect(r.mimeType).toBe("application/pdf");
+    }
+  });
+
+  it("acepta un tipo vacio si la extension esta en la lista", () => {
+    const r = validateReceiptUpload({ ...OK, mimeType: "", fileName: "a.PNG" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.mimeType).toBe("image/png");
+  });
+
+  it("la extension NO abre la puerta a lo que la lista rechaza", () => {
+    // El respaldo usa la MISMA lista blanca: un SVG no entra por el nombre.
+    expect(
+      validateReceiptUpload({ ...OK, mimeType: "", fileName: "x.svg" }).ok,
+    ).toBe(false);
+    expect(
+      validateReceiptUpload({ ...OK, mimeType: "", fileName: "x.html" }).ok,
+    ).toBe(false);
+    expect(
+      validateReceiptUpload({ ...OK, mimeType: "", fileName: "sin-punto" }).ok,
+    ).toBe(false);
+  });
+
   it("acepta las fotos y el PDF que manda la gente de verdad", () => {
     for (const mime of [
       "image/jpeg",
@@ -23,12 +59,15 @@ describe("validateReceiptUpload", () => {
 
   it("rechaza cualquier otro tipo: esto no es un subidor de archivos", () => {
     // Un comprobante es una foto o un PDF. Todo lo demás es alguien probando.
+    // El tipo VACÍO ya no está en esta lista: significa «el navegador no sabe
+    // qué es», no «es peligroso», y rechazarlo dejaba tirado a quien sube un
+    // PDF desde un Android. Con el tipo vacío manda la extensión, contra esta
+    // misma lista blanca (ver las pruebas del respaldo, arriba).
     for (const mime of [
       "application/zip",
       "text/html",
       "image/svg+xml",
       "application/x-msdownload",
-      "",
     ]) {
       expect(validateReceiptUpload({ ...OK, mimeType: mime }).ok).toBe(false);
     }

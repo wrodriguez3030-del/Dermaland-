@@ -64,6 +64,8 @@ export interface StorefrontSettings {
   seoDescription: string | null;
   whatsappPhone: string | null;
   contactEmail: string | null;
+  /** Árbol de enlaces del negocio (Linktree, Beacons, su propia web). */
+  linktreeUrl: string | null;
 }
 
 export interface AdminWebCatalog {
@@ -107,6 +109,7 @@ export interface StorefrontSettingsPatch {
   seoDescription?: string | null;
   whatsappPhone?: string | null;
   contactEmail?: string | null;
+  linktreeUrl?: string | null;
 }
 
 function texto(valor: string | null | undefined): string | null {
@@ -260,7 +263,7 @@ export async function loadSettings(
   const { data, error } = await sb
     .from("business_web_settings")
     .select(
-      "business_id, storefront_enabled, site_name, tagline, seo_title, seo_description, whatsapp_phone, contact_email",
+      "business_id, storefront_enabled, site_name, tagline, seo_title, seo_description, whatsapp_phone, contact_email, linktree_url",
     )
     .eq("business_id", ctx.businessId)
     .maybeSingle();
@@ -274,6 +277,7 @@ export async function loadSettings(
     seoDescription: data.seo_description,
     whatsappPhone: data.whatsapp_phone,
     contactEmail: data.contact_email,
+    linktreeUrl: data.linktree_url,
   };
 }
 
@@ -305,6 +309,8 @@ export async function updateStorefrontSettings(
     fila.whatsapp_phone = texto(patch.whatsappPhone);
   if (patch.contactEmail !== undefined)
     fila.contact_email = texto(patch.contactEmail);
+  if (patch.linktreeUrl !== undefined)
+    fila.linktree_url = texto(patch.linktreeUrl);
   if (ctx.userId) fila.updated_by = ctx.userId;
 
   const { error } = await sb.from("business_web_settings").upsert(fila, {

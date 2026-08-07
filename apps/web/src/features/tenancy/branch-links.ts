@@ -101,6 +101,41 @@ export function normalizeMapsUrl(entrada: string | null | undefined): ResultadoE
   return { ok: true, url: url.toString() };
 }
 
+/**
+ * Un enlace público cualquiera del negocio (Linktree, Beacons, su propia web).
+ *
+ * A diferencia de Maps, aquí NO hay lista blanca de dominios: es el enlace del
+ * propio dueño y puede apuntar a cualquier servicio. Lo que sí se exige es el
+ * protocolo —`http`/`https` y nada más—, porque esto acaba en un `href` de una
+ * página pública y `javascript:` es una URL perfectamente válida para `new URL`.
+ */
+export function normalizePublicUrl(
+  entrada: string | null | undefined,
+): ResultadoEnlace {
+  const texto = (entrada ?? "").trim();
+  if (!texto) return { ok: true, url: undefined };
+
+  const candidato = extraerUrl(texto) ?? texto;
+  let url: URL;
+  try {
+    url = new URL(
+      /^https?:\/\//i.test(candidato) ? candidato : `https://${candidato}`,
+    );
+  } catch {
+    return { ok: false, error: "Eso no parece un enlace. Pega la dirección completa." };
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return { ok: false, error: "El enlace debe empezar por https://" };
+  }
+  // Sin punto en el nombre no es un dominio: `https://algo` pasa el `new URL`
+  // pero no lleva a ninguna parte.
+  if (!url.hostname.includes(".")) {
+    return { ok: false, error: "Falta el dominio. Ejemplo: https://linktr.ee/tunegocio" };
+  }
+  url.protocol = "https:";
+  return { ok: true, url: url.toString() };
+}
+
 /** Un usuario de Instagram: letras, números, punto y guion bajo. Máx. 30. */
 const USUARIO_INSTAGRAM = /^[A-Za-z0-9._]{1,30}$/;
 

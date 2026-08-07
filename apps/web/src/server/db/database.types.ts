@@ -446,6 +446,7 @@ export type Database = {
           business_id: string
           contact_email: string | null
           created_at: string
+          linktree_url: string | null
           og_image_url: string | null
           seo_description: string | null
           seo_title: string | null
@@ -460,6 +461,7 @@ export type Database = {
           business_id: string
           contact_email?: string | null
           created_at?: string
+          linktree_url?: string | null
           og_image_url?: string | null
           seo_description?: string | null
           seo_title?: string | null
@@ -474,6 +476,7 @@ export type Database = {
           business_id?: string
           contact_email?: string | null
           created_at?: string
+          linktree_url?: string | null
           og_image_url?: string | null
           seo_description?: string | null
           seo_title?: string | null

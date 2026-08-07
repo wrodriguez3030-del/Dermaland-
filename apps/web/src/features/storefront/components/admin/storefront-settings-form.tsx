@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { whatsappNumber } from "../../contact";
+import { normalizePublicUrl } from "@/features/tenancy/branch-links";
 import type { StorefrontSettings } from "@/server/services/storefront/admin";
 
 /**
@@ -43,12 +44,31 @@ export function StorefrontSettingsForm({
     seoDescription: settings?.seoDescription ?? "",
     whatsappPhone: settings?.whatsappPhone ?? "",
     contactEmail: settings?.contactEmail ?? "",
+    linktreeUrl: settings?.linktreeUrl ?? "",
   });
   const [guardando, setGuardando] = React.useState(false);
   const encendida = settings?.storefrontEnabled ?? false;
 
   const telefonoUtilizable =
     !form.whatsappPhone || !!whatsappNumber(form.whatsappPhone);
+
+  /**
+   * Guarda normalizando el árbol de enlaces primero. El usuario pega lo que
+   * copió —a veces sin `https://`, a veces con el nombre del sitio delante— y
+   * lo que se guarda es una URL reconstruida por nosotros: es lo que acabará en
+   * un `href` de una página pública.
+   */
+  function guardar() {
+    const enlace = normalizePublicUrl(form.linktreeUrl);
+    if (!enlace.ok) {
+      toast.error(enlace.error);
+      return;
+    }
+    void enviar(
+      { ...form, linktreeUrl: enlace.url ?? null },
+      "Configuración guardada.",
+    );
+  }
 
   async function enviar(cambios: Record<string, unknown>, exito: string) {
     setGuardando(true);
@@ -195,6 +215,21 @@ export function StorefrontSettingsForm({
             />
           </div>
           <div className="sm:col-span-2">
+            <Label htmlFor="linktreeUrl">Linktree / árbol de enlaces</Label>
+            <Input
+              id="linktreeUrl"
+              value={form.linktreeUrl}
+              onChange={(e) =>
+                setForm({ ...form, linktreeUrl: e.target.value })
+              }
+              placeholder="https://linktr.ee/tunegocio"
+            />
+            <p className="mt-1 text-xs text-black/50">
+              Sale en el pie de la tienda, junto al WhatsApp y el Instagram.
+              Sirve cualquier servicio: Linktree, Beacons o tu propia web.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
             <Label htmlFor="storeSeoTitle">Título en Google</Label>
             <Input
               id="storeSeoTitle"
@@ -220,7 +255,7 @@ export function StorefrontSettingsForm({
 
         <div className="mt-5 flex justify-end">
           <Button
-            onClick={() => void enviar(form, "Configuración guardada.")}
+            onClick={guardar}
             disabled={guardando || !telefonoUtilizable}
           >
             {guardando ? "Guardando…" : "Guardar configuración"}

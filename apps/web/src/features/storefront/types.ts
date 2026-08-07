@@ -83,6 +83,8 @@ export interface StorefrontTenant {
   contactEmail?: string;
   /** Instagram del negocio: respaldo de las sucursales que no tengan el suyo. */
   instagramUrl?: string;
+  /** Árbol de enlaces del negocio (Linktree, Beacons, su propia web). */
+  linktreeUrl?: string;
   branches: PublicBranch[];
 }
 

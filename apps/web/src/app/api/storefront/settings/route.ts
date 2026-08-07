@@ -34,6 +34,9 @@ const settingsSchema = z.object({
     .nullable()
     .optional()
     .or(z.literal("")),
+  // Llega ya normalizado por el formulario; el tope de 500 acompaña al CHECK
+  // de la columna, para que un pegado enorme falle aquí y no en la base.
+  linktreeUrl: z.string().trim().max(500).nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {

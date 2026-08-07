@@ -104,17 +104,21 @@ export async function uploadOrderReceipt(
     return { ok: false, error: "Este pedido ya figura como pagado." };
   }
 
+  // La extensión y el MIME salen de la VALIDACIÓN, no del archivo: el nombre y
+  // el tipo los pone un desconocido sin sesión. Así el `Content-Type` con el que
+  // se sirve el comprobante es siempre uno de la lista blanca, diga lo que diga
+  // el cliente.
   const ruta = buildReceiptPath(
     claims.businessId,
     pedido.id,
-    archivo.fileName,
+    `x.${validacion.extension}`,
     Date.now(),
   );
 
   const { error: errorSubida } = await admin.storage
     .from(BUCKET)
     .upload(ruta, archivo.bytes, {
-      contentType: archivo.mimeType,
+      contentType: validacion.mimeType,
       upsert: false,
     });
   if (errorSubida) {
@@ -125,7 +129,7 @@ export async function uploadOrderReceipt(
     order_id: pedido.id,
     business_id: claims.businessId,
     storage_path: ruta,
-    mime_type: archivo.mimeType,
+    mime_type: validacion.mimeType,
     size_bytes: archivo.bytes.byteLength,
   });
   if (errorFila) {
