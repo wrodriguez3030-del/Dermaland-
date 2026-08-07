@@ -35,7 +35,7 @@ const SETTINGS_COLUMNS =
 
 /** Columnas de sucursal publicables. `code` solo alimenta el slug de respaldo. */
 const BRANCH_COLUMNS =
-  "code, name, public_name, address, city, phone, whatsapp";
+  "code, name, public_name, address, city, phone, whatsapp, maps_url, instagram_url";
 
 function limpio(valor: string | null | undefined): string | undefined {
   const texto = valor?.trim();
@@ -85,6 +85,8 @@ async function loadPublicBranches(
       city: limpio(fila.city),
       phone: limpio(fila.phone),
       whatsapp: limpio(fila.whatsapp),
+      mapsUrl: limpio(fila.maps_url),
+      instagramUrl: limpio(fila.instagram_url),
     };
   });
 }
@@ -131,6 +133,17 @@ const leerTenant = async (): Promise<StorefrontTenant | null> => {
   const ajustes = data[0]!;
   const branches = await loadPublicBranches(sb, ajustes.business_id);
 
+  // Instagram del negocio: ya se capturaba en los datos de la empresa, sólo que
+  // nunca había salido a la tienda. Es el respaldo de las sucursales que no
+  // tengan cuenta propia — lo normal es que la marca tenga UNA y las sucursales
+  // ninguna, así que sin esto el pie saldría sin redes en el caso más común.
+  // Si falla, se sigue sin Instagram: es adorno, no puede tumbar la tienda.
+  const { data: empresa } = await sb
+    .from("businesses")
+    .select("instagram_url")
+    .eq("id", ajustes.business_id)
+    .maybeSingle();
+
   return {
     businessId: ajustes.business_id,
     siteName: limpio(ajustes.site_name) ?? "DermaLand",
@@ -140,6 +153,7 @@ const leerTenant = async (): Promise<StorefrontTenant | null> => {
     ogImageUrl: limpio(ajustes.og_image_url),
     whatsappPhone: limpio(ajustes.whatsapp_phone),
     contactEmail: limpio(ajustes.contact_email),
+    instagramUrl: limpio(empresa?.instagram_url),
     branches,
   };
 };

@@ -46,6 +46,10 @@ export interface Branch extends Audited, SoftDeletable, BusinessScoped {
   email?: string;
   isPilot: boolean;
   showOnWebsite: boolean;
+  /** Enlace de Google Maps, ya normalizado (`features/tenancy/branch-links`). */
+  mapsUrl?: string;
+  /** Perfil de Instagram normalizado a `https://www.instagram.com/<usuario>`. */
+  instagramUrl?: string;
   status: "active" | "inactive";
 }
 

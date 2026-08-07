@@ -91,7 +91,10 @@ export type Database = {
           id: string
           is_pilot: boolean
           /** Sucursal que despacha y factura los pedidos web (migración 0043). */
+          instagram_url: string | null
           is_web_fulfillment: boolean
+          maps_url: string | null
+
           name: string
           phone: string | null
           province: string
@@ -112,6 +115,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_pilot?: boolean
+          instagram_url?: string | null
           is_web_fulfillment?: boolean
           name: string
           phone?: string | null
@@ -133,7 +137,10 @@ export type Database = {
           email?: string | null
           id?: string
           is_pilot?: boolean
+          instagram_url?: string | null
           is_web_fulfillment?: boolean
+          maps_url?: string | null
+
           name?: string
           phone?: string | null
           province?: string
@@ -174,6 +181,8 @@ export type Database = {
           business_id?: string
           created_at?: string
           id?: string
+          maps_url?: string | null
+
           name?: string
           product_count?: number
           updated_at?: string

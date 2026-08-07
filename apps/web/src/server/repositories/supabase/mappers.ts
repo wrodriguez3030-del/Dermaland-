@@ -83,6 +83,8 @@ export function branchRowToTs(row: Tables["branches"]["Row"]): Branch {
     email: row.email ?? undefined,
     isPilot: row.is_pilot,
     showOnWebsite: row.show_on_website,
+    mapsUrl: row.maps_url ?? undefined,
+    instagramUrl: row.instagram_url ?? undefined,
     status: row.status as Branch["status"],
     createdAt: row.created_at,
     updatedAt: row.updated_at,

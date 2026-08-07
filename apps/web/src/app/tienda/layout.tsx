@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, MessageCircle, PackageSearch, Phone } from "lucide-react";
+import {
+  AtSign,
+  MapPin,
+  MessageCircle,
+  Navigation,
+  PackageSearch,
+  Phone,
+} from "lucide-react";
+import { instagramHandle } from "@/features/tenancy/branch-links";
 import { AccountNav } from "@/features/storefront/components/account-nav";
 import { CartBadge } from "@/features/storefront/components/cart-badge";
 import { CartProvider } from "@/features/storefront/components/cart-provider";
@@ -188,6 +196,9 @@ export default async function TiendaLayout({
             <div className="mt-4 grid gap-6 sm:grid-cols-2">
               {tenant.branches.map((sucursal) => {
                 const tel = whatsappLink(sucursal.whatsapp ?? sucursal.phone);
+                // La sucursal manda sobre el negocio: una tienda con cuenta
+                // propia la enseña, y las demás caen en la de la marca.
+                const instagram = sucursal.instagramUrl ?? tenant.instagramUrl;
                 return (
                   <div key={sucursal.slug}>
                     <p className="font-semibold text-[color:var(--brand-fg)]">
@@ -225,6 +236,44 @@ export default async function TiendaLayout({
                             {sucursal.phone}
                           </span>
                         )}
+                      </p>
+                    ) : null}
+
+                    {/* «Cómo llegar» e Instagram. Van juntos y al final: son
+                        las dos acciones que alguien busca DESPUÉS de decidir a
+                        cuál sucursal ir. El enlace de Maps abre la app del
+                        teléfono con la ruta ya trazada.
+
+                        `noopener noreferrer` no es adorno: son enlaces que
+                        escribe el dueño del negocio en el ERP y se publican
+                        para desconocidos. La URL además viene normalizada por
+                        `branch-links`, así que aquí nunca llega un
+                        `javascript:`. */}
+                    {sucursal.mapsUrl || instagram ? (
+                      <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                        {sucursal.mapsUrl ? (
+                          <a
+                            href={sucursal.mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center gap-1.5 font-medium text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
+                          >
+                            <Navigation aria-hidden className="h-4 w-4 shrink-0" />
+                            Cómo llegar
+                            <span className="sr-only"> a {sucursal.name}</span>
+                          </a>
+                        ) : null}
+                        {instagram ? (
+                          <a
+                            href={instagram}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-11 items-center gap-1.5 font-medium text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
+                          >
+                            <AtSign aria-hidden className="h-4 w-4 shrink-0" />
+                            {instagramHandle(instagram) ?? "Instagram"}
+                          </a>
+                        ) : null}
                       </p>
                     ) : null}
                   </div>

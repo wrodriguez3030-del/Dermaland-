@@ -238,7 +238,22 @@ export interface CreateBranchInput {
   showOnWebsite?: boolean;
   isPilot?: boolean;
   status?: "active" | "inactive";
+  /** Ya normalizados por `branch-links`. `null` borra el enlace guardado. */
+  mapsUrl?: string | null;
+  instagramUrl?: string | null;
 }
+
+/**
+ * Parche de sucursal. Idéntico a `Partial<Branch>` salvo en los dos enlaces
+ * públicos, donde `null` es un valor con significado propio: BORRA el enlace
+ * guardado. Con `Partial<Branch>` a secas sólo se podría poner `undefined`, que
+ * el repositorio interpreta como «no toques esta columna» — y vaciar el campo
+ * en pantalla dejaría el enlace viejo publicado en la tienda.
+ */
+export type BranchPatch = Partial<Omit<Branch, "mapsUrl" | "instagramUrl">> & {
+  mapsUrl?: string | null;
+  instagramUrl?: string | null;
+};
 
 export type BranchResult =
   | { ok: true; branch: Branch }
@@ -275,6 +290,8 @@ export function createBranch(input: CreateBranchInput): BranchResult {
     email: input.email?.trim() || undefined,
     isPilot: input.isPilot ?? false,
     showOnWebsite: input.showOnWebsite ?? false,
+    mapsUrl: input.mapsUrl ?? undefined,
+    instagramUrl: input.instagramUrl ?? undefined,
     status: input.status ?? "active",
     createdAt: now,
     updatedAt: now,
@@ -283,7 +300,7 @@ export function createBranch(input: CreateBranchInput): BranchResult {
   return { ok: true, branch };
 }
 
-export function updateBranch(id: string, patch: Partial<Branch>): BranchResult {
+export function updateBranch(id: string, patch: BranchPatch): BranchResult {
   // Validar unicidad de código si cambia.
   if (patch.code) {
     const code = patch.code.toUpperCase();
@@ -294,7 +311,18 @@ export function updateBranch(id: string, patch: Partial<Branch>): BranchResult {
       return { ok: false, error: `Ya existe otra sucursal con el código ${code}.`, missingFields: ["code"] };
     }
   }
-  const next = { ...patch, updatedAt: new Date().toISOString() };
+  // `null` significa «borra el enlace» de cara al servidor, pero un `Branch`
+  // guardado no distingue vacío de borrado: ambos son `undefined`. Se traduce
+  // aquí, en la frontera, en vez de ensuciar el tipo `Branch` entero.
+  const { mapsUrl, instagramUrl, ...resto } = patch;
+  const next: Partial<Branch> = {
+    ...resto,
+    ...(mapsUrl !== undefined ? { mapsUrl: mapsUrl ?? undefined } : {}),
+    ...(instagramUrl !== undefined
+      ? { instagramUrl: instagramUrl ?? undefined }
+      : {}),
+    updatedAt: new Date().toISOString(),
+  };
   const persisted = readNew();
   const ix = persisted.findIndex((b) => b.id === id);
   if (ix >= 0) {
@@ -432,6 +460,10 @@ function createInputToServerPayload(input: CreateBranchInput) {
     isPilot: input.isPilot ?? false,
     showOnWebsite: input.showOnWebsite ?? false,
     status: input.status ?? "active",
+    // Se mandan SIEMPRE, incluso vacíos: es la única forma de borrar un enlace
+    // ya publicado. `undefined` haría que el repositorio omitiera la columna.
+    mapsUrl: input.mapsUrl ?? undefined,
+    instagramUrl: input.instagramUrl ?? undefined,
   };
 }
 
@@ -470,7 +502,7 @@ export async function createBranchOnServer(
 /** Edición de sucursal vía API compartida. */
 export async function updateBranchOnServer(
   id: string,
-  patch: Partial<Branch>,
+  patch: BranchPatch,
 ): Promise<BranchResult> {
   try {
     const res = await fetch(`/api/branches/${id}`, {

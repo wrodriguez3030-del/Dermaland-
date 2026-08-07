@@ -32,7 +32,12 @@ const nextConfig: NextConfig = {
   // respuestas. La CSP se despliega en modo REPORT-ONLY (solo en producción):
   // no bloquea nada, solo reporta violaciones para poder ajustar la política
   // antes de promoverla a enforcing (ver docs/security/deployment-security-checklist.md).
-  // Permissions-Policy permite `camera=(self)` porque el conteo físico (PWA) escanea.
+  // Permissions-Policy permite `camera=(self)` porque el conteo físico (PWA)
+  // escanea, y `geolocation=(self)` porque el checkout de la tienda deja al
+  // cliente compartir su ubicación (en Santiago abundan las calles sin número).
+  // Ojo: `geolocation=()` bloquea la API en TODO el sitio y el navegador ni
+  // siquiera muestra el diálogo de permiso — el botón parece roto sin error.
+  // Ambos son `self`: un iframe de terceros sigue sin poder pedirlos.
   async headers() {
     // Política de partida: `self` + los orígenes que la app realmente usa
     // (Supabase, Sentry). `script/style` permiten inline por ahora (Next inyecta
@@ -59,7 +64,8 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
             key: "Permissions-Policy",
-            value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
+            value:
+              "camera=(self), microphone=(), geolocation=(self), payment=(), usb=()",
           },
           {
             key: "Strict-Transport-Security",

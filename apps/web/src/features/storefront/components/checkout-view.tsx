@@ -550,51 +550,19 @@ export function CheckoutView({
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="address"
-                className="text-sm font-medium text-[color:var(--brand-fg)]"
-              >
-                Dirección
-              </label>
-              <input
-                id="address"
-                name="address"
-                required
-                value={direccion}
-                onChange={(e) => setDireccion(e.target.value)}
-                maxLength={300}
-                autoComplete="street-address"
-                placeholder="Calle, número, edificio, apartamento"
-                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="reference"
-                className="text-sm font-medium text-[color:var(--brand-fg)]"
-              >
-                Referencia <span className="font-normal">(opcional)</span>
-              </label>
-              <input
-                id="reference"
-                name="reference"
-                value={referencia}
-                onChange={(e) => setReferencia(e.target.value)}
-                maxLength={300}
-                placeholder="Ej.: casa amarilla, frente al colmado"
-                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
-              />
-            </div>
-
             {/* Ubicación exacta. En Santiago hay calles sin número y sectores
                 donde la dirección real es "la casa verde al lado del colmado":
                 un punto en el mapa le ahorra al repartidor la llamada.
 
+                Va ANTES de la dirección escrita a propósito: quien comparte el
+                punto ya resolvió lo difícil, y llega al campo de texto con la
+                tarea reducida a un detalle. Al revés, el botón queda debajo de
+                dos campos que ya cansaron y casi nadie lo pulsa.
+
                 Es OPCIONAL y se pide con un botón, nunca al cargar la página:
                 un permiso de ubicación que salta solo asusta y se deniega. La
-                dirección escrita sigue siendo obligatoria. */}
+                dirección escrita sigue siendo obligatoria — el mensajero
+                necesita leerla, no sólo seguir un punto. */}
             <div className="rounded-xl border border-black/10 bg-white p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -649,6 +617,45 @@ export function CheckoutView({
                 </p>
               ) : null}
             </div>
+
+            <div>
+              <label
+                htmlFor="address"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Dirección
+              </label>
+              <input
+                id="address"
+                name="address"
+                required
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
+                maxLength={300}
+                autoComplete="street-address"
+                placeholder="Calle, número, edificio, apartamento"
+                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="reference"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Referencia <span className="font-normal">(opcional)</span>
+              </label>
+              <input
+                id="reference"
+                name="reference"
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                maxLength={300}
+                placeholder="Ej.: casa amarilla, frente al colmado"
+                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+              />
+            </div>
+
           </>
         )}
 

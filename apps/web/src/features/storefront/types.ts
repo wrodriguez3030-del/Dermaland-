@@ -65,6 +65,10 @@ export interface PublicBranch {
   city?: string;
   phone?: string;
   whatsapp?: string;
+  /** Enlace de Google Maps, ya normalizado. Se publica como «Cómo llegar». */
+  mapsUrl?: string;
+  /** Instagram de ESTA sucursal. Si falta, el pie usa el del negocio. */
+  instagramUrl?: string;
 }
 
 /** Negocio dueño de la tienda, resuelto en servidor y nunca por el visitante. */
@@ -77,6 +81,8 @@ export interface StorefrontTenant {
   ogImageUrl?: string;
   whatsappPhone?: string;
   contactEmail?: string;
+  /** Instagram del negocio: respaldo de las sucursales que no tengan el suyo. */
+  instagramUrl?: string;
   branches: PublicBranch[];
 }
 

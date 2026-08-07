@@ -49,6 +49,8 @@ export const branchRepository: BranchRepository = {
       email: branch.email ?? null,
       is_pilot: branch.isPilot,
       show_on_website: branch.showOnWebsite,
+      maps_url: branch.mapsUrl ?? null,
+      instagram_url: branch.instagramUrl ?? null,
       status: branch.status,
     };
     const { data, error } = await sb
@@ -78,6 +80,9 @@ export const branchRepository: BranchRepository = {
     if (patch.email !== undefined) row.email = patch.email ?? null;
     if (patch.isPilot !== undefined) row.is_pilot = patch.isPilot;
     if (patch.showOnWebsite !== undefined) row.show_on_website = patch.showOnWebsite;
+    if (patch.mapsUrl !== undefined) row.maps_url = patch.mapsUrl ?? null;
+    if (patch.instagramUrl !== undefined)
+      row.instagram_url = patch.instagramUrl ?? null;
     if (patch.status !== undefined) row.status = patch.status;
     const { data, error } = await sb
       .from("branches")

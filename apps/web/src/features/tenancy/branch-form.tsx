@@ -14,6 +14,10 @@ import {
 } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
 import { useToast } from "@/components/ui/toast";
+import {
+  normalizeInstagram,
+  normalizeMapsUrl,
+} from "@/features/tenancy/branch-links";
 import { saveBranch } from "@/features/tenancy/branch-store";
 import type { Branch } from "@/types";
 
@@ -41,6 +45,8 @@ export function BranchForm({ mode, branch }: BranchFormProps) {
     branch?.showOnWebsite ?? false,
   );
   const [isPilot, setIsPilot] = React.useState(branch?.isPilot ?? false);
+  const [mapsUrl, setMapsUrl] = React.useState(branch?.mapsUrl ?? "");
+  const [instagram, setInstagram] = React.useState(branch?.instagramUrl ?? "");
 
   const [error, setError] = React.useState<string | null>(null);
   const [missing, setMissing] = React.useState<Set<string>>(new Set());
@@ -51,6 +57,24 @@ export function BranchForm({ mode, branch }: BranchFormProps) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+
+    // Se normalizan ANTES de enviar para poder explicar el error junto al
+    // campo. Un enlace mal pegado es el error más probable de esta pantalla:
+    // decir "revisa el formulario" sin señalar cuál sería inútil.
+    const maps = normalizeMapsUrl(mapsUrl);
+    if (!maps.ok) {
+      setSubmitting(false);
+      setMissing(new Set(["mapsUrl"]));
+      setError(maps.error);
+      return;
+    }
+    const ig = normalizeInstagram(instagram);
+    if (!ig.ok) {
+      setSubmitting(false);
+      setMissing(new Set(["instagramUrl"]));
+      setError(ig.error);
+      return;
+    }
 
     const payload = {
       name,
@@ -63,6 +87,11 @@ export function BranchForm({ mode, branch }: BranchFormProps) {
       showOnWebsite,
       isPilot,
       status,
+      // `null` (no `undefined`) para poder BORRAR un enlace: `undefined` haría
+      // que el repositorio se saltara la columna y el enlace viejo seguiría
+      // publicado después de vaciar el campo.
+      mapsUrl: maps.url ?? null,
+      instagramUrl: ig.url ?? null,
     };
 
     const res = await saveBranch(mode, payload, branch?.id);
@@ -148,6 +177,25 @@ export function BranchForm({ mode, branch }: BranchFormProps) {
                 <Input value={province} onChange={(e) => setProvince(e.target.value)} />
               </div>
             </div>
+
+            {/* El enlace de Maps es lo que convierte «dónde queda» en una ruta.
+                Se admite el enlace corto, el largo, y hasta el texto completo
+                que copia el botón «Compartir» del móvil: normalizar es trabajo
+                nuestro, no del usuario (ver `branch-links.ts`). */}
+            <div>
+              <Label>Enlace de Google Maps</Label>
+              <Input
+                value={mapsUrl}
+                onChange={(e) => setMapsUrl(e.target.value)}
+                placeholder="https://maps.app.goo.gl/…"
+                className={isMissing("mapsUrl") ? "border-rose-400" : undefined}
+              />
+              <p className="mt-1 text-xs text-[color:var(--fg-muted,#64748b)]">
+                Abre la sucursal en Google Maps, toca <strong>Compartir</strong>{" "}
+                y pega aquí lo que copia. Sale en la tienda como{" "}
+                <strong>«Cómo llegar»</strong>.
+              </p>
+            </div>
           </FormSection>
 
           <FormSection title="Contacto">
@@ -160,6 +208,21 @@ export function BranchForm({ mode, branch }: BranchFormProps) {
                 <Label>Email</Label>
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
+            </div>
+            <div>
+              <Label>Instagram</Label>
+              <Input
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
+                placeholder="@dermaland"
+                className={
+                  isMissing("instagramUrl") ? "border-rose-400" : undefined
+                }
+              />
+              <p className="mt-1 text-xs text-[color:var(--fg-muted,#64748b)]">
+                Sólo si esta sucursal tiene cuenta propia. Si la dejas vacía, en
+                la tienda sale el Instagram de la empresa.
+              </p>
             </div>
           </FormSection>
 
