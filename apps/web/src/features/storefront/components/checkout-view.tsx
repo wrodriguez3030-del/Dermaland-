@@ -398,7 +398,7 @@ export function CheckoutView({
             className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
           />
           <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
-            Por aquí te avisamos cuando esté listo.
+            Te llamamos si hace falta coordinar la entrega.
           </p>
         </div>
 
@@ -416,8 +416,17 @@ export function CheckoutView({
             value={correo}
             onChange={(e) => setCorreo(e.target.value)}
             autoComplete="email"
+            aria-describedby="ayuda-correo"
             className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
           />
+          {/* Decir PARA QUÉ sirve, que es lo que hace que alguien lo escriba.
+              Antes no lo decía nadie —y el teléfono, encima, prometía el aviso
+              que en realidad manda el correo— así que 3 de cada 4 pedidos
+              llegaban sin correo y su cliente no recibía ni un aviso. */}
+          <p id="ayuda-correo" className="mt-1 text-xs opacity-70">
+            Te avisamos aquí en cada paso: cuando lo confirmemos, cuando lo
+            preparemos y cuando salga.
+          </p>
         </div>
 
         {/* Retiro o envío. Solo se ofrece envío si el negocio configuró alguna
