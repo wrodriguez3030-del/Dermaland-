@@ -1,6 +1,10 @@
 "use client";
 
 import * as React from "react";
+import {
+  diagnosticarNegacion,
+  type EstadoPermiso,
+} from "@/features/storefront/geolocation-diagnosis";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, MapPin, ShoppingBag } from "lucide-react";
@@ -147,14 +151,30 @@ export function CheckoutView({
     null,
   );
   const [ubicacionEstado, setUbicacionEstado] = React.useState<
-    "inicial" | "pidiendo" | "listo" | "denegado" | "fallo"
+    "inicial" | "pidiendo" | "listo" | "denegado-navegador" | "denegado-sistema" | "fallo"
   >("inicial");
 
-  const compartirUbicacion = React.useCallback(() => {
+  /** Estado del permiso, o `desconocido` donde no exista `navigator.permissions`. */
+  const leerPermiso = React.useCallback(async (): Promise<EstadoPermiso> => {
+    try {
+      const p = await navigator.permissions?.query({
+        name: "geolocation" as PermissionName,
+      });
+      return (p?.state as EstadoPermiso) ?? "desconocido";
+    } catch {
+      // Safari antiguo no admite consultar este permiso. No es un error.
+      return "desconocido";
+    }
+  }, []);
+
+  const compartirUbicacion = React.useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setUbicacionEstado("fallo");
       return;
     }
+    // Se mira ANTES de pedir: comparado con el estado de después, revela si el
+    // navegador llegó siquiera a preguntar (ver `geolocation-diagnosis.ts`).
+    const antes = await leerPermiso();
     setUbicacionEstado("pidiendo");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -166,14 +186,25 @@ export function CheckoutView({
       },
       (err) => {
         // Distinguir "dijo que no" de "no se pudo" importa: al primero no hay
-        // que insistirle, al segundo se le puede sugerir reintentar.
-        setUbicacionEstado(err.code === err.PERMISSION_DENIED ? "denegado" : "fallo");
+        // que insistirle, al segundo se le puede sugerir reintentar. Y dentro
+        // de "dijo que no", quién lo dijo decide QUÉ pantalla hay que abrir.
+        if (err.code !== err.PERMISSION_DENIED) {
+          setUbicacionEstado("fallo");
+          return;
+        }
+        void leerPermiso().then((despues) =>
+          setUbicacionEstado(
+            diagnosticarNegacion(antes, despues) === "sistema"
+              ? "denegado-sistema"
+              : "denegado-navegador",
+          ),
+        );
       },
       // 10 s y sin caché: una posición de hace media hora puede ser de otro
       // sitio, y para una entrega eso es peor que no tener ninguna.
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
     );
-  }, []);
+  }, [leerPermiso]);
   const [nota, setNota] = React.useState("");
   const [sucursal, setSucursal] = React.useState(branches[0]?.slug ?? "");
 
@@ -559,10 +590,28 @@ export function CheckoutView({
                 </p>
               ) : null}
 
-              {ubicacionEstado === "denegado" ? (
+              {/* Dos remedios distintos para el MISMO código de error del
+                  navegador. El de sistema es el que desconcierta: no aparece
+                  ningún diálogo que aceptar, así que «no diste permiso» acusa
+                  al cliente de algo que no hizo y lo manda a buscar un permiso
+                  que en esa pantalla no existe. */}
+              {ubicacionEstado === "denegado-navegador" ? (
                 <p className="mt-2 text-xs opacity-70">
-                  No diste permiso. No pasa nada: llegamos con la dirección que
-                  escribiste.
+                  Tu navegador tiene la ubicación bloqueada para esta página.
+                  Toca el icono a la izquierda de la dirección web (arriba) y
+                  permite <strong>Ubicación</strong>. O sigue sin ella: llegamos
+                  con la dirección que escribas.
+                </p>
+              ) : null}
+              {ubicacionEstado === "denegado-sistema" ? (
+                <p className="mt-2 text-xs opacity-70">
+                  Tu equipo no le permite al navegador usar la ubicación. En Mac:{" "}
+                  <strong>
+                    Configuración del Sistema → Privacidad y seguridad →
+                    Localización
+                  </strong>{" "}
+                  y enciende tu navegador. O sigue sin ella: llegamos con la
+                  dirección que escribas.
                 </p>
               ) : null}
               {ubicacionEstado === "fallo" ? (
