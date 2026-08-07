@@ -150,11 +150,20 @@ export default async function PedidosWebPage({
               </THead>
               <TBody>
                 {rows.map((p) => (
-                  <TR key={p.id}>
+                  // La FILA ENTERA abre el pedido. Antes había que apuntar al
+                  // número o al ojo, que en un móvil es puntería fina sobre una
+                  // fila que ya se estaba mirando.
+                  //
+                  // Se hace estirando el enlace del número sobre toda la fila
+                  // (`after:absolute after:inset-0`) en vez de poner un onClick
+                  // en el `<tr>`: así sigue habiendo UN solo enlace de verdad,
+                  // que se puede tabular, abrir en pestaña nueva y leer con un
+                  // lector de pantalla.
+                  <TR key={p.id} className="relative hover:bg-black/[0.02]">
                     <TD>
                       <Link
                         href={`/pedidos-web/${p.id}`}
-                        className="font-semibold text-[color:var(--brand-primary)] underline-offset-4 hover:underline"
+                        className="font-semibold text-[color:var(--brand-primary)] underline-offset-4 after:absolute after:inset-0 after:content-[''] hover:underline"
                       >
                         {p.number}
                       </Link>
@@ -199,7 +208,9 @@ export default async function PedidosWebPage({
                         {webOrderStatusLabelFor(p.status, p.fulfillment)}
                       </Badge>
                     </TD>
-                    <TD>
+                    {/* `relative z-10`: los iconos van POR ENCIMA del enlace
+                        estirado, o dejarían de poderse pulsar. */}
+                    <TD className="relative z-10">
                       {/* Iconos con tooltip, nunca texto: es la norma de las
                           columnas de acciones en todo el ERP. */}
                       <RowActions

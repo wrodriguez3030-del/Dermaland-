@@ -839,9 +839,28 @@ export async function linkProformaToWebOrder(
     .maybeSingle();
   if (!proforma) return { ok: false, error: "Documento no encontrado." };
 
+  // Facturar ADELANTA el pedido a "preparando".
+  //
+  // Cobrado es, de hecho, confirmado: dejarlo en "recibido" obligaba a moverlo
+  // a mano y el aviso del menú seguía contándolo como pendiente aunque ya
+  // estuviera pagado. El número del menú cuenta los `recibido`, así que esto es
+  // también lo que lo hace bajar.
+  //
+  // Solo avanza desde los estados PREVIOS: un pedido que ya está `listo` o
+  // `entregado` no retrocede porque alguien emita el documento tarde, y uno
+  // `cancelado` no revive. `canTransition` es la misma regla que usa el cambio
+  // manual, así que no hay dos ideas de qué transición vale.
+  const avanzaAPreparando =
+    (pedido.status === "recibido" || pedido.status === "confirmado") &&
+    canTransition(pedido.status as WebOrderStatus, "preparando");
+
   const { error } = await admin
     .from("web_orders")
-    .update({ proforma_id: proformaId, updated_at: new Date().toISOString() })
+    .update({
+      proforma_id: proformaId,
+      ...(avanzaAPreparando ? { status: "preparando" } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .eq("business_id", businessId)
     .is("proforma_id", null);
@@ -870,6 +889,8 @@ export async function proformaNumberFor(
 export interface BranchOption {
   id: string;
   name: string;
+  /** ¿Es la sucursal que despacha los pedidos web? */
+  isWebFulfillment?: boolean;
 }
 
 /**
@@ -886,7 +907,7 @@ export async function listActiveBranches(
   if (!admin) return [];
   const { data } = await admin
     .from("branches")
-    .select("id, name, public_name")
+    .select("id, name, public_name, is_web_fulfillment")
     .eq("business_id", businessId)
     .eq("status", "active")
     .is("deleted_at", null)
@@ -894,6 +915,10 @@ export async function listActiveBranches(
   return (data ?? []).map((b) => ({
     id: b.id,
     name: b.public_name?.trim() || b.name,
+    // Quién despacha los pedidos web. El ERP lo necesita para comprobar la
+    // existencia contra la sucursal correcta: la del pedido no significa nada
+    // en un envío.
+    isWebFulfillment: Boolean(b.is_web_fulfillment),
   }));
 }
 

@@ -97,11 +97,25 @@ export default async function PedidoWebDetallePage({
   const numeroDocumento = pedido.proformaId
     ? await proformaNumberFor(session.businessId, pedido.proformaId)
     : null;
+  // ¿Contra qué sucursal se mira la existencia?
+  //
+  // La del pedido NO, si es un envío: ahí el cliente no eligió sucursal y la
+  // guardada es la que puso la tienda por defecto. Se despacha desde la marcada
+  // `is_web_fulfillment`, que es también desde donde factura el POS.
+  //
+  // Mirarlo contra la del pedido decía "No está en esta sucursal · Hay en:
+  // E. León Jiménez (3)" sobre mercancía que SÍ estaba donde se iba a despachar:
+  // una alarma falsa en la pantalla que se usa para decidir si el pedido sale.
+  const sucursalDespacho =
+    pedido.fulfillment === "delivery"
+      ? (sucursales.find((b) => b.isWebFulfillment)?.id ?? pedido.branchId)
+      : pedido.branchId;
+
   const existencias = pedido.items.map((linea) =>
     lineStockVerdict(
       linea.qty,
       disponibilidad.get(linea.productId),
-      pedido.branchId,
+      sucursalDespacho,
       nombresSucursal,
     ),
   );
@@ -225,7 +239,7 @@ export default async function PedidoWebDetallePage({
               ) : null}
               <p className="mt-2 text-sm text-[color:var(--brand-fg)]/60">
                 Flete cobrado: {formatCurrency(pedido.shippingCost)} · Despacha{" "}
-                {pedido.branchName}
+                {nombresSucursal.get(sucursalDespacho) ?? pedido.branchName}
               </p>
             </>
           ) : (
