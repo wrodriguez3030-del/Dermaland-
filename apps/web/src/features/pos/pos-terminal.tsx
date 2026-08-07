@@ -467,7 +467,15 @@ export function PosTerminal({
   // dice CUÁL y se sigue con el resto. Dejar el carrito vacío sin explicar por
   // qué obligaría al cajero a teclearlo todo a mano sin saber qué falló.
   const [pedidoWeb, setPedidoWeb] = React.useState<PedidoWebParaPos | null>(null);
-  const [pedidoAvisos, setPedidoAvisos] = React.useState<string[]>([]);
+  /**
+   * Avisos al cargar un pedido web. Algunos llevan ACCIÓN: cuando falta
+   * mercancía en la sucursal de despacho, el aviso enlaza a la transferencia ya
+   * prellenada con el producto y la cantidad exacta que falta. Decirle a alguien
+   * "transfiere 2" y obligarle a ir a buscar el producto a mano es media ayuda.
+   */
+  const [pedidoAvisos, setPedidoAvisos] = React.useState<
+    { texto: string; href?: string; accion?: string }[]
+  >([]);
   const cargadoRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -505,7 +513,7 @@ export function PosTerminal({
       // más veces de lo que parece: hay sucursales anunciadas en la tienda con
       // CERO lotes, así que el cliente puede pedir donde no hay nada. Se busca
       // la que de verdad puede despachar y se DICE que se cambió.
-      const avisos: string[] = [];
+      const avisos: { texto: string; href?: string; accion?: string }[] = [];
       const pedidoBranch = pedido.branchId || branchId;
       const stockEn = (productId: string, sucursal: string) =>
         sellableStockForBranch(lots, productId, sucursal);
@@ -519,14 +527,14 @@ export function PosTerminal({
       if (canSwitchBranch) {
         if (sucursalUsada !== branchId) setBranchId(sucursalUsada);
         if (sucursalUsada !== pedidoBranch) {
-          avisos.push(
-            `El cliente eligió ${getBranchDisplayName(pedidoBranch)}; se factura desde ${getBranchDisplayName(sucursalUsada)}, que es la sucursal de despacho web.`,
-          );
+          avisos.push({
+            texto: `El cliente eligió ${getBranchDisplayName(pedidoBranch)}; se factura desde ${getBranchDisplayName(sucursalUsada)}, que es la sucursal de despacho web.`,
+          });
         }
       } else if (sucursalUsada !== branchId) {
-        avisos.push(
-          `Este pedido se factura desde ${getBranchDisplayName(sucursalUsada)} y estás en ${branchName}. Pídele a un administrador que cambie la sucursal.`,
-        );
+        avisos.push({
+          texto: `Este pedido se factura desde ${getBranchDisplayName(sucursalUsada)} y estás en ${branchName}. Pídele a un administrador que cambie la sucursal.`,
+        });
       }
 
       // Lo que falta en la sucursal de facturación y de dónde puede salir. Se
@@ -542,22 +550,28 @@ export function PosTerminal({
         const nombre =
           products.find((p) => p.id === f.productId)?.name ?? "Un producto";
         if (f.sources.length === 0) {
-          avisos.push(
-            `${nombre}: faltan ${f.missing} y no hay en ninguna sucursal.`,
-          );
+          // Sin origen no hay transferencia que ofrecer: esto se arregla
+          // comprando, no moviendo.
+          avisos.push({
+            texto: `${nombre}: faltan ${f.missing} y no hay en ninguna sucursal.`,
+          });
           continue;
         }
         const origen = f.sources[0]!;
-        avisos.push(
-          `${nombre}: faltan ${f.missing} en ${getBranchDisplayName(sucursalUsada)}. Hay ${origen.available} en ${getBranchDisplayName(origen.branchId)} — transfiérelos antes de facturar.`,
-        );
+        avisos.push({
+          texto: `${nombre}: faltan ${f.missing} en ${getBranchDisplayName(sucursalUsada)}. Hay ${origen.available} en ${getBranchDisplayName(origen.branchId)}.`,
+          // La transferencia se abre con el producto y la cantidad exacta ya
+          // puestos: la pantalla resuelve sola el origen y el lote.
+          href: `/inventario/transferencias/nueva?producto=${f.productId}&cantidad=${f.missing}`,
+          accion: "Transferir ahora",
+        });
       }
 
       const lineas: CartLine[] = [];
       for (const l of pedido.lines) {
         const producto = products.find((p) => p.id === l.productId);
         if (!producto) {
-          avisos.push("Un producto del pedido ya no está en el catálogo.");
+          avisos.push({ texto: "Un producto del pedido ya no está en el catálogo." });
           continue;
         }
         const vendible = getSellableLotForProduct(
@@ -568,14 +582,14 @@ export function PosTerminal({
         );
         const enSucursal = sellableStockForBranch(lots, l.productId, sucursalUsada);
         if (!vendible.lot || enSucursal === 0) {
-          avisos.push(`${producto.name}: sin existencia vendible aquí.`);
+          avisos.push({ texto: `${producto.name}: sin existencia vendible aquí.` });
           continue;
         }
         const cantidad = Math.min(l.qty, enSucursal);
         if (cantidad < l.qty) {
-          avisos.push(
-            `${producto.name}: pidió ${l.qty} y solo hay ${enSucursal}. Se cargó ${cantidad}.`,
-          );
+          avisos.push({
+            texto: `${producto.name}: pidió ${l.qty} y solo hay ${enSucursal}. Se cargó ${cantidad}.`,
+          });
         }
         lineas.push({
           productId: producto.id,
@@ -1155,10 +1169,18 @@ export function PosTerminal({
               {pedidoAvisos.map((aviso, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-2 text-xs text-amber-800"
+                  className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-amber-800"
                 >
                   <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  {aviso}
+                  <span>{aviso.texto}</span>
+                  {aviso.href ? (
+                    <Link
+                      href={aviso.href}
+                      className="font-semibold text-amber-900 underline underline-offset-2 hover:no-underline"
+                    >
+                      {aviso.accion ?? "Resolver"}
+                    </Link>
+                  ) : null}
                 </li>
               ))}
             </ul>

@@ -71,6 +71,16 @@ function NuevaTransferenciaContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillProductId = searchParams.get("producto");
+  /**
+   * Cuántas unidades prellenar. Lo manda el POS cuando un pedido web no se
+   * puede facturar porque faltan N en la sucursal de despacho: ahí el número
+   * exacto ya se calculó, y volver a teclearlo es una ocasión de equivocarse.
+   * Sin el parámetro se queda en 1, como siempre.
+   */
+  const prefillQty = (() => {
+    const n = Number(searchParams.get("cantidad"));
+    return Number.isInteger(n) && n > 0 && n <= 9999 ? String(n) : "1";
+  })();
   const toast = useToast();
   const branches = useActiveBranches();
   const { branchId: currentBranchId } = useCurrentBranch();
@@ -210,12 +220,12 @@ function NuevaTransferenciaContent() {
           productId: prefillProductId,
           productName: product.name,
           lotId: result.lotId,
-          quantity: "1",
+          quantity: prefillQty,
         },
       ]);
-      setLastScan({ ok: true, text: `${product.name} · cantidad 1` });
+      setLastScan({ ok: true, text: `${product.name} · cantidad ${prefillQty}` });
     })();
-  }, [prefillProductId, currentBranchId, productById]);
+  }, [prefillProductId, prefillQty, currentBranchId, productById]);
 
   const setLine = (i: number, patch: Partial<TransferLine>) =>
     setLines((prev) => prev.map((l, ix) => (ix === i ? { ...l, ...patch } : l)));
