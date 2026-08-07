@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ShoppingBag } from "lucide-react";
+import { Loader2, MapPin, ShoppingBag } from "lucide-react";
 import { formatCurrency } from "@/lib/utils/format";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
 import type { CartSummary } from "../cart";
@@ -140,6 +140,40 @@ export function CheckoutView({
   const [sector, setSector] = React.useState(prefill?.sector ?? "");
   const [direccion, setDireccion] = React.useState(prefill?.address ?? "");
   const [referencia, setReferencia] = React.useState(prefill?.reference ?? "");
+
+  // Ubicación del cliente. `null` = no compartida, y es un estado legítimo:
+  // el pedido se completa igual con la dirección escrita.
+  const [coords, setCoords] = React.useState<{ lat: number; lng: number } | null>(
+    null,
+  );
+  const [ubicacionEstado, setUbicacionEstado] = React.useState<
+    "inicial" | "pidiendo" | "listo" | "denegado" | "fallo"
+  >("inicial");
+
+  const compartirUbicacion = React.useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setUbicacionEstado("fallo");
+      return;
+    }
+    setUbicacionEstado("pidiendo");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setUbicacionEstado("listo");
+      },
+      (err) => {
+        // Distinguir "dijo que no" de "no se pudo" importa: al primero no hay
+        // que insistirle, al segundo se le puede sugerir reintentar.
+        setUbicacionEstado(err.code === err.PERMISSION_DENIED ? "denegado" : "fallo");
+      },
+      // 10 s y sin caché: una posición de hace media hora puede ser de otro
+      // sitio, y para una entrega eso es peor que no tener ninguna.
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+    );
+  }, []);
   const [nota, setNota] = React.useState("");
   const [sucursal, setSucursal] = React.useState(branches[0]?.slug ?? "");
 
@@ -233,6 +267,10 @@ export function CheckoutView({
           sector,
           address: direccion,
           reference: referencia || undefined,
+          // Solo si el cliente la compartió. El servidor las valida otra vez y
+          // las descarta si no son coordenadas terrestres.
+          deliveryLat: coords?.lat,
+          deliveryLng: coords?.lng,
           contactName: nombre,
           contactPhone: telefono,
           contactEmail: correo || undefined,
@@ -539,6 +577,68 @@ export function CheckoutView({
                 placeholder="Ej.: casa amarilla, frente al colmado"
                 className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
               />
+            </div>
+
+            {/* Ubicación exacta. En Santiago hay calles sin número y sectores
+                donde la dirección real es "la casa verde al lado del colmado":
+                un punto en el mapa le ahorra al repartidor la llamada.
+
+                Es OPCIONAL y se pide con un botón, nunca al cargar la página:
+                un permiso de ubicación que salta solo asusta y se deniega. La
+                dirección escrita sigue siendo obligatoria. */}
+            <div className="rounded-xl border border-black/10 bg-white p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[color:var(--brand-fg)]">
+                    Tu ubicación <span className="font-normal">(opcional)</span>
+                  </p>
+                  <p className="mt-0.5 text-xs opacity-70">
+                    Ayuda al mensajero a llegar sin llamarte.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={compartirUbicacion}
+                  disabled={ubicacionEstado === "pidiendo"}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[color:var(--brand-primary)]/30 px-4 text-sm font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-[color:var(--brand-primary)]/5 disabled:opacity-60"
+                >
+                  <MapPin aria-hidden className="h-4 w-4" />
+                  {ubicacionEstado === "pidiendo"
+                    ? "Obteniendo…"
+                    : coords
+                      ? "Actualizar"
+                      : "Usar mi ubicación"}
+                </button>
+              </div>
+
+              {coords ? (
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-emerald-700">
+                  <span>✓ Ubicación compartida.</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCoords(null);
+                      setUbicacionEstado("inicial");
+                    }}
+                    className="underline underline-offset-2 hover:no-underline"
+                  >
+                    Quitar
+                  </button>
+                </p>
+              ) : null}
+
+              {ubicacionEstado === "denegado" ? (
+                <p className="mt-2 text-xs opacity-70">
+                  No diste permiso. No pasa nada: llegamos con la dirección que
+                  escribiste.
+                </p>
+              ) : null}
+              {ubicacionEstado === "fallo" ? (
+                <p className="mt-2 text-xs opacity-70">
+                  No pudimos obtener tu ubicación. Sigue con la dirección
+                  escrita.
+                </p>
+              ) : null}
             </div>
           </>
         )}

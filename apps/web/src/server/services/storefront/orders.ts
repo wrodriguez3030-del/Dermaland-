@@ -57,6 +57,13 @@ export interface CreateWebOrderInput {
   sector?: string;
   address?: string;
   reference?: string;
+  /**
+   * Ubicación que el cliente compartió desde su navegador. Opcional: dar
+   * permiso es voluntario y la dirección escrita sigue siendo obligatoria.
+   * Las dos van juntas o ninguna.
+   */
+  deliveryLat?: number;
+  deliveryLng?: number;
   contactName: string;
   contactPhone: string;
   contactEmail?: string;
@@ -96,6 +103,34 @@ async function siguienteNumero(admin: Admin): Promise<string | null> {
   const { data, error } = await admin.rpc("nextval_web_order_number");
   if (error || data == null) return null;
   return `WEB-${String(data).padStart(6, "0")}`;
+}
+
+/**
+ * ¿Son unas coordenadas terrestres de verdad?
+ *
+ * Llegan del navegador, así que no se dan por buenas: `NaN`, `Infinity`, una
+ * sola de las dos, o una latitud de 200 no son "una casa mal ubicada", son un
+ * dato corrupto. La base también lo rechaza (CHECK), pero fallar aquí da un
+ * pedido correcto sin coordenadas en vez de un pedido perdido por un error de
+ * inserción.
+ *
+ * El (0, 0) se acepta a propósito aunque sea el Golfo de Guinea: filtrarlo
+ * sería adivinar, y el repartidor ve enseguida que ese punto no es Santiago.
+ */
+function coordenadasValidas(
+  lat: number | undefined,
+  lng: number | undefined,
+): lat is number {
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
 }
 
 export async function createWebOrder(
@@ -221,6 +256,18 @@ export async function createWebOrder(
       delivery_sector: direccion?.ok ? direccion.value.sector : null,
       delivery_address: direccion?.ok ? direccion.value.address : null,
       delivery_reference: direccion?.ok ? (direccion.value.reference ?? null) : null,
+      // Ubicación compartida desde el navegador. Solo en envíos y solo si el
+      // cliente dio permiso: en Santiago hay calles sin número y un punto en el
+      // mapa evita la llamada del repartidor. Las dos van juntas o ninguna —lo
+      // exige el CHECK de la tabla—, así que se validan en pareja.
+      delivery_lat:
+        esEnvio && coordenadasValidas(input.deliveryLat, input.deliveryLng)
+          ? input.deliveryLat
+          : null,
+      delivery_lng:
+        esEnvio && coordenadasValidas(input.deliveryLat, input.deliveryLng)
+          ? input.deliveryLng
+          : null,
       shipping_cost: costoEnvio,
       subtotal: resumen.total,
       itbis: 0,
@@ -405,7 +452,7 @@ export async function getWebOrderForBusiness(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status, proforma_id",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, delivery_lat, delivery_lng, shipping_cost, payment_method, payment_status, proforma_id",
     )
     .eq("id", id)
     .eq("business_id", businessId)
@@ -433,6 +480,8 @@ export async function getWebOrderForBusiness(
     deliveryProvinceSlug: pedido.delivery_province ?? undefined,
     deliverySector: pedido.delivery_sector ?? undefined,
     deliveryAddress: pedido.delivery_address ?? undefined,
+    deliveryLat: pedido.delivery_lat ?? undefined,
+    deliveryLng: pedido.delivery_lng ?? undefined,
     deliveryReference: pedido.delivery_reference ?? undefined,
     shippingCost: Number(pedido.shipping_cost ?? 0),
     paymentMethod:
@@ -884,7 +933,7 @@ export async function findWebOrderByToken(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, shipping_cost, payment_method, payment_status",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, delivery_lat, delivery_lng, shipping_cost, payment_method, payment_status",
     )
     .eq("id", claims.id)
     .eq("business_id", claims.businessId)
@@ -919,6 +968,8 @@ export async function findWebOrderByToken(
     deliveryProvince: provinceName(pedido.delivery_province) ?? undefined,
     deliverySector: pedido.delivery_sector ?? undefined,
     deliveryAddress: pedido.delivery_address ?? undefined,
+    deliveryLat: pedido.delivery_lat ?? undefined,
+    deliveryLng: pedido.delivery_lng ?? undefined,
     deliveryReference: pedido.delivery_reference ?? undefined,
     shippingCost: Number(pedido.shipping_cost ?? 0),
     paymentMethod:

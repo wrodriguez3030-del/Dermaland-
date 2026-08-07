@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ChevronLeft, Info, Receipt } from "lucide-react";
+import { ChevronLeft, Info, MapPin, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { OrderStatusActions } from "@/features/storefront/components/order-status-actions";
@@ -209,6 +209,20 @@ export default async function PedidoWebDetallePage({
                   </>
                 ) : null}
               </p>
+              {/* La ubicación que el cliente compartió, si lo hizo. El enlace
+                  se arma aquí y no se guarda en la base: así el dato sigue
+                  sirviendo si mañana se cambia de proveedor de mapas. */}
+              {pedido.deliveryLat != null && pedido.deliveryLng != null ? (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${pedido.deliveryLat},${pedido.deliveryLng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--brand-primary)]/30 px-3 text-sm font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-[color:var(--brand-primary)]/5"
+                >
+                  <MapPin aria-hidden className="h-4 w-4" />
+                  Ver ubicación en el mapa
+                </a>
+              ) : null}
               <p className="mt-2 text-sm text-[color:var(--brand-fg)]/60">
                 Flete cobrado: {formatCurrency(pedido.shippingCost)} · Despacha{" "}
                 {pedido.branchName}

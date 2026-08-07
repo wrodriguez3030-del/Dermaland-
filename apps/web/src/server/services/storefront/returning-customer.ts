@@ -89,6 +89,59 @@ export async function forgetCustomer(): Promise<void> {
  * Un token de otro negocio, caducado o manipulado devuelve `null` sin más: la
  * verificación es fail-closed por diseño.
  */
+/** El último pedido de este dispositivo, para poder volver a él. */
+export interface LastOrderLink {
+  /** El mismo token firmado de la galleta: sirve tal cual en `/tienda/pedido/[token]`. */
+  token: string;
+  number: string;
+  status: string;
+}
+
+/**
+ * ¿Este dispositivo tiene un pedido al que volver?
+ *
+ * El enlace del pedido ya existía y se le enseñaba UNA vez, al confirmarlo.
+ * Quien cerraba la pestaña lo perdía: no había forma de volver a encontrarlo
+ * desde la tienda, y el pedido quedaba en el limbo desde el punto de vista del
+ * cliente aunque el negocio lo estuviera preparando.
+ *
+ * La galleta que ya se dejaba para no reteclear los datos apunta justo a ese
+ * pedido, así que el enlace de vuelta no hace falta inventarlo: estaba ahí sin
+ * usar.
+ *
+ * Devuelve `null` para los pedidos ya cerrados (`entregado`, `cancelado`): un
+ * enlace permanente a algo terminado es ruido, y el cliente que vuelve a
+ * comprar generará el suyo.
+ */
+export async function resolveLastOrderLink(
+  businessId: string,
+): Promise<LastOrderLink | null> {
+  let token: string | undefined;
+  try {
+    token = (await cookies()).get(RETURNING_COOKIE)?.value;
+  } catch {
+    return null;
+  }
+  if (!token) return null;
+
+  const claims = verifyDocumentShareToken(token);
+  if (!claims || claims.businessId !== businessId) return null;
+
+  const admin = createServiceRoleClient();
+  if (!admin) return null;
+
+  const { data } = await admin
+    .from("web_orders")
+    .select("number, status")
+    .eq("id", claims.id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!data) return null;
+  if (data.status === "entregado" || data.status === "cancelado") return null;
+
+  return { token, number: data.number, status: data.status };
+}
+
 export async function resolveRememberedCustomer(
   businessId: string,
 ): Promise<RememberedCustomer | null> {

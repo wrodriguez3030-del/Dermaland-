@@ -28,6 +28,12 @@ export interface WebOrder {
   deliverySector?: string;
   deliveryAddress?: string;
   deliveryReference?: string;
+  /**
+   * Ubicación que el cliente compartió desde el navegador. Opcional: dar
+   * permiso es voluntario. Van juntas o ninguna.
+   */
+  deliveryLat?: number;
+  deliveryLng?: number;
   /** Flete cobrado. Se guarda aparte para no recalcularlo con tarifas de hoy. */
   shippingCost: number;
   paymentMethod: "efectivo" | "transferencia" | "tarjeta";

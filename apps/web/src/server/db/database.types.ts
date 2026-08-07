@@ -314,6 +314,8 @@ export type Database = {
           delivery_sector: string | null
           delivery_address: string | null
           delivery_reference: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
           shipping_cost: number
           payment_provider: string | null
           payment_reference: string | null
@@ -347,6 +349,8 @@ export type Database = {
           delivery_sector?: string | null
           delivery_address?: string | null
           delivery_reference?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
           shipping_cost?: number
           payment_provider?: string | null
           payment_reference?: string | null
@@ -371,6 +375,8 @@ export type Database = {
           delivery_sector?: string | null
           delivery_address?: string | null
           delivery_reference?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
           shipping_cost?: number
           total?: number
         }

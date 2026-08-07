@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MapPin, MessageCircle, Phone } from "lucide-react";
+import { MapPin, MessageCircle, PackageSearch, Phone } from "lucide-react";
 import { AccountNav } from "@/features/storefront/components/account-nav";
 import { CartBadge } from "@/features/storefront/components/cart-badge";
 import { CartProvider } from "@/features/storefront/components/cart-provider";
@@ -13,6 +13,7 @@ import {
   accountsEnabled,
   resolveCustomerAccount,
 } from "@/server/services/storefront/customer-account";
+import { resolveLastOrderLink } from "@/server/services/storefront/returning-customer";
 import {
   resolveStorefrontTenant,
   storefrontBaseUrl,
@@ -80,6 +81,10 @@ export default async function TiendaLayout({
   // sin cuenta, así que esto no frena una venta.
   const cuentasAbiertas = accountsEnabled();
   const cuenta = cuentasAbiertas ? await resolveCustomerAccount() : null;
+  // El pedido en curso de este dispositivo, si lo hay. Su enlace ya existía y
+  // se enseñaba UNA vez, al confirmar: quien cerraba la pestaña lo perdía y no
+  // tenía forma de volver a encontrarlo desde la tienda.
+  const pedidoEnCurso = await resolveLastOrderLink(tenant.businessId);
 
   return (
     // El carrito envuelve TODA la tienda: el contador del encabezado y la ficha
@@ -124,6 +129,21 @@ export default async function TiendaLayout({
             />
 
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              {/* Volver al pedido en curso. Va ANTES del carrito y con el número
+                  visible: quien acaba de pedir vuelve a la tienda buscando
+                  "¿en qué va lo mío?", y hasta ahora no había dónde mirar. */}
+              {pedidoEnCurso ? (
+                <Link
+                  href={`/tienda/pedido/${pedidoEnCurso.token}`}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[color:var(--brand-primary)]/25 bg-[color:var(--brand-primary)]/5 px-3 text-xs font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-[color:var(--brand-primary)]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] sm:text-sm"
+                >
+                  <PackageSearch aria-hidden className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Mi pedido</span>
+                  <span className="font-mono text-[10px] opacity-70 sm:text-xs">
+                    {pedidoEnCurso.number}
+                  </span>
+                </Link>
+              ) : null}
               {cuentasAbiertas ? <AccountNav nombre={cuenta?.firstName} /> : null}
               <CartBadge />
 
