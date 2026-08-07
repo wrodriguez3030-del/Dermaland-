@@ -1,5 +1,7 @@
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
+import { STOREFRONT_TENANT_TAG } from "@/server/services/storefront/tenant";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
@@ -17,6 +19,16 @@ import { catalogCreate } from "@/server/http/schemas";
  * datos en caché.
  */
 export const dynamic = "force-dynamic";
+
+/**
+ * El pie de la tienda se sirve de una caché de cinco minutos. Sin esto, pegar
+ * el enlace de Google Maps de una sucursal —o cambiarle el nombre público, u
+ * ocultarla— guardaba bien pero no se veía, y el minuto siguiente se pasa
+ * volviendo a guardar creyendo que falló.
+ */
+function refrescarTienda() {
+  revalidateTag(STOREFRONT_TENANT_TAG);
+}
 
 function notSupabase() {
   return NextResponse.json(
@@ -55,6 +67,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const body = parsed.data;
     const ctx = await getRepoContext();
     const branch = await getRepositories().branch.create(ctx, body);
+    refrescarTienda();
     return NextResponse.json({ branch }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: toUserFacingMessage(e, "No se pudo guardar la sucursal. Intenta nuevamente.") }, { status: 400 });
