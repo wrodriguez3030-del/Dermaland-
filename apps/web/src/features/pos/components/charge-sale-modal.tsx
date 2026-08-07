@@ -73,6 +73,16 @@ interface ChargeSaleModalProps {
    * Cuentas por cobrar. El server valida bloqueo/límite de crédito al emitir.
    */
   creditCustomerName?: string | null;
+  /**
+   * Método que llega preseleccionado, hoy: el que el cliente eligió en la
+   * tienda al hacer su pedido web.
+   *
+   * Es una SUGERENCIA, no una imposición: el cajero puede cambiarlo, porque
+   * quien dijo "transferencia" en la web puede llegar con efectivo. Lo que
+   * evita es teclear otra vez algo que el sistema ya sabía y que, si no
+   * coincidía, dejaba la factura diciendo una cosa y el pedido otra.
+   */
+  defaultMethod?: CheckoutMethod | null;
 }
 
 function round2(n: number): string {
@@ -89,6 +99,7 @@ export function ChargeSaleModal({
   billingType,
   onConfirm,
   creditCustomerName = null,
+  defaultMethod = null,
 }: ChargeSaleModalProps) {
   const [payments, setPayments] = React.useState<BuiltPayment[]>([]);
   const [method, setMethod] = React.useState<CheckoutMethod | null>(null);
@@ -103,14 +114,16 @@ export function ChargeSaleModal({
   React.useEffect(() => {
     if (open) {
       setPayments([]);
-      setMethod(null);
+      // Preseleccionado si viene del pedido web; si no, como siempre: sin
+      // elegir, para que el cajero decida a conciencia.
+      setMethod(defaultMethod);
       setAmount(round2(total));
       setLast4("");
       setReference("");
       setError(null);
       setLast4Touched(false);
     }
-  }, [open, total]);
+  }, [open, total, defaultMethod]);
 
   const summary = paymentsSummary(payments, total);
 

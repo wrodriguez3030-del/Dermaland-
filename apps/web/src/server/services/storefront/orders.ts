@@ -704,9 +704,27 @@ export interface WebOrderForPos {
   /** Ficha del ERP, si se pudo enlazar. El POS la preselecciona. */
   clientId?: string;
   contactName: string;
+  contactPhone: string;
   fulfillment: "pickup" | "delivery";
-  /** Para avisar: el POS no factura el flete como línea. */
+  /** El flete se factura como línea de servicio; esto es su importe. */
   shippingCost: number;
+  /**
+   * Lo que el cliente eligió pagar en la web. El POS lo PRESELECCIONA en el
+   * cobro; el cajero puede cambiarlo, porque quien dijo "transferencia" puede
+   * llegar con efectivo.
+   */
+  paymentMethod: "efectivo" | "transferencia";
+  /**
+   * A dónde va el pedido. Solo en envío. El cajero lo necesita delante para
+   * confirmarlo con el cliente y pasárselo al mensajero.
+   */
+  deliveryProvince?: string;
+  deliverySector?: string;
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  /** Ubicación compartida desde el navegador, si el cliente dio permiso. */
+  deliveryLat?: number;
+  deliveryLng?: number;
   lines: { productId: string; qty: number }[];
   /** Ya facturado: el POS no debe volver a cobrarlo. */
   alreadyInvoiced: boolean;
@@ -722,7 +740,7 @@ export async function getWebOrderForPos(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, branch_id, client_id, contact_name, fulfillment, shipping_cost, status, proforma_id",
+      "id, number, branch_id, client_id, contact_name, contact_phone, fulfillment, shipping_cost, status, proforma_id, payment_method, delivery_province, delivery_sector, delivery_address, delivery_reference, delivery_lat, delivery_lng",
     )
     .eq("id", id)
     .eq("business_id", businessId)
@@ -758,8 +776,21 @@ export async function getWebOrderForPos(
     fulfillmentBranchId: despacho?.id ?? pedido.branch_id,
     clientId: pedido.client_id ?? undefined,
     contactName: pedido.contact_name,
+    contactPhone: pedido.contact_phone,
     fulfillment: pedido.fulfillment === "delivery" ? "delivery" : "pickup",
     shippingCost: Number(pedido.shipping_cost ?? 0),
+    // El cajero necesita VER a dónde va el pedido y cómo dijo el cliente que
+    // iba a pagar. Antes nada de esto llegaba al POS: la dirección había que
+    // buscarla en otra pestaña y el método de pago se elegía a mano, pudiendo
+    // no coincidir con lo que el cliente eligió en la web.
+    paymentMethod:
+      pedido.payment_method === "transferencia" ? "transferencia" : "efectivo",
+    deliveryProvince: pedido.delivery_province ?? undefined,
+    deliverySector: pedido.delivery_sector ?? undefined,
+    deliveryAddress: pedido.delivery_address ?? undefined,
+    deliveryReference: pedido.delivery_reference ?? undefined,
+    deliveryLat: pedido.delivery_lat ?? undefined,
+    deliveryLng: pedido.delivery_lng ?? undefined,
     lines: (lineas ?? []).map((l) => ({ productId: l.product_id, qty: l.qty })),
     alreadyInvoiced: Boolean(pedido.proforma_id),
   };

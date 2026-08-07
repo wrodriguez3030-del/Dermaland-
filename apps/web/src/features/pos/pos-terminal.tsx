@@ -22,6 +22,7 @@ import {
 import { Badge, Button, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatDominicanPhone } from "@/lib/utils/formatters";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
 import { ProductCard } from "./product-card";
@@ -235,8 +236,19 @@ interface PedidoWebParaPos {
   fulfillmentBranchId: string;
   clientId?: string;
   contactName: string;
+  contactPhone: string;
   fulfillment: "pickup" | "delivery";
   shippingCost: number;
+  /** Lo que el cliente eligió en la web. El POS lo preselecciona. */
+  paymentMethod: "efectivo" | "transferencia";
+  /** Solo en envío: a dónde va, para que el cajero no lo busque en otra pestaña. */
+  deliveryProvince?: string;
+  deliverySector?: string;
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  /** Ubicación que el cliente compartió, si lo hizo. */
+  deliveryLat?: number;
+  deliveryLng?: number;
   lines: { productId: string; qty: number }[];
   alreadyInvoiced: boolean;
 }
@@ -526,9 +538,16 @@ export function PosTerminal({
 
       if (canSwitchBranch) {
         if (sucursalUsada !== branchId) setBranchId(sucursalUsada);
-        if (sucursalUsada !== pedidoBranch) {
+        // Solo en RETIRO tiene sentido decir "el cliente eligió X": en un envío
+        // el cliente no pisa ninguna sucursal, y la que quedó guardada en el
+        // pedido es la que la tienda puso por defecto. Decir que la eligió él
+        // era falso, y encima daba a entender que se le estaba cambiando algo.
+        if (
+          pedido.fulfillment !== "delivery" &&
+          sucursalUsada !== pedidoBranch
+        ) {
           avisos.push({
-            texto: `El cliente eligió ${getBranchDisplayName(pedidoBranch)}; se factura desde ${getBranchDisplayName(sucursalUsada)}, que es la sucursal de despacho web.`,
+            texto: `El cliente eligió ${getBranchDisplayName(pedidoBranch)} para retirar; se factura desde ${getBranchDisplayName(sucursalUsada)}, que es de donde sale la mercancía.`,
           });
         }
       } else if (sucursalUsada !== branchId) {
@@ -1164,6 +1183,44 @@ export function PosTerminal({
           <p className="text-sm font-semibold text-[color:var(--brand-fg)]">
             Facturando el pedido {pedidoWeb.number} · {pedidoWeb.contactName}
           </p>
+
+          {/* A dónde va el pedido. El cajero lo necesita delante para confirmar
+              con el cliente y para pasárselo al mensajero; antes había que
+              abrirlo en otra pestaña. */}
+          {pedidoWeb.fulfillment === "delivery" ? (
+            <div className="mt-1 text-xs text-[color:var(--brand-fg)]/70">
+              <span className="font-medium">Envío a:</span>{" "}
+              {[
+                pedidoWeb.deliveryAddress,
+                pedidoWeb.deliverySector,
+                pedidoWeb.deliveryProvince,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              {pedidoWeb.deliveryReference ? (
+                <span className="opacity-70">
+                  {" "}
+                  · {pedidoWeb.deliveryReference}
+                </span>
+              ) : null}
+              {pedidoWeb.contactPhone ? (
+                <span className="opacity-70">
+                  {" "}
+                  · {formatDominicanPhone(pedidoWeb.contactPhone)}
+                </span>
+              ) : null}
+              {pedidoWeb.deliveryLat != null && pedidoWeb.deliveryLng != null ? (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${pedidoWeb.deliveryLat},${pedidoWeb.deliveryLng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-2 font-semibold text-[color:var(--brand-primary)] underline underline-offset-2 hover:no-underline"
+                >
+                  Ver ubicación
+                </a>
+              ) : null}
+            </div>
+          ) : null}
           {pedidoAvisos.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {pedidoAvisos.map((aviso, i) => (
@@ -1699,6 +1756,15 @@ export function PosTerminal({
         billingType={billingType}
         onConfirm={finalizeCharge}
         creditCustomerName={customer ? `${customer.firstName} ${customer.lastName}`.trim() : null}
+        // Lo que el cliente eligió en la web. Solo sugerido: el cajero puede
+        // cambiarlo, porque quien dijo "transferencia" puede llegar con efectivo.
+        defaultMethod={
+          pedidoWeb
+            ? pedidoWeb.paymentMethod === "transferencia"
+              ? "transfer"
+              : "cash"
+            : null
+        }
       />
 
       {/* Pantalla dedicada de FACTURA EMITIDA — aparece tras cobrar. El cajero/

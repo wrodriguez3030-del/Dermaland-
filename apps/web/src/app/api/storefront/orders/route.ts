@@ -44,6 +44,17 @@ const CuerpoSchema = z.object({
   sector: z.string().max(120).nullish(),
   address: z.string().max(300).nullish(),
   reference: z.string().max(300).nullish(),
+  // Ubicación que el cliente comparte con el botón del checkout. Opcional.
+  //
+  // El esquema es una LISTA BLANCA: lo que no está declarado aquí se descarta
+  // en silencio. Faltaban estas dos y por eso los pedidos llegaban sin
+  // coordenadas aunque el cliente le hubiera dado permiso al navegador — el
+  // dato salía del móvil y moría en esta linea.
+  //
+  // El rango se valida aquí ADEMÁS de en el servicio y en el CHECK de la tabla:
+  // rechazar pronto da un mensaje claro en vez de un pedido a medias.
+  deliveryLat: z.number().min(-90).max(90).nullish(),
+  deliveryLng: z.number().min(-180).max(180).nullish(),
   contactName: z.string().trim().min(1).max(120),
   // MISMA regla que la máscara de la interfaz. Antes exigía exactamente 10
   // dígitos y un "+1 809-555-1234" —que es lo que produce la máscara del
@@ -119,6 +130,8 @@ export async function POST(request: Request) {
     sector: d.sector ?? undefined,
     address: d.address ?? undefined,
     reference: d.reference ?? undefined,
+    deliveryLat: d.deliveryLat ?? undefined,
+    deliveryLng: d.deliveryLng ?? undefined,
     notes: d.notes ?? undefined,
   });
 
