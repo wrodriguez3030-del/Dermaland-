@@ -504,60 +504,15 @@ export function CheckoutView({
           </div>
         ) : (
           <>
-            <div>
-              <label
-                htmlFor="province"
-                className="text-sm font-medium text-[color:var(--brand-fg)]"
-              >
-                Provincia
-              </label>
-              <select
-                id="province"
-                name="province"
-                required
-                value={provincia}
-                onChange={(e) => setProvincia(e.target.value)}
-                className="mt-1 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
-              >
-                <option value="">Elige tu provincia…</option>
-                {provinces.map((p) => (
-                  <option key={p.slug} value={p.slug}>
-                    {p.name} — {formatCurrency(p.cost)}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
-                El costo del envío depende de la provincia.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="sector"
-                className="text-sm font-medium text-[color:var(--brand-fg)]"
-              >
-                Sector
-              </label>
-              <input
-                id="sector"
-                name="sector"
-                required
-                value={sector}
-                onChange={(e) => setSector(e.target.value)}
-                maxLength={120}
-                placeholder="Ej.: Los Jardines, Cerros de Gurabo…"
-                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
-              />
-            </div>
-
             {/* Ubicación exacta. En Santiago hay calles sin número y sectores
                 donde la dirección real es "la casa verde al lado del colmado":
                 un punto en el mapa le ahorra al repartidor la llamada.
 
-                Va ANTES de la dirección escrita a propósito: quien comparte el
-                punto ya resolvió lo difícil, y llega al campo de texto con la
-                tarea reducida a un detalle. Al revés, el botón queda debajo de
-                dos campos que ya cansaron y casi nadie lo pulsa.
+                Va PRIMERO, antes incluso de la provincia: es lo que menos
+                cuesta —un toque— y lo que más resuelve. Quien lo pulsa llega a
+                los campos escritos con la tarea reducida a un detalle. Enterrado
+                bajo provincia y sector, quedaba debajo de dos campos que ya
+                cansaron y casi nadie lo veía.
 
                 Es OPCIONAL y se pide con un botón, nunca al cargar la página:
                 un permiso de ubicación que salta solo asusta y se deniega. La
@@ -616,6 +571,52 @@ export function CheckoutView({
                   escrita.
                 </p>
               ) : null}
+            </div>
+
+            <div>
+              <label
+                htmlFor="province"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Provincia
+              </label>
+              <select
+                id="province"
+                name="province"
+                required
+                value={provincia}
+                onChange={(e) => setProvincia(e.target.value)}
+                className="mt-1 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
+              >
+                <option value="">Elige tu provincia…</option>
+                {provinces.map((p) => (
+                  <option key={p.slug} value={p.slug}>
+                    {p.name} — {formatCurrency(p.cost)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
+                El costo del envío depende de la provincia.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sector"
+                className="text-sm font-medium text-[color:var(--brand-fg)]"
+              >
+                Sector
+              </label>
+              <input
+                id="sector"
+                name="sector"
+                required
+                value={sector}
+                onChange={(e) => setSector(e.target.value)}
+                maxLength={120}
+                placeholder="Ej.: Los Jardines, Cerros de Gurabo…"
+                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+              />
             </div>
 
             <div>

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   ShoppingCart,
@@ -18,6 +19,7 @@ import {
   Printer,
   MessageCircle,
   Mail,
+  PackageSearch,
 } from "lucide-react";
 import { Badge, Button, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -491,6 +493,37 @@ export function PosTerminal({
     { texto: string; href?: string; accion?: string }[]
   >([]);
   const cargadoRef = React.useRef<string | null>(null);
+  const router = useRouter();
+
+  /**
+   * Cierra la pantalla de FACTURA EMITIDA y deja el POS listo para la venta
+   * siguiente.
+   *
+   * El carrito ya se vació al emitir; lo que se limpia aquí es el rastro del
+   * pedido web: el estado y, sobre todo, el `?pedido=` de la URL. Sin quitarlo,
+   * quien recargue la página caería otra vez en «ese pedido ya está facturado»
+   * y se quedaría mirando un POS que se niega a arrancar.
+   */
+  const cerrarEmitida = React.useCallback(() => {
+    setIssued(null);
+    if (pedidoWebId) {
+      setPedidoWeb(null);
+      setPedidoAvisos([]);
+      cargadoRef.current = null;
+      router.replace("/pos");
+    }
+  }, [pedidoWebId, router]);
+
+  // Escape cierra la pantalla de emitida, igual que el clic fuera. Un cajero con
+  // las manos en el teclado prueba Escape antes de buscar el botón con el ratón.
+  React.useEffect(() => {
+    if (!issued) return;
+    const alPulsar = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cerrarEmitida();
+    };
+    window.addEventListener("keydown", alPulsar);
+    return () => window.removeEventListener("keydown", alPulsar);
+  }, [issued, cerrarEmitida]);
 
   React.useEffect(() => {
     if (!pedidoWebId) return;
@@ -1788,8 +1821,16 @@ export function PosTerminal({
           role="dialog"
           aria-modal="true"
           aria-label="Factura emitida"
+          // Clic fuera = «Nueva venta». Aquí es seguro y en el modal de COBRO no
+          // lo sería: la venta ya está emitida y el carrito ya se vació, así que
+          // no hay nada que perder. Antes sólo se salía por el botón, y quien no
+          // lo veía se quedaba encerrado en esta pantalla.
+          onClick={cerrarEmitida}
         >
-          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+          <div
+            className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div
               className={`flex flex-col items-center gap-1.5 px-6 pb-6 pt-8 text-center ${
                 issued.documentKind === "invoice"
@@ -1870,11 +1911,28 @@ export function PosTerminal({
                   </Link>
                 )}
               </div>
+              {/* Sólo cuando la venta vino de un pedido web. Facturar deja el
+                  pedido en «preparando»: todavía hay que prepararlo, marcarlo
+                  listo y entregarlo. Sin este botón el cajero terminaba la
+                  factura y tenía que ir a buscar el pedido por el menú, que es
+                  justo el momento en que se olvida. */}
+              {pedidoWeb && (
+                <Link
+                  href={`/pedidos-web/${pedidoWeb.id}`}
+                  className="mt-1 block"
+                  onClick={() => setIssued(null)}
+                >
+                  <Button size="lg" className="w-full justify-center">
+                    <PackageSearch className="h-4 w-4" /> Continuar con el
+                    pedido {pedidoWeb.number}
+                  </Button>
+                </Link>
+              )}
               <Button
                 size="lg"
                 variant="ghost"
                 className="mt-1 w-full justify-center"
-                onClick={() => setIssued(null)}
+                onClick={cerrarEmitida}
               >
                 Nueva venta
               </Button>
