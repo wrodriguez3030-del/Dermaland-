@@ -5,6 +5,7 @@ import type {
   WebOrderItem,
 } from "@/features/storefront/orders/types";
 import {
+  canInvoiceWebOrder,
   canTransition,
   webOrderStatusLabel,
   type WebOrderStatus,
@@ -728,6 +729,13 @@ export interface WebOrderForPos {
   lines: { productId: string; qty: number }[];
   /** Ya facturado: el POS no debe volver a cobrarlo. */
   alreadyInvoiced: boolean;
+  /**
+   * ¿Alguien lo confirmó ya? Hasta entonces no se factura (regla del negocio,
+   * 2026-08-07). Se manda al POS para que lo diga con esas palabras en vez de
+   * dejar el botón muerto sin motivo.
+   */
+  canInvoice: boolean;
+  status: WebOrderStatus;
 }
 
 export async function getWebOrderForPos(
@@ -793,6 +801,8 @@ export async function getWebOrderForPos(
     deliveryLng: pedido.delivery_lng ?? undefined,
     lines: (lineas ?? []).map((l) => ({ productId: l.product_id, qty: l.qty })),
     alreadyInvoiced: Boolean(pedido.proforma_id),
+    status: pedido.status as WebOrderStatus,
+    canInvoice: canInvoiceWebOrder(pedido.status as WebOrderStatus),
   };
 }
 

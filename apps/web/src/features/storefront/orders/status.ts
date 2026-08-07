@@ -81,3 +81,29 @@ export function canTransition(
 export function isFinalStatus(status: WebOrderStatus): boolean {
   return TRANSICIONES[status].length === 0;
 }
+
+/**
+ * ¿Se puede facturar un pedido en este estado?
+ *
+ * REGLA DEL NEGOCIO (dueño, 2026-08-07): **hasta que alguien no lo confirme a
+ * mano, no se factura.** Confirmar es el momento en que una persona miró el
+ * pedido —que hay existencia, que la dirección tiene sentido, que el
+ * comprobante de transferencia está— y se hace cargo. Facturar antes es emitir
+ * un documento fiscal sobre algo que nadie ha revisado.
+ *
+ * `recibido` es justo lo que todavía no ha mirado nadie: ahí NO se factura.
+ *
+ * De `confirmado` en adelante sí, incluido `entregado`: un pedido cuya
+ * mercancía ya salió y al que le falta el documento es exactamente el caso que
+ * hay que poder arreglar, no uno que haya que bloquear.
+ *
+ * `cancelado` nunca: no se emite un documento por una venta que no ocurrió.
+ */
+export function canInvoiceWebOrder(status: WebOrderStatus): boolean {
+  return (
+    status === "confirmado" ||
+    status === "preparando" ||
+    status === "listo" ||
+    status === "entregado"
+  );
+}

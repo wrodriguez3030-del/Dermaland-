@@ -4,7 +4,10 @@ import { ChevronLeft, Info, MapPin, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { OrderStatusActions } from "@/features/storefront/components/order-status-actions";
-import { webOrderStatusLabelFor } from "@/features/storefront/orders/status";
+import {
+  canInvoiceWebOrder,
+  webOrderStatusLabelFor,
+} from "@/features/storefront/orders/status";
 import { lineStockVerdict } from "@/features/storefront/orders/line-stock";
 import { formatCurrency } from "@/lib/utils/format";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
@@ -88,11 +91,17 @@ export default async function PedidoWebDetallePage({
   const puedeCambiarEntrega =
     puedeGestionar && !cerrado && !pedido.proformaId;
 
-  // Facturar mientras el pedido no esté cancelado y no tenga ya documento. Un
-  // pedido `entregado` sin factura SÍ se puede facturar: la mercancía salió y
-  // el documento falta, que es justo lo que hay que poder arreglar.
+  // Hasta que alguien no lo confirme a mano, no se factura: confirmar es el
+  // momento en que una persona revisó existencia, dirección y comprobante y se
+  // hace cargo. Un pedido `entregado` sin factura SÍ se factura — la mercancía
+  // salió y el documento falta, que es lo que hay que poder arreglar.
+  // Ver `canInvoiceWebOrder`.
   const puedeFacturar =
-    puedeGestionar && pedido.status !== "cancelado" && !pedido.proformaId;
+    puedeGestionar && canInvoiceWebOrder(pedido.status) && !pedido.proformaId;
+
+  /** Falta confirmarlo. Se dice con esas palabras, no se esconde el botón. */
+  const faltaConfirmar =
+    puedeGestionar && !pedido.proformaId && pedido.status === "recibido";
 
   const numeroDocumento = pedido.proformaId
     ? await proformaNumberFor(session.businessId, pedido.proformaId)
@@ -187,6 +196,25 @@ export default async function PedidoWebDetallePage({
             <Receipt aria-hidden className="h-4 w-4" />
             Facturar en el POS
           </Link>
+        </div>
+      ) : faltaConfirmar ? (
+        // No se esconde el botón sin explicar: quien viene a facturar tiene que
+        // saber QUÉ falta y dónde pulsarlo, o va a pensar que el sistema está
+        // roto. El botón de confirmar está más abajo, en el bloque de estado.
+        <div className="flex items-start gap-3 rounded-2xl bg-amber-50 px-5 py-4">
+          <Info aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+          <p className="text-sm text-amber-900">
+            <strong className="font-semibold">
+              Confírmalo antes de facturar.
+            </strong>{" "}
+            Revisa que haya existencia
+            {pedido.fulfillment === "delivery" ? ", la dirección" : ""}
+            {pedido.paymentMethod === "transferencia"
+              ? " y el comprobante de la transferencia"
+              : ""}
+            , y márcalo como confirmado abajo. Entonces aparece el botón de
+            facturar.
+          </p>
         </div>
       ) : null}
 

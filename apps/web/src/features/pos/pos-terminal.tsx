@@ -251,6 +251,8 @@ interface PedidoWebParaPos {
   deliveryLng?: number;
   lines: { productId: string; qty: number }[];
   alreadyInvoiced: boolean;
+  /** Falso hasta que alguien confirme el pedido a mano. */
+  canInvoice: boolean;
 }
 
 export function PosTerminal({
@@ -516,6 +518,16 @@ export function PosTerminal({
 
       if (pedido.alreadyInvoiced) {
         toast.error(`El pedido ${pedido.number} ya está facturado.`);
+        return;
+      }
+
+      // Sin confirmar no se factura. Se comprueba también AQUÍ y no solo en el
+      // botón del pedido: a `/pos?pedido=…` se llega por la URL, y una regla
+      // que solo vive en un botón no es una regla.
+      if (!pedido.canInvoice) {
+        toast.error(
+          `El pedido ${pedido.number} no está confirmado. Revísalo y confírmalo antes de facturar.`,
+        );
         return;
       }
 

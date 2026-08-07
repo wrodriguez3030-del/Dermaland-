@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canInvoiceWebOrder,
   canTransition,
   isFinalStatus,
   nextStatuses,
@@ -90,5 +91,39 @@ describe("webOrderStatusLabelFor", () => {
         expect(etiqueta).not.toBe(s);
       }
     }
+  });
+});
+
+describe("canInvoiceWebOrder", () => {
+  it("NO deja facturar un pedido recién recibido", () => {
+    // Es la regla que pidió el dueño: hasta que alguien no lo confirme a mano,
+    // no se emite documento fiscal sobre algo que nadie ha revisado.
+    expect(canInvoiceWebOrder("recibido")).toBe(false);
+  });
+
+  it("no deja facturar un pedido cancelado", () => {
+    // No se emite un documento por una venta que no ocurrió.
+    expect(canInvoiceWebOrder("cancelado")).toBe(false);
+  });
+
+  it("deja facturar desde confirmado en adelante", () => {
+    for (const s of ["confirmado", "preparando", "listo"] as const) {
+      expect(canInvoiceWebOrder(s)).toBe(true);
+    }
+  });
+
+  it("deja facturar un pedido YA ENTREGADO", () => {
+    // No es un descuido: la mercancía salió y falta el documento. Ese es
+    // justamente el caso que hay que poder arreglar, no uno que bloquear.
+    expect(canInvoiceWebOrder("entregado")).toBe(true);
+  });
+
+  it("cubre todos los estados que existen", () => {
+    // Si mañana se añade un estado, esta prueba obliga a decidir si factura o
+    // no, en vez de dejarlo caer en el `false` por descuido.
+    for (const s of WEB_ORDER_STATUSES) {
+      expect(typeof canInvoiceWebOrder(s)).toBe("boolean");
+    }
+    expect(WEB_ORDER_STATUSES.filter(canInvoiceWebOrder)).toHaveLength(4);
   });
 });
