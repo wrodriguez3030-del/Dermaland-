@@ -1,10 +1,10 @@
 import "server-only";
-import type { BusinessRepository, RepoContext } from "../types";
+import type { BusinessPatch, BusinessRepository, RepoContext } from "../types";
 import type { Business } from "@/types";
 import { SupabaseRepositoryError, getClient } from "./client";
 import { businessRowToTs } from "./mappers";
 
-function patchToRow(patch: Partial<Business>): Record<string, unknown> {
+function patchToRow(patch: BusinessPatch): Record<string, unknown> {
   const r: Record<string, unknown> = {};
   if (patch.legalName !== undefined) r.legal_name = patch.legalName;
   if (patch.commercialName !== undefined) r.commercial_name = patch.commercialName;
@@ -14,6 +14,12 @@ function patchToRow(patch: Partial<Business>): Record<string, unknown> {
   if (patch.whatsapp !== undefined) r.whatsapp = patch.whatsapp;
   if (patch.email !== undefined) r.email = patch.email;
   if (patch.instagramUrl !== undefined) r.instagram_url = patch.instagramUrl;
+  if (patch.website !== undefined) r.website = patch.website;
+  if (patch.address !== undefined) r.address = patch.address;
+  if (patch.city !== undefined) r.city = patch.city;
+  if (patch.province !== undefined) r.province = patch.province;
+  if (patch.slogan !== undefined) r.slogan = patch.slogan;
+  if (patch.description !== undefined) r.description = patch.description;
   if (patch.logoUrl !== undefined) r.logo_url = patch.logoUrl;
   if (patch.dgiiEnabled !== undefined) r.dgii_enabled = patch.dgiiEnabled;
   if (patch.planId !== undefined) r.plan_id = patch.planId;
@@ -33,7 +39,7 @@ export const businessRepository: BusinessRepository = {
     return data ? businessRowToTs(data) : null;
   },
 
-  async update(ctx: RepoContext, patch: Partial<Business>) {
+  async update(ctx: RepoContext, patch: BusinessPatch) {
     const sb = await getClient("business.update");
     const row = patchToRow(patch);
     row.updated_at = new Date().toISOString();

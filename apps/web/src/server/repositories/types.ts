@@ -107,9 +107,31 @@ export interface RepoContext {
 
 // ─── Tenancy ────────────────────────────────────────────────────────────────
 
+/**
+ * Parche de empresa. Igual que `Partial<Business>` salvo en los campos
+ * opcionales, donde `null` significa BORRAR el dato. Con `Partial<Business>` a
+ * secas sólo cabría `undefined`, que el repositorio lee como «no toques esta
+ * columna» — y vaciar el sitio web en pantalla dejaría el viejo guardado.
+ */
+export type BusinessPatch = Partial<
+  Omit<Business, "phone" | "whatsapp" | "email" | "instagramUrl" | "website" | "address" | "city" | "province" | "slogan" | "description" | "logoUrl">
+> & {
+  phone?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  instagramUrl?: string | null;
+  website?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  slogan?: string | null;
+  description?: string | null;
+  logoUrl?: string | null;
+};
+
 export interface BusinessRepository {
   current(ctx: RepoContext): Promise<Business | null>;
-  update(ctx: RepoContext, patch: Partial<Business>): Promise<Business>;
+  update(ctx: RepoContext, patch: BusinessPatch): Promise<Business>;
 }
 
 export interface BranchListOptions {

@@ -1,152 +1,58 @@
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Button,
-  Input,
-  Label,
-  Textarea,
-  Badge,
-} from "@/components/ui";
+import { Card, CardContent } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
-import { mockBusiness } from "@/lib/mock-data/tenancy";
+import { BusinessForm } from "@/features/tenancy/business-form";
+import { getRepoContext } from "@/server/auth/context";
+import { getRepositories } from "@/server/repositories";
 import { CompanyLogo } from "./company-logo";
 
-export default function EmpresaPage() {
-  const b = mockBusiness;
+/**
+ * Administración → Empresa.
+ *
+ * Lee el negocio REAL del repositorio. Hasta ahora leía `mockBusiness`, así que
+ * enseñaba los datos de otro negocio inventado y su botón de guardar no estaba
+ * conectado a nada.
+ */
+export const dynamic = "force-dynamic";
+
+export default async function EmpresaPage() {
+  const ctx = await getRepoContext();
+  const business = await getRepositories().business.current(ctx);
+
   return (
     <>
       <PageHeader
         title="Empresa"
         description="Datos del negocio. Estos campos se usan en facturas, recibos y comprobantes."
         breadcrumbs={[{ label: "Administración" }, { label: "Empresa" }]}
-        actions={<Button size="sm">Guardar cambios</Button>}
       />
 
-      <Card>
-        <CardContent>
-          <FormSection
-            title="Identidad comercial"
-            description="Nombre comercial y legal mostrados al cliente."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>Nombre comercial</Label>
-                <Input defaultValue={b.commercialName} />
-              </div>
-              <div>
-                <Label>Razón social</Label>
-                <Input defaultValue={b.legalName} />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>RNC</Label>
-                <Input defaultValue={b.rnc} />
-              </div>
-              <div>
-                <Label>País</Label>
-                <Input defaultValue={b.country} disabled />
-              </div>
-            </div>
-          </FormSection>
-
-          <FormSection
-            title="Contacto"
-            description="Datos visibles en el sitio web público y en mensajes de WhatsApp."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>Teléfono</Label>
-                <Input defaultValue={b.phone} />
-              </div>
-              <div>
-                <Label>WhatsApp comercial</Label>
-                <Input defaultValue={b.whatsapp} />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input type="email" defaultValue={b.email} />
-              </div>
-              <div>
-                <Label>Instagram</Label>
-                <Input defaultValue={b.instagramUrl} />
-              </div>
-              <div>
-                <Label>Sitio web</Label>
-                <Input
-                  defaultValue={b.website ?? ""}
-                  placeholder="https://… (pendiente)"
+      {business ? (
+        <>
+          <BusinessForm business={business} />
+          <Card className="mt-6">
+            <CardContent>
+              <FormSection
+                title="Logo"
+                description="Logo institucional usado en facturas, recibos, PDF y comprobantes."
+              >
+                <CompanyLogo
+                  initialLogo={business.logoUrl}
+                  businessName={business.commercialName}
                 />
-              </div>
-            </div>
-          </FormSection>
-
-          <FormSection
-            title="Dirección"
-            description="Sede / dirección fiscal mostrada en recibos y comprobantes."
-          >
-            <div>
-              <Label>Dirección</Label>
-              <Input defaultValue={b.address ?? ""} />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <Label>Ciudad</Label>
-                <Input defaultValue={b.city ?? ""} />
-              </div>
-              <div>
-                <Label>Provincia</Label>
-                <Input defaultValue={b.province ?? ""} />
-              </div>
-              <div>
-                <Label>País</Label>
-                <Input defaultValue={b.country} disabled />
-              </div>
-            </div>
-          </FormSection>
-
-          <FormSection
-            title="Branding"
-            description="Logo institucional y eslogan usados en facturas, recibos, PDFs, comprobantes y WhatsApp."
-          >
-            <CompanyLogo initialLogo={b.logoUrl} businessName={b.commercialName} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Label>Eslogan</Label>
-                <Input defaultValue={b.slogan ?? ""} />
-              </div>
-              <div>
-                <Label>Color primario</Label>
-                <Input defaultValue="#2DB4A8" />
-              </div>
-            </div>
-            <div>
-              <Label>Descripción del negocio</Label>
-              <Textarea defaultValue={b.description ?? ""} />
-            </div>
-          </FormSection>
-
-          <FormSection
-            title="Estado"
-            description="Suscripción, plan activo y módulos habilitados."
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="primary">Plan Business / POS</Badge>
-              <Badge tone="warning">Trial · vence 2026-06-04</Badge>
-              <Badge tone={b.dgiiEnabled ? "success" : "neutral"}>
-                DGII e-CF: {b.dgiiEnabled ? "activo" : "inactivo"}
-              </Badge>
-            </div>
-            <p className="text-xs opacity-60">
-              El módulo DGII se activará cuando subas el certificado digital
-              `.p12` desde el panel de Súper Admin → Empresa → DGII.
+              </FormSection>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <CardContent>
+            <p className="py-8 text-center text-sm text-black/60">
+              No se pudieron cargar los datos de la empresa.
             </p>
-          </FormSection>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

@@ -11,6 +11,38 @@
 /** Prefijo de República Dominicana. */
 const CODIGO_PAIS = "1";
 
+function soloDigitos(valor: string): string {
+  return valor.replace(/\D/g, "");
+}
+
+/**
+ * El número dentro de un enlace de WhatsApp ya hecho.
+ *
+ * En el campo «WhatsApp de la tienda» la gente pega el enlace que WhatsApp le
+ * da para compartir, no el teléfono suelto: es lo que tiene a mano. Arrancar
+ * los dígitos del texto entero parece funcionar —`https://wa.me/18297141975`
+ * deja `18297141975`— pero es casualidad: en cuanto el enlace trae un mensaje
+ * prellenado (`?text=Hola%2C%20soy...`), los dígitos de esa codificación se
+ * pegan al número y el botón abre una conversación con un número inexistente.
+ * Sin error, sin aviso, y la venta se pierde.
+ *
+ * Se lee el número de donde WhatsApp lo pone: la ruta de `wa.me/<número>` o el
+ * parámetro `phone=` de `api.whatsapp.com/send`.
+ */
+function extraerDeEnlace(valor: string | null | undefined): string | null {
+  const texto = (valor ?? "").trim();
+  if (!/wa\.me|whatsapp\.com/i.test(texto)) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(texto) ? texto : `https://${texto}`);
+    const porParametro = url.searchParams.get("phone");
+    if (porParametro) return soloDigitos(porParametro);
+    const primerTramo = url.pathname.split("/").filter(Boolean)[0];
+    return primerTramo ? soloDigitos(primerTramo) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Longitud de un teléfono dominicano sin código de país. */
 const LARGO_LOCAL = 10;
 
@@ -19,7 +51,7 @@ const LARGO_LOCAL = 10;
  * Devuelve `null` si no queda un número marcable.
  */
 export function whatsappNumber(phone: string | null | undefined): string | null {
-  const digitos = (phone ?? "").replace(/\D/g, "");
+  const digitos = soloDigitos(extraerDeEnlace(phone) ?? phone ?? "");
   if (!digitos) return null;
   // 809 / 829 / 849 son dominicanos; el 8 y el 9 iniciales los cubren.
   if (digitos.length === LARGO_LOCAL) return `${CODIGO_PAIS}${digitos}`;

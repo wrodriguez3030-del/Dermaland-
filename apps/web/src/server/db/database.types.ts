@@ -499,10 +499,13 @@ export type Database = {
       }
       businesses: {
         Row: {
+          address: string | null
+          city: string | null
           commercial_name: string
           country: string
           created_at: string
           deleted_at: string | null
+          description: string | null
           dgii_enabled: boolean
           email: string | null
           id: string
@@ -511,16 +514,22 @@ export type Database = {
           logo_url: string | null
           phone: string | null
           plan_id: string
+          province: string | null
           rnc: string
+          slogan: string | null
           status: string
           updated_at: string
+          website: string | null
           whatsapp: string | null
         }
         Insert: {
+          address?: string | null
+          city?: string | null
           commercial_name: string
           country?: string
           created_at?: string
           deleted_at?: string | null
+          description?: string | null
           dgii_enabled?: boolean
           email?: string | null
           id?: string
@@ -529,16 +538,22 @@ export type Database = {
           logo_url?: string | null
           phone?: string | null
           plan_id: string
+          province?: string | null
           rnc: string
+          slogan?: string | null
           status?: string
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Update: {
+          address?: string | null
+          city?: string | null
           commercial_name?: string
           country?: string
           created_at?: string
           deleted_at?: string | null
+          description?: string | null
           dgii_enabled?: boolean
           email?: string | null
           id?: string
@@ -547,9 +562,12 @@ export type Database = {
           logo_url?: string | null
           phone?: string | null
           plan_id?: string
+          province?: string | null
           rnc?: string
+          slogan?: string | null
           status?: string
           updated_at?: string
+          website?: string | null
           whatsapp?: string | null
         }
         Relationships: [

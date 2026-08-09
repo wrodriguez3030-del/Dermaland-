@@ -34,7 +34,7 @@ import type {
   WhatsappRepository,
 } from "../types";
 
-import type { Brand, Category, Customer, InventoryCount, InventoryCountItem, Laboratory, Product, ProductLot, Proforma } from "@/types";
+import type { Brand, Business, Category, Customer, InventoryCount, InventoryCountItem, Laboratory, Product, ProductLot, Proforma } from "@/types";
 
 import {
   mockBranches,
@@ -229,7 +229,12 @@ const business: BusinessRepository = {
   },
   async update(ctx, patch) {
     guard(ctx);
-    return { ...mockBusiness, ...patch, updatedAt: new Date().toISOString() };
+    // `null` significa «borra el dato» de cara a la base; un `Business` en
+    // memoria no distingue vacío de borrado, así que ambos son `undefined`.
+    const limpio = Object.fromEntries(
+      Object.entries(patch).map(([k, v]) => [k, v ?? undefined]),
+    ) as Partial<Business>;
+    return { ...mockBusiness, ...limpio, updatedAt: new Date().toISOString() };
   },
 };
 

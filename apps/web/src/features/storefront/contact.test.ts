@@ -22,6 +22,36 @@ describe("whatsappNumber", () => {
   });
 });
 
+describe("whatsappNumber con un enlace pegado", () => {
+  it("lee el numero de un wa.me", () => {
+    // Es lo que el duenno pego de verdad en el campo de la tienda.
+    expect(whatsappNumber("https://wa.me/18297141975")).toBe("18297141975");
+  });
+
+  it("ignora el mensaje prellenado en vez de tragarse sus digitos", () => {
+    // Sin esto, los digitos de "%2C%20" se pegaban al numero y el boton abria
+    // una conversacion con un numero inexistente. Sin error y sin aviso.
+    expect(
+      whatsappNumber("https://wa.me/18297141975?text=Hola%2C%20soy%20cliente"),
+    ).toBe("18297141975");
+  });
+
+  it("lee el parametro phone= de api.whatsapp.com", () => {
+    expect(
+      whatsappNumber("https://api.whatsapp.com/send?phone=18297141975&text=hola"),
+    ).toBe("18297141975");
+  });
+
+  it("acepta el enlace sin protocolo", () => {
+    expect(whatsappNumber("wa.me/8297141975")).toBe("18297141975");
+  });
+
+  it("el telefono suelto sigue funcionando igual", () => {
+    expect(whatsappNumber("829-714-1975")).toBe("18297141975");
+    expect(whatsappNumber("")).toBeNull();
+  });
+});
+
 describe("whatsappLink", () => {
   it("codifica el mensaje", () => {
     const url = whatsappLink("8092265252", "Hola, me interesa: AVÈNE CICALFATE+");
