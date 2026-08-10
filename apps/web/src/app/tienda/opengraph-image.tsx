@@ -1,4 +1,6 @@
 import { ImageResponse } from "next/og";
+import { dermalandLogoDataUri } from "@/features/brand/logo";
+import { storefrontShareDescription } from "@/features/storefront/share-copy";
 import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
 
 /**
@@ -27,14 +29,22 @@ const BG = "#f8f9ff";
 
 // Logo embebido como data URI: el rasterizador de OG no puede ir a buscar un
 // asset externo.
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="${PRIMARY}" fill-rule="evenodd" d="M256 60 C256 60 120 220 120 330 A136 136 0 1 0 392 330 C392 220 256 60 256 60 Z M190 210 H270 C330 210 360 255 360 305 C360 355 330 400 270 400 H190 Z M218 240 H268 C305 240 325 270 325 305 C325 340 305 370 268 370 H218 Z"/></svg>`;
-const LOGO_DATA_URI = `data:image/svg+xml;base64,${Buffer.from(LOGO_SVG).toString("base64")}`;
+//
+// Sale del módulo de marca, no de un path copiado aquí. Estaba copiado, y con
+// el teal de la interfaz en vez del verde salvia de la marca: el enlace de la
+// tienda se compartía con un logo que no era el suyo.
+const LOGO_DATA_URI = dermalandLogoDataUri();
 
 export default async function OgImage() {
   const tenant = await resolveStorefrontTenant();
   const nombre = tenant?.siteName ?? "DermaLand";
-  const frase =
-    tenant?.tagline ?? "Dermocosmética y cuidado de la piel";
+  // Mismo texto que la etiqueta `og:description`: la tarjeta y la vista previa
+  // que la acompaña tienen que decir lo mismo.
+  const frase = storefrontShareDescription({
+    seoDescription: tenant?.seoDescription,
+    tagline: tenant?.tagline,
+    city: tenant?.branches?.[0]?.city,
+  });
   // Las sucursales, con su nombre comercial: es la prueba de que hay tiendas
   // físicas detrás, que es justo lo que decide una compra por WhatsApp.
   const sucursales = (tenant?.branches ?? []).map((s) => s.name).join("  ·  ");
@@ -58,7 +68,9 @@ export default async function OgImage() {
           <img src={LOGO_DATA_URI} width={132} height={132} alt="" />
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ fontSize: 72, fontWeight: 800, color: FG }}>{nombre}</div>
-            <div style={{ fontSize: 32, color: PRIMARY }}>{frase}</div>
+            <div style={{ fontSize: 28, color: PRIMARY, maxWidth: 780 }}>
+              {frase}
+            </div>
           </div>
         </div>
 

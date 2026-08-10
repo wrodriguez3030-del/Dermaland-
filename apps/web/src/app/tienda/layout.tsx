@@ -10,6 +10,7 @@ import {
   PackageSearch,
   Phone,
 } from "lucide-react";
+import { storefrontShareDescription } from "@/features/storefront/share-copy";
 import { instagramHandle } from "@/features/tenancy/branch-links";
 import { AccountNav } from "@/features/storefront/components/account-nav";
 import { CartBadge } from "@/features/storefront/components/cart-badge";
@@ -52,10 +53,14 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   }
   const titulo = tenant.seoTitle ?? tenant.siteName;
-  const descripcion =
-    tenant.seoDescription ??
-    tenant.tagline ??
-    `Dermocosmética y cuidado de la piel en ${tenant.branches[0]?.city ?? "República Dominicana"}.`;
+  // El lema decía quién es el negocio pero no que aquí se pueda comprar. Quien
+  // recibe el enlace por WhatsApp no distingue una tienda de una página de
+  // presentación, y esa duda decide si lo abre (ver `share-copy.ts`).
+  const descripcion = storefrontShareDescription({
+    seoDescription: tenant.seoDescription,
+    tagline: tenant.tagline,
+    city: tenant.branches[0]?.city,
+  });
 
   return {
     metadataBase: new URL(storefrontBaseUrl()),

@@ -4,6 +4,10 @@ import { readSharedProforma } from "@/server/services/sales/shared-document";
 import { getDocumentDisplayInfo } from "@/features/sales/document-label";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 import { formatCurrency } from "@/lib/utils/format";
+import {
+  DERMALAND_LOGO_COLOR,
+  dermalandLogoDataUri,
+} from "@/features/brand/logo";
 
 /**
  * Imagen Open Graph del comprobante público (`/factura/[token]`).
@@ -17,12 +21,13 @@ export const dynamic = "force-dynamic";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const BRAND = "#7E8A6E";
+const BRAND = DERMALAND_LOGO_COLOR;
 
 // Logo DermaLand (hoja/gota con "D" calada) embebido como data URI para que el
 // rasterizador de OG lo dibuje sin depender de un asset externo.
-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="${BRAND}" fill-rule="evenodd" d="M256 60 C256 60 120 220 120 330 A136 136 0 1 0 392 330 C392 220 256 60 256 60 Z M190 210 H270 C330 210 360 255 360 305 C360 355 330 400 270 400 H190 Z M218 240 H268 C305 240 325 270 325 305 C325 340 305 370 268 370 H218 Z"/></svg>`;
-const LOGO_DATA_URI = `data:image/svg+xml;base64,${Buffer.from(LOGO_SVG).toString("base64")}`;
+// El trazo sale del módulo de marca, no de una copia local: seis copias a mano
+// ya habían divergido en el color sin que nadie se enterara.
+const LOGO_DATA_URI = dermalandLogoDataUri();
 
 export default async function OgImage({
   params,
