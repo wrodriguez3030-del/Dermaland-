@@ -76,7 +76,7 @@ export default async function OgImage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ fontSize: 46, fontWeight: 700, color: FG }}>
-            Catálogo en línea
+            Tienda en línea
           </div>
           {sucursales ? (
             <div style={{ fontSize: 30, color: "#4b5563" }}>{sucursales}</div>
