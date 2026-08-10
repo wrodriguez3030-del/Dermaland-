@@ -222,7 +222,7 @@ export function CartView({
           href="/tienda/checkout"
           className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2"
         >
-          Continuar con el pedido
+          Finalizar pedido
         </Link>
 
         {enlaceWhatsapp ? (
