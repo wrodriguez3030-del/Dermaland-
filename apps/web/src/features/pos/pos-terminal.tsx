@@ -63,6 +63,7 @@ import {
 } from "@/features/billing/auto-billing-rules";
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import { reserveNextPreferredAnywhere } from "@/features/dgii/numbering-store";
+import { reserveProformaNumber } from "@/features/sales/proforma-number";
 import type { DefaultBillingType, Proforma } from "@/types";
 import { billingTypeLabel } from "@/features/customers/billing";
 import {
@@ -1038,7 +1039,23 @@ export function PosTerminal({
 
     // Número del documento: el comprobante fiscal (B02/B01/E32/E31) para
     // facturas; PROF-… solo para proformas reales (cotización / pendiente cierre).
-    const number = comprobante ?? generateProformaNumber();
+    //
+    // El PROF- se reserva en la BASE, no en este navegador. Salía del
+    // `localStorage` porque una proforma no consume secuencia fiscal —cierto—,
+    // pero `proformas(business_id, number)` es único: dos cajas con contadores
+    // distintos acababan pidiendo el mismo número, y el cajero leía «Ya existe
+    // un registro con esos datos» al cobrar, sin saber qué dato ni qué hacer.
+    let number: string;
+    if (comprobante) {
+      number = comprobante;
+    } else {
+      const reservado = await reserveProformaNumber();
+      if (!reservado.ok) {
+        toast.error(reservado.error);
+        return;
+      }
+      number = reservado.number;
+    }
 
     // B-02: plan de descuento de inventario (FEFO, multi-lote) calculado ANTES de
     // emitir. En modo supabase el servidor lo aplica ATÓMICAMENTE junto con la

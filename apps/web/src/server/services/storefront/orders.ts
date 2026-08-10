@@ -537,6 +537,14 @@ export async function advanceWebOrder(
   if (!actual) return { ok: false, error: "Pedido no encontrado." };
 
   const desde = actual.status as WebOrderStatus;
+
+  // Pedir el estado en el que YA está no es un error: lo que el usuario quería
+  // conseguir ya es cierto. Pasaba de verdad —facturar adelanta el pedido a
+  // «preparando», y quien tuviera la pantalla abierta de antes seguía viendo el
+  // botón de «Preparando»— y el aviso «No se puede pasar de "Preparando" a
+  // "Preparando"» sonaba a avería sin serlo.
+  if (desde === to) return { ok: true, from: desde };
+
   if (!canTransition(desde, to)) {
     return {
       ok: false,

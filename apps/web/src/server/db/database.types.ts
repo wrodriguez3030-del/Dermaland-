@@ -3918,6 +3918,10 @@ export type Database = {
         Args: { p_numbering_id: string }
         Returns: number
       }
+      next_proforma_number: {
+        Args: { p_business_id: string }
+        Returns: string
+      }
       nextval_web_order_number: {
         Args: Record<string, never>
         Returns: number
