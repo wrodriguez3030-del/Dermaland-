@@ -5,6 +5,11 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Barra de seguimiento en el detalle del ERP (v0.134.0)
+
+- "Mover el pedido" enseña el mismo `OrderTimeline` del cliente encima de los
+  botones de estado. Typecheck ✓ · 2868 tests ✓ · build ✓.
+
 ## 2026-08-19 · Aviso de pago por WhatsApp y correo (v0.133.0)
 
 - En el detalle del pedido de tarjeta, con el enlace ya pegado, bloque

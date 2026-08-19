@@ -10,6 +10,15 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.134.0] - 2026-08-19
+
+### Agregado
+
+- **La barra de seguimiento también en el ERP:** la tarjeta "Mover el pedido"
+  del detalle (*Ventas → Pedidos web*) enseña la misma línea de tiempo que ve
+  el cliente (`OrderTimeline`), con la etapa actual en negrita y "· ahora".
+  La etapa se ve de un vistazo antes de decidir a cuál mover el pedido.
+
 ## [0.133.0] - 2026-08-19
 
 **El aviso "ya puedes pagar tu pedido" se manda por WhatsApp o por correo,

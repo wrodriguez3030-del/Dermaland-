@@ -4,6 +4,7 @@ import { ChevronLeft, Info, MapPin, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { OrderStatusActions } from "@/features/storefront/components/order-status-actions";
+import { OrderTimeline } from "@/features/storefront/components/order-timeline";
 import {
   canInvoiceWebOrder,
   webOrderStatusLabelFor,
@@ -454,6 +455,12 @@ export default async function PedidoWebDetallePage({
                 ? "Ojo: hay líneas que no se pueden despachar tal cual desde esta sucursal. Míralas arriba antes de confirmar."
                 : "Todo lo que pidió está en esta sucursal."}
             </p>
+            {/* La misma barra de seguimiento que ve el cliente: la etapa se
+                ve de un vistazo antes de decidir a cuál mover. */}
+            <OrderTimeline
+              status={pedido.status}
+              fulfillment={pedido.fulfillment}
+            />
             <div className="mt-4">
               <OrderStatusActions orderId={pedido.id} status={pedido.status} />
             </div>
