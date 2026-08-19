@@ -37,6 +37,9 @@ const settingsSchema = z.object({
   // Llega ya normalizado por el formulario; el tope de 500 acompaña al CHECK
   // de la columna, para que un pegado enorme falle aquí y no en la base.
   linktreeUrl: z.string().trim().max(500).nullable().optional(),
+  // El dominio (pagos.azul.com.do) lo exige el servidor en
+  // `updateStorefrontSettings`; aquí solo el tope de tamaño.
+  azulPaymentLinkUrl: z.string().trim().max(500).nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {

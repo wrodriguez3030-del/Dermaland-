@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { whatsappNumber } from "../../contact";
+import { normalizeAzulPaymentLink } from "../../azul-link";
 import { normalizePublicUrl } from "@/features/tenancy/branch-links";
 import type { StorefrontSettings } from "@/server/services/storefront/admin";
 
@@ -45,6 +46,7 @@ export function StorefrontSettingsForm({
     whatsappPhone: settings?.whatsappPhone ?? "",
     contactEmail: settings?.contactEmail ?? "",
     linktreeUrl: settings?.linktreeUrl ?? "",
+    azulPaymentLinkUrl: settings?.azulPaymentLinkUrl ?? "",
   });
   const [guardando, setGuardando] = React.useState(false);
   const encendida = settings?.storefrontEnabled ?? false;
@@ -64,8 +66,19 @@ export function StorefrontSettingsForm({
       toast.error(enlace.error);
       return;
     }
+    // El de Azul es más estricto: solo pagos.azul.com.do. Se le enseña a
+    // clientes para que paguen; un tipeo no puede mandarlos a otro sitio.
+    const azul = normalizeAzulPaymentLink(form.azulPaymentLinkUrl);
+    if (!azul.ok) {
+      toast.error(azul.error);
+      return;
+    }
     void enviar(
-      { ...form, linktreeUrl: enlace.url ?? null },
+      {
+        ...form,
+        linktreeUrl: enlace.url ?? null,
+        azulPaymentLinkUrl: azul.url,
+      },
       "Configuración guardada.",
     );
   }
@@ -227,6 +240,21 @@ export function StorefrontSettingsForm({
             <p className="mt-1 text-xs text-black/50">
               Sale en el pie de la tienda, junto al WhatsApp y el Instagram.
               Sirve cualquier servicio: Linktree, Beacons o tu propia web.
+            </p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="azulPaymentLinkUrl">Enlace de pago Azul</Label>
+            <Input
+              id="azulPaymentLinkUrl"
+              value={form.azulPaymentLinkUrl}
+              onChange={(e) =>
+                setForm({ ...form, azulPaymentLinkUrl: e.target.value })
+              }
+              placeholder="https://pagos.azul.com.do/..."
+            />
+            <p className="mt-1 text-xs text-black/50">
+              Pega aquí tu enlace de pagos.azul.com.do. Con esto la tienda
+              ofrece pagar con tarjeta; déjalo vacío para no ofrecerla.
             </p>
           </div>
           <div className="sm:col-span-2">

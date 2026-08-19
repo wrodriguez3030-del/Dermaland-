@@ -31,7 +31,7 @@ import { env } from "@/lib/env";
 
 /** Columnas de configuración que la tienda necesita. Nunca `select("*")`. */
 const SETTINGS_COLUMNS =
-  "business_id, site_name, tagline, seo_title, seo_description, og_image_url, whatsapp_phone, contact_email, linktree_url";
+  "business_id, site_name, tagline, seo_title, seo_description, og_image_url, whatsapp_phone, contact_email, linktree_url, azul_payment_link_url";
 
 /** Columnas de sucursal publicables. `code` solo alimenta el slug de respaldo. */
 const BRANCH_COLUMNS =
@@ -154,6 +154,7 @@ const leerTenant = async (): Promise<StorefrontTenant | null> => {
     whatsappPhone: limpio(ajustes.whatsapp_phone),
     contactEmail: limpio(ajustes.contact_email),
     linktreeUrl: limpio(ajustes.linktree_url),
+    azulPaymentLinkUrl: limpio(ajustes.azul_payment_link_url),
     instagramUrl: limpio(empresa?.instagram_url),
     branches,
   };

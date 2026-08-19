@@ -85,6 +85,8 @@ export interface StorefrontTenant {
   instagramUrl?: string;
   /** Árbol de enlaces del negocio (Linktree, Beacons, su propia web). */
   linktreeUrl?: string;
+  /** Enlace de pago de Azul. Ausente = no se ofrece tarjeta en la tienda. */
+  azulPaymentLinkUrl?: string;
   branches: PublicBranch[];
 }
 

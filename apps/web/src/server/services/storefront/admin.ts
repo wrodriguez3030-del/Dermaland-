@@ -1,9 +1,13 @@
 import "server-only";
 import { revalidateTag } from "next/cache";
+import { normalizeAzulPaymentLink } from "@/features/storefront/azul-link";
 import { publishBlockers } from "@/features/storefront/publishability";
 import { productSlug } from "@/features/storefront/slug";
 import { env } from "@/lib/env";
-import { getClient } from "@/server/repositories/supabase/client";
+import {
+  getClient,
+  UserFacingRepositoryError,
+} from "@/server/repositories/supabase/client";
 import { fetchAllPages } from "@/server/repositories/supabase/pagination";
 import { getRepositories } from "@/server/repositories";
 import type { RepoContext } from "@/server/repositories/types";
@@ -66,6 +70,8 @@ export interface StorefrontSettings {
   contactEmail: string | null;
   /** Árbol de enlaces del negocio (Linktree, Beacons, su propia web). */
   linktreeUrl: string | null;
+  /** Enlace de pago de Azul. `null` = no se ofrece tarjeta en la tienda. */
+  azulPaymentLinkUrl: string | null;
 }
 
 export interface AdminWebCatalog {
@@ -110,6 +116,7 @@ export interface StorefrontSettingsPatch {
   whatsappPhone?: string | null;
   contactEmail?: string | null;
   linktreeUrl?: string | null;
+  azulPaymentLinkUrl?: string | null;
 }
 
 function texto(valor: string | null | undefined): string | null {
@@ -263,7 +270,7 @@ export async function loadSettings(
   const { data, error } = await sb
     .from("business_web_settings")
     .select(
-      "business_id, storefront_enabled, site_name, tagline, seo_title, seo_description, whatsapp_phone, contact_email, linktree_url",
+      "business_id, storefront_enabled, site_name, tagline, seo_title, seo_description, whatsapp_phone, contact_email, linktree_url, azul_payment_link_url",
     )
     .eq("business_id", ctx.businessId)
     .maybeSingle();
@@ -278,6 +285,7 @@ export async function loadSettings(
     whatsappPhone: data.whatsapp_phone,
     contactEmail: data.contact_email,
     linktreeUrl: data.linktree_url,
+    azulPaymentLinkUrl: data.azul_payment_link_url,
   };
 }
 
@@ -311,6 +319,13 @@ export async function updateStorefrontSettings(
     fila.contact_email = texto(patch.contactEmail);
   if (patch.linktreeUrl !== undefined)
     fila.linktree_url = texto(patch.linktreeUrl);
+  if (patch.azulPaymentLinkUrl !== undefined) {
+    // Se valida también AQUÍ y no solo en el formulario: este enlace se le
+    // enseña a clientes para que paguen, y el servidor es quien manda.
+    const enlace = normalizeAzulPaymentLink(patch.azulPaymentLinkUrl ?? "");
+    if (!enlace.ok) throw new UserFacingRepositoryError(enlace.error);
+    fila.azul_payment_link_url = enlace.url;
+  }
   if (ctx.userId) fila.updated_by = ctx.userId;
 
   const { error } = await sb.from("business_web_settings").upsert(fila, {
