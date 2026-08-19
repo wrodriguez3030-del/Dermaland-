@@ -10,6 +10,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.138.0] - 2026-08-19
+
+### Agregado
+
+- **El cierre enseña las ventas del turno por método y las de la web:**
+  - Bloque "Ventas del turno" en el asistente: Efectivo · Tarjeta ·
+    Transferencia (· Otros) · Total, con la línea "De la tienda web: N ventas
+    · RD$X (ya incluidas arriba)" — transversal, porque un pedido web se paga
+    con cualquier método. El bloque del conteo pasa a llamarse "Efectivo a
+    contar" y aclara por qué tarjeta/transferencia no van en él.
+  - El ticket 80mm lleva la misma línea "De la tienda web".
+  - `computeShiftDetail` gana `webSalesCount`/`webSalesTotal` (parámetro
+    opcional con los ids enlazados; compatible hacia atrás, 2 pruebas
+    nuevas). El enlace sale de `web_orders.proforma_id`
+    (`webInvoicedProformaIds`); si la consulta falla, cero — informa, no
+    tumba la caja.
+
 ## [0.137.0] - 2026-08-19
 
 **El cierre avisa qué quedó abierto, y el reporte de ventas ya no sale vacío.**

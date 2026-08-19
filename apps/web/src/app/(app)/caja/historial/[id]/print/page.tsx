@@ -6,6 +6,7 @@ import { computeShiftDetail } from "@/features/sales/cash-session-detail";
 import { CashClosingTicket } from "@/features/sales/components/cash-closing-ticket";
 import { getRepoContext } from "@/server/auth/context";
 import { getRepositories } from "@/server/repositories";
+import { webInvoicedProformaIds } from "@/server/services/storefront/orders";
 import { PrintTicketButton } from "./print-button";
 
 /**
@@ -43,11 +44,16 @@ export default async function CierreCajaPrintPage({
     repos.branch.byId(ctx, session.branchId).catch(() => null),
   ]);
   const proformas = todas.filter((p) => p.cashRegisterSessionId === session.id);
+  const webIds = await webInvoicedProformaIds(
+    ctx.businessId,
+    proformas.map((p) => p.id),
+  ).catch(() => new Set<string>());
   const detail = computeShiftDetail(
     session,
     proformas,
     movimientos,
     sucursal?.name ?? null,
+    webIds,
   );
 
   return (

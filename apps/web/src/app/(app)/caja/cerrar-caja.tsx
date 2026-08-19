@@ -267,8 +267,37 @@ export function CerrarCajaButton({
               )}
             </div>
 
+            {/* Las ventas del día por método, con lo que vino de la web
+                aparte: un pedido web puede pagarse con cualquier método, así
+                que es una línea transversal, no un método más. */}
+            <div className="space-y-1.5 rounded-xl bg-black/[0.03] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+                Ventas del turno
+              </p>
+              {filaResumen("Efectivo", detail.salesCash)}
+              {filaResumen("Tarjeta", detail.salesCard)}
+              {filaResumen("Transferencia", detail.salesTransfer)}
+              {detail.salesOther > 0
+                ? filaResumen("Otros", detail.salesOther)
+                : null}
+              <div className="flex items-center justify-between border-t border-black/10 pt-2 text-sm font-semibold">
+                <span>Total ventas</span>
+                <span className="tabular-nums">
+                  {formatCurrency(detail.totalSales)}
+                </span>
+              </div>
+              <p className="pt-1 text-xs text-[color:var(--brand-fg)]/60">
+                {detail.webSalesCount > 0
+                  ? `De la tienda web: ${detail.webSalesCount} venta${detail.webSalesCount === 1 ? "" : "s"} · ${formatCurrency(detail.webSalesTotal)} (ya incluidas arriba).`
+                  : "Sin ventas de la tienda web en este turno."}
+              </p>
+            </div>
+
             {/* Lo que el sistema espera, con la cuenta a la vista. */}
             <div className="space-y-1.5 rounded-xl bg-black/[0.03] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+                Efectivo a contar
+              </p>
               {filaResumen("Apertura", detail.openingAmount)}
               {filaResumen("Ventas en efectivo", detail.salesCash, "+")}
               {detail.cashIncome > 0
@@ -292,9 +321,8 @@ export function CerrarCajaButton({
               </div>
               {detail.salesCard > 0 || detail.salesTransfer > 0 ? (
                 <p className="pt-1 text-xs text-[color:var(--brand-fg)]/50">
-                  Aparte (no van en el conteo): tarjeta{" "}
-                  {formatCurrency(detail.salesCard)} · transferencia{" "}
-                  {formatCurrency(detail.salesTransfer)}.
+                  La tarjeta y la transferencia no van en el conteo: no son
+                  efectivo físico.
                 </p>
               ) : null}
             </div>

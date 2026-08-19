@@ -21,6 +21,8 @@ const detail: ShiftDetail = {
   expectedCash: 1800,
   countedCash: 1750,
   difference: -50,
+  webSalesCount: 0,
+  webSalesTotal: 0,
 };
 
 describe("generateShiftXlsx", () => {

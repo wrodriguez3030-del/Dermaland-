@@ -5,6 +5,13 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Ventas por método y de la web en el cierre (v0.138.0)
+
+- Asistente y ticket 80mm enseñan "Ventas del turno" (efectivo/tarjeta/
+  transferencia/total) + "De la tienda web: N · RD$X". `computeShiftDetail`
+  gana `webSalesCount/webSalesTotal` (ids de `web_orders.proforma_id` vía
+  `webInvoicedProformaIds`). Typecheck ✓ · 2880 tests ✓ · build ✓.
+
 ## 2026-08-19 · Checklist del cierre + proformas en el reporte (v0.137.0)
 
 - **Cierre**: sección "Antes de cerrar" — ventas cobradas ✓, borradores ⚠

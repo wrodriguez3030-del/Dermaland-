@@ -48,6 +48,13 @@ export interface ShiftDetail {
   countedCash: number | null;
   /** Diferencia (contado − esperado) si la caja ya fue contada. */
   difference: number | null;
+  /**
+   * Ventas del turno que vinieron de la TIENDA WEB (proformas enlazadas a un
+   * pedido web). Transversal a los métodos: un pedido web puede pagarse en
+   * efectivo, tarjeta o transferencia.
+   */
+  webSalesCount: number;
+  webSalesTotal: number;
 }
 
 /** Métodos que cuentan como "tarjeta" (no efectivo, no transferencia). */
@@ -78,6 +85,8 @@ export function computeShiftDetail(
   proformas: Proforma[],
   movements: CashShiftMovement[] = [],
   branchName: string | null = null,
+  /** IDs de proformas que nacieron de un pedido web (`web_orders.proforma_id`). */
+  webProformaIds: ReadonlySet<string> = new Set(),
 ): ShiftDetail {
   const sessionSales = proformas.filter(
     (p) => p.cashRegisterSessionId === session.id && isCountedSale(p),
@@ -88,9 +97,15 @@ export function computeShiftDetail(
   let salesTransfer = 0;
   let salesOther = 0;
   let totalSales = 0;
+  let webSalesCount = 0;
+  let webSalesTotal = 0;
 
   for (const p of sessionSales) {
     totalSales += p.total;
+    if (webProformaIds.has(p.id)) {
+      webSalesCount += 1;
+      webSalesTotal += p.total;
+    }
     for (const pay of p.payments ?? []) {
       const amt = pay.amount ?? 0;
       if (pay.method === "cash") salesCash += amt;
@@ -149,5 +164,7 @@ export function computeShiftDetail(
     expectedCash: round2(expectedCash),
     countedCash: countedCash != null ? round2(countedCash) : null,
     difference,
+    webSalesCount,
+    webSalesTotal: round2(webSalesTotal),
   };
 }

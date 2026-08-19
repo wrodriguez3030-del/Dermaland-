@@ -83,6 +83,22 @@ describe("computeShiftDetail — desglose por método", () => {
   });
 });
 
+describe("computeShiftDetail — ventas que vinieron de la web", () => {
+  it("cuenta y suma solo las proformas enlazadas a un pedido web", () => {
+    const ventas = [sale("cash", 100), sale("card", 200), sale("transfer", 300)];
+    const webIds = new Set([ventas[1]!.id, ventas[2]!.id]);
+    const d = computeShiftDetail(session(), ventas, [], null, webIds);
+    expect(d.webSalesCount).toBe(2);
+    expect(d.webSalesTotal).toBe(500);
+  });
+
+  it("sin el enlace, cero web (compatibilidad hacia atrás)", () => {
+    const d = computeShiftDetail(session(), [sale("cash", 100)], [], null);
+    expect(d.webSalesCount).toBe(0);
+    expect(d.webSalesTotal).toBe(0);
+  });
+});
+
 describe("computeShiftDetail — dinero esperado en caja (solo efectivo)", () => {
   it("tarjeta y transferencia NO aumentan el efectivo físico", () => {
     const d = computeShiftDetail(session({ openingAmount: 1000 }), [

@@ -22,7 +22,10 @@ import { getRepoContext } from "@/server/auth/context";
 import { env } from "@/lib/env";
 import { computeShiftDetail } from "@/features/sales/cash-session-detail";
 import { closeChecklist } from "@/features/sales/cash-close-checklist";
-import { countWebOrdersToInvoice } from "@/server/services/storefront/orders";
+import {
+  countWebOrdersToInvoice,
+  webInvoicedProformaIds,
+} from "@/server/services/storefront/orders";
 import { ShiftDetailView } from "@/features/sales/components/shift-detail";
 import { AbrirCajaButton } from "./caja-actions";
 import { CerrarCajaButton } from "./cerrar-caja";
@@ -108,8 +111,24 @@ export default async function CajaPage() {
     (p) => p.status === "pending_ecf" || p.status === "paid",
   );
 
+  // Qué ventas del turno vinieron de la tienda web (enlace en web_orders).
+  // Si la consulta falla, conjunto vacío: es información, no puede tumbar la
+  // página de caja.
+  let webIds = new Set<string>();
+  if (current && env.DATA_SOURCE === "supabase" && proformas.length > 0) {
+    try {
+      const ctx = await getRepoContext();
+      webIds = await webInvoicedProformaIds(
+        ctx.businessId,
+        proformas.map((p) => p.id),
+      );
+    } catch {
+      webIds = new Set();
+    }
+  }
+
   const shiftDetail = current
-    ? computeShiftDetail(current, proformas, movements, branchName)
+    ? computeShiftDetail(current, proformas, movements, branchName, webIds)
     : null;
 
   // Qué queda abierto antes de cerrar: borradores y crédito del turno, más

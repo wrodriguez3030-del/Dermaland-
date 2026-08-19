@@ -99,6 +99,13 @@ export function CashClosingTicket({
           <Fila etiqueta="Otros" monto={detail.salesOther} />
         ) : null}
         <Fila etiqueta="Total ventas" monto={detail.totalSales} bold />
+        {detail.webSalesCount > 0 ? (
+          <div className="text-[10px]">
+            De la tienda web: {detail.webSalesCount} venta
+            {detail.webSalesCount === 1 ? "" : "s"} ·{" "}
+            {formatCurrency(detail.webSalesTotal)} (incluidas arriba)
+          </div>
+        ) : null}
       </div>
 
       <Separator />

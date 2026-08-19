@@ -367,6 +367,31 @@ export const WEB_ORDERS_PAGE_SIZE = 25;
  * silencio**, y la pantalla enseñaría un subconjunto sin decir que lo es.
  */
 /**
+ * De estas proformas, cuáles nacieron de un pedido web.
+ *
+ * Para que el cierre de caja pueda decir "de la web: N ventas · RD$X": el
+ * enlace vive en `web_orders.proforma_id` y las proformas no saben de dónde
+ * vinieron. Devuelve el conjunto de ids enlazados; con lista vacía no viaja.
+ */
+export async function webInvoicedProformaIds(
+  businessId: string,
+  proformaIds: string[],
+): Promise<Set<string>> {
+  if (proformaIds.length === 0) return new Set();
+  const admin = createServiceRoleClient();
+  if (!admin) return new Set();
+  const { data, error } = await admin
+    .from("web_orders")
+    .select("proforma_id")
+    .eq("business_id", businessId)
+    .in("proforma_id", proformaIds);
+  if (error || !data) return new Set();
+  return new Set(
+    data.map((r) => r.proforma_id).filter((id): id is string => Boolean(id)),
+  );
+}
+
+/**
  * Cuántos pedidos web están confirmados y SIN facturar.
  *
  * Para el checklist del cierre de caja: al final del día nadie debería cerrar
