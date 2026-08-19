@@ -443,6 +443,7 @@ export type Database = {
       }
       business_web_settings: {
         Row: {
+          azul_payment_link_url: string | null
           business_id: string
           contact_email: string | null
           created_at: string
@@ -458,6 +459,7 @@ export type Database = {
           whatsapp_phone: string | null
         }
         Insert: {
+          azul_payment_link_url?: string | null
           business_id: string
           contact_email?: string | null
           created_at?: string
@@ -473,6 +475,7 @@ export type Database = {
           whatsapp_phone?: string | null
         }
         Update: {
+          azul_payment_link_url?: string | null
           business_id?: string
           contact_email?: string | null
           created_at?: string
