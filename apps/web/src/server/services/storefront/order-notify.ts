@@ -64,6 +64,43 @@ export async function notifyOrderStatus(input: {
 }
 
 /**
+ * Avisar de que el enlace de pago de Azul del pedido ya está puesto.
+ *
+ * Mismo riel y mismas reglas que `notifyOrderStatus`: correo del NEGOCIO,
+ * opcional (sin correo no pasa nada) y un fallo aquí NUNCA deshace el
+ * guardado del enlace.
+ */
+export async function notifyOrderPaymentLink(input: {
+  businessId: string;
+  orderId: string;
+  orderNumber: string;
+  contactEmail?: string;
+  siteName: string;
+}): Promise<NotifyOutcome> {
+  if (!input.contactEmail) return { sent: false, reason: "sin-correo" };
+
+  const creds = await resolveGmailCredentials(input.businessId);
+  if (!creds) return { sent: false, reason: "sin-configurar" };
+
+  const url = `${storefrontBaseUrl()}/tienda/pedido/${signDocumentShareToken(
+    input.businessId,
+    input.orderId,
+  )}`;
+
+  const texto = `Ya puedes pagar tu pedido ${input.orderNumber} con tarjeta.\n\nEntra a tu pedido y pulsa «Pagar con Azul»: el enlace lleva el monto exacto de tu compra.`;
+
+  const res = await sendEmail(
+    {
+      to: input.contactEmail,
+      subject: `Tu enlace de pago está listo — Pedido ${input.orderNumber}`,
+      html: renderHtml(texto, url, input.siteName),
+    },
+    creds,
+  );
+  return res.ok ? { sent: true } : { sent: false, reason: "error" };
+}
+
+/**
  * Correo en HTML sencillo y con estilos EN LÍNEA.
  *
  * Nada de hojas de estilo ni clases: Gmail las descarta. Y nada de imágenes
