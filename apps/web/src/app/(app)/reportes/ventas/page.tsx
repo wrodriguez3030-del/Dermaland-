@@ -238,7 +238,9 @@ export default function ReporteVentasPage() {
     }
     if (filters.customerQuery) parts.push(`Cliente: ${filters.customerQuery}`);
     if (filters.productQuery) parts.push(`Producto: ${filters.productQuery}`);
-    if (filters.includeProformas) parts.push("Incluye proformas");
+    // Incluirlas es el default (pre-Fase G todo es proforma): lo que se avisa
+    // es cuando se EXCLUYEN, que es lo que cambia el número.
+    if (!filters.includeProformas) parts.push("Solo facturas (sin proformas)");
     return {
       businessName: "DermaLand",
       generatedAt: new Date().toISOString(),
@@ -390,8 +392,8 @@ export default function ReporteVentasPage() {
     filterChips.push({ label: "Cliente", value: filters.customerQuery });
   if (filters.productQuery)
     filterChips.push({ label: "Producto", value: filters.productQuery });
-  if (filters.includeProformas)
-    filterChips.push({ label: "Proformas", value: "Incluidas" });
+  if (!filters.includeProformas)
+    filterChips.push({ label: "Proformas", value: "Excluidas" });
 
   return (
     <>

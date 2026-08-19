@@ -5,6 +5,17 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Checklist del cierre + proformas en el reporte (v0.137.0)
+
+- **Cierre**: sección "Antes de cerrar" — ventas cobradas ✓, borradores ⚠
+  (enlace a Ventas), crédito ℹ (queda en CxC), pedidos web sin facturar ⚠.
+  Informa, no bloquea. Regla pura `cash-close-checklist.ts` (4 pruebas) +
+  `countWebOrdersToInvoice`.
+- **Reporte de ventas**: las proformas ahora SALEN por defecto (con e-CF en
+  demo, todas las ventas reales son proformas y el reporte salía vacío);
+  el checkbox excluye, y la etiqueta avisa "Solo facturas".
+- Validación: typecheck ✓ · 2878 tests ✓ (5 nuevos) · build ✓.
+
 ## 2026-08-19 · Cierre de caja fácil (v0.136.0)
 
 - Asistente de cierre: conteo por denominaciones (total se suma solo),

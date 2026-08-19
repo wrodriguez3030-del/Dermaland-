@@ -10,6 +10,32 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.137.0] - 2026-08-19
+
+**El cierre avisa qué quedó abierto, y el reporte de ventas ya no sale vacío.**
+
+### Agregado
+
+- **"Antes de cerrar" en el asistente de cierre**: las ventas cobradas quedan
+  finalizadas en el POS al cobrarlas (`emit_sale_atomic`); lo que faltaba era
+  decir qué NO quedó cerrado. El asistente ahora revisa el turno y lo enseña:
+  - ✓ verde: "las N ventas del turno están cobradas y finalizadas";
+  - ⚠ borradores (con su total y enlace a Ventas): a esa hora suelen ser un
+    olvido;
+  - ℹ ventas a crédito con balance: quedan en Cuentas por Cobrar — es normal,
+    no impiden cerrar;
+  - ⚠ pedidos web confirmados sin facturar (`countWebOrdersToInvoice`).
+  Informa, nunca bloquea: la decisión es del cajero. Regla pura probada en
+  `features/sales/cash-close-checklist.ts` (4 pruebas).
+
+### Corregido
+
+- **El reporte de ventas salía vacío**: excluía las proformas por defecto, y
+  con la facturación e-CF en demo TODAS las ventas reales son proformas.
+  Ahora se incluyen por defecto; el checkbox queda para excluirlas, y las
+  etiquetas avisan cuando el reporte es "Solo facturas (sin proformas)" — que
+  es lo que cambia el número.
+
 ## [0.136.0] - 2026-08-19
 
 **Cerrar caja al final del día sin calculadora: se cuentan los billetes, el

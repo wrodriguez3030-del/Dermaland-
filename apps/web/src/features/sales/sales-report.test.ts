@@ -146,13 +146,15 @@ describe("filterSales", () => {
     expect(filterSales(all, { customerQuery: "0011234" })).toHaveLength(1);
   });
 
-  it("15. las proformas no se mezclan con facturas (excluidas por defecto)", () => {
+  it("15. las proformas SALEN por defecto (pre-Fase G todas las ventas reales lo son)", () => {
     const all = [
       makeSale({ documentKind: "invoice" }),
       makeSale({ documentKind: "proforma" }),
     ];
-    expect(filterSales(all, EMPTY_FILTERS)).toHaveLength(1); // solo factura
-    expect(filterSales(all, { includeProformas: true })).toHaveLength(2);
+    // Con e-CF en demo, excluirlas por defecto dejaba el reporte VACÍO.
+    expect(filterSales(all, EMPTY_FILTERS)).toHaveLength(2);
+    // Quien quiera solo facturas, las excluye a propósito.
+    expect(filterSales(all, { includeProformas: false })).toHaveLength(1);
     // y filtrando explícitamente proforma solo trae la proforma
     expect(filterSales(all, { comprobante: "proforma" })).toHaveLength(1);
     expect(comprobanteKey(all[1]!)).toBe("proforma");

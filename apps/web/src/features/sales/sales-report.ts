@@ -199,7 +199,12 @@ export interface SalesReportFilters {
   customerQuery?: string;
   /** Busca por producto vendido (nombre o SKU). */
   productQuery?: string;
-  /** Incluir proformas además de facturas. Por defecto: false. */
+  /**
+   * Incluir proformas además de facturas. En `EMPTY_FILTERS` va en `true`:
+   * con la facturación e-CF en demo, TODAS las ventas reales son proformas y
+   * excluirlas por defecto dejaba el reporte vacío (visto 2026-08-19).
+   * Quien quiera solo facturas las excluye con el checkbox.
+   */
   includeProformas?: boolean;
 }
 
@@ -214,7 +219,7 @@ export const EMPTY_FILTERS: SalesReportFilters = {
   sellerId: "",
   customerQuery: "",
   productQuery: "",
-  includeProformas: false,
+  includeProformas: true,
 };
 
 function matchesCustomer(p: Proforma, q: string): boolean {
