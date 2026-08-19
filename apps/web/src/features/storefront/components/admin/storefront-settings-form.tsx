@@ -253,8 +253,10 @@ export function StorefrontSettingsForm({
               placeholder="https://pagos.azul.com.do/..."
             />
             <p className="mt-1 text-xs text-black/50">
-              Pega aquí tu enlace de pagos.azul.com.do. Con esto la tienda
-              ofrece pagar con tarjeta; déjalo vacío para no ofrecerla.
+              Con un enlace de pagos.azul.com.do aquí, la tienda ofrece pagar
+              con tarjeta; déjalo vacío para no ofrecerla. Este enlace NO se le
+              enseña al cliente: el que paga cada pedido se genera en la App
+              AZUL con su monto exacto y se pega en el detalle del pedido.
             </p>
           </div>
           <div className="sm:col-span-2">

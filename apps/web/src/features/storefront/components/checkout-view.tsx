@@ -834,7 +834,7 @@ export function CheckoutView({
                       [
                         "tarjeta",
                         "Tarjeta (enlace seguro de Azul)",
-                        "Pagas en la página de Azul y subes el comprobante",
+                        "Te preparamos tu enlace de pago con el monto exacto",
                       ] as const,
                     ]
                   : []),
@@ -901,9 +901,10 @@ export function CheckoutView({
             {metodoPago === "tarjeta" ? (
               <div className="mt-3 rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3">
                 <p className="text-sm text-[color:var(--brand-fg)]/80">
-                  Al enviar el pedido te damos el enlace seguro de Azul con el
-                  total exacto a pagar. Subes el comprobante ahí mismo y
-                  confirmamos tu pago.
+                  Al enviar el pedido te preparamos tu enlace seguro de Azul
+                  con el monto exacto. Lo verás en la página de tu pedido (y te
+                  avisamos por correo si lo dejas); subes el comprobante ahí
+                  mismo y confirmamos tu pago.
                 </p>
               </div>
             ) : null}
@@ -1016,7 +1017,7 @@ export function CheckoutView({
           {cardPaymentsEnabled
             ? "Después de enviar el pedido podrás pagarlo con tarjeta."
             : metodoPago === "tarjeta"
-              ? "Después de enviar el pedido pagas con tarjeta por el enlace seguro de Azul."
+              ? "Después de enviar el pedido recibes tu enlace seguro de Azul con el monto exacto."
               : entrega === "delivery"
               ? "Te contactamos para coordinar la entrega y pagas al recibirlo."
               : entrega === "pickup"
