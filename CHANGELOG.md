@@ -10,6 +10,14 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.138.1] - 2026-08-19
+
+### Cambiado
+
+- **El ticket 80mm del cierre lleva el logo** del negocio en el encabezado —
+  el mismo SVG del ticket de venta (`Receipt80mm`), que ya imprime bien en
+  térmica monocromática.
+
 ## [0.138.0] - 2026-08-19
 
 ### Agregado

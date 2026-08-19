@@ -59,6 +59,16 @@ export function CashClosingTicket({
       }}
     >
       <div className="text-center">
+        {mockBusiness.logoUrl ? (
+          // El mismo logo del ticket de venta (Receipt80mm): la marca sale
+          // del SVG público, que ya imprime bien en térmica monocromática.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={mockBusiness.logoUrl}
+            alt={mockBusiness.commercialName}
+            className="mx-auto mb-1 h-12 w-12 object-contain"
+          />
+        ) : null}
         <div className="text-[14px] font-bold leading-tight">
           {mockBusiness.commercialName.toUpperCase()}
         </div>

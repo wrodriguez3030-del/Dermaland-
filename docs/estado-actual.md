@@ -5,6 +5,11 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Logo en el ticket del cierre (v0.138.1)
+
+- `CashClosingTicket` lleva el logo del negocio (el mismo del ticket de
+  venta). Typecheck ✓ · 2880 tests ✓ · build ✓.
+
 ## 2026-08-19 · Ventas por método y de la web en el cierre (v0.138.0)
 
 - Asistente y ticket 80mm enseñan "Ventas del turno" (efectivo/tarjeta/
