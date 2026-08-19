@@ -3,14 +3,43 @@
 > Módulo F3.5 de la tienda en línea. Complementa
 > [`tienda-en-linea.md`](./tienda-en-linea.md).
 
-**Estado a 2026-08-04: el cobro con tarjeta está APAGADO y no puede encenderse
-todavía.** No es un fallo ni un olvido: DermaLand no tiene afiliación de comercio
-electrónico con ningún banco, y eso es papeleo con plazos que no dependen del
-código. Lo que sí está hecho es **el hueco con la forma exacta** que tendrá que
-rellenar la integración.
+**Estado a 2026-08-19: hay DOS caminos distintos y conviene no confundirlos.**
 
-Mientras tanto, **todos los pedidos se pagan al retirar en sucursal**, y así se
-lo dice la tienda al cliente. Ver §4.
+1. **El enlace de pago de Azul (ACTIVO, §0):** el comercio tiene un enlace en
+   `pagos.azul.com.do` donde el cliente teclea el monto y paga con tarjeta. El
+   cobro es real (lo procesa Azul); la **confirmación es humana**, por
+   comprobante, igual que la transferencia.
+2. **La pasarela con API (APAGADA):** la afiliación de comercio electrónico con
+   integración programática sigue sin existir, y todo lo que dice el resto de
+   este documento sobre ella sigue vigente: el hueco está hecho, el adaptador no
+   se escribe hasta que llegue el paquete del banco.
+
+---
+
+## 0. Cobro por enlace de pago Azul (ACTIVO)
+
+- **Dónde se configura:** el enlace vive en la configuración de la tienda
+  (columna `business_web_settings.azul_payment_link_url`), nunca en el código.
+  **Fail-closed:** sin enlace (o vacío), la opción de tarjeta no aparece en el
+  checkout — la misma regla que "sin cuentas bancarias no se ofrece
+  transferencia". Solo se acepta `https://pagos.azul.com.do/...`
+  (`features/storefront/azul-link.ts`, validado también en el servidor): un
+  tipeo del admin no puede mandar a los clientes a pagar a otro sitio.
+- **Cómo paga el cliente:** elige "Tarjeta (enlace seguro de Azul)" en el
+  checkout; el pedido nace con `payment_method = 'tarjeta'`. El pago ocurre en
+  `/tienda/pedido/[token]`: ahí ve el total exacto (copiable), el número de
+  pedido para la referencia, y el botón que abre el enlace de Azul
+  (`AzulPayBox`). Al terminar sube el comprobante — el mismo riel de la
+  transferencia (`web_order_receipts`, bucket privado).
+- **Cómo se confirma:** en *Ventas → Pedidos web*, el admin compara el
+  comprobante con el pedido, verifica en el portal de Azul que el dinero entró,
+  y al ACEPTAR el comprobante el pedido queda `payment_status = 'pagado'`.
+  **Nada se marca pagado solo.**
+- **Riesgo aceptado:** la página de Azul no permite fijar el monto; el cliente
+  podría teclearlo mal. Mitigación: monto prominente y copiable, número de
+  pedido como referencia, y la revisión humana que compara importes.
+- **En el POS:** un pedido web de tarjeta preselecciona "Tarjeta" en el cobro
+  (el cajero puede cambiarlo, como siempre).
 
 ---
 
@@ -128,6 +157,10 @@ Y la pantalla del pedido:
 
 Ninguna de las dos promete un cobro que no existe. Cuando la pasarela esté
 activa, el texto cambia solo — lo decide `paymentsEnabled()` en el servidor.
+
+Con el **enlace de Azul configurado** y el cliente eligiendo tarjeta, el texto
+dice en cambio que después de enviar el pedido paga por el enlace seguro de
+Azul (§0) — que también es verdad, porque ese cobro sí existe.
 
 ---
 

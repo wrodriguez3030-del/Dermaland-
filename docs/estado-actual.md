@@ -3,7 +3,23 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-08-06
+**Última actualización:** 2026-08-19
+
+## 2026-08-19 · Pago con enlace de Azul + checkout claro (v0.131.0)
+
+- **Tarjeta por enlace de pago de Azul** en la tienda: el enlace del comercio
+  se pega en la configuración (`business_web_settings.azul_payment_link_url`,
+  migración `20260819120000`, aplicada a prod). Fail-closed y con el dominio
+  validado en cliente y servidor. El pago ocurre en la página del pedido
+  (`AzulPayBox`: total copiable + número de pedido + comprobante); el admin
+  confirma aceptando el comprobante — el mismo riel de la transferencia. El
+  POS preselecciona "Tarjeta" al facturar esos pedidos. La pasarela con API
+  sigue apagada; ver `docs/pagos-en-linea.md` §0.
+- **El checkout marca lo que falta**: botón siempre habilitado; al enviar con
+  datos pendientes marca cada campo (aria-invalid + mensaje), resume junto al
+  botón y se desplaza al primero. Regla pura probada en
+  `features/storefront/checkout-missing-fields.ts`.
+- Validación: typecheck ✓ · 2860 tests ✓ · build ✓.
 
 ## 2026-08-06 · Cierre de B-01, B-07 y B-04
 

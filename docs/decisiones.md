@@ -5,6 +5,36 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-08-19 — Enlace de pago de Azul con confirmación manual, no adaptador de API
+
+**Archivos:**
+- `apps/web/src/features/storefront/azul-link.ts` (+ prueba)
+- `apps/web/src/features/storefront/components/azul-pay-box.tsx`
+- `supabase/migrations/20260819120000_web_settings_azul_payment_link.sql`
+
+### Por qué
+
+El comercio consiguió un **enlace de pago** en `pagos.azul.com.do` (el cliente
+teclea el monto), no la afiliación de comercio electrónico con API. Un enlace
+no tiene webhook ni verificación programática, así que **no encaja en el
+contrato `PaymentProvider`** (crear intento + verificar) y se integró por el
+riel que ya existía para la transferencia: el cliente paga fuera, sube
+comprobante, y el admin lo acepta — que es lo ÚNICO que marca `pagado`. El
+adaptador de Azul sigue sin escribirse (la regla de `pagos-en-linea.md` §1 no
+cambia): esto es un método manual honesto, no una pasarela.
+
+### Consecuencias
+
+- Encender/apagar tarjeta es pegar/vaciar el enlace en la configuración de la
+  tienda; sin despliegue. Fail-closed sin enlace, dominio validado en cliente
+  y servidor.
+- El monto correcto depende del cliente (Azul no permite fijarlo): se mitiga
+  con el total copiable, el número de pedido como referencia y la revisión
+  humana. Si algún día llega la afiliación con API, el enlace convive o se
+  sustituye sin tocar pedidos ni base (el método sigue siendo `tarjeta`).
+
+---
+
 ## 2026-08-05 — Arenero efímero en vez de base compartida para el simulacro de DR
 
 **Archivos:**

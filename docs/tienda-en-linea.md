@@ -234,7 +234,8 @@ de perder una venta.
 | F3.3 | Pedidos: checkout, consulta por token y pantalla en el ERP | **Hecho** |
 | F3.6 | Envío a domicilio con costo por provincia + panel de tarifas | **Hecho** — apagado hasta que se configuren provincias |
 | F3.7 | Pago por transferencia con comprobante | **Hecho** — apagado hasta que se carguen cuentas bancarias |
-| F3.5 | Cobro con tarjeta **preparado** (contrato + fail-closed + runbook) | **Hecho** — apagado hasta que haya afiliación bancaria; ver [`pagos-en-linea.md`](./pagos-en-linea.md) |
+| F3.5 | Cobro con tarjeta **preparado** (contrato + fail-closed + runbook) | **Hecho** — la pasarela con API sigue apagada hasta que haya afiliación bancaria; ver [`pagos-en-linea.md`](./pagos-en-linea.md) |
+| F3.8 | Pago con tarjeta por **enlace de Azul** (confirmación manual por comprobante) | **Hecho (2026-08-19)** — se enciende pegando el enlace en la configuración de la tienda; ver [`pagos-en-linea.md`](./pagos-en-linea.md) §0 |
 
 **La tienda no se enciende hasta después de E7**, y encenderla es una decisión
 del dueño, no un paso del plan. Hoy sigue **apagada**, con 638 fichas sembradas

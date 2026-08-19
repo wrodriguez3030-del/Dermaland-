@@ -10,6 +10,40 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.131.0] - 2026-08-19
+
+**La tienda cobra con tarjeta por el enlace de pago de Azul, y el checkout
+dice claro qué falta por completar.**
+
+### Pago con tarjeta por enlace de Azul (confirmación manual)
+
+- El enlace del comercio (`pagos.azul.com.do/...`) se pega en la configuración
+  de la tienda (columna nueva `business_web_settings.azul_payment_link_url`,
+  migración `20260819120000`). **Fail-closed:** sin enlace, la opción de
+  tarjeta no aparece; solo se acepta ese dominio por https —validado en el
+  formulario Y en el servidor (`features/storefront/azul-link.ts`, con
+  prueba)— para que un tipeo no mande a los clientes a pagar a otro sitio.
+- El checkout ofrece **"Tarjeta (enlace seguro de Azul)"** y el pedido nace con
+  `payment_method = 'tarjeta'`. El pago ocurre en la página del pedido:
+  total exacto copiable, número de pedido como referencia, botón que abre el
+  enlace (`AzulPayBox`) y el mismo subidor de comprobante de la transferencia.
+- La revisión del admin en *Ventas → Pedidos web* sirve tal cual para tarjeta
+  (el riel del comprobante es agnóstico al método); aceptar el comprobante es
+  lo único que marca `pagado`. **Nada se marca pagado solo.** En el POS, un
+  pedido web de tarjeta preselecciona "Tarjeta" en el cobro.
+- La pasarela con API (`registry.ts`, variables `AZUL_*`) sigue apagada y sin
+  tocar: esto es el enlace manual, no la afiliación de comercio electrónico.
+
+### El checkout marca lo que falta
+
+- El botón "Enviar pedido" ya no se deshabilita en silencio: al pulsarlo con
+  datos pendientes, cada campo faltante se marca en rojo con su mensaje
+  debajo, aparece un resumen con enlaces que llevan al campo, y la pantalla se
+  desplaza al primero. Con `aria-invalid`/`aria-describedby`/`role="alert"`.
+- La regla de qué falta es pura y probada
+  (`features/storefront/checkout-missing-fields.ts`): los campos de envío solo
+  se piden con el envío ya elegido, y los espacios cuentan como vacío.
+
 ## [0.130.0] - 2026-08-06
 
 **Los tres bloqueadores que quedaban con "confía en mí" ahora tienen una prueba

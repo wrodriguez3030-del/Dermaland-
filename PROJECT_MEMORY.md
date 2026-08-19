@@ -3,7 +3,7 @@
 > Archivo vivo. Actualizar al cerrar cualquier cambio importante.
 > Léelo después de `CLAUDE.md` antes de empezar a trabajar.
 
-**Última actualización:** 2026-08-06
+**Última actualización:** 2026-08-19
 
 > **Nota de vigencia:** las secciones §2 "Estado actual" y §4 "Qué está
 > pendiente" más abajo describen el proyecto **antes** de que Supabase pasara
