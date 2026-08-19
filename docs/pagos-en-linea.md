@@ -16,28 +16,39 @@
 
 ---
 
-## 0. Cobro por enlace de pago Azul (ACTIVO)
+## 0. Cobro por enlace de pago Azul (ACTIVO — enlace POR PEDIDO desde v0.132.0)
 
-- **Dónde se configura:** el enlace vive en la configuración de la tienda
-  (columna `business_web_settings.azul_payment_link_url`), nunca en el código.
-  **Fail-closed:** sin enlace (o vacío), la opción de tarjeta no aparece en el
-  checkout — la misma regla que "sin cuentas bancarias no se ofrece
-  transferencia". Solo se acepta `https://pagos.azul.com.do/...`
-  (`features/storefront/azul-link.ts`, validado también en el servidor): un
-  tipeo del admin no puede mandar a los clientes a pagar a otro sitio.
-- **Cómo paga el cliente:** elige "Tarjeta (enlace seguro de Azul)" en el
-  checkout; el pedido nace con `payment_method = 'tarjeta'`. El pago ocurre en
-  `/tienda/pedido/[token]`: ahí ve el total exacto (copiable), el número de
-  pedido para la referencia, y el botón que abre el enlace de Azul
-  (`AzulPayBox`). Al terminar sube el comprobante — el mismo riel de la
-  transferencia (`web_order_receipts`, bucket privado).
+- **La realidad del producto de Azul (aprendida en v0.132.0):** el Link de
+  Pagos se genera **por transacción** desde la App AZUL, con el **monto fijado
+  al crearlo** — no hay parámetro de URL para inyectar el monto, y los enlaces
+  caducan o se cancelan. Un enlace fijo del comercio mandaba a todos los
+  clientes a pagar el monto con el que se creó (pasó con uno de RD$500).
+- **Interruptor:** el enlace de la configuración
+  (`business_web_settings.azul_payment_link_url`) **ya no se le enseña al
+  cliente**: solo activa la opción de tarjeta en el checkout. **Fail-closed:**
+  sin enlace, la opción no aparece — la misma regla que "sin cuentas bancarias
+  no se ofrece transferencia".
+- **El enlace que paga cada pedido** vive en `web_orders.azul_payment_link_url`
+  (migración `20260819180000`, aplicada a prod): el admin genera el link en la
+  App AZUL con el **monto exacto** (copiable en el detalle del pedido) y lo
+  pega en *Ventas → Pedidos web → detalle* (`OrderAzulLinkForm`, ruta
+  `POST /api/pedidos-web/[id]/azul-link` con sesión + rol). La regla de quién
+  lo admite es `canSetAzulLink` (tarjeta, sin pagar, sin cancelar — probada), y
+  el dominio se valida en cliente Y servidor (`normalizeAzulPaymentLink`, solo
+  `https://pagos.azul.com.do/...`). Si el pedido tiene correo, al pegar el
+  enlace se le avisa ("Tu enlace de pago está listo", riel Gmail; un fallo del
+  correo nunca deshace el guardado).
+- **Cómo paga el cliente:** en `/tienda/pedido/[token]` ve el total, su número
+  de pedido (copiable) y el botón que abre **el enlace de su pedido**
+  (`AzulPayBox`); la instrucción es **verificar** que Azul diga exactamente su
+  total — ya no teclea nada. Sin enlace todavía, la página lo dice honesto
+  ("estamos preparando tu enlace de pago") sin botón muerto. Al terminar sube
+  el comprobante — el mismo riel de la transferencia (`web_order_receipts`,
+  bucket privado).
 - **Cómo se confirma:** en *Ventas → Pedidos web*, el admin compara el
   comprobante con el pedido, verifica en el portal de Azul que el dinero entró,
   y al ACEPTAR el comprobante el pedido queda `payment_status = 'pagado'`.
   **Nada se marca pagado solo.**
-- **Riesgo aceptado:** la página de Azul no permite fijar el monto; el cliente
-  podría teclearlo mal. Mitigación: monto prominente y copiable, número de
-  pedido como referencia, y la revisión humana que compara importes.
 - **En el POS:** un pedido web de tarjeta preselecciona "Tarjeta" en el cobro
   (el cajero puede cambiarlo, como siempre).
 

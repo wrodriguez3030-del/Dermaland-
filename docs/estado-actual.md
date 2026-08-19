@@ -5,6 +5,21 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · El enlace de Azul es POR PEDIDO (v0.132.0)
+
+- **Descubierto:** el Link de Pagos de Azul lleva el monto **fijado al
+  crearlo** (no hay parámetro de URL) y caduca; el enlace fijo del comercio
+  nació con RD$500 y mandaba a todos a pagar eso.
+- **Ahora:** cada pedido de tarjeta lleva su enlace
+  (`web_orders.azul_payment_link_url`, mig `20260819180000` en prod). El admin
+  lo genera en la App AZUL con el monto exacto (copiable en el detalle) y lo
+  pega (`OrderAzulLinkForm` → `POST /api/pedidos-web/[id]/azul-link`, rol +
+  validación de dominio + auditoría). Al pegarlo se avisa por correo. El
+  cliente **verifica** el monto, ya no lo teclea; sin enlace, aviso honesto.
+  El enlace de la configuración queda solo de interruptor del checkout.
+- Diseño y plan en `docs/superpowers/{specs,plans}/2026-08-19-azul-enlace-por-pedido*`.
+- Validación: typecheck ✓ · 2864 tests ✓ (4 nuevos de `canSetAzulLink`) · build ✓.
+
 ## 2026-08-19 · Comprobante con el texto de su método (v0.131.1)
 
 - En el pedido pagado con tarjeta, el subidor decía "Comprobante de la

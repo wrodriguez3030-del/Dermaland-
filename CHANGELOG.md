@@ -10,6 +10,41 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.132.0] - 2026-08-19
+
+**El enlace de Azul es POR PEDIDO: el cliente paga el monto exacto de su
+carrito, no el monto con el que se creó un enlace fijo.**
+
+### Por qué
+
+El Link de Pagos de Azul se genera por transacción desde la App AZUL, con el
+monto **fijado al crearlo** — no hay parámetro de URL para el monto, y los
+enlaces caducan. El diseño de v0.131.0 asumió una página de monto abierto; el
+enlace real del comercio nació con RD$500 fijo y mandaba a todos a pagar eso.
+
+### Cambiado
+
+- **Enlace por pedido:** columna `web_orders.azul_payment_link_url`
+  (migración `20260819180000`, aplicada a prod). En *Ventas → Pedidos web →
+  detalle*, el admin ve el monto exacto copiable, genera el link en la App
+  AZUL y lo pega (`OrderAzulLinkForm`); se puede reemplazar (caducan) o quitar
+  con confirmación. Ruta nueva `POST /api/pedidos-web/[id]/azul-link` con
+  sesión + rol, validación de dominio en cliente y servidor, y auditoría
+  legible (`web_order.azul_link_set`).
+- **Regla pura probada** `canSetAzulLink`: solo pedidos de tarjeta, sin pagar
+  y sin cancelar (4 pruebas nuevas).
+- **Aviso por correo** al pegar el enlace: "Tu enlace de pago está listo"
+  (mismo riel Gmail de los avisos de estado; un fallo del correo nunca deshace
+  el guardado).
+- **La página del pedido** usa el enlace DE SU pedido: la instrucción pasa de
+  "teclea el monto" a "verifica que diga exactamente RD$X; si no coincide, no
+  pagues". Sin enlace todavía: aviso honesto, sin botón muerto. `AzulPayBox`
+  pierde `amountRaw` — ya no hay nada que teclear.
+- **El enlace fijo de la configuración ya no se enseña al cliente:** queda
+  solo como interruptor de "la tienda acepta tarjeta" en el checkout
+  (fail-closed intacto); la ayuda del campo lo explica. Los textos del
+  checkout dicen la verdad nueva.
+
 ## [0.131.1] - 2026-08-19
 
 ### Corregido

@@ -5,6 +5,43 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-08-19 — El enlace de Azul es POR PEDIDO, no un enlace fijo del comercio
+
+**Archivos:**
+- `supabase/migrations/20260819180000_web_orders_azul_link.sql`
+- `apps/web/src/features/storefront/azul-link.ts` (`canSetAzulLink`, + prueba)
+- `apps/web/src/app/api/pedidos-web/[id]/azul-link/route.ts`
+- `apps/web/src/features/storefront/components/admin/order-azul-link-form.tsx`
+
+### Por qué
+
+La decisión anterior (abajo) asumió que el enlace del comercio era una página
+de **monto abierto** donde el cliente teclea el total. La realidad del Link de
+Pagos de Azul es otra: se genera **por transacción** desde la App AZUL, con el
+monto **fijado al crearlo**, sin parámetro de URL para cambiarlo, y **caduca**.
+El enlace configurado nació con RD$500 fijo: todo pedido, del monto que fuera,
+mandaba al cliente a pagar RD$500 (y al caducar, a una página de error).
+
+### Decisión
+
+Cada pedido de tarjeta lleva su enlace (`web_orders.azul_payment_link_url`):
+el admin lo genera en la App AZUL con el monto exacto —copiable en el detalle
+del pedido— y lo pega ahí. El cliente **verifica** el monto en Azul, no lo
+teclea. El enlace de `business_web_settings` queda SOLO como interruptor de
+"la tienda acepta tarjeta" (fail-closed) y no se le enseña a nadie.
+
+### Consecuencias
+
+- Un paso manual más por pedido de tarjeta (generar y pegar el link) — es el
+  costo de no tener la afiliación con API; el día que se encienda la pasarela
+  (`AZUL_*`), este riel manual se sustituye por intentos verificables.
+- El aviso "Tu enlace de pago está listo" sale por el riel Gmail existente;
+  su fallo nunca deshace el guardado.
+- La confirmación sigue 100 % manual: aceptar el comprobante es lo único que
+  marca `pagado`.
+
+---
+
 ## 2026-08-19 — Enlace de pago de Azul con confirmación manual, no adaptador de API
 
 **Archivos:**
