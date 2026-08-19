@@ -366,6 +366,28 @@ export const WEB_ORDERS_PAGE_SIZE = 25;
  * `.range()` no es opcional: sin él PostgREST corta en 1000 filas **en
  * silencio**, y la pantalla enseñaría un subconjunto sin decir que lo es.
  */
+/**
+ * Cuántos pedidos web están confirmados y SIN facturar.
+ *
+ * Para el checklist del cierre de caja: al final del día nadie debería cerrar
+ * sin saber que hay pedidos aceptados a los que les falta el documento. Solo
+ * cuenta (head): la lista vive en Ventas → Pedidos web.
+ */
+export async function countWebOrdersToInvoice(
+  businessId: string,
+): Promise<number> {
+  const admin = createServiceRoleClient();
+  if (!admin) return 0;
+  const { count, error } = await admin
+    .from("web_orders")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", businessId)
+    .is("proforma_id", null)
+    .in("status", ["confirmado", "preparando", "listo", "entregado"]);
+  if (error) return 0;
+  return count ?? 0;
+}
+
 export async function listWebOrders(
   businessId: string,
   opts: { page?: number; status?: WebOrderStatus } = {},

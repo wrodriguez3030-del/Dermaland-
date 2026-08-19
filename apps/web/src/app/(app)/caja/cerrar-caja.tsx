@@ -5,8 +5,9 @@ import { Button } from "@/components/ui";
 import { Modal } from "@/components/ui/modal";
 import { Input, Label } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { CheckCircle2, Lock, Printer } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Lock, Printer } from "lucide-react";
 import { closeCashSession } from "@/features/sales/cash-session-store";
+import type { CloseChecklist } from "@/features/sales/cash-close-checklist";
 import {
   RD_DENOMINATIONS,
   cashCountTotal,
@@ -30,9 +31,15 @@ import { formatCurrency, formatNumber } from "@/lib/utils/format";
 export function CerrarCajaButton({
   sessionId,
   detail,
+  checklist,
+  webPendientes = 0,
 }: {
   sessionId: string;
   detail: ShiftDetail;
+  /** Qué queda abierto en el turno (borradores, crédito). */
+  checklist: CloseChecklist;
+  /** Pedidos web confirmados sin facturar (del negocio). */
+  webPendientes?: number;
 }) {
   const [open, setOpen] = React.useState(false);
   const [modo, setModo] = React.useState<"denominaciones" | "total">(
@@ -175,6 +182,91 @@ export function CerrarCajaButton({
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Antes de cerrar: qué quedó abierto. Las ventas cobradas ya
+                quedaron finalizadas en el POS al cobrarlas; esto enseña lo
+                que NO, para resolverlo o cerrarlo a conciencia. Informa,
+                nunca bloquea: la decisión es del cajero. */}
+            <div className="space-y-2">
+              {checklist.allSettled && webPendientes === 0 ? (
+                <div className="flex items-start gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                  <CheckCircle2
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700"
+                  />
+                  <span>
+                    {checklist.settled === 0
+                      ? "Turno sin ventas. Nada quedó abierto."
+                      : `Las ${checklist.settled} venta${checklist.settled === 1 ? "" : "s"} del turno están cobradas y finalizadas. Nada quedó abierto.`}
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {checklist.drafts > 0 ? (
+                    <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <AlertTriangle
+                        aria-hidden
+                        className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                      />
+                      <span>
+                        {checklist.drafts} venta
+                        {checklist.drafts === 1 ? "" : "s"} en borrador por{" "}
+                        {formatCurrency(checklist.draftsTotal)}. Revísalas en{" "}
+                        <a
+                          href="/ventas"
+                          className="font-semibold underline underline-offset-2"
+                        >
+                          Ventas
+                        </a>{" "}
+                        antes de cerrar: a esta hora suelen ser un olvido.
+                      </span>
+                    </div>
+                  ) : null}
+                  {checklist.credit > 0 ? (
+                    <div className="flex items-start gap-2 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                      <Info
+                        aria-hidden
+                        className="mt-0.5 h-4 w-4 shrink-0 text-sky-700"
+                      />
+                      <span>
+                        {checklist.credit} venta
+                        {checklist.credit === 1 ? "" : "s"} a crédito con{" "}
+                        {formatCurrency(checklist.creditTotal)} por cobrar:
+                        quedan en{" "}
+                        <a
+                          href="/cuentas-por-cobrar"
+                          className="font-semibold underline underline-offset-2"
+                        >
+                          Cuentas por Cobrar
+                        </a>
+                        . Es normal; no impiden cerrar.
+                      </span>
+                    </div>
+                  ) : null}
+                  {webPendientes > 0 ? (
+                    <div className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <AlertTriangle
+                        aria-hidden
+                        className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                      />
+                      <span>
+                        {webPendientes} pedido{webPendientes === 1 ? "" : "s"}{" "}
+                        web confirmado{webPendientes === 1 ? "" : "s"} sin
+                        facturar en{" "}
+                        <a
+                          href="/pedidos-web"
+                          className="font-semibold underline underline-offset-2"
+                        >
+                          Pedidos web
+                        </a>
+                        . Factúralo{webPendientes === 1 ? "" : "s"} hoy o quedan
+                        para mañana.
+                      </span>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+
             {/* Lo que el sistema espera, con la cuenta a la vista. */}
             <div className="space-y-1.5 rounded-xl bg-black/[0.03] p-4">
               {filaResumen("Apertura", detail.openingAmount)}

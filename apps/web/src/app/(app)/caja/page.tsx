@@ -21,6 +21,8 @@ import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
 import { env } from "@/lib/env";
 import { computeShiftDetail } from "@/features/sales/cash-session-detail";
+import { closeChecklist } from "@/features/sales/cash-close-checklist";
+import { countWebOrdersToInvoice } from "@/server/services/storefront/orders";
 import { ShiftDetailView } from "@/features/sales/components/shift-detail";
 import { AbrirCajaButton } from "./caja-actions";
 import { CerrarCajaButton } from "./cerrar-caja";
@@ -110,6 +112,26 @@ export default async function CajaPage() {
     ? computeShiftDetail(current, proformas, movements, branchName)
     : null;
 
+  // Qué queda abierto antes de cerrar: borradores y crédito del turno, más
+  // los pedidos web confirmados sin facturar (del negocio, no del turno). Si
+  // el conteo falla, 0: el checklist informa, no puede tumbar la caja.
+  const checklist = closeChecklist(
+    proformas.map((p) => ({
+      status: p.status,
+      total: p.total,
+      balance: p.balance,
+    })),
+  );
+  let webPendientes = 0;
+  if (current && env.DATA_SOURCE === "supabase") {
+    try {
+      const ctx = await getRepoContext();
+      webPendientes = await countWebOrdersToInvoice(ctx.businessId);
+    } catch {
+      webPendientes = 0;
+    }
+  }
+
   if (!current) {
     return (
       <>
@@ -146,7 +168,12 @@ export default async function CajaPage() {
               </Button>
             </Link>
             {shiftDetail ? (
-              <CerrarCajaButton sessionId={current.id} detail={shiftDetail} />
+              <CerrarCajaButton
+                sessionId={current.id}
+                detail={shiftDetail}
+                checklist={checklist}
+                webPendientes={webPendientes}
+              />
             ) : null}
           </>
         }
