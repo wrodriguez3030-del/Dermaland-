@@ -328,6 +328,7 @@ export type Database = {
           shipping_cost: number
           payment_provider: string | null
           payment_reference: string | null
+          azul_payment_link_url: string | null
           paid_at: string | null
           created_at: string
           updated_at: string
@@ -363,6 +364,7 @@ export type Database = {
           shipping_cost?: number
           payment_provider?: string | null
           payment_reference?: string | null
+          azul_payment_link_url?: string | null
           paid_at?: string | null
           created_at?: string
           updated_at?: string
@@ -371,6 +373,7 @@ export type Database = {
           status?: string
           payment_status?: string
           payment_method?: string
+          azul_payment_link_url?: string | null
           paid_at?: string | null
           proforma_id?: string | null
           cancel_reason?: string | null
