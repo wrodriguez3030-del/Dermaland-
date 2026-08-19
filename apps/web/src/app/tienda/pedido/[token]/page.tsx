@@ -11,6 +11,7 @@ import {
   listActiveBankAccounts,
   listOrderReceipts,
 } from "@/server/services/storefront/transfer-payments";
+import { AzulPayBox } from "@/features/storefront/components/azul-pay-box";
 import { ReceiptUpload } from "@/features/storefront/components/receipt-upload";
 import { formatAccountNumber } from "@/features/storefront/payments/receipt";
 import { verifyDocumentShareToken } from "@/server/services/sales/share-token";
@@ -50,15 +51,18 @@ export default async function PedidoPage({
 
   const cancelado = pedido.status === "cancelado";
 
-  // Solo hace falta consultar cuentas y comprobantes si el cliente eligió
-  // transferencia; para el resto, la página no cuesta un viaje más.
-  const claims =
-    pedido.paymentMethod === "transferencia"
-      ? verifyDocumentShareToken(token)
-      : null;
+  // Transferencia y tarjeta comparten el comprobante; las cuentas bancarias
+  // solo hacen falta para la transferencia. Para el resto (efectivo), la
+  // página no cuesta un viaje más.
+  const pagaAparte =
+    pedido.paymentMethod === "transferencia" ||
+    pedido.paymentMethod === "tarjeta";
+  const claims = pagaAparte ? verifyDocumentShareToken(token) : null;
   const [cuentas, comprobantes] = claims
     ? await Promise.all([
-        listActiveBankAccounts(claims.businessId),
+        pedido.paymentMethod === "transferencia"
+          ? listActiveBankAccounts(claims.businessId)
+          : Promise.resolve([]),
         listOrderReceipts(claims.businessId, claims.id),
       ])
     : [[], []];
@@ -215,6 +219,46 @@ export default async function PedidoPage({
                 <ReceiptUpload token={token} yaSubido={comprobantes.length > 0} />
               </div>
             </>
+          )}
+        </section>
+      ) : null}
+
+      {pedido.paymentMethod === "tarjeta" && !cancelado ? (
+        <section className="mt-8 rounded-2xl border border-black/5 bg-white p-5">
+          <h2 className="text-lg font-semibold text-[color:var(--brand-fg)]">
+            {pedido.paymentStatus === "pagado"
+              ? "Pago confirmado"
+              : "Paga con tarjeta"}
+          </h2>
+
+          {pedido.paymentStatus === "pagado" ? (
+            <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
+              Confirmamos tu pago. Ya estamos preparando el pedido.
+            </p>
+          ) : tenant.azulPaymentLinkUrl ? (
+            <>
+              <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
+                Pagas en la página segura de Azul y subes el comprobante aquí
+                mismo. Confirmamos tu pago y preparamos el pedido.
+              </p>
+
+              <AzulPayBox
+                url={tenant.azulPaymentLinkUrl}
+                amountLabel={formatCurrency(pedido.total)}
+                amountRaw={pedido.total.toFixed(2)}
+                orderNumber={pedido.number}
+              />
+
+              <div className="mt-5">
+                <ReceiptUpload token={token} yaSubido={comprobantes.length > 0} />
+              </div>
+            </>
+          ) : (
+            // El admin quitó el enlace después de crearse este pedido: mejor
+            // un aviso honesto que un botón muerto.
+            <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
+              Te contactamos para coordinar el pago.
+            </p>
           )}
         </section>
       ) : null}
