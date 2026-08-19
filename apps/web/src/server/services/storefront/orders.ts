@@ -10,6 +10,10 @@ import {
   webOrderStatusLabel,
   type WebOrderStatus,
 } from "@/features/storefront/orders/status";
+import {
+  canSetAzulLink,
+  normalizeAzulPaymentLink,
+} from "@/features/storefront/azul-link";
 import { provinceName } from "@/features/storefront/shipping/provinces";
 import { slugify } from "@/features/storefront/slug";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -459,7 +463,7 @@ export async function getWebOrderForBusiness(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, delivery_lat, delivery_lng, shipping_cost, payment_method, payment_status, proforma_id",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, delivery_lat, delivery_lng, shipping_cost, payment_method, payment_status, azul_payment_link_url, proforma_id",
     )
     .eq("id", id)
     .eq("business_id", businessId)
@@ -503,6 +507,7 @@ export async function getWebOrderForBusiness(
         : pedido.payment_status === "reembolsado"
           ? "reembolsado"
           : "pendiente",
+    azulPaymentLinkUrl: pedido.azul_payment_link_url ?? undefined,
     contactName: pedido.contact_name,
     contactPhone: pedido.contact_phone,
     contactEmail: pedido.contact_email ?? undefined,
@@ -516,6 +521,66 @@ export async function getWebOrderForBusiness(
     })),
     notes: pedido.notes ?? undefined,
     createdAt: pedido.created_at,
+  };
+}
+
+/**
+ * Guarda (o borra: vacío = quitar) el enlace de Azul DE ESTE PEDIDO.
+ *
+ * El Link de Pagos se genera en la App AZUL con el monto fijado al crearlo,
+ * así que cada pedido necesita el suyo. La regla de quién lo admite y el
+ * dominio del enlace se validan AQUÍ, no solo en la pantalla.
+ */
+export async function setWebOrderAzulLink(
+  businessId: string,
+  id: string,
+  urlEscrita: string,
+): Promise<
+  | { ok: true; url: string | null; number: string; contactEmail?: string }
+  | { ok: false; error: string }
+> {
+  const admin = createServiceRoleClient();
+  if (!admin) return { ok: false, error: "No disponible." };
+
+  const normalizado = normalizeAzulPaymentLink(urlEscrita);
+  if (!normalizado.ok) return { ok: false, error: normalizado.error };
+
+  const { data: pedido } = await admin
+    .from("web_orders")
+    .select("id, number, status, payment_method, payment_status, contact_email")
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .maybeSingle();
+  if (!pedido) return { ok: false, error: "Pedido no encontrado." };
+
+  const regla = canSetAzulLink({
+    paymentMethod:
+      pedido.payment_method === "transferencia" ||
+      pedido.payment_method === "tarjeta"
+        ? pedido.payment_method
+        : "efectivo",
+    paymentStatus:
+      pedido.payment_status === "pagado"
+        ? "pagado"
+        : pedido.payment_status === "reembolsado"
+          ? "reembolsado"
+          : "pendiente",
+    status: pedido.status,
+  });
+  if (!regla.ok) return regla;
+
+  const { error } = await admin
+    .from("web_orders")
+    .update({ azul_payment_link_url: normalizado.url })
+    .eq("id", id)
+    .eq("business_id", businessId);
+  if (error) return { ok: false, error: "No se pudo guardar el enlace." };
+
+  return {
+    ok: true,
+    url: normalizado.url,
+    number: pedido.number,
+    contactEmail: pedido.contact_email ?? undefined,
   };
 }
 
@@ -1016,7 +1081,7 @@ export async function findWebOrderByToken(
   const { data: pedido } = await admin
     .from("web_orders")
     .select(
-      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, delivery_lat, delivery_lng, shipping_cost, payment_method, payment_status",
+      "id, number, status, contact_name, contact_phone, contact_email, total, notes, created_at, branch_id, fulfillment, delivery_province, delivery_sector, delivery_address, delivery_reference, delivery_lat, delivery_lng, shipping_cost, payment_method, payment_status, azul_payment_link_url",
     )
     .eq("id", claims.id)
     .eq("business_id", claims.businessId)
@@ -1067,6 +1132,7 @@ export async function findWebOrderByToken(
         : pedido.payment_status === "reembolsado"
           ? "reembolsado"
           : "pendiente",
+    azulPaymentLinkUrl: pedido.azul_payment_link_url ?? undefined,
     contactName: pedido.contact_name,
     contactPhone: pedido.contact_phone,
     contactEmail: pedido.contact_email ?? undefined,

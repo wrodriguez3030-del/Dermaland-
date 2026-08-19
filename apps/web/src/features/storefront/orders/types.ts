@@ -38,6 +38,11 @@ export interface WebOrder {
   shippingCost: number;
   paymentMethod: "efectivo" | "transferencia" | "tarjeta";
   paymentStatus: "pendiente" | "pagado" | "reembolsado";
+  /**
+   * Enlace de Link de Pagos de Azul generado PARA ESTE PEDIDO, con su monto.
+   * Solo en pedidos de tarjeta; hasta que el negocio lo pegue, no hay enlace.
+   */
+  azulPaymentLinkUrl?: string;
   contactName: string;
   contactPhone: string;
   contactEmail?: string;
