@@ -1096,6 +1096,7 @@ export const cashRegisterRepository: CashRegisterRepository = {
         status: "closed",
         closed_at: new Date().toISOString(),
         closed_by: ctx.userId ?? null,
+        closed_by_name: ctx.userName ?? null,
         counted_cash: countedCash,
         difference_amount: difference,
         updated_at: new Date().toISOString(),

@@ -10,6 +10,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.139.0] - 2026-08-19
+
+### Agregado
+
+- **El ticket del cierre dice la fecha y QUIÉN cerró:** "Fecha del cierre" y
+  "Cerrada por" en negrita. La base ahora guarda el nombre de quien cierra
+  (`cash_register_sessions.closed_by_name`, migración `20260819230000`
+  aplicada a prod, mismo patrón que `opened_by_name`); las sesiones cerradas
+  antes quedan con raya — no se inventa hacia atrás.
+
 ## [0.138.1] - 2026-08-19
 
 ### Cambiado

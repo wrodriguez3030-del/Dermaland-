@@ -534,6 +534,7 @@ export function cashSessionRowToTs(
     cashierName: row.opened_by_name,
     openedAt: row.opened_at,
     closedAt: row.closed_at ?? undefined,
+    closedByName: row.closed_by_name ?? undefined,
     openingAmount: Number(row.opening_amount),
     expectedCash: Number(row.expected_cash),
     countedCash: row.counted_cash == null ? undefined : Number(row.counted_cash),

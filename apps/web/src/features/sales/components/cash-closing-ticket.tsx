@@ -91,9 +91,17 @@ export function CashClosingTicket({
           <span>{formatDateTime(session.openedAt)}</span>
         </div>
         {session.closedAt ? (
-          <div className="flex justify-between gap-2">
-            <span>Cierre</span>
+          <div className="flex justify-between gap-2 font-bold">
+            <span>Fecha del cierre</span>
             <span>{formatDateTime(session.closedAt)}</span>
+          </div>
+        ) : null}
+        {session.closedAt ? (
+          <div className="flex justify-between gap-2 font-bold">
+            <span>Cerrada por</span>
+            {/* Las sesiones cerradas antes de guardarse el nombre quedan con
+                raya: no se inventa hacia atrás. */}
+            <span className="text-right">{session.closedByName ?? "—"}</span>
           </div>
         ) : null}
       </div>

@@ -5,6 +5,12 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Fecha y quién cerró, en el ticket (v0.139.0)
+
+- `closed_by_name` en `cash_register_sessions` (mig `20260819230000` en
+  prod); el repo lo guarda al cerrar y el ticket imprime "Fecha del cierre"
+  y "Cerrada por". Typecheck ✓ · 2880 tests ✓ · build ✓.
+
 ## 2026-08-19 · Logo en el ticket del cierre (v0.138.1)
 
 - `CashClosingTicket` lleva el logo del negocio (el mismo del ticket de

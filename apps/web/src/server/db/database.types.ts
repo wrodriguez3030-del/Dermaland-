@@ -864,6 +864,7 @@ export type Database = {
           cash_register_id: string
           closed_at: string | null
           closed_by: string | null
+          closed_by_name: string | null
           counted_cash: number | null
           created_at: string
           difference_amount: number | null
@@ -885,6 +886,7 @@ export type Database = {
           cash_register_id: string
           closed_at?: string | null
           closed_by?: string | null
+          closed_by_name?: string | null
           counted_cash?: number | null
           created_at?: string
           difference_amount?: number | null
@@ -906,6 +908,7 @@ export type Database = {
           cash_register_id?: string
           closed_at?: string | null
           closed_by?: string | null
+          closed_by_name?: string | null
           counted_cash?: number | null
           created_at?: string
           difference_amount?: number | null

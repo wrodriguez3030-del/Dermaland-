@@ -594,6 +594,8 @@ export interface CashRegisterSession extends Audited, BranchScoped {
   cashierName: string;
   openedAt: string;
   closedAt?: string;
+  /** Quién cerró la caja, con nombre: el ticket del cierre lo imprime. */
+  closedByName?: string;
   openingAmount: number;
   expectedCash: number;
   countedCash?: number;
