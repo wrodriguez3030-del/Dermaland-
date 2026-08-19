@@ -5,6 +5,17 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Aviso de pago por WhatsApp y correo (v0.133.0)
+
+- En el detalle del pedido de tarjeta, con el enlace ya pegado, bloque
+  **"Avisar al cliente"**: *Enviar por WhatsApp* (`wa.me` al número del
+  pedido, mensaje puro probado en
+  `features/storefront/order-payment-share.ts`) y *Enviar por correo*
+  (`POST /api/pedidos-web/[id]/aviso-pago`, rol + auditoría
+  `web_order.azul_link_notice`). Siempre se comparte la página del pedido
+  (token firmado), nunca el enlace de Azul suelto.
+- Validación: typecheck ✓ · 2868 tests ✓ (4 nuevos) · build ✓.
+
 ## 2026-08-19 · El enlace de Azul es POR PEDIDO (v0.132.0)
 
 - **Descubierto:** el Link de Pagos de Azul lleva el monto **fijado al

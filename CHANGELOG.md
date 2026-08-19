@@ -10,6 +10,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.133.0] - 2026-08-19
+
+**El aviso "ya puedes pagar tu pedido" se manda por WhatsApp o por correo,
+con botones en el detalle del pedido.**
+
+### Agregado
+
+- **"Avisar al cliente"** en la tarjeta "Pago con tarjeta (Azul)" del detalle
+  (solo con el enlace del pedido ya pegado):
+  - **Enviar por WhatsApp:** abre `wa.me` al número del pedido con el mensaje
+    listo (saludo por nombre + el enlace de la página del pedido + "el enlace
+    lleva el monto exacto"). Mensaje y URL en helpers puros probados
+    (`features/storefront/order-payment-share.ts`, 4 pruebas; reutiliza
+    `normalizeWhatsappPhone`, RD → +1).
+  - **Enviar por correo:** reenvía el aviso por el riel Gmail
+    (`POST /api/pedidos-web/[id]/aviso-pago`, sesión + rol). Exige enlace
+    puesto y correo en el pedido; sin correo, el botón se deshabilita y lo
+    dice. Auditoría legible `web_order.azul_link_notice` salga bien o mal.
+- Lo que se comparte es SIEMPRE la página del pedido (token firmado), nunca
+  el enlace de Azul a secas: la página trae el monto para verificar, el botón
+  de pagar y el subidor de comprobante.
+
 ## [0.132.0] - 2026-08-19
 
 **El enlace de Azul es POR PEDIDO: el cliente paga el monto exacto de su

@@ -37,7 +37,13 @@
   el dominio se valida en cliente Y servidor (`normalizeAzulPaymentLink`, solo
   `https://pagos.azul.com.do/...`). Si el pedido tiene correo, al pegar el
   enlace se le avisa ("Tu enlace de pago está listo", riel Gmail; un fallo del
-  correo nunca deshace el guardado).
+  correo nunca deshace el guardado). Con el enlace puesto, el detalle ofrece
+  **"Avisar al cliente"**: *Enviar por WhatsApp* (`wa.me` al número del
+  pedido, mensaje puro en `features/storefront/order-payment-share.ts`) y
+  *Enviar por correo* (reenvío, `POST /api/pedidos-web/[id]/aviso-pago`).
+  Lo que se comparte es SIEMPRE la página del pedido con su token firmado —
+  nunca el enlace de Azul suelto: la página trae el monto para verificar, el
+  botón de pagar y el subidor de comprobante.
 - **Cómo paga el cliente:** en `/tienda/pedido/[token]` ve el total, su número
   de pedido (copiable) y el botón que abre **el enlace de su pedido**
   (`AzulPayBox`); la instrucción es **verificar** que Azul diga exactamente su

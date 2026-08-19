@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, Copy, Loader2, Mail, MessageCircle } from "lucide-react";
 import { Button, HelpText, Input, Label } from "@/components/ui";
 import { normalizeAzulPaymentLink } from "../../azul-link";
+import { buildOrderPaymentWhatsappUrl } from "../../order-payment-share";
 
 /**
  * Pegar el enlace de Azul DE ESTE PEDIDO, en el detalle del ERP.
@@ -19,6 +20,12 @@ export function OrderAzulLinkForm({
   amountRaw,
   amountLabel,
   currentUrl,
+  orderNumber,
+  orderUrl,
+  siteName,
+  contactName,
+  contactPhone,
+  hasEmail,
 }: {
   orderId: string;
   /** El total como se teclea en la App AZUL: "1250.00". */
@@ -27,6 +34,16 @@ export function OrderAzulLinkForm({
   amountLabel: string;
   /** Enlace vigente del pedido, si ya se pegó uno. */
   currentUrl?: string;
+  /** Número visible del pedido (WEB-…), para el mensaje. */
+  orderNumber: string;
+  /** URL pública del pedido (token firmado): es lo que se comparte. */
+  orderUrl: string;
+  /** Nombre del comercio, para que el mensaje diga de quién viene. */
+  siteName: string;
+  contactName: string;
+  contactPhone: string;
+  /** Sin correo en el pedido, el botón de correo se explica en vez de fallar. */
+  hasEmail: boolean;
 }) {
   const router = useRouter();
   const [url, setUrl] = React.useState("");
@@ -34,6 +51,9 @@ export function OrderAzulLinkForm({
   const [quitando, setQuitando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [copiado, setCopiado] = React.useState(false);
+  const [enviandoCorreo, setEnviandoCorreo] = React.useState(false);
+  const [correoEnviado, setCorreoEnviado] = React.useState(false);
+  const [errorCorreo, setErrorCorreo] = React.useState<string | null>(null);
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
@@ -75,6 +95,27 @@ export function OrderAzulLinkForm({
     } finally {
       setGuardando(false);
       setQuitando(false);
+    }
+  }
+
+  async function enviarCorreo() {
+    setEnviandoCorreo(true);
+    setErrorCorreo(null);
+    setCorreoEnviado(false);
+    try {
+      const resp = await fetch(`/api/pedidos-web/${orderId}/aviso-pago`, {
+        method: "POST",
+      });
+      if (!resp.ok) {
+        const d = await resp.json().catch(() => null);
+        setErrorCorreo(d?.error ?? "No se pudo enviar el correo.");
+        return;
+      }
+      setCorreoEnviado(true);
+    } catch {
+      setErrorCorreo("No se pudo enviar el correo.");
+    } finally {
+      setEnviandoCorreo(false);
     }
   }
 
@@ -159,6 +200,69 @@ export function OrderAzulLinkForm({
               "Quitar"
             )}
           </Button>
+        </div>
+      ) : null}
+
+      {currentUrl ? (
+        // Avisar solo tiene sentido con enlace puesto: sin él, el cliente
+        // aterrizaría en "estamos preparando tu enlace".
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
+            Avisar al cliente
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <a
+              href={buildOrderPaymentWhatsappUrl({
+                contactPhone,
+                contactName,
+                orderNumber,
+                siteName,
+                url: orderUrl,
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button type="button" variant="outline" size="sm">
+                <MessageCircle aria-hidden className="mr-1.5 h-3.5 w-3.5" />
+                Enviar por WhatsApp
+              </Button>
+            </a>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!hasEmail || enviandoCorreo}
+              onClick={() => void enviarCorreo()}
+            >
+              {enviandoCorreo ? (
+                <Loader2 aria-hidden className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Mail aria-hidden className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Enviar por correo
+            </Button>
+            {correoEnviado ? (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                <Check aria-hidden className="h-3.5 w-3.5" />
+                Correo enviado
+              </span>
+            ) : null}
+          </div>
+          {errorCorreo ? (
+            <p role="alert" className="mt-2 text-sm text-red-700">
+              {errorCorreo}
+            </p>
+          ) : !hasEmail ? (
+            <HelpText>
+              Este pedido no dejó correo: queda WhatsApp (el mensaje va al
+              número del pedido, con el enlace de su página).
+            </HelpText>
+          ) : (
+            <HelpText>
+              Los dos mandan el enlace de la página del pedido, que trae el
+              botón de pagar con el monto exacto.
+            </HelpText>
+          )}
         </div>
       ) : null}
 

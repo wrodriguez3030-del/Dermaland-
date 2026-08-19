@@ -27,6 +27,11 @@ import { listOrderReceipts } from "@/server/services/storefront/transfer-payment
 import { ReceiptReview } from "@/features/storefront/components/receipt-review";
 import { OrderAzulLinkForm } from "@/features/storefront/components/admin/order-azul-link-form";
 import { canSetAzulLink } from "@/features/storefront/azul-link";
+import { signDocumentShareToken } from "@/server/services/sales/share-token";
+import {
+  resolveStorefrontTenant,
+  storefrontBaseUrl,
+} from "@/server/services/storefront/tenant";
 
 /**
  * Detalle de un pedido web.
@@ -418,6 +423,16 @@ export default async function PedidoWebDetallePage({
                   amountRaw={pedido.total.toFixed(2)}
                   amountLabel={formatCurrency(pedido.total)}
                   currentUrl={pedido.azulPaymentLinkUrl}
+                  orderNumber={pedido.number}
+                  // El MISMO enlace que le llega por correo: la página del
+                  // pedido con su token firmado, nunca el número adivinable.
+                  orderUrl={`${storefrontBaseUrl()}/tienda/pedido/${signDocumentShareToken(session.businessId, pedido.id)}`}
+                  siteName={
+                    (await resolveStorefrontTenant())?.siteName ?? "DermaLand"
+                  }
+                  contactName={pedido.contactName}
+                  contactPhone={pedido.contactPhone}
+                  hasEmail={Boolean(pedido.contactEmail)}
                 />
               </div>
             ) : null}
