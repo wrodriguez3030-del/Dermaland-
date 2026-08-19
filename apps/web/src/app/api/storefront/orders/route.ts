@@ -31,7 +31,9 @@ const CuerpoSchema = z.object({
     .max(MAX_LINES),
   fulfillment: z.enum(["pickup", "delivery"]).default("pickup"),
   // El método NO decide si está pagado: eso lo decide un comprobante aceptado.
-  paymentMethod: z.enum(["efectivo", "transferencia"]).default("efectivo"),
+  paymentMethod: z
+    .enum(["efectivo", "transferencia", "tarjeta"])
+    .default("efectivo"),
   // `.nullish()` y no `.optional()`: `FormData.get()` de un campo que no está
   // en el DOM devuelve **null**, y `JSON.stringify` conserva el null (solo
   // omite `undefined`). Una frontera pública tiene que tolerar el null de

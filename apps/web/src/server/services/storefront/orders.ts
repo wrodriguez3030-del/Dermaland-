@@ -51,8 +51,11 @@ export interface CreateWebOrderInput {
   /** `pickup` por defecto: es lo que funcionaba antes de existir el envío. */
   fulfillment?: "pickup" | "delivery";
   branchSlug?: string;
-  /** `efectivo` = paga al recibir o retirar. `transferencia` = sube comprobante. */
-  paymentMethod?: "efectivo" | "transferencia";
+  /**
+   * `efectivo` = paga al recibir o retirar. `transferencia` y `tarjeta` =
+   * paga aparte (banco o enlace de Azul) y sube el comprobante.
+   */
+  paymentMethod?: "efectivo" | "transferencia" | "tarjeta";
   /** Solo cuando es envío. El COSTE lo pone el servidor, nunca el navegador. */
   province?: string;
   sector?: string;
@@ -252,7 +255,10 @@ export async function createWebOrder(
       contact_email: input.contactEmail ?? null,
       fulfillment: esEnvio ? "delivery" : "pickup",
       payment_method:
-        input.paymentMethod === "transferencia" ? "transferencia" : "efectivo",
+        input.paymentMethod === "transferencia" ||
+        input.paymentMethod === "tarjeta"
+          ? input.paymentMethod
+          : "efectivo",
       delivery_province: direccion?.ok ? direccion.value.province : null,
       delivery_sector: direccion?.ok ? direccion.value.sector : null,
       delivery_address: direccion?.ok ? direccion.value.address : null,
