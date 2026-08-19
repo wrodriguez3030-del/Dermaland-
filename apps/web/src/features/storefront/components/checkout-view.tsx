@@ -12,6 +12,11 @@ import { formatCurrency } from "@/lib/utils/format";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
 import type { CartSummary } from "../cart";
 import { initialFulfillment } from "../checkout-fulfillment";
+import {
+  missingCheckoutFields,
+  type CheckoutFieldId,
+  type MissingField,
+} from "../checkout-missing-fields";
 import type { DeliverableProvince } from "../shipping/quote";
 import { formatAccountNumber } from "../payments/receipt";
 
@@ -110,6 +115,9 @@ export function CheckoutView({
   const [resumen, setResumen] = React.useState<CartSummary | null>(null);
   const [enviando, setEnviando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // Lo que falta por completar, calculado al intentar enviar. El botón NO se
+  // deshabilita en silencio: se pulsa, y esto marca campo por campo qué falta.
+  const [faltantes, setFaltantes] = React.useState<MissingField[]>([]);
   // SIN preselección cuando hay envío configurado.
   //
   // Esto ya causó un pedido mal guardado: el selector arrancaba en "Retiro" y
@@ -280,9 +288,53 @@ export function CheckoutView({
     router.refresh();
   }
 
+  const falta = (id: CheckoutFieldId) => faltantes.find((f) => f.field === id);
+
+  const limpiarFalta = (id: CheckoutFieldId) =>
+    setFaltantes((fs) => fs.filter((f) => f.field !== id));
+
+  function irAlCampo(id: CheckoutFieldId) {
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.focus({ preventScroll: true });
+  }
+
+  /** El borde del campo: el de siempre, o el de "esto es lo que falta". */
+  const bordeCampo = (id: CheckoutFieldId) =>
+    falta(id)
+      ? "border-[color:var(--brand-danger)]"
+      : "border-black/10";
+
+  const mensajeCampo = (id: CheckoutFieldId) =>
+    falta(id) ? (
+      <p
+        id={`error-${id}`}
+        role="alert"
+        className="mt-1 text-xs font-medium text-[color:var(--brand-danger)]"
+      >
+        {falta(id)?.message}
+      </p>
+    ) : null;
+
   async function enviar() {
+    const faltan = missingCheckoutFields({
+      nombre,
+      telefono,
+      entrega,
+      provincia,
+      sector,
+      direccion,
+    });
+    const primero = faltan[0];
+    if (primero) {
+      setFaltantes(faltan);
+      irAlCampo(primero.field);
+      return;
+    }
+    setFaltantes([]);
     if (entrega === null) {
-      setError("Elige si lo retiras en sucursal o te lo llevamos.");
+      // Inalcanzable —`missingCheckoutFields` ya lo pidió—, pero deja el
+      // narrowing de TypeScript igual de claro que antes.
       return;
     }
     if (entrega === "delivery" && envio === null) {
@@ -361,7 +413,14 @@ export function CheckoutView({
   }
 
   return (
-    <form action={enviar} className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    // `noValidate`: la validación nativa del navegador solo señala el primer
+    // campo y con su tooltip; aquí la hace `missingCheckoutFields`, que marca
+    // TODOS los campos y pone un resumen junto al botón.
+    <form
+      action={enviar}
+      noValidate
+      className="grid gap-8 lg:grid-cols-[1fr_20rem]"
+    >
       <div className="space-y-4 rounded-2xl border border-black/5 bg-white p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
           Tus datos
@@ -407,10 +466,16 @@ export function CheckoutView({
             name="contactName"
             required
             value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
+            onChange={(e) => {
+              setNombre(e.target.value);
+              limpiarFalta("contactName");
+            }}
             autoComplete="name"
-            className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+            aria-invalid={falta("contactName") ? true : undefined}
+            aria-describedby={falta("contactName") ? "error-contactName" : undefined}
+            className={`mt-1 min-h-11 w-full rounded-xl border bg-white px-3 text-sm ${bordeCampo("contactName")}`}
           />
+          {mensajeCampo("contactName")}
         </div>
 
         <div>
@@ -428,12 +493,18 @@ export function CheckoutView({
             value={telefono}
             // Misma máscara que el ERP: el cliente escribe dígitos y salen los
             // guiones solos. El servidor acepta también el "+1" que produce.
-            onChange={(e) => setTelefono(formatDominicanPhone(e.target.value))}
+            onChange={(e) => {
+              setTelefono(formatDominicanPhone(e.target.value));
+              limpiarFalta("contactPhone");
+            }}
             placeholder="809-555-0000"
             inputMode="tel"
             autoComplete="tel"
-            className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+            aria-invalid={falta("contactPhone") ? true : undefined}
+            aria-describedby={falta("contactPhone") ? "error-contactPhone" : undefined}
+            className={`mt-1 min-h-11 w-full rounded-xl border bg-white px-3 text-sm ${bordeCampo("contactPhone")}`}
           />
+          {mensajeCampo("contactPhone")}
           <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
             Te llamamos si hace falta coordinar la entrega.
           </p>
@@ -470,7 +541,7 @@ export function CheckoutView({
             provincia: prometer un domicilio al que no se llega es peor que no
             ofrecerlo. */}
         {provinces.length > 0 ? (
-          <fieldset>
+          <fieldset id="fulfillment">
             <legend className="text-sm font-medium text-[color:var(--brand-fg)]">
               ¿Cómo lo recibes?
             </legend>
@@ -494,7 +565,10 @@ export function CheckoutView({
                     name="fulfillment"
                     value={valor}
                     checked={entrega === valor}
-                    onChange={() => setEntrega(valor)}
+                    onChange={() => {
+                      setEntrega(valor);
+                      limpiarFalta("fulfillment");
+                    }}
                     className="mt-0.5 h-4 w-4 cursor-pointer"
                   />
                   <span>
@@ -508,6 +582,7 @@ export function CheckoutView({
                 </label>
               ))}
             </div>
+            {mensajeCampo("fulfillment")}
           </fieldset>
         ) : null}
 
@@ -640,8 +715,13 @@ export function CheckoutView({
                 name="province"
                 required
                 value={provincia}
-                onChange={(e) => setProvincia(e.target.value)}
-                className="mt-1 min-h-11 w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 text-sm"
+                onChange={(e) => {
+                  setProvincia(e.target.value);
+                  limpiarFalta("province");
+                }}
+                aria-invalid={falta("province") ? true : undefined}
+                aria-describedby={falta("province") ? "error-province" : undefined}
+                className={`mt-1 min-h-11 w-full cursor-pointer rounded-xl border bg-white px-3 text-sm ${bordeCampo("province")}`}
               >
                 <option value="">Elige tu provincia…</option>
                 {provinces.map((p) => (
@@ -650,6 +730,7 @@ export function CheckoutView({
                   </option>
                 ))}
               </select>
+              {mensajeCampo("province")}
               <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
                 El costo del envío depende de la provincia.
               </p>
@@ -667,11 +748,17 @@ export function CheckoutView({
                 name="sector"
                 required
                 value={sector}
-                onChange={(e) => setSector(e.target.value)}
+                onChange={(e) => {
+                  setSector(e.target.value);
+                  limpiarFalta("sector");
+                }}
                 maxLength={120}
                 placeholder="Ej.: Los Jardines, Cerros de Gurabo…"
-                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+                aria-invalid={falta("sector") ? true : undefined}
+                aria-describedby={falta("sector") ? "error-sector" : undefined}
+                className={`mt-1 min-h-11 w-full rounded-xl border bg-white px-3 text-sm ${bordeCampo("sector")}`}
               />
+              {mensajeCampo("sector")}
             </div>
 
             <div>
@@ -686,12 +773,18 @@ export function CheckoutView({
                 name="address"
                 required
                 value={direccion}
-                onChange={(e) => setDireccion(e.target.value)}
+                onChange={(e) => {
+                  setDireccion(e.target.value);
+                  limpiarFalta("address");
+                }}
                 maxLength={300}
                 autoComplete="street-address"
                 placeholder="Calle, número, edificio, apartamento"
-                className="mt-1 min-h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm"
+                aria-invalid={falta("address") ? true : undefined}
+                aria-describedby={falta("address") ? "error-address" : undefined}
+                className={`mt-1 min-h-11 w-full rounded-xl border bg-white px-3 text-sm ${bordeCampo("address")}`}
               />
+              {mensajeCampo("address")}
             </div>
 
             <div>
@@ -879,19 +972,31 @@ export function CheckoutView({
         {/* Un botón muerto sin explicación es lo peor que puede pasarle a quien
             intenta comprar: pulsa y no ocurre nada. En móvil este panel va
             DEBAJO del formulario, así que el motivo tiene que estar aquí. */}
-        {entrega === null ? (
-          <p className="mt-4 rounded-xl bg-[color:var(--brand-warn)]/10 px-3 py-2 text-sm text-[color:var(--brand-fg)]/80">
-            Elige cómo lo recibes para poder continuar.
-          </p>
-        ) : entrega === "delivery" && envio === null ? (
-          <p className="mt-4 rounded-xl bg-[color:var(--brand-warn)]/10 px-3 py-2 text-sm text-[color:var(--brand-fg)]/80">
-            Elige tu provincia para poder continuar.
-          </p>
+        {faltantes.length > 0 ? (
+          <div
+            role="alert"
+            className="mt-4 rounded-xl bg-[color:var(--brand-danger)]/10 px-4 py-3 text-sm text-[color:var(--brand-fg)]"
+          >
+            <p className="font-semibold">Te falta completar:</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5">
+              {faltantes.map((f) => (
+                <li key={f.field}>
+                  <button
+                    type="button"
+                    onClick={() => irAlCampo(f.field)}
+                    className="cursor-pointer underline underline-offset-2 hover:text-[color:var(--brand-danger)]"
+                  >
+                    {f.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         <button
           type="submit"
-          disabled={enviando || !resumen || entrega === null}
+          disabled={enviando || !resumen}
           className="mt-6 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[color:var(--brand-primary)] px-6 text-base font-semibold text-white hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-50"
         >
           {enviando ? (
