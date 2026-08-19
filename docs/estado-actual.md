@@ -5,6 +5,22 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · B-07 CERRADO DEL TODO: los 14 archivos registrados
+
+- **Autorizado por el dueño** ("finaliza lo pendiente"). Antes de registrar,
+  los 5 INDETERMINADA se verificaron contra los DATOS reales de prod:
+  0016 seed (92 laboratorios ✓), 0017 backfill (1019 productos con lab ✓),
+  0021 rol vendedor (CHECK + default en users.id ✓), 0044 teléfonos (0 sin
+  formato ✓), 0009 init-plan (52 policies con `(select auth_business_id())` ✓).
+- Los 14 se registraron en `supabase_migrations.schema_migrations` con su
+  prefijo de archivo como versión (`0007`…`0044`), statements vacíos (igual
+  que `supabase migration repair`) y `created_by = repair-20260819-b07`.
+- **Re-auditoría: «Archivo sin registro: 0».** Queda 1 caso documentado como
+  cosmético: la fila histórica `transfer_stock_atomic (20260716203746)` es la
+  MISMA función que `0032_transfer_atomic.sql` — el diff verificado es solo
+  comentarios y tildes en mensajes; el `prosrc` de producción coincide byte a
+  byte con la fila histórica. Nada que aplicar.
+
 ## 2026-08-19 · El respaldo diario ESTÁ ACTIVO y en verde (verificado)
 
 - La nota de 2026-08-06 ("el cron diario sigue DESACTIVADO") quedó vieja: el
