@@ -29,10 +29,37 @@ import { resolveStorefrontTenant } from "@/server/services/storefront/tenant";
  * va por buen camino.
  */
 
-export const metadata: Metadata = {
-  title: "Tu pedido",
-  robots: { index: false, follow: false },
-};
+/**
+ * La tarjeta que WhatsApp pinta al compartir el enlace: título con el número
+ * del pedido y el nombre del negocio, descripción que dice qué se puede hacer,
+ * y la imagen de `opengraph-image.tsx` (logo + total). Sin token válido sale
+ * la versión genérica. `noindex` siempre: es una página de un solo cliente.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}): Promise<Metadata> {
+  const { token } = await params;
+  const [tenant, pedido] = await Promise.all([
+    resolveStorefrontTenant(),
+    findWebOrderByToken(token),
+  ]);
+  const siteName = tenant?.siteName ?? "DermaLand";
+  const titulo = pedido ? `Pedido ${pedido.number} — ${siteName}` : "Tu pedido";
+
+  return {
+    title: titulo,
+    robots: { index: false, follow: false },
+    openGraph: {
+      type: "website",
+      siteName,
+      title: titulo,
+      description: "Consulta el estado de tu pedido y págalo en línea.",
+      locale: "es_DO",
+    },
+  };
+}
 
 /** Sin esto saldría como ruta estática en el build (`tienda-en-linea.md` §4.1). */
 export const dynamic = "force-dynamic";

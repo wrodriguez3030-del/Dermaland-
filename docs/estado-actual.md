@@ -5,6 +5,13 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Tarjeta OG del pedido compartido (v0.135.0)
+
+- El enlace `/tienda/pedido/[token]` sale en WhatsApp con tarjeta profesional:
+  logo del negocio (módulo de marca), nombre de la tienda (configuración),
+  número y total del pedido (`opengraph-image.tsx` + `generateMetadata`).
+  Token inválido = tarjeta genérica. Typecheck ✓ · 2868 tests ✓ · build ✓.
+
 ## 2026-08-19 · Barra de seguimiento en el detalle del ERP (v0.134.0)
 
 - "Mover el pedido" enseña el mismo `OrderTimeline` del cliente encima de los

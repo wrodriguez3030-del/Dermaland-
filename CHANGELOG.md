@@ -10,6 +10,20 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.135.0] - 2026-08-19
+
+### Agregado
+
+- **El enlace del pedido se comparte con tarjeta profesional:** al pegar
+  `/tienda/pedido/[token]` en WhatsApp sale la tarjeta Open Graph con el
+  **logo del negocio**, el nombre de la tienda (de la configuración, no una
+  constante), el número del pedido y su total
+  (`tienda/pedido/[token]/opengraph-image.tsx`, mismo patrón que
+  `/factura/[token]`; el trazo sale del módulo de marca
+  `features/brand/logo.ts`). Con token inválido sale la tarjeta genérica del
+  negocio, nunca un error. La página además declara `og:title` con el número
+  del pedido y `og:description`; sigue `noindex` (es de un solo cliente).
+
 ## [0.134.0] - 2026-08-19
 
 ### Agregado
