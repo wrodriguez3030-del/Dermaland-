@@ -239,17 +239,20 @@ export default async function PedidoPage({
             <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
               Confirmamos tu pago. Ya estamos preparando el pedido.
             </p>
-          ) : tenant.azulPaymentLinkUrl ? (
+          ) : pedido.azulPaymentLinkUrl ? (
+            // El enlace es DE ESTE PEDIDO: lo generó el negocio en la App
+            // AZUL con el monto exacto. El del negocio (configuración) ya no
+            // se enseña aquí — nacía con un monto fijo que no era el del
+            // carrito.
             <>
               <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
-                Pagas en la página segura de Azul y subes el comprobante aquí
-                mismo. Confirmamos tu pago y preparamos el pedido.
+                Tu enlace de pago ya lleva el monto exacto. Pagas en la página
+                segura de Azul y subes el comprobante aquí mismo.
               </p>
 
               <AzulPayBox
-                url={tenant.azulPaymentLinkUrl}
+                url={pedido.azulPaymentLinkUrl}
                 amountLabel={formatCurrency(pedido.total)}
-                amountRaw={pedido.total.toFixed(2)}
                 orderNumber={pedido.number}
               />
 
@@ -262,11 +265,24 @@ export default async function PedidoPage({
               </div>
             </>
           ) : (
-            // El admin quitó el enlace después de crearse este pedido: mejor
-            // un aviso honesto que un botón muerto.
-            <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
-              Te contactamos para coordinar el pago.
-            </p>
+            // Todavía no hay enlace para este pedido: mejor decirlo que un
+            // botón muerto. El comprobante se puede subir igual, por si el
+            // pago se coordinó por otra vía.
+            <>
+              <p className="mt-2 text-sm text-[color:var(--brand-fg)]/70">
+                Estamos preparando tu enlace de pago con el monto exacto de tu
+                pedido. Te avisamos cuando esté listo; también puedes volver a
+                esta página en un rato.
+              </p>
+
+              <div className="mt-5">
+                <ReceiptUpload
+                  token={token}
+                  yaSubido={comprobantes.length > 0}
+                  metodo="tarjeta"
+                />
+              </div>
+            </>
           )}
         </section>
       ) : null}

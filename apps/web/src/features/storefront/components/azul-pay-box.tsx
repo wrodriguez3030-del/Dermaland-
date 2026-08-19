@@ -4,29 +4,26 @@ import * as React from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 
 /**
- * La caja con la que el cliente paga por el enlace de Azul.
+ * La caja con la que el cliente paga por el enlace de Azul DE SU PEDIDO.
  *
- * La página de Azul no admite fijar el monto: lo teclea el cliente. Por eso el
- * monto se enseña en grande y se puede copiar TAL CUAL Azul lo espera (cifras,
- * sin "RD$" ni comas de miles), y el número de pedido va como referencia para
- * que el negocio pueda casar el pago con el pedido al revisarlo.
+ * El Link de Pagos se genera con el monto fijado al crearlo, así que el
+ * cliente no teclea nada: verifica que Azul diga exactamente el total de su
+ * pedido y, si no coincide, NO paga y avisa. El número de pedido se puede
+ * copiar por si Azul pide una referencia o concepto.
  */
 export function AzulPayBox({
   url,
   amountLabel,
-  amountRaw,
   orderNumber,
 }: {
-  /** Enlace del comercio en pagos.azul.com.do, ya validado por el servidor. */
+  /** Enlace de Azul de ESTE pedido, ya validado por el servidor. */
   url: string;
   /** El total formateado para leer: "RD$ 1,250.00". */
   amountLabel: string;
-  /** El total como Azul lo espera teclear: "1250.00". */
-  amountRaw: string;
   /** Número visible del pedido (WEB-…), para la referencia del pago. */
   orderNumber: string;
 }) {
-  const [copiado, setCopiado] = React.useState<"monto" | "numero" | null>(null);
+  const [copiado, setCopiado] = React.useState(false);
   const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
@@ -35,72 +32,65 @@ export function AzulPayBox({
     };
   }, []);
 
-  async function copiar(que: "monto" | "numero", texto: string) {
+  async function copiarNumero() {
     try {
-      await navigator.clipboard.writeText(texto);
-      setCopiado(que);
+      await navigator.clipboard.writeText(orderNumber);
+      setCopiado(true);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setCopiado(null), 2000);
+      timeoutRef.current = setTimeout(() => setCopiado(false), 2000);
     } catch {
-      // Sin permiso de portapapeles el cliente copia a mano; el monto y el
-      // número están a la vista, así que no hay nada que avisar.
+      // Sin permiso de portapapeles el cliente copia a mano; el número está a
+      // la vista, así que no hay nada que avisar.
     }
   }
-
-  const filaCopiable = (
-    etiqueta: string,
-    visible: string,
-    que: "monto" | "numero",
-    aCopiar: string,
-  ) => (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/60">
-          {etiqueta}
-        </p>
-        <p className="font-mono text-lg font-semibold text-[color:var(--brand-fg)]">
-          {visible}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => copiar(que, aCopiar)}
-        className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-[color:var(--brand-primary)]/30 px-3 text-xs font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-[color:var(--brand-primary)]/5"
-      >
-        {copiado === que ? (
-          <>
-            <Check aria-hidden className="h-3.5 w-3.5" />
-            Copiado
-          </>
-        ) : (
-          <>
-            <Copy aria-hidden className="h-3.5 w-3.5" />
-            Copiar
-          </>
-        )}
-      </button>
-    </div>
-  );
 
   return (
     <div className="mt-4">
       <div className="space-y-2">
-        {filaCopiable("Monto exacto a pagar", amountLabel, "monto", amountRaw)}
-        {filaCopiable(
-          "Tu número de pedido",
-          orderNumber,
-          "numero",
-          orderNumber,
-        )}
+        <div className="rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/60">
+            Total de tu pedido
+          </p>
+          <p className="font-mono text-lg font-semibold text-[color:var(--brand-fg)]">
+            {amountLabel}
+          </p>
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/60">
+              Tu número de pedido
+            </p>
+            <p className="font-mono text-lg font-semibold text-[color:var(--brand-fg)]">
+              {orderNumber}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={copiarNumero}
+            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-[color:var(--brand-primary)]/30 px-3 text-xs font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-[color:var(--brand-primary)]/5"
+          >
+            {copiado ? (
+              <>
+                <Check aria-hidden className="h-3.5 w-3.5" />
+                Copiado
+              </>
+            ) : (
+              <>
+                <Copy aria-hidden className="h-3.5 w-3.5" />
+                Copiar
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-[color:var(--brand-fg)]/80">
         <li>Abre el enlace seguro de Azul con el botón de abajo.</li>
         <li>
-          Teclea el monto exacto:{" "}
-          <span className="font-semibold">{amountLabel}</span>.
+          Verifica que el monto diga exactamente{" "}
+          <span className="font-semibold">{amountLabel}</span>. Si no coincide,
+          no pagues y escríbenos.
         </li>
-        <li>Pon tu número de pedido como referencia o concepto.</li>
         <li>Sube aquí el comprobante que te da Azul al terminar.</li>
       </ol>
 
