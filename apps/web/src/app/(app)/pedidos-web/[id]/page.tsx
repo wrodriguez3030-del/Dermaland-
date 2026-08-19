@@ -62,8 +62,12 @@ export default async function PedidoWebDetallePage({
     session.isPlatformAdmin ||
     WEB_ORDER_MANAGE_ROLES.includes(session.user.role);
   const puedeVerComprobantes = puedeGestionar;
+  // Transferencia y tarjeta (enlace de Azul) comparten el riel del comprobante.
+  const pagaConComprobante =
+    pedido.paymentMethod === "transferencia" ||
+    pedido.paymentMethod === "tarjeta";
   const comprobantes =
-    pedido.paymentMethod === "transferencia" && puedeVerComprobantes
+    pagaConComprobante && puedeVerComprobantes
       ? await listOrderReceipts(session.businessId, pedido.id, true)
       : [];
 
@@ -209,9 +213,7 @@ export default async function PedidoWebDetallePage({
             </strong>{" "}
             Revisa que haya existencia
             {pedido.fulfillment === "delivery" ? ", la dirección" : ""}
-            {pedido.paymentMethod === "transferencia"
-              ? " y el comprobante de la transferencia"
-              : ""}
+            {pagaConComprobante ? " y el comprobante del pago" : ""}
             , y márcalo como confirmado abajo. Entonces aparece el botón de
             facturar.
           </p>
@@ -386,12 +388,14 @@ export default async function PedidoWebDetallePage({
         </Card>
       ) : null}
 
-      {pedido.paymentMethod === "transferencia" && puedeVerComprobantes ? (
+      {pagaConComprobante && puedeVerComprobantes ? (
         <Card>
           <CardContent>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-[color:var(--brand-fg)]/50">
-                Pago por transferencia
+                {pedido.paymentMethod === "tarjeta"
+                  ? "Pago con tarjeta (Azul)"
+                  : "Pago por transferencia"}
               </h2>
               <Badge tone={pedido.paymentStatus === "pagado" ? "success" : "info"}>
                 {pedido.paymentStatus === "pagado" ? "Pagado" : "Pago pendiente"}

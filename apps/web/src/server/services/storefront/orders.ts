@@ -728,7 +728,7 @@ export interface WebOrderForPos {
    * cobro; el cajero puede cambiarlo, porque quien dijo "transferencia" puede
    * llegar con efectivo.
    */
-  paymentMethod: "efectivo" | "transferencia";
+  paymentMethod: "efectivo" | "transferencia" | "tarjeta";
   /**
    * A dónde va el pedido. Solo en envío. El cajero lo necesita delante para
    * confirmarlo con el cliente y pasárselo al mensajero.
@@ -806,7 +806,10 @@ export async function getWebOrderForPos(
     // buscarla en otra pestaña y el método de pago se elegía a mano, pudiendo
     // no coincidir con lo que el cliente eligió en la web.
     paymentMethod:
-      pedido.payment_method === "transferencia" ? "transferencia" : "efectivo",
+      pedido.payment_method === "transferencia" ||
+      pedido.payment_method === "tarjeta"
+        ? pedido.payment_method
+        : "efectivo",
     deliveryProvince: pedido.delivery_province ?? undefined,
     deliverySector: pedido.delivery_sector ?? undefined,
     deliveryAddress: pedido.delivery_address ?? undefined,

@@ -243,7 +243,7 @@ interface PedidoWebParaPos {
   fulfillment: "pickup" | "delivery";
   shippingCost: number;
   /** Lo que el cliente eligió en la web. El POS lo preselecciona. */
-  paymentMethod: "efectivo" | "transferencia";
+  paymentMethod: "efectivo" | "transferencia" | "tarjeta";
   /** Solo en envío: a dónde va, para que el cajero no lo busque en otra pestaña. */
   deliveryProvince?: string;
   deliverySector?: string;
@@ -1824,7 +1824,9 @@ export function PosTerminal({
           pedidoWeb
             ? pedidoWeb.paymentMethod === "transferencia"
               ? "transfer"
-              : "cash"
+              : pedidoWeb.paymentMethod === "tarjeta"
+                ? "card"
+                : "cash"
             : null
         }
       />
