@@ -22,7 +22,8 @@ import { getRepoContext } from "@/server/auth/context";
 import { env } from "@/lib/env";
 import { computeShiftDetail } from "@/features/sales/cash-session-detail";
 import { ShiftDetailView } from "@/features/sales/components/shift-detail";
-import { AbrirCajaButton, CerrarCajaButton } from "./caja-actions";
+import { AbrirCajaButton } from "./caja-actions";
+import { CerrarCajaButton } from "./cerrar-caja";
 import { CashMovements } from "./cash-movements";
 
 // Usa cookies/sesión (getRepoContext) en modo supabase → render dinámico.
@@ -144,7 +145,9 @@ export default async function CajaPage() {
                 Historial
               </Button>
             </Link>
-            <CerrarCajaButton sessionId={current.id} />
+            {shiftDetail ? (
+              <CerrarCajaButton sessionId={current.id} detail={shiftDetail} />
+            ) : null}
           </>
         }
       />
