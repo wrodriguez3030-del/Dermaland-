@@ -25,6 +25,8 @@ import { OrderFulfillmentEditor } from "@/features/storefront/components/order-f
 import { loadWebAvailability } from "@/server/services/storefront/stock";
 import { listOrderReceipts } from "@/server/services/storefront/transfer-payments";
 import { ReceiptReview } from "@/features/storefront/components/receipt-review";
+import { OrderAzulLinkForm } from "@/features/storefront/components/admin/order-azul-link-form";
+import { canSetAzulLink } from "@/features/storefront/azul-link";
 
 /**
  * Detalle de un pedido web.
@@ -405,6 +407,20 @@ export default async function PedidoWebDetallePage({
               Aceptar un comprobante es lo único que marca este pedido como
               pagado. Comprueba el monto y la fecha antes.
             </p>
+            {/* El Link de Pagos de Azul se genera POR PEDIDO con el monto
+                fijado al crearlo: aquí se pega el de este pedido. Solo cuando
+                la regla lo admite (tarjeta, sin pagar, sin cancelar). */}
+            {pedido.paymentMethod === "tarjeta" &&
+            canSetAzulLink(pedido).ok ? (
+              <div className="mt-4">
+                <OrderAzulLinkForm
+                  orderId={pedido.id}
+                  amountRaw={pedido.total.toFixed(2)}
+                  amountLabel={formatCurrency(pedido.total)}
+                  currentUrl={pedido.azulPaymentLinkUrl}
+                />
+              </div>
+            ) : null}
             <div className="mt-4">
               <ReceiptReview receipts={comprobantes} />
             </div>
