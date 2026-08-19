@@ -10,6 +10,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.135.1] - 2026-08-19
+
+### Cambiado
+
+- **"Tu ubicación (opcional)" destaca en el checkout** (pedido del dueño): la
+  tarjeta pasa de blanco con borde fino a fondo y borde de marca, con icono en
+  círculo y el botón "Usar mi ubicación" relleno del color primario. Antes se
+  perdía entre los campos y casi nadie la usaba. Estados y comportamiento
+  intactos.
+
 ## [0.135.0] - 2026-08-19
 
 ### Agregado

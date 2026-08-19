@@ -630,21 +630,32 @@ export function CheckoutView({
                 un permiso de ubicación que salta solo asusta y se deniega. La
                 dirección escrita sigue siendo obligatoria — el mensajero
                 necesita leerla, no sólo seguir un punto. */}
-            <div className="rounded-xl border border-black/10 bg-white p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-[color:var(--brand-fg)]">
-                    Tu ubicación <span className="font-normal">(opcional)</span>
-                  </p>
-                  <p className="mt-0.5 text-xs opacity-70">
-                    Ayuda al mensajero a llegar sin llamarte.
-                  </p>
+            {/* Destacado a propósito (pedido del dueño, 2026-08-19): fondo y
+                borde de marca + botón relleno. Como tarjeta blanca con botón
+                de contorno se perdía entre los campos y casi nadie lo usaba. */}
+            <div className="rounded-xl border-2 border-[color:var(--brand-primary)]/25 bg-[color:var(--brand-primary)]/5 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    aria-hidden
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--brand-primary)]/10"
+                  >
+                    <MapPin className="h-5 w-5 text-[color:var(--brand-primary)]" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[color:var(--brand-fg)]">
+                      Tu ubicación <span className="font-normal">(opcional)</span>
+                    </p>
+                    <p className="mt-0.5 text-xs text-[color:var(--brand-fg)]/70">
+                      Un toque y el mensajero llega sin llamarte.
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={compartirUbicacion}
                   disabled={ubicacionEstado === "pidiendo"}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[color:var(--brand-primary)]/30 px-4 text-sm font-semibold text-[color:var(--brand-primary)] transition-colors hover:bg-[color:var(--brand-primary)]/5 disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[color:var(--brand-primary)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[color:var(--brand-accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-accent)] focus-visible:ring-offset-2 disabled:opacity-60"
                 >
                   <MapPin aria-hidden className="h-4 w-4" />
                   {ubicacionEstado === "pidiendo"

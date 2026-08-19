@@ -5,6 +5,11 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · "Tu ubicación" destacada en el checkout (v0.135.1)
+
+- La tarjeta de ubicación del checkout ahora lleva fondo/borde de marca,
+  icono en círculo y botón relleno. Typecheck ✓ · 2868 tests ✓ · build ✓.
+
 ## 2026-08-19 · Tarjeta OG del pedido compartido (v0.135.0)
 
 - El enlace `/tienda/pedido/[token]` sale en WhatsApp con tarjeta profesional:
