@@ -61,6 +61,7 @@ export function CheckoutView({
   prefill,
   recognized = false,
   cardPaymentsEnabled = false,
+  azulPaymentLink = null,
   provinces = [],
   bankAccounts = [],
 }: {
@@ -88,6 +89,11 @@ export function CheckoutView({
    * para que un olvido en el llamador no produzca una promesa de cobro.
    */
   cardPaymentsEnabled?: boolean;
+  /**
+   * Enlace de pago de Azul del comercio. `null` = no se ofrece tarjeta: sin
+   * enlace, ofrecerla sería prometer un cobro sin sitio donde pagar.
+   */
+  azulPaymentLink?: string | null;
   /**
    * Provincias a las que SÍ se envía, con su precio. Vacío = solo retiro, y por
    * defecto vacío: sin configurar, no se promete un domicilio.
@@ -123,9 +129,9 @@ export function CheckoutView({
   const [provincia, setProvincia] = React.useState(prefill?.provinceSlug ?? "");
   // Efectivo por defecto: es lo que funcionaba antes de existir la
   // transferencia, y lo que sigue si el negocio no puso ninguna cuenta.
-  const [metodoPago, setMetodoPago] = React.useState<"efectivo" | "transferencia">(
-    "efectivo",
-  );
+  const [metodoPago, setMetodoPago] = React.useState<
+    "efectivo" | "transferencia" | "tarjeta"
+  >("efectivo");
 
   // TODO lo que teclea el cliente vive en estado, no en el DOM.
   //
@@ -709,26 +715,37 @@ export function CheckoutView({
           </>
         )}
 
-        {bankAccounts.length > 0 ? (
+        {bankAccounts.length > 0 || azulPaymentLink ? (
           <fieldset>
             <legend className="text-sm font-medium text-[color:var(--brand-fg)]">
               ¿Cómo pagas?
             </legend>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {(
+              {[
                 [
-                  [
-                    "efectivo",
-                    entrega === "delivery" ? "Al recibirlo" : "Al retirarlo",
-                    "En efectivo",
-                  ],
-                  [
-                    "transferencia",
-                    "Transferencia bancaria",
-                    "Subes el comprobante después",
-                  ],
-                ] as const
-              ).map(([valor, titulo, nota]) => (
+                  "efectivo",
+                  entrega === "delivery" ? "Al recibirlo" : "Al retirarlo",
+                  "En efectivo",
+                ] as const,
+                ...(bankAccounts.length > 0
+                  ? [
+                      [
+                        "transferencia",
+                        "Transferencia bancaria",
+                        "Subes el comprobante después",
+                      ] as const,
+                    ]
+                  : []),
+                ...(azulPaymentLink
+                  ? [
+                      [
+                        "tarjeta",
+                        "Tarjeta (enlace seguro de Azul)",
+                        "Pagas en la página de Azul y subes el comprobante",
+                      ] as const,
+                    ]
+                  : []),
+              ].map(([valor, titulo, nota]) => (
                 <label
                   key={valor}
                   className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${
@@ -784,6 +801,16 @@ export function CheckoutView({
                 <p className="mt-3 text-xs text-[color:var(--brand-fg)]/70">
                   Al enviar el pedido te damos un enlace para subir el
                   comprobante. Preparamos el pedido cuando lo confirmemos.
+                </p>
+              </div>
+            ) : null}
+
+            {metodoPago === "tarjeta" ? (
+              <div className="mt-3 rounded-xl bg-[color:var(--brand-primary)]/5 px-4 py-3">
+                <p className="text-sm text-[color:var(--brand-fg)]/80">
+                  Al enviar el pedido te damos el enlace seguro de Azul con el
+                  total exacto a pagar. Subes el comprobante ahí mismo y
+                  confirmamos tu pago.
                 </p>
               </div>
             ) : null}
@@ -883,7 +910,9 @@ export function CheckoutView({
         <p className="mt-3 text-xs text-[color:var(--brand-fg)]/60">
           {cardPaymentsEnabled
             ? "Después de enviar el pedido podrás pagarlo con tarjeta."
-            : entrega === "delivery"
+            : metodoPago === "tarjeta"
+              ? "Después de enviar el pedido pagas con tarjeta por el enlace seguro de Azul."
+              : entrega === "delivery"
               ? "Te contactamos para coordinar la entrega y pagas al recibirlo."
               : entrega === "pickup"
                 ? "Te contactamos cuando esté listo y pagas al retirarlo."

@@ -46,6 +46,7 @@ export default async function CheckoutPage() {
       <CheckoutView
         branches={tenant.branches}
         cardPaymentsEnabled={paymentsEnabled()}
+        azulPaymentLink={tenant.azulPaymentLinkUrl ?? null}
         provinces={provincias}
         bankAccounts={cuentas}
         prefill={
