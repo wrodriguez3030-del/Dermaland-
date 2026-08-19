@@ -104,8 +104,12 @@ export default function HistorialCajaPage() {
                             icon: Printer,
                             disabled: s.status === "open",
                             disabledReason: "El cierre aún está abierto.",
+                            // El ticket 80mm real del cierre, no la pantalla
+                            // mock de e-CF.
                             href:
-                              s.status !== "open" ? `/caja/cierre/${s.id}` : undefined,
+                              s.status !== "open"
+                                ? `/caja/historial/${s.id}/print`
+                                : undefined,
                           },
                           {
                             label: "Enviar resumen",

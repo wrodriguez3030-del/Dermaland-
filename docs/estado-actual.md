@@ -5,6 +5,16 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Cierre de caja fácil (v0.136.0)
+
+- Asistente de cierre: conteo por denominaciones (total se suma solo),
+  esperado a la vista, diferencia en vivo con color y botón que la nombra;
+  al cerrar ofrece el **ticket 80mm** (`/caja/historial/[id]/print`, también
+  desde el historial). Lógica pura en `features/sales/cash-count.ts`.
+  API sin cambios. Diseño en
+  `docs/superpowers/specs/2026-08-19-cierre-caja-facil-design.md`.
+- Validación: typecheck ✓ · 2874 tests ✓ (6 nuevos) · build ✓.
+
 ## 2026-08-19 · "Tu ubicación" destacada en el checkout (v0.135.1)
 
 - La tarjeta de ubicación del checkout ahora lleva fondo/borde de marca,

@@ -10,6 +10,34 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.136.0] - 2026-08-19
+
+**Cerrar caja al final del día sin calculadora: se cuentan los billetes, el
+total se suma solo, y la diferencia se ve ANTES de confirmar.**
+
+### Agregado
+
+- **Asistente de cierre** (reemplaza al modal de un solo campo):
+  - **Conteo por denominaciones** (billetes 2000–50 y monedas 25–1): el
+    cajero teclea cuántos hay de cada uno y el total se suma solo. Lógica
+    pura probada en `features/sales/cash-count.ts` (6 pruebas). Alternativa
+    "teclear el total" para quien ya contó.
+  - **El esperado a la vista**: apertura + ventas en efectivo + entradas −
+    salidas − devoluciones, con tarjeta/transferencia aparte como
+    información. Llega ya calculado de `computeShiftDetail`; nada se
+    recalcula distinto.
+  - **Diferencia en vivo con color** (verde cuadra / rojo falta / ámbar
+    sobra) y un botón que la nombra: "Cerrar con faltante de RD$X" — nada se
+    esconde. La API `PATCH /api/cash/[id]` no cambió.
+  - Al cerrar, el modal enseña el resultado y ofrece **imprimir el ticket**.
+- **Ticket 80mm del cierre** (`CashClosingTicket` + página
+  `/caja/historial/[id]/print`): sesión, cajero, ventas por método, el
+  desglose del efectivo, esperado/contado/diferencia y líneas de firma
+  (cajero y supervisor). En el historial, "Imprimir cierre" ahora apunta a
+  este ticket real, no a la pantalla demo de e-CF.
+- `Modal` gana `size="lg"` y scroll propio del cuerpo (compatible con todos
+  los modales existentes).
+
 ## [0.135.1] - 2026-08-19
 
 ### Cambiado
