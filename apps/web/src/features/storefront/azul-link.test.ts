@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAzulPaymentLink } from "./azul-link";
+import { canSetAzulLink, normalizeAzulPaymentLink } from "./azul-link";
 
 describe("normalizeAzulPaymentLink", () => {
   it("acepta el enlace del comercio y lo devuelve normalizado", () => {
@@ -36,5 +36,48 @@ describe("normalizeAzulPaymentLink", () => {
     ]) {
       expect(normalizeAzulPaymentLink(malo).ok, malo).toBe(false);
     }
+  });
+});
+
+describe("canSetAzulLink", () => {
+  const base = {
+    paymentMethod: "tarjeta",
+    paymentStatus: "pendiente",
+    status: "recibido",
+  } as const;
+
+  it("un pedido de tarjeta, sin pagar y vivo, admite enlace", () => {
+    expect(canSetAzulLink(base)).toEqual({ ok: true });
+    expect(canSetAzulLink({ ...base, status: "preparando" })).toEqual({
+      ok: true,
+    });
+  });
+
+  it("efectivo o transferencia no llevan enlace de Azul", () => {
+    expect(canSetAzulLink({ ...base, paymentMethod: "efectivo" })).toEqual({
+      ok: false,
+      error: "Este pedido no se paga con tarjeta.",
+    });
+    expect(
+      canSetAzulLink({ ...base, paymentMethod: "transferencia" }),
+    ).toEqual({ ok: false, error: "Este pedido no se paga con tarjeta." });
+  });
+
+  it("pagado o reembolsado ya no se cobra", () => {
+    expect(canSetAzulLink({ ...base, paymentStatus: "pagado" })).toEqual({
+      ok: false,
+      error: "Este pedido ya está pagado.",
+    });
+    expect(canSetAzulLink({ ...base, paymentStatus: "reembolsado" })).toEqual({
+      ok: false,
+      error: "Este pedido fue reembolsado.",
+    });
+  });
+
+  it("cancelado no se cobra", () => {
+    expect(canSetAzulLink({ ...base, status: "cancelado" })).toEqual({
+      ok: false,
+      error: "Este pedido está cancelado.",
+    });
   });
 });

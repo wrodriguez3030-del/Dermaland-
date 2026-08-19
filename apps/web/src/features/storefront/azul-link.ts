@@ -32,3 +32,31 @@ export function normalizeAzulPaymentLink(input: string): AzulLinkResult {
   if (url.protocol !== "https:" || url.hostname !== AZUL_HOST) return RECHAZO;
   return { ok: true, url: url.toString() };
 }
+
+// El Link de Pagos de Azul se genera POR PEDIDO con el monto fijado al
+// crearlo (no hay parámetro de URL para el monto). Esta regla dice qué pedido
+// admite que se le ponga —o quite— ese enlace.
+
+export interface AzulLinkOrderState {
+  paymentMethod: "efectivo" | "transferencia" | "tarjeta";
+  paymentStatus: "pendiente" | "pagado" | "reembolsado";
+  status: string;
+}
+
+export function canSetAzulLink(
+  pedido: AzulLinkOrderState,
+): { ok: true } | { ok: false; error: string } {
+  if (pedido.paymentMethod !== "tarjeta") {
+    return { ok: false, error: "Este pedido no se paga con tarjeta." };
+  }
+  if (pedido.paymentStatus === "pagado") {
+    return { ok: false, error: "Este pedido ya está pagado." };
+  }
+  if (pedido.paymentStatus === "reembolsado") {
+    return { ok: false, error: "Este pedido fue reembolsado." };
+  }
+  if (pedido.status === "cancelado") {
+    return { ok: false, error: "Este pedido está cancelado." };
+  }
+  return { ok: true };
+}
