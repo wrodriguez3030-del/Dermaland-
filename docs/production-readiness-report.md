@@ -7,6 +7,12 @@ Vercel `dermaland`.
 Auditoría basada en evidencia real (BD de producción vía MCP, código, migraciones,
 pruebas ejecutadas), no en "compila y abre".
 
+> **Actualización 2026-08-19:** el cron diario de respaldos (B-01) **ya está
+> ACTIVO y en verde** — `backup.yml` endurecido en `main`, workflow `active`,
+> corridas `schedule` en `success` al menos desde el 2026-08-12 (verificado
+> con `gh run list`). Las menciones de abajo a "el cron sigue desactivado"
+> quedaron viejas.
+>
 > **Actualización 2026-08-06 (cierre de B-01, B-07 y B-04):** los §3 y §11 de abajo
 > reflejan el resultado real y verificado del cierre — el resto del documento (§1, §2,
 > §4-§10, §12) sigue fechado 2026-07-12 y no se reescribió entero en esta pasada.

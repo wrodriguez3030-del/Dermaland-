@@ -5,6 +5,15 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · El respaldo diario ESTÁ ACTIVO y en verde (verificado)
+
+- La nota de 2026-08-06 ("el cron diario sigue DESACTIVADO") quedó vieja: el
+  `backup.yml` endurecido (pg_dump 17 vía PGDG) está en `main`, el workflow
+  figura **active** y las corridas diarias de `schedule` llevan al menos 8
+  días seguidos en **success** (última: 2026-08-19 07:27 UTC, 1m19s).
+  B-01 queda operativo de punta a punta: respaldo diario cifrado + drill de
+  restauración PASADO (`docs/dr-drill-20260805.md`).
+
 ## 2026-08-19 · Fecha y quién cerró, en el ticket (v0.139.0)
 
 - `closed_by_name` en `cash_register_sessions` (mig `20260819230000` en
