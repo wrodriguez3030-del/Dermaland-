@@ -10,6 +10,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.131.1] - 2026-08-19
+
+### Corregido
+
+- **Tienda:** en un pedido pagado con tarjeta (enlace de Azul), el subidor
+  decía "Comprobante de la transferencia" y pedía "el PDF del banco".
+  `ReceiptUpload` ahora recibe el método de pago: con tarjeta dice
+  "Comprobante del pago" y pide la captura de la confirmación de Azul; la
+  transferencia queda igual.
+
 ## [0.131.0] - 2026-08-19
 
 **La tienda cobra con tarjeta por el enlace de pago de Azul, y el checkout

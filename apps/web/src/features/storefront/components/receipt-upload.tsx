@@ -6,7 +6,8 @@ import { CheckCircle2, Loader2, Upload } from "lucide-react";
 import { MAX_RECEIPT_BYTES } from "../payments/receipt";
 
 /**
- * Subir el comprobante de la transferencia, desde la página del pedido.
+ * Subir el comprobante del pago (transferencia o tarjeta por el enlace de
+ * Azul), desde la página del pedido.
  *
  * El archivo va al SERVIDOR y no al bucket directamente: subir desde el
  * navegador exigiría darle al cliente una credencial de escritura, y ahí dentro
@@ -18,10 +19,13 @@ import { MAX_RECEIPT_BYTES } from "../payments/receipt";
 export function ReceiptUpload({
   token,
   yaSubido,
+  metodo,
 }: {
   token: string;
   /** Si ya mandó uno, se le dice; puede mandar otro si se equivocó. */
   yaSubido: boolean;
+  /** Con tarjeta el comprobante es del pago en Azul, no de una transferencia. */
+  metodo: "transferencia" | "tarjeta";
 }) {
   const router = useRouter();
   const [subiendo, setSubiendo] = React.useState(false);
@@ -88,7 +92,9 @@ export function ReceiptUpload({
           htmlFor="comprobante"
           className="text-sm font-medium text-[color:var(--brand-fg)]"
         >
-          Comprobante de la transferencia
+          {metodo === "tarjeta"
+            ? "Comprobante del pago"
+            : "Comprobante de la transferencia"}
         </label>
         <input
           id="comprobante"
@@ -102,7 +108,9 @@ export function ReceiptUpload({
           className="mt-1 block w-full cursor-pointer rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-[color:var(--brand-primary)]/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[color:var(--brand-primary)]"
         />
         <p className="mt-1 text-xs text-[color:var(--brand-fg)]/50">
-          Una foto o el PDF del banco. Máximo 5 MB.
+          {metodo === "tarjeta"
+            ? "Una captura o foto de la confirmación del pago en Azul. Máximo 5 MB."
+            : "Una foto o el PDF del banco. Máximo 5 MB."}
         </p>
       </div>
 

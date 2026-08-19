@@ -216,7 +216,11 @@ export default async function PedidoPage({
               </ul>
 
               <div className="mt-5">
-                <ReceiptUpload token={token} yaSubido={comprobantes.length > 0} />
+                <ReceiptUpload
+                  token={token}
+                  yaSubido={comprobantes.length > 0}
+                  metodo="transferencia"
+                />
               </div>
             </>
           )}
@@ -250,7 +254,11 @@ export default async function PedidoPage({
               />
 
               <div className="mt-5">
-                <ReceiptUpload token={token} yaSubido={comprobantes.length > 0} />
+                <ReceiptUpload
+                  token={token}
+                  yaSubido={comprobantes.length > 0}
+                  metodo="tarjeta"
+                />
               </div>
             </>
           ) : (

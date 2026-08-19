@@ -5,6 +5,13 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · Comprobante con el texto de su método (v0.131.1)
+
+- En el pedido pagado con tarjeta, el subidor decía "Comprobante de la
+  transferencia". `ReceiptUpload` ahora recibe `metodo` y con tarjeta dice
+  "Comprobante del pago" (captura de la confirmación de Azul). Typecheck ✓ ·
+  2860 tests ✓ · build ✓.
+
 ## 2026-08-19 · Pago con enlace de Azul + checkout claro (v0.131.0)
 
 - **Tarjeta por enlace de pago de Azul** en la tienda: el enlace del comercio
