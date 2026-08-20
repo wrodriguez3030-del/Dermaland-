@@ -7,11 +7,20 @@ Vercel `dermaland`.
 Auditoría basada en evidencia real (BD de producción vía MCP, código, migraciones,
 pruebas ejecutadas), no en "compila y abre".
 
-> **Actualización 2026-08-19:** el cron diario de respaldos (B-01) **ya está
-> ACTIVO y en verde** — `backup.yml` endurecido en `main`, workflow `active`,
-> corridas `schedule` en `success` al menos desde el 2026-08-12 (verificado
-> con `gh run list`). Las menciones de abajo a "el cron sigue desactivado"
-> quedaron viejas.
+> **Actualización 2026-08-19 (noche) — TODOS los bloqueadores B-01…B-07
+> CERRADOS:** (1) **B-04 cerrado del todo**: el enforcement de 2FA ya estaba
+> fusionado y desplegado; el dueño enroló su 2FA y el **drill de break-glass
+> se ejecutó contra su cuenta real con él presente** (factor retirado con
+> auditoría → entrada con contraseña → re-enrolamiento forzado → factor
+> `verified` comprobado). (2) **B-07 cerrado del todo**: los 14 archivos «sin
+> registro» quedaron registrados (los 5 INDETERMINADA verificados antes contra
+> los datos reales); re-auditoría «sin registro: 0»; el drift de
+> `transfer_stock_atomic` probado por diff como cosmético. (3) **B-01**: el
+> cron diario de respaldos **ya está ACTIVO y en verde** — `backup.yml`
+> endurecido en `main`, workflow `active`, corridas `schedule` en `success` al
+> menos desde el 2026-08-12. Las menciones de abajo a "sin desplegar" o "el
+> cron sigue desactivado" quedaron viejas. Pendiente restante: solo
+> catalogación (decisión de negocio).
 >
 > **Actualización 2026-08-06 (cierre de B-01, B-07 y B-04):** los §3 y §11 de abajo
 > reflejan el resultado real y verificado del cierre — el resto del documento (§1, §2,

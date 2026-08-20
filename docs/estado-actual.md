@@ -5,6 +5,23 @@
 
 **Última actualización:** 2026-08-19
 
+## 2026-08-19 · B-04 CERRADO DEL TODO: drill de break-glass PASADO con el dueño
+
+- **Descubierto al verificar:** el enforcement de 2FA obligatorio YA estaba
+  fusionado en `main` y desplegado (la rama `feat/cierre-pendientes-produccion`
+  quedó dentro de `main`), y el dueño YA tenía su 2FA enrolado. La nota "sin
+  desplegar" estaba vieja.
+- **Drill spec §6.2 ejecutado con el dueño presente (autorizado):**
+  `scripts/mfa-break-glass.mjs` retiró su factor real (auditoría
+  `user.mfa_break_glass` registrada) → entró solo con contraseña → el
+  enforcement lo forzó a re-enrolar en `/perfil/seguridad` → factor nuevo
+  `verified` comprobado en `auth.mfa_factors`. **Sin encierro en ningún paso.**
+- Cuentas admin hoy: el dueño (2FA ✓) y `preview-admin@dermaland.do`
+  (0 factores — el enforcement la obligará a enrolar al entrar).
+- **Con esto, B-01/B-02/B-03/B-04/B-05/B-06/B-07 están TODOS cerrados.** Lo
+  único pendiente del informe es catalogación (decisión de negocio): 338
+  productos sin laboratorio y 79 laboratorios sin `min_shelf_life_days`.
+
 ## 2026-08-19 · B-07 CERRADO DEL TODO: los 14 archivos registrados
 
 - **Autorizado por el dueño** ("finaliza lo pendiente"). Antes de registrar,
