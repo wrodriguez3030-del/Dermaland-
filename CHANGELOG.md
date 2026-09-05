@@ -10,6 +10,41 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.141.0] - 2026-09-05
+
+### Agregado
+
+- **Sincronizador Alegra → DermaLand (motor).** Alegra es el sistema de verdad y
+  DermaLand solo lee: `scripts/alegra-sync.mts` trae clientes, proveedores,
+  productos (precio, costo, ITBIS, código de barras, activo), el stock de las
+  dos sucursales y las facturas de venta con sus líneas, pagos y saldos.
+  Simulación por defecto, `--apply` escribe, `--full` carga el histórico, y cada
+  corrida queda registrada en `alegra_sync_runs` con sus conteos y errores.
+  Reutiliza el motor de stock de la pantalla de importar, el comparador de
+  códigos UPC-A/EAN-13 y el emparejador de clientes del pedido web.
+  Migración `20260905200000_alegra_sync.sql` (columnas `alegra_id`,
+  `alegra_invoices`, `alegra_invoice_items`, `alegra_sync_runs`).
+  Documentación: `docs/alegra-sync.md`.
+
+- **Carga inicial aplicada a producción:** 6 523 clientes, 1 487 productos,
+  1 proveedor, 14 965 facturas y 31 213 líneas desde 2023-02-01.
+
+### Corregido
+
+- **El ITBIS sale de cada ítem de Alegra, no de una constante.** Conviven ítems
+  al 18 %, al 0 % y sin impuesto, y estos últimos ya traen el precio final;
+  aplicar 18 % a todos habría inflado el precio de 273 productos.
+- **La paginación de Alegra pierde y repite registros si no se ordena.** Se
+  pagina por `id`, la única clave total (la lectura de ítems devolvía 1 486 de
+  1 487), con deduplicación como segunda barrera.
+- **El corte por límite de Alegra llega como HTTP 400**, no 429, y el tope real
+  es 100 peticiones por minuto. El cliente espacia las peticiones y reconoce ese
+  400.
+- **Contactos sin tipo:** 40 contactos vienen con `type: []` y sí facturan;
+  ahora cuentan como clientes.
+- Se respetan los índices únicos de DermaLand: no se asigna un código de barras
+  que ya tiene otro producto, y un documento repetido no impide crear la ficha.
+
 ## [0.140.0] - 2026-09-05
 
 ### Agregado

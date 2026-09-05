@@ -5,6 +5,33 @@
 
 **Última actualización:** 2026-09-05
 
+## 2026-09-05 · MIGRACIÓN COMPLETA desde Alegra + sincronizador (v0.141.0)
+
+- **Autorizado por el dueño** («migra todo los datos de cliente y producto
+  ventas y todo lo relacionado», «dale», «sigue con el stock y las facturas»).
+  Decisiones suyas: Alegra manda y DermaLand solo lee; las facturas van a
+  tablas propias sin mezclarse con POS/tienda; el stock se iguala a diario; los
+  clientes se emparejan por teléfono/correo/documento, nunca por nombre.
+- **En producción hoy:** 6 524 clientes (6 523 enlazados a Alegra) · 1 509
+  productos (1 487 enlazados) · 1 proveedor · **14 965 facturas** y **31 213
+  líneas** desde 2023-02-01 · stock Principal 2 609 y Villa Olga 1 407.
+  Verificado por vía independiente: 0 líneas sin producto, 1 factura sin
+  cliente (su contacto ya no existe en Alegra, conserva el nombre), 0 NCF
+  repetidos, 20 facturas con saldo y 222 anuladas.
+- **Cuatro fallos encontrados AL CORRERLO, todos con prueba de regresión:**
+  (1) el ITBIS es por ítem, no 18 % fijo — habría inflado 273 precios;
+  (2) la paginación de Alegra pierde y repite si no se ordena por `id` — la
+  lectura de ítems daba 1 486 de 1 487; (3) el corte por límite llega como
+  HTTP 400 y el tope real es 100/min; (4) 40 contactos tienen `type: []` y sí
+  facturan. Además se respetan los índices únicos de DermaLand (código de
+  barras y documento).
+- **Pendientes:** Isispharma Secalia Ato Shower Cream 200 ML no tiene lote en
+  Principal, así que el stock no puede crearlo en Villa Olga (recibirlo a mano
+  una vez). 7 productos con el código de barras en conflicto, en
+  `backups/alegra-sync-*/productos-conflictos-codigo.json`. Falta el plan 2:
+  trabajo diario en GitHub Actions, botón «Sincronizar ahora» y pantallas
+  (compras del cliente, reporte de ventas, saldos).
+
 ## 2026-09-05 · «Reintentar no encontrados» en el conteo físico (v0.140.0)
 
 - El dueño preguntó si podía «reintegrar los no encontrados como encontrados»

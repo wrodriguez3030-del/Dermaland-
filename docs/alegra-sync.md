@@ -81,6 +81,20 @@ segunda sucursal (no hay vencimiento del cual heredar): se reporta y se omite.
 - No pisa un código de barras distinto: lo reporta en
   `productos-conflictos-codigo.json` para revisarlo a mano.
 
+## Dos trampas de la API de Alegra (aprendidas a golpes)
+
+**1. La paginación NO es estable si no se ordena.** Sin `order_field`, pedir
+páginas con `start`/`limit` repite unos registros y **pierde otros**: el
+2026-09-05 la lectura de ítems devolvía 1 486 únicos de 1 487 — el ítem 1076
+dos veces y el 1115 ninguna. Consecuencias reales: un producto duplicado creado
+y 64 líneas de factura sin producto. El cliente ahora pagina **ordenando por
+`id`**, la única clave total, y además deduplica por id como segunda barrera.
+Si algún día se pagina otro recurso, ordenarlo por `id` también.
+
+**2. Hay contactos sin tipo.** 40 contactos vienen con `type: []` y sí facturan.
+Un contacto sin tipo cuenta como cliente; si no, se queda sin ficha y sus
+facturas sin cliente enlazado.
+
 ## El límite de peticiones de Alegra
 
 La documentación dice 150/min y HTTP 429. **La realidad de esta cuenta es
@@ -105,6 +119,14 @@ lee `x-rate-limit-limit`, reconoce ese 400 y espera lo que diga
   `stock-omitidos.json` y `stock-no-cuadran.json`.
 - **Los movimientos de stock** salen en *Inventario → Movimientos* con el motivo
   «Sincronización Alegra …».
+
+## Facturas sin cliente o líneas sin producto
+
+Al final de cada sincronización de facturas se hace un **re-enlace**: las
+facturas que quedaron sin `client_id` y las líneas sin `product_id` se
+completan con el mapeo actual. Así el historial se arregla solo a medida que
+los contactos y los ítems van teniendo ficha. Lo que quede suelto conserva el
+nombre del cliente y del producto, así que el historial se lee igual.
 
 ## Salvaguardas
 
