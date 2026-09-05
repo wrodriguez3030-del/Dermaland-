@@ -1,0 +1,150 @@
+import { describe, it, expect, vi } from "vitest";
+import { AlegraClient, AlegraAuthError, AlegraHttpError } from "./client";
+
+function fakeFetch(
+  handler: (url: string, n: number) => { status: number; body: unknown; headers?: Record<string, string> },
+) {
+  let n = 0;
+  const calls: string[] = [];
+  const inits: RequestInit[] = [];
+  const f = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    calls.push(url);
+    inits.push(init ?? {});
+    if (init?.method && init.method !== "GET") throw new Error(`método prohibido: ${init.method}`);
+    const r = handler(url, n++);
+    return new Response(JSON.stringify(r.body), {
+      status: r.status,
+      headers: { "content-type": "application/json", ...(r.headers ?? {}) },
+    });
+  });
+  return { f: f as unknown as typeof fetch, calls, inits };
+}
+const noSleep = async () => {};
+
+describe("AlegraClient", () => {
+  it("manda Basic base64(email:token) y solo GET", async () => {
+    const { f, calls, inits } = fakeFetch(() => ({ status: 200, body: { name: "DermaLand" } }));
+    const c = new AlegraClient({ email: "a@b.com", token: "t0k", fetchImpl: f, sleep: noSleep });
+    const r = await c.get<{ name: string }>("company");
+    expect(r.name).toBe("DermaLand");
+    expect(calls[0]).toBe("https://api.alegra.com/api/v1/company");
+    expect((inits[0]!.headers as Record<string, string>).Authorization).toBe(
+      `Basic ${Buffer.from("a@b.com:t0k").toString("base64")}`,
+    );
+    expect(inits[0]!.method).toBe("GET");
+  });
+
+  it("pagina de 30 en 30 hasta página incompleta y NO usa metadata.total", async () => {
+    const { f, calls } = fakeFetch((url) => {
+      const start = Number(new URL(url).searchParams.get("start") ?? 0);
+      const size = start === 60 ? 5 : 30;
+      return { status: 200, body: Array.from({ length: size }, (_, i) => ({ id: String(start + i) })) };
+    });
+    const c = new AlegraClient({ email: "a", token: "b", fetchImpl: f, sleep: noSleep });
+    const pages: number[] = [];
+    const rows = await c.listAll<{ id: string }>("items", { status: "active" }, (p, s) => {
+      pages.push(s);
+    });
+    expect(rows).toHaveLength(65);
+    expect(pages).toEqual([0, 30, 60]);
+    expect(calls).toHaveLength(3);
+    expect(new URL(calls[0]!).searchParams.get("limit")).toBe("30");
+    expect(new URL(calls[0]!).searchParams.get("status")).toBe("active");
+  });
+
+  it("espera a que onPage termine antes de pedir la siguiente página (onPage async)", async () => {
+    const { f } = fakeFetch((url) => {
+      const start = Number(new URL(url).searchParams.get("start") ?? 0);
+      return { status: 200, body: start === 0 ? Array(30).fill({ id: "x" }) : [] };
+    });
+    const c = new AlegraClient({ email: "a", token: "b", fetchImpl: f, sleep: noSleep });
+    const orden: string[] = [];
+    await c.listAll("items", {}, async (_rows, start) => {
+      orden.push(`inicio-${start}`);
+      await new Promise((r) => setTimeout(r, 5));
+      orden.push(`fin-${start}`);
+    });
+    expect(orden).toEqual(["inicio-0", "fin-0", "inicio-30", "fin-30"]);
+  });
+
+  it("ante 429 espera X-Rate-Limit-Reset segundos y reintenta", async () => {
+    const waited: number[] = [];
+    const { f } = fakeFetch((_, n) =>
+      n === 0
+        ? { status: 429, body: { message: "Too Many request" }, headers: { "X-Rate-Limit-Reset": "2" } }
+        : { status: 200, body: [] },
+    );
+    const c = new AlegraClient({
+      email: "a",
+      token: "b",
+      fetchImpl: f,
+      sleep: async (ms) => {
+        waited.push(ms);
+      },
+    });
+    await c.listAll("items");
+    expect(waited).toEqual([2000]);
+  });
+
+  it("frena solo cuando X-Rate-Limit-Remaining llega a 0", async () => {
+    const waited: number[] = [];
+    const { f } = fakeFetch((_, n) => ({
+      status: 200,
+      body: n === 0 ? Array(30).fill({ id: "x" }) : [],
+      headers: n === 0 ? { "X-Rate-Limit-Remaining": "0", "X-Rate-Limit-Reset": "3" } : {},
+    }));
+    const c = new AlegraClient({
+      email: "a",
+      token: "b",
+      fetchImpl: f,
+      sleep: async (ms) => {
+        waited.push(ms);
+      },
+    });
+    await c.listAll("items");
+    expect(waited).toEqual([3000]);
+  });
+
+  it("reintenta 5xx tres veces con espera creciente y luego falla con AlegraHttpError", async () => {
+    const waited: number[] = [];
+    const { f, calls } = fakeFetch(() => ({ status: 502, body: { message: "bad gateway" } }));
+    const c = new AlegraClient({
+      email: "a",
+      token: "b",
+      fetchImpl: f,
+      sleep: async (ms) => {
+        waited.push(ms);
+      },
+    });
+    await expect(c.get("company")).rejects.toBeInstanceOf(AlegraHttpError);
+    expect(calls).toHaveLength(4);
+    expect(waited).toEqual([1000, 2000, 4000]);
+  });
+
+  it("401 es AlegraAuthError y no se reintenta", async () => {
+    const { f, calls } = fakeFetch(() => ({ status: 401, body: { message: "Unauthorized" } }));
+    const c = new AlegraClient({ email: "a", token: "b", fetchImpl: f, sleep: noSleep });
+    await expect(c.get("company")).rejects.toBeInstanceOf(AlegraAuthError);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("cuenta las peticiones hechas", async () => {
+    const { f } = fakeFetch(() => ({ status: 200, body: [] }));
+    const c = new AlegraClient({ email: "a", token: "b", fetchImpl: f, sleep: noSleep });
+    await c.listAll("items");
+    await c.get("company");
+    expect(c.requests).toBe(2);
+  });
+
+  it("no expone ningún método de escritura", () => {
+    const c = new AlegraClient({
+      email: "a",
+      token: "b",
+      fetchImpl: fakeFetch(() => ({ status: 200, body: {} })).f,
+      sleep: noSleep,
+    });
+    const nombres = Object.getOwnPropertyNames(Object.getPrototypeOf(c));
+    expect(nombres.some((n) => /post|put|patch|delete|create|update|remove/i.test(n))).toBe(false);
+  });
+});
