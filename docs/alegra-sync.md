@@ -1,0 +1,124 @@
+# Sincronizador Alegra → DermaLand
+
+Alegra es el sistema de verdad. DermaLand **solo lee** de Alegra: nunca escribe
+nada allá. Cada corrida trae clientes, proveedores, productos (precio, costo,
+código de barras, activo), el stock de las dos sucursales y las facturas de
+venta con sus pagos y saldos.
+
+Diseño y decisiones: [`docs/superpowers/specs/2026-09-05-alegra-sync-design.md`](superpowers/specs/2026-09-05-alegra-sync-design.md).
+
+## Cómo se corre
+
+El `--tsconfig` es **obligatorio**: sin él, `tsx` no resuelve los imports `@/`
+de los módulos de la app y el script muere con `MODULE_NOT_FOUND`.
+
+```bash
+T="apps/web/node_modules/.bin/tsx --tsconfig apps/web/tsconfig.json"
+
+node scripts/test/alegra-live-test.mjs      # comprobar credenciales (solo lee)
+$T scripts/alegra-sync.mts                  # SIMULACIÓN incremental (no escribe)
+$T scripts/alegra-sync.mts --apply          # escribe
+$T scripts/alegra-sync.mts --apply --full   # carga inicial: todo el histórico
+$T scripts/alegra-sync.mts --entities=items,stock
+$T scripts/alegra-sync.mts --since=2026-09-01
+```
+
+**Dry-run por defecto.** Sin `--apply` no se escribe nada, pero sí queda la fila
+de la corrida en `alegra_sync_runs` (con `dry_run = true`) y el reporte en
+`backups/alegra-sync-<fecha>/`.
+
+Antes de cualquier `--apply`, respaldo:
+
+```bash
+node scripts/backup/rest-json-backup.mjs
+```
+
+## Qué hace con cada cosa
+
+| De Alegra | A DermaLand |
+|---|---|
+| Contacto tipo `client` | `clients` (emparejado antes de crear, ver abajo) |
+| Contacto tipo `provider` | `suppliers` |
+| Ítem | `products`: costo, precio, ITBIS, activo, código de barras, `alegra_id` |
+| `inventory.warehouses` id `1` | Stock de **DermaLand Principal** |
+| `inventory.warehouses` id `2` | Stock de **Dermaland Villa Olga** |
+| Factura de venta | `alegra_invoices` + `alegra_invoice_items` |
+
+### Clientes: nunca se duplica
+
+El orden de emparejado es: `alegra_id` ya guardado → teléfono / WhatsApp /
+correo normalizados (gana la ficha **más antigua**) → documento → crear. **Nunca
+se empareja solo por el nombre.** Al enlazar una ficha existente solo se
+rellenan campos vacíos: no se pisa lo que escribió el mostrador. Es la misma
+regla que usa el pedido de la tienda.
+
+### Precio e ITBIS
+
+`products.price` es CON ITBIS; Alegra da la lista «General» SIN ITBIS. **El
+ITBIS sale de cada ítem**, no de una constante: en Alegra conviven ítems al
+18 %, al 0 % y sin impuesto (`tax: []`), y estos últimos ya traen su precio
+final. Aplicar 18 % a todos inflaba el precio de 273 productos.
+
+### Stock
+
+Se iguala al de Alegra en las dos sucursales con el mismo motor que la pantalla
+*Inventario → Importar* (`buildImportPlan`), y deja un movimiento por producto
+con referencia `ALEGRA-SYNC-YYYYMMDD-HHmm`. Los lotes en cuarentena y recall
+quedan fuera. Un producto sin lote en Principal no puede recibir stock en la
+segunda sucursal (no hay vencimiento del cual heredar): se reporta y se omite.
+
+> **Consecuencia de sincronizar el stock a diario:** todo lo que se venda o
+> despache en DermaLand tiene que quedar facturado en Alegra **ese mismo día**.
+> Si no, a la mañana siguiente el stock vuelve al de Alegra y esas unidades
+> «reaparecen».
+
+## Qué NO hace
+
+- No escribe en Alegra. El cliente HTTP solo tiene `GET`, y hay una prueba que
+  falla si alguien le añade un método de escritura.
+- No borra nada. Lo que desaparece de Alegra se marca inactivo; una factura
+  anulada conserva su fila con estado `void`.
+- No pisa un código de barras distinto: lo reporta en
+  `productos-conflictos-codigo.json` para revisarlo a mano.
+
+## El límite de peticiones de Alegra
+
+La documentación dice 150/min y HTTP 429. **La realidad de esta cuenta es
+100/min, y al pasarse responde HTTP 400** con `{"code":429,"message":"Too many
+requests"}` en el cuerpo. El cliente espacia las peticiones a 600 ms en cuanto
+lee `x-rate-limit-limit`, reconoce ese 400 y espera lo que diga
+`x-rate-limit-reset`. Por eso un barrido completo tarda minutos, no segundos:
+
+| Entidad | Peticiones | Tiempo aproximado |
+|---|---|---|
+| Contactos (6 523) | 218 | 2 min |
+| Ítems (1 487) | 50 | 30 s |
+| Facturas (histórico completo) | ~500 | 5-6 min |
+
+## Cómo revisar una corrida
+
+- **En la base:** `alegra_sync_runs` guarda inicio, fin, si fue bien, modo,
+  si fue simulación, los conteos por entidad y los errores.
+- **En disco:** `backups/alegra-sync-<fecha>/reporte.json` más, cuando aplica,
+  `productos-a-crear.json`, `productos-cambia-precio.json`,
+  `productos-conflictos-codigo.json`, `productos-a-desactivar.json`,
+  `stock-omitidos.json` y `stock-no-cuadran.json`.
+- **Los movimientos de stock** salen en *Inventario → Movimientos* con el motivo
+  «Sincronización Alegra …».
+
+## Salvaguardas
+
+- **Guardia anti-vacío:** si Alegra devuelve menos de la mitad de los ítems de
+  la última corrida buena, no se desactiva ningún producto y la corrida queda
+  marcada con error.
+- **401:** aborta todo de inmediato; no se desactiva ni se cambia nada con datos
+  a medias.
+- Un fallo en una entidad se anota y **no** detiene a las demás.
+- El `business_id` es constante del código; nunca sale de la API.
+
+## Credenciales
+
+`ALEGRA_EMAIL` y `ALEGRA_TOKEN` en `apps/web/.env.local` (ignorado por git) y,
+para el trabajo diario, en los secretos de GitHub Actions. Se sacan de Alegra en
+*Configuración → API - Integraciones con otros sistemas*. Si se renuevan allá,
+hay que actualizarlos en los dos sitios.
