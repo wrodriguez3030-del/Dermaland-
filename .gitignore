@@ -46,3 +46,6 @@ certificates/
 backups/
 *.sql.gz
 *.sql.gz.gpg
+
+# CA raíz PÚBLICO de Supabase (no es secreto; ver supabase/certs/README.md)
+!supabase/certs/supabase-root-2021-ca.crt

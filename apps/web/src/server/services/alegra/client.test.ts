@@ -92,7 +92,7 @@ describe("AlegraClient", () => {
     const { f } = fakeFetch((_, n) => ({
       status: 200,
       body: n === 0 ? Array(30).fill({ id: "x" }) : [],
-      headers: n === 0 ? { "X-Rate-Limit-Remaining": "0", "X-Rate-Limit-Reset": "3" } : {},
+      headers: (n === 0 ? { "X-Rate-Limit-Remaining": "0", "X-Rate-Limit-Reset": "3" } : {}) as Record<string, string>,
     }));
     const c = new AlegraClient({
       email: "a",

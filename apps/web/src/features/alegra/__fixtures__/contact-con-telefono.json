@@ -1,0 +1,14 @@
+{
+  "id": "5691",
+  "name": "Ana Prueba Rodriguez",
+  "phonePrimary": "829-555-0182",
+  "phoneSecondary": null,
+  "mobile": null,
+  "email": null,
+  "identification": "40200000001",
+  "identificationObject": {},
+  "status": "active",
+  "type": ["client"],
+  "created_at": "2026-04-23T21:03:01.000Z",
+  "updated_at": "2026-04-23T21:03:01.000Z"
+}

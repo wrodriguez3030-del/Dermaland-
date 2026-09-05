@@ -1,0 +1,23 @@
+{
+  "id": "14970",
+  "date": "2026-09-05",
+  "datetime": "2026-09-05 12:50:18",
+  "status": "closed",
+  "client": { "id": "6529", "name": "Cliente Prueba", "identification": "40200000002", "identificationType": "CED" },
+  "numberTemplate": { "prefix": "B02", "number": "14482", "fullNumber": "B0200014482" },
+  "subtotal": 4233.05,
+  "discount": 0,
+  "tax": 761.95,
+  "total": 4995,
+  "totalPaid": 4995,
+  "balance": 0,
+  "warehouse": { "id": "2", "name": "CUTIS" },
+  "paymentMethod": "cash",
+  "seller": { "id": "1", "name": "VENDEDORA" },
+  "station": { "name": "VILLA OLGA" },
+  "items": [
+    { "id": "1095", "name": "GLISODIN SKIN BRIGHTENING 60 CAPSULAS", "price": 2911.02, "discount": 0, "discountAmount": 0, "quantity": 1, "tax": [{ "amount": 523.9836 }], "total": 3435.0036 },
+    { "id": "1257", "name": "BABE DEPIGMENT SUPER FLUIDO SPF 50 50ML", "price": 1322.03, "discount": 0, "discountAmount": 0, "quantity": 1, "tax": [{ "amount": 237.9654 }], "total": 1559.9954 }
+  ],
+  "payments": [{ "id": "18980", "date": "2026-09-05", "amount": 4995, "paymentMethod": "cash", "status": "open" }]
+}

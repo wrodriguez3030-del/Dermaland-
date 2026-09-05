@@ -1,0 +1,17 @@
+{
+  "id": "1288",
+  "name": "ELTA MD UV SPORT BROAD SPECTRUM SPF 50",
+  "status": "active",
+  "price": [{ "idPriceList": "1", "name": "General", "type": "amount", "price": 1779.661, "main": true }],
+  "inventory": {
+    "unit": "UND",
+    "unitCost": 1156.78,
+    "availableQuantity": 1,
+    "warehouses": [
+      { "id": "1", "name": "Principal", "availableQuantity": 1 },
+      { "id": "2", "name": "CUTIS", "availableQuantity": 0 }
+    ]
+  },
+  "customFields": [{ "id": "1", "key": "barcode", "name": "Código de barras", "value": "390205022878" }],
+  "tax": [{ "id": "1", "name": "ITBIS", "percentage": "18.00" }]
+}
