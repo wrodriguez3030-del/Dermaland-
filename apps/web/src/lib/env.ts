@@ -14,6 +14,15 @@ const schema = z.object({
   JWT_SECRET: z.string().optional(),
   SESSION_COOKIE_NAME: z.string().default("dermaland-session"),
 
+  // Sincronizador de Alegra. El trabajo diario corre en GitHub Actions; el
+  // botón «Sincronizar ahora» solo dispara ese workflow, así que la app NO
+  // necesita el token de Alegra: le basta un PAT de grano fino con permiso
+  // `actions: write` SOLO en este repositorio. Sin él, el botón se apaga y la
+  // pantalla lo explica; todo lo demás (ver el historial) sigue funcionando.
+  GITHUB_ACTIONS_TOKEN: z.string().optional(),
+  GITHUB_REPOSITORY: z.string().default("wrodriguez3030-del/Dermaland-"),
+  ALEGRA_SYNC_WORKFLOW: z.string().default("alegra-sync.yml"),
+
   // Ambiente DGII vigente. Valores nuevos: testecf/certecf/ecf.
   // Compat: `cert` mapea a `certecf` y `prod` mapea a `ecf` para no romper
   // código legado que aún lee esos valores.
