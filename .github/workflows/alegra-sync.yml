@@ -1,0 +1,102 @@
+name: Sincronizar Alegra → DermaLand
+
+on:
+  schedule:
+    # 10:00 UTC = 06:00 República Dominicana. El plan Hobby de Vercel no tiene
+    # nada que ver aquí (esto corre en GitHub Actions), pero se deja diario a
+    # propósito: un barrido completo tarda ~20 min y Alegra solo admite 100
+    # peticiones por minuto.
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "Alcance de la corrida"
+        type: choice
+        default: incremental
+        options: [incremental, full]
+      entidades:
+        description: "Qué sincronizar (separado por comas)"
+        type: string
+        default: contacts,items,stock,invoices
+      simulacion:
+        description: "Solo simular (no escribe nada)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: alegra-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ALEGRA_EMAIL: ${{ secrets.ALEGRA_EMAIL }}
+      ALEGRA_TOKEN: ${{ secrets.ALEGRA_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verificar que estan los cuatro secretos
+        run: |
+          faltan=""
+          for v in ALEGRA_EMAIL ALEGRA_TOKEN NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!v}" ]; then faltan="$faltan $v"; fi
+          done
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan secretos:$faltan. Configuralos en Settings → Secrets → Actions."
+            exit 1
+          fi
+
+      # Mismo orden que ci.yml: pnpm ANTES de setup-node, si no la caché falla.
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Comprobar credenciales de Alegra (solo lectura)
+        run: node scripts/test/alegra-live-test.mjs
+
+      # Las entradas del `workflow_dispatch` NUNCA se interpolan dentro del `run`:
+      # irían al shell tal cual (inyección de comandos). Van por `env` y, además,
+      # `entidades` se valida contra una lista blanca antes de usarse.
+      - name: Sincronizar
+        env:
+          MODO: ${{ inputs.modo || 'incremental' }}
+          ENTIDADES: ${{ inputs.entidades || 'contacts,items,stock,invoices' }}
+          SIMULACION: ${{ inputs.simulacion }}
+          DISPARO: ${{ github.event_name == 'schedule' && 'cron' || 'manual' }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$ENTIDADES" | grep -Eq '^(contacts|items|stock|invoices)(,(contacts|items|stock|invoices))*$'; then
+            echo "::error::entidades invalidas: $ENTIDADES (solo contacts, items, stock, invoices)"
+            exit 1
+          fi
+          case "$MODO" in incremental|full) ;; *) echo "::error::modo invalido: $MODO"; exit 1 ;; esac
+          # Con `set -e`, un `[ cond ] && cmd` que da falso ABORTA el script.
+          args=(--entities="$ENTIDADES" --trigger="$DISPARO")
+          if [ "$MODO" = "full" ]; then args+=(--full); fi
+          if [ "$SIMULACION" != "true" ]; then args+=(--apply); fi
+          echo "Corriendo: ${args[*]}"
+          apps/web/node_modules/.bin/tsx --tsconfig apps/web/tsconfig.json scripts/alegra-sync.mts "${args[@]}"
+
+      - name: Guardar el reporte de la corrida
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alegra-sync-reporte
+          path: backups/alegra-sync-*/
+          retention-days: 30
+          if-no-files-found: ignore
