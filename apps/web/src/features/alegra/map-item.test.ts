@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import item from "./__fixtures__/item-elta-uv-sport.json";
-import { itemToDraft, barcodeOf, displayNameFor } from "./map-item";
+import { itemToDraft, barcodeOf, displayNameFor, itbisRateOf } from "./map-item";
 import type { AlegraItem } from "./types";
 
 const base = item as AlegraItem;
@@ -16,6 +16,26 @@ describe("itemToDraft", () => {
     expect(d.active).toBe(true);
     expect(d.alegraId).toBe("1288");
     expect(d.unit).toBe("unidad");
+  });
+
+  // 2026-09-05: aplicar 18 % a TODO inflaba el precio de 273 productos. En
+  // Alegra cada ítem trae su propio impuesto: los exentos (`tax: []` o 0 %)
+  // ya vienen con el precio final.
+  it("el ITBIS sale del impuesto del propio ítem, no de una constante", () => {
+    expect(itbisRateOf(base)).toBe(18);
+    expect(itbisRateOf({ ...base, tax: [] })).toBe(0);
+    expect(itbisRateOf({ ...base, tax: undefined })).toBe(0);
+    expect(itbisRateOf({ ...base, tax: [{ percentage: "0.00" }] })).toBe(0);
+    expect(itbisRateOf({ ...base, tax: [{ percentage: 16 }] })).toBe(16);
+  });
+
+  it("un ítem exento conserva el precio de la lista (no se le suma ITBIS)", () => {
+    const exento = itemToDraft({ ...base, tax: [], price: [{ idPriceList: "1", name: "General", price: 800, main: true }] });
+    expect(exento.price).toBe(800);
+    expect(exento.itbisRate).toBe(0);
+    const gravado = itemToDraft(base);
+    expect(gravado.price).toBe(2100);
+    expect(gravado.itbisRate).toBe(18);
   });
 
   it("sin lista de precios o sin inventario → 0; inactivo → active=false; código vacío → null", () => {

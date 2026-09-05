@@ -9,6 +9,7 @@ const it_ = (over: Partial<AlegraItem>): AlegraItem => ({
   price: [{ idPriceList: "1", name: "General", price: 1779.661, main: true }],
   inventory: { unitCost: 1156.78, warehouses: [] },
   customFields: [{ key: "barcode", value: "390205022878" }],
+  tax: [{ percentage: "18.00" }],
   ...over,
 });
 const ex = (over: Partial<ExistingProduct>): ExistingProduct => ({
@@ -18,6 +19,7 @@ const ex = (over: Partial<ExistingProduct>): ExistingProduct => ({
   barcode: "0390205022878",
   cost: 1156.78,
   price: 2100,
+  itbisRate: 18,
   active: true,
   ...over,
 });
@@ -34,6 +36,13 @@ describe("planProducts", () => {
   it("empareja por alegra_id aunque el nombre cambie, y renombra con nombre limpio", () => {
     const p = planProducts([it_({ name: "ELTA MD UV SPORT SPF 50 NUEVO" })], [ex({ alegraId: "1" })], null);
     expect(p.actions[0]).toMatchObject({ kind: "update", patch: { name: "Elta MD UV Sport SPF 50 Nuevo" } });
+  });
+
+  it("el ITBIS del producto también manda desde Alegra", () => {
+    const exento = planProducts([it_({ tax: [] })], [ex({ alegraId: "1", itbisRate: 18, price: 2100 })], null);
+    expect(exento.actions[0]).toMatchObject({ kind: "update", patch: { itbis_rate: 0, price: 1779.66 } });
+    const igual = planProducts([it_({})], [ex({ alegraId: "1", itbisRate: 18 })], null);
+    expect((igual.actions[0] as Extract<ProductAction, { kind: "update" }>).patch).not.toHaveProperty("itbis_rate");
   });
 
   it("precio y costo mandan desde Alegra y se cuenta el cambio de precio", () => {

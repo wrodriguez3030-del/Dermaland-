@@ -39,6 +39,8 @@ export function loadEnv(root: string): Env {
 export interface Rest {
   getAll<T>(pathQ: string): Promise<T[]>;
   insert<T>(table: string, row: Record<string, unknown>): Promise<T>;
+  /** Inserta varias filas de una vez. Si una falla, falla el lote entero. */
+  insertMany<T>(table: string, rows: Record<string, unknown>[]): Promise<T[]>;
   patch(table: string, filter: string, body: Record<string, unknown>): Promise<void>;
   /** Inserta o actualiza por `onConflict` (columnas separadas por coma). */
   upsert<T>(table: string, rows: Record<string, unknown>[], onConflict: string): Promise<T[]>;
@@ -86,6 +88,18 @@ export function makeRest(url: string, key: string): Rest {
       const text = await r.text();
       if (!r.ok) throw restError(`POST ${table}`, r.status, text);
       return (JSON.parse(text) as T[])[0]!;
+    },
+
+    async insertMany<T>(table: string, rows: Record<string, unknown>[]): Promise<T[]> {
+      if (rows.length === 0) return [];
+      const r = await fetch(`${base}/rest/v1/${table}`, {
+        method: "POST",
+        headers: { ...H, Prefer: "return=representation" },
+        body: JSON.stringify(rows),
+      });
+      const text = await r.text();
+      if (!r.ok) throw restError(`POST ${table} (${rows.length} filas)`, r.status, text);
+      return JSON.parse(text) as T[];
     },
 
     async patch(table: string, filter: string, body: Record<string, unknown>): Promise<void> {

@@ -18,6 +18,7 @@ export interface ExistingProduct {
   barcode: string | null;
   cost: number;
   price: number;
+  itbisRate: number;
   active: boolean;
 }
 
@@ -25,6 +26,7 @@ export interface UpdatePatch {
   alegra_id: string;
   cost?: number;
   price?: number;
+  itbis_rate?: number;
   active?: boolean;
   name?: string;
   barcode?: string;
@@ -93,6 +95,7 @@ export function planProducts(
       patch.price = draft.price;
       priceChanged++;
     }
+    if (e.itbisRate !== draft.itbisRate) patch.itbis_rate = draft.itbisRate;
     if (e.active !== draft.active) patch.active = draft.active;
     if (normalizeProductName(e.name) !== normalizeProductName(draft.alegraName)) {
       patch.name = displayNameFor(draft.alegraName);
