@@ -338,11 +338,24 @@ async function sincronizarCatalogo(items: AlegraItem[]): Promise<void> {
   bump("items", "priceChanged", plan.priceChanged);
   bump("items", "matchedByName", plan.matchedByName);
 
-  const conflictos = plan.actions.flatMap((a) =>
-    a.kind === "update" && a.barcodeConflict
-      ? [{ productId: a.productId, name: a.draft.alegraName, ...a.barcodeConflict }]
-      : [],
-  );
+  const conflictos = plan.actions.flatMap((a) => {
+    if (a.kind !== "update") return [];
+    if (a.barcodeConflict) {
+      return [{ productId: a.productId, name: a.draft.alegraName, motivo: "codigo-distinto", ...a.barcodeConflict }];
+    }
+    if (a.barcodeTakenBy) {
+      return [
+        {
+          productId: a.productId,
+          name: a.draft.alegraName,
+          motivo: "codigo-ya-usado-por-otro-producto",
+          alegra: a.draft.barcode,
+          loTiene: a.barcodeTakenBy,
+        },
+      ];
+    }
+    return [];
+  });
   // Un `update` cuyo patch solo trae `alegra_id` y ya lo tenía no cambia nada.
   const actualizar = plan.actions.filter(
     (a): a is Extract<(typeof plan.actions)[number], { kind: "update" }> =>

@@ -53,6 +53,40 @@ describe("AlegraClient", () => {
     expect(new URL(calls[0]!).searchParams.get("status")).toBe("active");
   });
 
+  // 2026-09-05, visto en producción: la paginación de Alegra REPITE registros
+  // (el ítem 1076 vino dos veces en 1487). Sin deduplicar, el segundo se creaba
+  // como producto nuevo y el enlace del primero moría con clave duplicada.
+  it("deduplica por id: un registro repetido entre páginas se devuelve una sola vez", async () => {
+    const { f } = fakeFetch((url) => {
+      const start = Number(new URL(url).searchParams.get("start") ?? 0);
+      if (start === 0) return { status: 200, body: Array.from({ length: 30 }, (_, i) => ({ id: String(i) })) };
+      if (start === 30) return { status: 200, body: [{ id: "5" }, { id: "30" }] };
+      return { status: 200, body: [] };
+    });
+    const c = new AlegraClient({ email: "a", token: "b", fetchImpl: f, sleep: noSleep });
+    const vistasEnPagina: string[][] = [];
+    const rows = await c.listAll<{ id: string }>("items", {}, (p) => {
+      vistasEnPagina.push(p.map((r) => r.id));
+    });
+    expect(rows).toHaveLength(31);
+    expect(rows.filter((r) => r.id === "5")).toHaveLength(1);
+    // onPage tampoco ve el repetido: quien escribe por lotes no lo duplica.
+    expect(vistasEnPagina[1]).toEqual(["30"]);
+  });
+
+  it("una página llena de repetidos no corta la paginación antes de tiempo", async () => {
+    const { f, calls } = fakeFetch((url) => {
+      const start = Number(new URL(url).searchParams.get("start") ?? 0);
+      if (start === 0) return { status: 200, body: Array.from({ length: 30 }, (_, i) => ({ id: String(i) })) };
+      if (start === 30) return { status: 200, body: Array.from({ length: 30 }, (_, i) => ({ id: String(i) })) };
+      return { status: 200, body: [{ id: "99" }] };
+    });
+    const c = new AlegraClient({ email: "a", token: "b", fetchImpl: f, sleep: noSleep });
+    const rows = await c.listAll<{ id: string }>("items");
+    expect(calls).toHaveLength(3);
+    expect(rows).toHaveLength(31);
+  });
+
   it("espera a que onPage termine antes de pedir la siguiente página (onPage async)", async () => {
     const { f } = fakeFetch((url) => {
       const start = Number(new URL(url).searchParams.get("start") ?? 0);

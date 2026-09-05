@@ -9,6 +9,11 @@
  *     una ficha tomada por un contacto en esta corrida no se vuelve a tomar.
  * Al enlazar solo se rellenan campos VACÍOS de la ficha (`fill`); nunca se pisa
  * lo que escribió el mostrador.
+ *
+ * DOCUMENTO ÚNICO: `clients_business_document_unique` no admite dos fichas con
+ * el mismo documento, y Alegra sí repite identificaciones (incluida la de
+ * relleno «00000000000»). Cuando el documento ya está tomado, la ficha se crea
+ * IGUAL pero sin documento: perder el cliente entero sería peor.
  */
 import { pickClientMatch, type ClientCandidate } from "@/features/customers/identity-match";
 import { normalizeEmail, normalizePhone } from "@/features/customers/customer-normalization";
@@ -37,16 +42,17 @@ export type ContactAction =
     }
   | { kind: "skip"; clientId: string; reason: "unchanged" };
 
-function fillFor(existing: ExistingClient, draft: ClientDraft): Fill {
+function fillFor(existing: ExistingClient, draft: ClientDraft, documentosUsados: Set<string>): Fill {
   const fill: Fill = {};
   if (!existing.phone && draft.phone) {
     fill.phone = draft.phone;
     fill.whatsapp = draft.whatsapp;
   }
   if (!existing.email && draft.email) fill.email = draft.email;
-  if (!existing.documentNumber && draft.documentNumber) {
+  if (!existing.documentNumber && draft.documentNumber && !documentosUsados.has(draft.documentNumber)) {
     fill.documentType = draft.documentType;
     fill.documentNumber = draft.documentNumber;
+    documentosUsados.add(draft.documentNumber);
   }
   return fill;
 }
@@ -56,6 +62,17 @@ export function planContacts(contacts: AlegraContact[], existing: ExistingClient
   const libres = existing.filter((e) => !e.alegraId);
   const byDocument = new Map(libres.filter((e) => e.documentNormalized).map((e) => [e.documentNormalized!, e]));
   const tomadas = new Set<string>();
+  const documentosUsados = new Set(existing.map((e) => e.documentNormalized).filter((d): d is string => !!d));
+
+  /** Quita el documento del borrador si ya lo tiene otra ficha. */
+  const sinDocumentoRepetido = (draft: ClientDraft): ClientDraft => {
+    if (!draft.documentNumber) return draft;
+    if (documentosUsados.has(draft.documentNumber)) {
+      return { ...draft, documentType: null, documentNumber: null };
+    }
+    documentosUsados.add(draft.documentNumber);
+    return draft;
+  };
 
   return contacts.filter(isClient).map((c): ContactAction => {
     const draft = contactToClientDraft(c);
@@ -64,7 +81,7 @@ export function planContacts(contacts: AlegraContact[], existing: ExistingClient
     if (ya) {
       const sinCambios = !!ya.alegraUpdatedAt && !!draft.alegraUpdatedAt && ya.alegraUpdatedAt >= draft.alegraUpdatedAt;
       if (sinCambios) return { kind: "skip", clientId: ya.id, reason: "unchanged" };
-      return { kind: "link", clientId: ya.id, draft, fill: fillFor(ya, draft), reason: "alegra_id" };
+      return { kind: "link", clientId: ya.id, draft, fill: fillFor(ya, draft, documentosUsados), reason: "alegra_id" };
     }
 
     const telefono = normalizePhone(draft.phone);
@@ -84,8 +101,9 @@ export function planContacts(contacts: AlegraContact[], existing: ExistingClient
       if (match) {
         tomadas.add(match.id);
         const elegida = candidatas.find((e) => e.id === match.id)!;
+        if (elegida.documentNormalized) documentosUsados.add(elegida.documentNormalized);
         const porTelefono = !!telefono && (elegida.phoneDigits === telefono || elegida.whatsappDigits === telefono);
-        return { kind: "link", clientId: elegida.id, draft, fill: fillFor(elegida, draft), reason: porTelefono ? "phone" : "email" };
+        return { kind: "link", clientId: elegida.id, draft, fill: fillFor(elegida, draft, documentosUsados), reason: porTelefono ? "phone" : "email" };
       }
     }
 
@@ -93,10 +111,10 @@ export function planContacts(contacts: AlegraContact[], existing: ExistingClient
       const e = byDocument.get(draft.documentNumber);
       if (e && !tomadas.has(e.id)) {
         tomadas.add(e.id);
-        return { kind: "link", clientId: e.id, draft, fill: fillFor(e, draft), reason: "document" };
+        return { kind: "link", clientId: e.id, draft, fill: fillFor(e, draft, documentosUsados), reason: "document" };
       }
     }
 
-    return { kind: "create", draft };
+    return { kind: "create", draft: sinDocumentoRepetido(draft) };
   });
 }

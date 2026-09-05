@@ -151,13 +151,28 @@ export class AlegraClient {
    * Pagina de 30 en 30 hasta la primera página incompleta. Nunca usa
    * `metadata.total` (se queda en 10 000). `onPage` se espera antes de pedir
    * la página siguiente, así el llamador puede escribir por lotes.
+   *
+   * DEDUPLICA POR `id`: la paginación de Alegra no es estable y repite
+   * registros entre páginas (el 2026-09-05 el ítem 1076 vino dos veces en
+   * 1487). Sin esto, el repetido se daba de alta como producto nuevo y el
+   * enlace del original moría con clave duplicada. El corte de paginación usa
+   * la página CRUDA: una página entera de repetidos no significa que se acabó.
    */
   async listAll<T>(path: string, query?: AlegraQuery, onPage?: OnPage<T>): Promise<T[]> {
     const all: T[] = [];
+    const vistos = new Set<string>();
     for (let start = 0; ; start += ALEGRA_PAGE_SIZE) {
       const page = await this.get<T[]>(path, { ...query, start, limit: ALEGRA_PAGE_SIZE });
-      if (onPage) await onPage(page, start);
-      all.push(...page);
+      const nuevos = page.filter((row) => {
+        const id = (row as { id?: unknown } | null)?.id;
+        if (id === undefined || id === null) return true;
+        const k = String(id);
+        if (vistos.has(k)) return false;
+        vistos.add(k);
+        return true;
+      });
+      if (onPage) await onPage(nuevos, start);
+      all.push(...nuevos);
       if (page.length < ALEGRA_PAGE_SIZE) return all;
     }
   }

@@ -67,6 +67,24 @@ describe("planProducts", () => {
     expect(otro.barcodeConflict).toEqual({ stored: "8413400011422", alegra: "390205022878" });
   });
 
+  // 2026-09-05: `products_barcode_live_unique` tumbó 3 actualizaciones.
+  it("no asigna un código de barras que YA tiene otro producto: lo reporta", () => {
+    const p = planProducts(
+      [it_({})],
+      [
+        ex({ id: "sinCodigo", name: "Elta MD UV Sport Broad Spectrum SPF 50", alegraId: "1", barcode: null }),
+        ex({ id: "otro", name: "Otro Producto", alegraId: "9", barcode: "0390205022878" }),
+      ],
+      null,
+    );
+    const a = p.actions.find((x) => x.kind === "update" && x.productId === "sinCodigo") as Extract<
+      ProductAction,
+      { kind: "update" }
+    >;
+    expect(a.patch).not.toHaveProperty("barcode");
+    expect(a.barcodeTakenBy).toBe("otro");
+  });
+
   it("empareja por código de barras cuando el nombre no coincide", () => {
     const p = planProducts([it_({ name: "OTRO NOMBRE" })], [ex({ barcode: "0390205022878" })], null);
     expect(p.actions[0]).toMatchObject({ kind: "update", productId: "p1" });

@@ -39,7 +39,10 @@ export type ProductAction =
       productId: string;
       draft: ItemDraft;
       patch: UpdatePatch;
+      /** El producto ya tiene OTRO código distinto: no se pisa, se reporta. */
       barcodeConflict?: { stored: string; alegra: string };
+      /** El código de Alegra ya lo tiene otro producto: no se asigna, se reporta. */
+      barcodeTakenBy?: string;
     }
   | { kind: "deactivate"; productId: string; name: string };
 
@@ -101,9 +104,17 @@ export function planProducts(
       patch.name = displayNameFor(draft.alegraName);
     }
     let barcodeConflict: { stored: string; alegra: string } | undefined;
+    let barcodeTakenBy: string | undefined;
     if (draft.barcode) {
-      if (!e.barcode) patch.barcode = draft.barcode;
-      else if (!sameBarcode(e.barcode, draft.barcode)) barcodeConflict = { stored: e.barcode, alegra: draft.barcode };
+      if (e.barcode) {
+        if (!sameBarcode(e.barcode, draft.barcode)) barcodeConflict = { stored: e.barcode, alegra: draft.barcode };
+      } else {
+        // `products_barcode_live_unique`: si otro producto ya lo tiene, no se
+        // asigna (el UPDATE entero fallaría y el producto quedaría sin enlazar).
+        const dueño = existing.find((x) => x.id !== e.id && sameBarcode(x.barcode, draft.barcode));
+        if (dueño) barcodeTakenBy = dueño.id;
+        else patch.barcode = draft.barcode;
+      }
     }
     actions.push({
       kind: "update",
@@ -111,6 +122,7 @@ export function planProducts(
       draft,
       patch,
       ...(barcodeConflict ? { barcodeConflict } : {}),
+      ...(barcodeTakenBy ? { barcodeTakenBy } : {}),
     });
   }
 

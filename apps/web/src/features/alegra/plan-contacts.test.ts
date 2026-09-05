@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { planContacts, type ExistingClient } from "./plan-contacts";
+import { planContacts, type ContactAction, type ExistingClient } from "./plan-contacts";
 import type { AlegraContact } from "./types";
 
 const c = (over: Partial<AlegraContact>): AlegraContact => ({
@@ -92,6 +92,37 @@ describe("planContacts", () => {
   it("una ficha ya vinculada a OTRO alegra_id no se reutiliza (Alegra tiene dos contactos con el mismo teléfono)", () => {
     const acciones = planContacts([c({ id: "10", phonePrimary: "8295550182" })], [e({ id: "c5", phoneDigits: "8295550182", alegraId: "99" })]);
     expect(acciones[0]!.kind).toBe("create");
+  });
+
+  // 2026-09-05: `clients_business_document_unique` tumbó 5 altas. Alegra repite
+  // identificaciones (incluida la de relleno "00000000000"); DermaLand exige
+  // que el documento sea único. La ficha se crea igual, pero sin documento.
+  it("dos contactos con el mismo documento: el segundo se crea SIN documento", () => {
+    const acciones = planContacts(
+      [c({ id: "10", identification: "40200000001" }), c({ id: "11", name: "Otra Persona", identification: "40200000001" })],
+      [],
+    );
+    expect(acciones[0]).toMatchObject({ kind: "create", draft: { documentNumber: "40200000001" } });
+    expect(acciones[1]).toMatchObject({ kind: "create", draft: { documentNumber: null, documentType: null } });
+    expect((acciones[1] as Extract<ContactAction, { kind: "create" }>).draft.firstName).toBe("Otra");
+  });
+
+  it("si el documento lo tiene una ficha YA enlazada a otro contacto de Alegra, la nueva se crea sin documento", () => {
+    const acciones = planContacts(
+      [c({ id: "10", phonePrimary: "8095550000", identification: "40200000001" })],
+      // c7 ya está enlazada a otro alegra_id: no es candidata, pero su documento
+      // ocupa el índice único.
+      [e({ id: "c7", alegraId: "99", documentNormalized: "40200000001", documentNumber: "40200000001" })],
+    );
+    expect(acciones[0]).toMatchObject({ kind: "create", draft: { documentNumber: null, documentType: null } });
+  });
+
+  it("si el documento está en una ficha libre, la enlaza en vez de crear (es la misma persona)", () => {
+    const acciones = planContacts(
+      [c({ id: "10", identification: "40200000001" })],
+      [e({ id: "c7", documentNormalized: "40200000001", documentNumber: "40200000001" })],
+    );
+    expect(acciones[0]).toMatchObject({ kind: "link", clientId: "c7", reason: "document" });
   });
 
   it("dos contactos de Alegra con el mismo teléfono no se enlazan a la misma ficha: el segundo se crea", () => {
