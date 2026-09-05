@@ -5,6 +5,23 @@
 
 **Última actualización:** 2026-09-05
 
+## 2026-09-05 · Escáner del conteo físico: «no encontrado» con códigos UPC-A (v0.139.3)
+
+- **Síntoma:** «Elta MD UV Sport está en el inventario pero al escanear en
+  conteo físico dice no encontrado». El producto existía (`DERM-I00427`, código
+  `0390205022878`). **Causa:** la cámara (`BarcodeDetector`, formato `upc_a`)
+  devuelve 12 dígitos (`390205022878`); `findProductByCode` y el POS comparaban
+  con `===`. **113 productos** del catálogo tienen el código en esa forma
+  (EAN-13 con cero delante = UPC-A rellenado); 0 colisiones al quitar el cero.
+- **Arreglo:** `features/products/barcode-match.ts` (`barcodeVariants`,
+  `sameBarcode`, `findByBarcodeOrSku`) + uso en `scan-session-store.ts`
+  (conteo) y `pos-terminal.tsx` (cámara del POS). `product.byBarcode` del
+  repositorio sigue exacto: no tiene llamadores. Typecheck ✓ · tests ✓ · build ✓.
+- **Pendiente relacionado:** el formulario de producto guarda el código tal
+  cual se teclea/escanea (12 o 13 dígitos), así que la restricción única no
+  detecta el mismo código en las dos formas. Normalizar a EAN-13 al guardar
+  queda como mejora.
+
 ## 2026-09-05 · Inventario MIGRADO completo desde Alegra (referencia `ALEGRA-20260905-1409`)
 
 - **Autorizado por el dueño** («migra el nuevo stock», «crea los productos»,

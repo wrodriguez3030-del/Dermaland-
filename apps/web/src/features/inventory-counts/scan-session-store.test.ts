@@ -62,6 +62,15 @@ describe("scan-session-store", () => {
     expect(findProductByCode(PRODUCTS, "nope")).toBeUndefined();
   });
 
+  // Regresión 2026-09-05: "Elta MD UV Sport" está guardado como EAN-13 con cero
+  // delante (0390205022878) pero la cámara lo lee como UPC-A de 12 dígitos
+  // (390205022878); el conteo decía "Producto no encontrado".
+  it("encuentra un UPC-A de 12 dígitos aunque esté guardado como EAN-13 con cero delante", () => {
+    const elta = product({ id: "elta", sku: "DERM-I00427", barcode: "0390205022878" });
+    expect(findProductByCode([...PRODUCTS, elta], "390205022878")?.id).toBe("elta");
+    expect(findProductByCode([...PRODUCTS, elta], "0390205022878")?.id).toBe("elta");
+  });
+
   it("5 y 6. escaneo repetido suma cantidad sin crear filas duplicadas", () => {
     const s = newSession();
     applyScan(s.id, { scannedCode: "8400001", product: PRODUCTS[0] });

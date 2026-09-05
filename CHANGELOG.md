@@ -10,6 +10,19 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.139.3] - 2026-09-05
+
+### Corregido
+
+- **El escáner del inventario físico y del POS ya reconocen los códigos UPC-A.**
+  113 productos (p. ej. toda la línea Elta MD) tienen el código guardado como
+  EAN-13 con cero delante (`0390205022878`), pero la cámara del celular y las
+  pistolas leen el UPC-A de 12 dígitos (`390205022878`); la comparación exacta
+  respondía «Producto no encontrado». Nuevo módulo puro
+  `features/products/barcode-match.ts` (UPC-A ≡ EAN-13 con cero delante, único
+  punto de verdad para emparejar un escaneo) usado por el conteo físico y por el
+  POS. Regresión cubierta con el código real de Elta MD UV Sport.
+
 ## [0.139.2] - 2026-09-05
 
 ### Agregado

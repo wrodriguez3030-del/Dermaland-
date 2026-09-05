@@ -16,6 +16,7 @@ import type {
   InventoryCountStatus,
   Product,
 } from "@/types";
+import { findByBarcodeOrSku } from "@/features/products/barcode-match";
 
 const KEY = "dermaland.count-sessions";
 const CHANGE_EVENT = "dermaland:count-session-changed";
@@ -194,17 +195,15 @@ function mutate(
   return next;
 }
 
-/** Busca un producto por código de barra (exacto) o SKU (case-insensitive). */
+/**
+ * Busca un producto por código de barra (tolerante a UPC-A ↔ EAN-13 con cero
+ * delante, ver `barcode-match.ts`) o por SKU (case-insensitive).
+ */
 export function findProductByCode(
   products: Product[],
   rawCode: string,
 ): Product | undefined {
-  const code = rawCode.trim();
-  if (!code) return undefined;
-  return (
-    products.find((p) => (p.barcode ?? "") !== "" && p.barcode === code) ??
-    products.find((p) => p.sku.toLowerCase() === code.toLowerCase())
-  );
+  return findByBarcodeOrSku(products, rawCode);
 }
 
 export interface ApplyScanResult {

@@ -29,6 +29,7 @@ import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
 import { ProductCard } from "./product-card";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
+import { findByBarcodeOrSku } from "@/features/products/barcode-match";
 import { useFavorites } from "./favorites-store";
 import { LineDiscountModal } from "./line-discount-modal";
 import {
@@ -2062,10 +2063,9 @@ export function PosTerminal({
         open={posScanOpen}
         onClose={() => setPosScanOpen(false)}
         onDetected={(code) => {
-          const c = code.trim();
-          const p =
-            products.find((x) => (x.barcode ?? "") !== "" && x.barcode === c) ??
-            products.find((x) => x.sku.toLowerCase() === c.toLowerCase());
+          // Tolerante a UPC-A (12 dígitos) ↔ EAN-13 con cero delante: la cámara
+          // lee 12 y el catálogo guarda 13 (ver `barcode-match.ts`).
+          const p = findByBarcodeOrSku(products, code);
           if (p) addProduct(p.id);
           else toast.error("Producto no encontrado.");
         }}
