@@ -26,6 +26,48 @@ describe("pickImportBranches", () => {
       ]),
     ).toThrow(/más de una/i);
   });
+
+  // Regresión 2026-09-05: el dueño renombró la segunda sucursal a
+  // "Dermaland  Villa Olga" el 2026-08-19 (su nombre público sigue siendo
+  // "Cutis") y el importador dejó de encontrarla porque buscaba "cutis" en el
+  // nombre. La segunda sucursal es "la otra activa", no un nombre fijo.
+  it("si la segunda sucursal ya no se llama Cutis, toma la única otra activa", () => {
+    const r = pickImportBranches([
+      { id: "b1", name: "DermaLand Principal", status: "active" },
+      { id: "b2", name: "Dermaland  Villa Olga", status: "active" },
+    ]);
+    expect(r.principal.id).toBe("b1");
+    expect(r.cutis.id).toBe("b2");
+    expect(r.cutis.name).toBe("Dermaland  Villa Olga");
+  });
+
+  it("no elige una sucursal INACTIVA como segunda", () => {
+    expect(() =>
+      pickImportBranches([
+        { id: "b1", name: "DermaLand Principal", status: "active" },
+        { id: "b2", name: "Sucursal cerrada", status: "inactive" },
+      ]),
+    ).toThrow(/segunda sucursal/i);
+  });
+
+  it("con varias candidatas, prefiere la que se llama Cutis", () => {
+    const r = pickImportBranches([
+      { id: "b1", name: "DermaLand Principal" },
+      { id: "b3", name: "Dermaland Norte" },
+      { id: "b2", name: "Dermaland Cutis" },
+    ]);
+    expect(r.cutis.id).toBe("b2");
+  });
+
+  it("con varias candidatas y ninguna llamada Cutis, pide desambiguar", () => {
+    expect(() =>
+      pickImportBranches([
+        { id: "b1", name: "DermaLand Principal" },
+        { id: "b2", name: "Dermaland Norte" },
+        { id: "b3", name: "Dermaland Sur" },
+      ]),
+    ).toThrow(/más de una/i);
+  });
 });
 
 // ─── Fakes de Repositories ────────────────────────────────────────────────

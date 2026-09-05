@@ -31,33 +31,61 @@ function key(s: string): string {
     .trim();
 }
 
+export interface ImportBranchCandidate {
+  id: string;
+  name: string;
+  /** Si falta, se asume activa (compatibilidad con llamadores viejos y tests). */
+  status?: "active" | "inactive";
+}
+
 /**
- * Resuelve qué sucursal es "Principal" y cuál "Cutis". El archivo de Alegra
- * solo desglosa "Principal"; el resto va a Cutis (decisión del dueño,
- * 2026-08-01). Falla con mensaje legible en vez de adivinar.
+ * Resuelve qué sucursal es "Principal" y cuál recibe el resto del total.
+ *
+ * El archivo de Alegra solo desglosa el almacén "Principal"; el resto va a la
+ * OTRA sucursal (decisión del dueño, 2026-08-01). Esa otra sucursal se llamaba
+ * "Dermaland Cutis" hasta el 2026-08-19, cuando el dueño la renombró a
+ * "Dermaland  Villa Olga" (su nombre público sigue siendo "Cutis") y el
+ * importador dejó de encontrarla: buscaba "cutis" en el nombre. Regla nueva:
+ *
+ *   1. "Principal" = la única sucursal cuyo nombre contiene "principal".
+ *   2. La segunda = la única OTRA sucursal activa. Si hay varias, se prefiere
+ *      la que se llame "Cutis"; si aun así no queda una sola, se pide
+ *      desambiguar. Nunca se adivina ni se elige una inactiva.
+ *
+ * Falla con mensaje legible en vez de adivinar.
  */
 export function pickImportBranches(
-  branches: Array<{ id: string; name: string }>,
+  branches: ImportBranchCandidate[],
 ): { principal: { id: string; name: string }; cutis: { id: string; name: string } } {
-  const find = (needle: string, label: string) => {
-    const hits = branches.filter((b) => key(b.name).includes(needle));
-    if (hits.length === 0) {
-      throw new UserFacingRepositoryError(
-        `No se encontró la sucursal "${label}". Sucursales disponibles: ${branches
-          .map((b) => b.name)
-          .join(" · ")}`,
-      );
-    }
-    if (hits.length > 1) {
-      throw new UserFacingRepositoryError(
-        `Hay más de una sucursal que coincide con "${label}": ${hits
-          .map((b) => b.name)
-          .join(" · ")}. Renombra una para poder importar.`,
-      );
-    }
-    return hits[0]!;
-  };
-  return { principal: find("principal", "Principal"), cutis: find("cutis", "Cutis") };
+  const lista = (xs: ImportBranchCandidate[]) => xs.map((b) => b.name).join(" · ");
+  const strip = (b: ImportBranchCandidate) => ({ id: b.id, name: b.name });
+
+  const principales = branches.filter((b) => key(b.name).includes("principal"));
+  if (principales.length === 0) {
+    throw new UserFacingRepositoryError(
+      `No se encontró la sucursal "Principal". Sucursales disponibles: ${lista(branches)}`,
+    );
+  }
+  if (principales.length > 1) {
+    throw new UserFacingRepositoryError(
+      `Hay más de una sucursal que coincide con "Principal": ${lista(principales)}. Renombra una para poder importar.`,
+    );
+  }
+  const principal = principales[0]!;
+
+  const otras = branches.filter((b) => b.id !== principal.id && b.status !== "inactive");
+  if (otras.length === 0) {
+    throw new UserFacingRepositoryError(
+      `No hay una segunda sucursal activa a la que llevar el resto de "Cantidad total" (antes "Dermaland Cutis"). Sucursales disponibles: ${lista(branches)}`,
+    );
+  }
+  if (otras.length === 1) return { principal: strip(principal), cutis: strip(otras[0]!) };
+
+  const cutis = otras.filter((b) => key(b.name).includes("cutis"));
+  if (cutis.length === 1) return { principal: strip(principal), cutis: strip(cutis[0]!) };
+  throw new UserFacingRepositoryError(
+    `Hay más de una sucursal que podría recibir el resto de "Cantidad total": ${lista(otras)}. Desactiva las que no apliquen o renombra una como "Cutis" para poder importar.`,
+  );
 }
 
 /**
@@ -118,7 +146,7 @@ export async function loadImportSources(
 ): Promise<ImportSources> {
   const branches = await repos.branch.list(ctx);
   const { principal, cutis } = pickImportBranches(
-    branches.map((b) => ({ id: b.id, name: b.name })),
+    branches.map((b) => ({ id: b.id, name: b.name, status: b.status })),
   );
 
   const products = await loadAllProducts(ctx, repos);

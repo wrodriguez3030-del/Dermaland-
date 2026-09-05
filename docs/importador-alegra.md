@@ -16,11 +16,25 @@ mayúsculas y espacios de más.
 | Columna de Alegra | Va a |
 |---|---|
 | `Cantidad en Principal` | Stock de **DermaLand Principal** |
-| `Cantidad total` − `Cantidad en Principal` | Stock de **Dermaland Cutis** |
+| `Cantidad total` − `Cantidad en Principal` | Stock de **la otra sucursal activa** (hoy «Dermaland  Villa Olga», nombre público «Cutis») |
 
 Alegra solo desglosa el almacén "Principal"; el resto del total se asume en
-Cutis. Si alguna fila trae `Cantidad total` menor que `Cantidad en Principal`,
-se reporta y se omite (la resta daría un negativo).
+la otra sucursal. Si alguna fila trae `Cantidad total` menor que `Cantidad en
+Principal`, se reporta y se omite (la resta daría un negativo).
+
+## Cómo elige las sucursales
+
+- **Principal** es la única sucursal cuyo nombre contiene «Principal».
+- **La segunda** es la única *otra* sucursal **activa** del negocio. Si hubiera
+  varias, se prefiere la que se llame «Cutis»; si aun así no queda una sola, el
+  importador se detiene y pide desactivar o renombrar. Nunca elige una
+  sucursal inactiva ni adivina.
+
+> Hasta el 2026-09-05 (v0.139.1) el importador buscaba una sucursal llamada
+> «Cutis» por nombre. El 2026-08-19 la sucursal se renombró a «Dermaland
+> Villa Olga» (su nombre público sigue siendo «Cutis») y el importador dejó de
+> funcionar con el aviso «No se encontró la sucursal "Cutis"». Por eso la
+> regla ya no depende del nombre.
 
 ## Quién puede usarlo
 
@@ -32,7 +46,7 @@ no solo un menú oculto.
 - **No toca precios, costos ni códigos de barra.** Solo cantidades.
 - **No crea productos.** Las filas que no coinciden con exactamente un producto
   del catálogo se reportan y se omiten.
-- **No importa vencimientos.** Cuando hay que crear stock en Cutis para un
+- **No importa vencimientos.** Cuando hay que crear stock en la segunda sucursal para un
   producto que no tenía lote ahí, el lote nuevo **hereda el vencimiento** de un
   lote que ese producto ya tenga en Principal, con este orden:
   1. El lote **con existencias** que vence antes.

@@ -3,7 +3,37 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-08-19
+**Última actualización:** 2026-09-05
+
+## 2026-09-05 · Importador de Alegra roto desde el 19/08 por el renombre de la sucursal (v0.139.1)
+
+- **Síntoma:** el dueño cargó «Alegra - Valor de inventario - 05-09-2026» y
+  «hay productos que no cuadran». **Causa 1 (código):** la segunda sucursal se
+  renombró de «Dermaland Cutis» a «Dermaland  Villa Olga» el 2026-08-19 17:13
+  UTC (nombre público «Cutis»); `pickImportBranches` buscaba «cutis» en el
+  nombre → el preview devolvía 400 «No se encontró la sucursal "Cutis"». No hay
+  ningún movimiento `ALEGRA-*` posterior al 03/08: **ninguna importación se
+  aplicó desde entonces.** Arreglo: la segunda sucursal es la única otra
+  sucursal activa (preferencia por «Cutis» si hay varias). Test de regresión
+  con el nombre real. Typecheck ✓ · tests ✓.
+- **Causa 2 (datos, NO es bug):** comparación del archivo contra producción
+  (solo lectura, `service_role`): 1 414 filas; 732 cuadran; **94 filas sin
+  producto en DermaLand** (77 con stock, 404 unidades, ~RD$292 mil a costo; 67
+  de ellas están al final del archivo = creadas en Alegra después de la carga
+  del 01/08); **3 son el mismo producto con otro nombre** (Bella Aurora
+  Repigment 12 · Sesderma Azelac RU Gel · Uriage Crema Lavante 500 ML);
+  **Cutis/Villa Olga tiene 0 lotes en DermaLand** (Alegra dice 1 438 unidades)
+  y **Principal se desfasó desde el 01/08** (334 productos difieren, neto +3
+  unidades: 158 con más en Alegra, 176 con más en DermaLand). El importador
+  corrige 2 y 3 al aplicarse; 1 exige crear los productos en el catálogo.
+- **Archivo:** 1 fila negativa (fila 577, «GUANTES DE TELA MEDIEUM», −1), 5
+  nombres duplicados (el importador los suma), 3 productos «Inactivo» en
+  Alegra con stock (ALERCET 10 MG = 20 unidades; el importador ignora el
+  estado y los importa igual).
+- **Pendiente del dueño:** revisar `~/Downloads/DermaLand - productos que no
+  cuadran - 05-09-2026.xlsx`, crear/renombrar los productos faltantes, exportar
+  de Alegra otra vez justo antes de importar (el archivo del 05/09 09:28 ya no
+  refleja ventas posteriores) y aplicar desde *Inventario → Importar*.
 
 ## 2026-08-19 · B-04 CERRADO DEL TODO: drill de break-glass PASADO con el dueño
 

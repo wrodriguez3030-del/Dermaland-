@@ -10,6 +10,19 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.139.1] - 2026-09-05
+
+### Corregido
+
+- **El importador de Alegra volvió a encontrar la segunda sucursal.** Desde el
+  2026-08-19, cuando la sucursal «Dermaland Cutis» se renombró a «Dermaland
+  Villa Olga» (nombre público «Cutis»), *Inventario → Importar desde Alegra*
+  fallaba con «No se encontró la sucursal "Cutis"» y no se pudo aplicar ninguna
+  importación. Ahora la segunda sucursal es «la única otra sucursal activa»
+  (con preferencia por la llamada «Cutis» solo si hay varias); nunca una
+  inactiva y nunca adivinando. Regresión cubierta en
+  `alegra-import-sources.test.ts` con el nombre real de la sucursal.
+
 ## [0.139.0] - 2026-08-19
 
 ### Agregado
