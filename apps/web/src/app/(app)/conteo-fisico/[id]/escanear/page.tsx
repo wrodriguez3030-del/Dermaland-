@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   X,
+  RefreshCw,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -51,6 +52,8 @@ import {
   useScanSession,
   findProductByCode,
   applyScan,
+  pendingNotFoundCodes,
+  recoverNotFoundScans,
   addManual,
   setItemQuantity,
   removeItem,
@@ -227,6 +230,47 @@ export default function EscanearPage() {
   };
 
   /**
+   * Vuelve a buscar los códigos que quedaron como "no encontrado" (catálogo
+   * local + servidor) y los suma al conteo sin re-escanear. Nació el
+   * 2026-09-05: los UPC-A de 12 dígitos fallaban contra el EAN-13 con cero
+   * delante del catálogo, y los conteos ya hechos guardaban esos escaneos.
+   */
+  const [reintentando, setReintentando] = React.useState(false);
+  const reintentarNoEncontrados = async () => {
+    if (reintentando) return;
+    setReintentando(true);
+    try {
+      const resueltos = new Map<string, Product>();
+      for (const codigo of pendingNotFoundCodes(session)) {
+        const p = findProductByCode(products, codigo) ?? (await buscarEnServidor(codigo));
+        if (p) resueltos.set(codigo, p);
+      }
+      const r = recoverNotFoundScans(session.id, resueltos);
+      if (r.recovered === 0) {
+        toast.error(
+          r.remaining > 0
+            ? `Ninguno de los ${r.remaining} código(s) existe todavía en el catálogo.`
+            : "No hay escaneos pendientes de recuperar.",
+        );
+      } else {
+        toast.success(
+          `${r.recovered} escaneo(s) recuperado(s)${r.remaining ? ` · ${r.remaining} sigue(n) sin producto` : ""}.`,
+        );
+        const ultimo = r.products[r.products.length - 1];
+        if (ultimo) {
+          const fila = r.session?.items.find((it) => it.productId === ultimo.product.id);
+          setLastScan({ name: ultimo.product.name, qty: fila?.countedQuantity ?? 1, ok: true });
+        }
+      }
+      for (const x of r.products) {
+        void persistirEscaneo(x.product, x.scannedCode, x.source === "camera" ? "camera" : "reader");
+      }
+    } finally {
+      setReintentando(false);
+    }
+  };
+
+  /**
    * Sube el escaneo a la nube sin bloquear el conteo: `queueScan` lo guarda en
    * IndexedDB y reintenta solo, así que un fallo aquí nunca rompe el escaneo ni
    * pierde el dato. La cabecera se crea la primera vez que hace falta.
@@ -311,7 +355,7 @@ export default function EscanearPage() {
   };
 
   const totalCounted = session.items.reduce((s, it) => s + it.countedQuantity, 0);
-  const notFoundCount = session.scans.filter((s) => s.result === "not_found").length;
+  const notFoundCount = session.scans.filter((s) => s.result === "not_found" && !s.recoveredAt).length;
 
   // Filas con stock de sistema y diferencia.
   const rows = session.items
@@ -539,6 +583,23 @@ export default function EscanearPage() {
               <Counter label="Escaneos" value={session.scans.length} />
               <Counter label="No encontrados" value={notFoundCount} tone={notFoundCount ? "danger" : "neutral"} />
             </div>
+
+            {notFoundCount > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={reintentando}
+                  onClick={() => void reintentarNoEncontrados()}
+                >
+                  <RefreshCw className={`h-4 w-4 ${reintentando ? "animate-spin" : ""}`} />
+                  {reintentando ? "Buscando…" : `Reintentar no encontrados (${notFoundCount})`}
+                </Button>
+                <span className="opacity-70">
+                  Vuelve a buscar en el catálogo los códigos que fallaron y los suma al conteo.
+                </span>
+              </div>
+            )}
 
             {lastScan && (
               <div

@@ -8,6 +8,8 @@ import {
   listSessions,
   findProductByCode,
   applyScan,
+  pendingNotFoundCodes,
+  recoverNotFoundScans,
   addManual,
   setItemQuantity,
   removeItem,
@@ -99,6 +101,64 @@ describe("scan-session-store", () => {
     expect(cur.items).toHaveLength(0);
     expect(cur.scans[0]!.result).toBe("not_found");
     expect(cur.scans[0]!.scannedCode).toBe("9999");
+  });
+
+  // 2026-09-05: los escaneos que fallaron por el bug UPC-A/EAN-13 quedaron
+  // guardados como "no encontrado" con su código; se recuperan sin re-escanear.
+  describe("recoverNotFoundScans", () => {
+    const elta = product({ id: "elta", sku: "DERM-I00427", barcode: "0390205022878" });
+
+    it("lista una sola vez cada código pendiente de recuperar", () => {
+      const s = newSession();
+      applyScan(s.id, { scannedCode: "390205022878", product: undefined });
+      applyScan(s.id, { scannedCode: "390205022878", product: undefined });
+      applyScan(s.id, { scannedCode: "111", product: undefined });
+      expect(pendingNotFoundCodes(getSession(s.id)!)).toEqual(["390205022878", "111"]);
+    });
+
+    it("suma +1 por cada escaneo recuperado, deja rastro y no toca los que siguen sin producto", () => {
+      const s = newSession();
+      applyScan(s.id, { scannedCode: "390205022878", product: undefined, source: "camera" });
+      applyScan(s.id, { scannedCode: "390205022878", product: undefined, source: "camera" });
+      applyScan(s.id, { scannedCode: "111", product: undefined });
+
+      const r = recoverNotFoundScans(s.id, new Map([["390205022878", elta]]));
+      expect(r.recovered).toBe(2);
+      expect(r.remaining).toBe(1);
+      expect(r.products.map((p) => p.product.id)).toEqual(["elta", "elta"]);
+      expect(r.products[0]!.source).toBe("camera");
+
+      const cur = getSession(s.id)!;
+      expect(cur.items).toHaveLength(1);
+      expect(cur.items[0]!.productId).toBe("elta");
+      expect(cur.items[0]!.countedQuantity).toBe(2);
+      // Los dos eventos viejos quedan marcados; el de "111" sigue pendiente.
+      expect(cur.scans.filter((e) => e.result === "not_found" && e.recoveredAt)).toHaveLength(2);
+      expect(pendingNotFoundCodes(cur)).toEqual(["111"]);
+      // Se registran eventos nuevos de escaneo con el producto ya resuelto.
+      expect(cur.scans.filter((e) => e.productId === "elta").map((e) => e.result)).toEqual([
+        "duplicate_sum",
+        "found",
+      ]);
+    });
+
+    it("es idempotente: una segunda pasada no vuelve a sumar", () => {
+      const s = newSession();
+      applyScan(s.id, { scannedCode: "390205022878", product: undefined });
+      recoverNotFoundScans(s.id, new Map([["390205022878", elta]]));
+      const r2 = recoverNotFoundScans(s.id, new Map([["390205022878", elta]]));
+      expect(r2.recovered).toBe(0);
+      expect(getSession(s.id)!.items[0]!.countedQuantity).toBe(1);
+    });
+
+    it("no recupera nada en un inventario aprobado o cancelado", () => {
+      const s = newSession();
+      applyScan(s.id, { scannedCode: "390205022878", product: undefined });
+      setSessionStatus(s.id, "approved");
+      const r = recoverNotFoundScans(s.id, new Map([["390205022878", elta]]));
+      expect(r.recovered).toBe(0);
+      expect(getSession(s.id)!.items).toHaveLength(0);
+    });
   });
 
   it("agrega manual y ajusta cantidades", () => {

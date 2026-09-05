@@ -5,6 +5,18 @@
 
 **Última actualización:** 2026-09-05
 
+## 2026-09-05 · «Reintentar no encontrados» en el conteo físico (v0.140.0)
+
+- El dueño preguntó si podía «reintegrar los no encontrados como encontrados»
+  tras el arreglo UPC-A. Los eventos `not_found` guardan el código en la sesión
+  local (`scan-session-store`), así que sí: `pendingNotFoundCodes` +
+  `recoverNotFoundScans(id, Map<código, Product>)` suman +1 por escaneo
+  recuperado (mismo `addUnit` que `applyScan`), crean el evento resuelto y
+  marcan el viejo con `recoveredAt` (idempotente). Botón en
+  `conteo-fisico/[id]/escanear` bajo los contadores, visible solo si hay
+  pendientes; resuelve con `findProductByCode` y el respaldo del servidor, y
+  encola cada recuperado con `persistirEscaneo`. Typecheck ✓ · tests ✓ · build ✓.
+
 ## 2026-09-05 · Escáner del conteo físico: «no encontrado» con códigos UPC-A (v0.139.3)
 
 - **Síntoma:** «Elta MD UV Sport está en el inventario pero al escanear en

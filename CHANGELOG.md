@@ -10,6 +10,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.140.0] - 2026-09-05
+
+### Agregado
+
+- **«Reintentar no encontrados» en el escaneo del inventario físico.** Los
+  escaneos que fallaron quedaban guardados con su código como «No encontrado»;
+  ahora un botón bajo los contadores los vuelve a buscar (catálogo local y
+  servidor, con el comparador UPC-A/EAN-13 nuevo) y los suma al conteo como si
+  se hubieran escaneado, sin repasar la estantería. Cada escaneo recuperado deja
+  su evento nuevo, marca el viejo con `recoveredAt` (una segunda pasada no
+  vuelve a sumar) y se sincroniza a la nube como un escaneo normal. Los códigos
+  que siguen sin producto se quedan pendientes. No actúa sobre inventarios
+  aprobados o cancelados. `applyScan` y la recuperación comparten el mismo
+  `addUnit`, así que cuentan exactamente igual.
+
 ## [0.139.3] - 2026-09-05
 
 ### Corregido
