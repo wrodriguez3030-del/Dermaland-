@@ -42,6 +42,9 @@ export interface Rest {
   /** Inserta varias filas de una vez. Si una falla, falla el lote entero. */
   insertMany<T>(table: string, rows: Record<string, unknown>[]): Promise<T[]>;
   patch(table: string, filter: string, body: Record<string, unknown>): Promise<void>;
+  /** Borra las filas que casen con `filter`. El filtro es OBLIGATORIO: sin él
+   *  PostgREST se niega, que es justo lo que queremos (nada de borrar la tabla). */
+  delete(table: string, filter: string): Promise<void>;
   /** Inserta o actualiza por `onConflict` (columnas separadas por coma). */
   upsert<T>(table: string, rows: Record<string, unknown>[], onConflict: string): Promise<T[]>;
 }
@@ -109,6 +112,15 @@ export function makeRest(url: string, key: string): Rest {
         body: JSON.stringify(body),
       });
       if (!r.ok) throw restError(`PATCH ${table}?${filter}`, r.status, await r.text());
+    },
+
+    async delete(table: string, filter: string): Promise<void> {
+      if (!filter.trim()) throw new Error(`DELETE ${table} sin filtro: se niega por seguridad`);
+      const r = await fetch(`${base}/rest/v1/${table}?${filter}`, {
+        method: "DELETE",
+        headers: { ...H, Prefer: "return=minimal" },
+      });
+      if (!r.ok) throw restError(`DELETE ${table}?${filter}`, r.status, await r.text());
     },
 
     async upsert<T>(table: string, rows: Record<string, unknown>[], onConflict: string): Promise<T[]> {
