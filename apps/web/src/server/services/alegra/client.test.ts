@@ -87,7 +87,56 @@ describe("AlegraClient", () => {
     expect(waited).toEqual([2000]);
   });
 
-  it("frena solo cuando X-Rate-Limit-Remaining llega a 0", async () => {
+  // 2026-09-05, visto en producción: al pasarse del límite Alegra NO responde
+  // 429, responde 400 con {"code":429,"message":"Too many requests"} en el
+  // cuerpo. Y el límite real de la cuenta es 100/min, no 150.
+  it("trata un 400 con code 429 en el cuerpo como límite alcanzado: espera el reset y reintenta", async () => {
+    const waited: number[] = [];
+    const { f, calls } = fakeFetch((_, n) =>
+      n === 0
+        ? {
+            status: 400,
+            body: { code: 429, message: "Too many requests", headers: { "x-rate-limit-reset": 7 } },
+          }
+        : { status: 200, body: { ok: true } },
+    );
+    const c = new AlegraClient({
+      email: "a",
+      token: "b",
+      fetchImpl: f,
+      sleep: async (ms) => {
+        waited.push(ms);
+      },
+    });
+    await c.get("company");
+    expect(calls).toHaveLength(2);
+    expect(waited).toContain(7000);
+  });
+
+  it("espacia las peticiones según x-rate-limit-limit para no disparar el corte por ráfaga", async () => {
+    const waited: number[] = [];
+    const { f } = fakeFetch((url) => {
+      const start = Number(new URL(url).searchParams.get("start") ?? 0);
+      return {
+        status: 200,
+        body: start === 0 ? Array(30).fill({ id: "x" }) : [],
+        headers: { "x-rate-limit-limit": "100", "x-rate-limit-remaining": "99", "x-rate-limit-reset": "60" },
+      };
+    });
+    const c = new AlegraClient({
+      email: "a",
+      token: "b",
+      fetchImpl: f,
+      sleep: async (ms) => {
+        waited.push(ms);
+      },
+    });
+    await c.listAll("items");
+    // La segunda petición espera ~60000/100 = 600 ms desde la primera.
+    expect(waited.some((ms) => ms >= 500 && ms <= 700)).toBe(true);
+  });
+
+  it("frena también cuando X-Rate-Limit-Remaining llega a 0", async () => {
     const waited: number[] = [];
     const { f } = fakeFetch((_, n) => ({
       status: 200,
