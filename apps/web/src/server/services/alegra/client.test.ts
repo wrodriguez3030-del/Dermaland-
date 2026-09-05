@@ -56,6 +56,19 @@ describe("AlegraClient", () => {
   // 2026-09-05, visto en producción: la paginación de Alegra REPITE registros
   // (el ítem 1076 vino dos veces en 1487). Sin deduplicar, el segundo se creaba
   // como producto nuevo y el enlace del primero moría con clave duplicada.
+  // 2026-09-05: sin ordenar, la paginación de Alegra no solo REPITE — también
+  // PIERDE. La lectura de ítems devolvía 1486 únicos de 1487: el 1076 dos veces
+  // y el 1115 ninguna. Ordenando por id salen los 1487 exactos.
+  it("pagina ordenando por id, que es la única clave total (el llamador puede cambiarlo)", async () => {
+    const { f, calls } = fakeFetch(() => ({ status: 200, body: [] }));
+    const c = new AlegraClient({ email: "a", token: "b", fetchImpl: f, sleep: noSleep });
+    await c.listAll("items");
+    expect(new URL(calls[0]!).searchParams.get("order_field")).toBe("id");
+    expect(new URL(calls[0]!).searchParams.get("order_direction")).toBe("ASC");
+    await c.listAll("invoices", { order_field: "date" });
+    expect(new URL(calls[1]!).searchParams.get("order_field")).toBe("date");
+  });
+
   it("deduplica por id: un registro repetido entre páginas se devuelve una sola vez", async () => {
     const { f } = fakeFetch((url) => {
       const start = Number(new URL(url).searchParams.get("start") ?? 0);

@@ -523,13 +523,14 @@ async function sincronizarFacturas(): Promise<void> {
     ).map((p) => [p.alegra_id, p.id]),
   );
 
-  const orden = { order_field: "date", order_direction: "ASC" } as const;
+  // Sin `order_field`: `listAll` ordena por id, la única clave total. Ordenar
+  // por fecha hacía que la paginación repitiera y perdiera facturas.
   const consultas: Array<Record<string, string>> = FULL
-    ? [{ ...orden }]
+    ? [{}]
     : [
-        { ...orden, date_afterOrNow: SINCE ?? diasAtras(3) },
-        { ...orden, status: "open" },
-        { ...orden, status: "void", date_afterOrNow: diasAtras(30) },
+        { date_afterOrNow: SINCE ?? diasAtras(3) },
+        { status: "open" },
+        { status: "void", date_afterOrNow: diasAtras(30) },
       ];
   const vistas = new Set<string>();
 
@@ -579,6 +580,51 @@ async function sincronizarFacturas(): Promise<void> {
   }
   console.log(
     `Facturas: ${counts.invoices?.read ?? 0} leídas · ${counts.invoices?.upserted ?? 0} guardadas · ${counts.invoices?.lines ?? 0} líneas`,
+  );
+  await reenlazarFacturas(clientePorAlegraId, productoPorAlegraId);
+}
+
+/**
+ * Enlaza facturas y líneas que quedaron sin `client_id` / `product_id` porque
+ * el contacto o el ítem aún no tenían ficha en DermaLand. Es barato y hace que
+ * el historial se vaya completando solo en cada corrida.
+ */
+async function reenlazarFacturas(
+  clientePorAlegraId: Map<string, string>,
+  productoPorAlegraId: Map<string, string>,
+): Promise<void> {
+  const facturas = await rest.getAll<{ id: string; alegra_client_id: string }>(
+    `alegra_invoices?select=id,alegra_client_id&${B}&client_id=is.null&alegra_client_id=not.is.null`,
+  );
+  let f = 0;
+  for (const inv of facturas) {
+    const clientId = clientePorAlegraId.get(inv.alegra_client_id);
+    if (!clientId) continue;
+    try {
+      await rest.patch("alegra_invoices", `id=eq.${inv.id}&${B}`, { client_id: clientId, updated_at: new Date().toISOString() });
+      f++;
+    } catch (e) {
+      fail("invoices", e);
+    }
+  }
+  const lineas = await rest.getAll<{ id: string; alegra_item_id: string }>(
+    `alegra_invoice_items?select=id,alegra_item_id&${B}&product_id=is.null&alegra_item_id=not.is.null`,
+  );
+  let l = 0;
+  for (const li of lineas) {
+    const productId = productoPorAlegraId.get(li.alegra_item_id);
+    if (!productId) continue;
+    try {
+      await rest.patch("alegra_invoice_items", `id=eq.${li.id}&${B}`, { product_id: productId });
+      l++;
+    } catch (e) {
+      fail("invoices", e);
+    }
+  }
+  bump("invoices", "relinkedInvoices", f);
+  bump("invoices", "relinkedLines", l);
+  console.log(
+    `  Re-enlace: ${f}/${facturas.length} facturas y ${l}/${lineas.length} líneas que estaban sueltas`,
   );
 }
 

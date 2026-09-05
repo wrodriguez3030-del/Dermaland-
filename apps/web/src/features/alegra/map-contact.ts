@@ -32,8 +32,14 @@ export interface SupplierDraft {
   alegraId: string;
 }
 
+/**
+ * Cliente = tiene el tipo `client` o NO tiene tipo ninguno. En Alegra hay
+ * contactos con `type: []` que sí facturan (2026-09-05: 40 de ellos, con 177
+ * facturas); tratarlos como no-clientes los dejaba sin ficha en DermaLand.
+ */
 export function isClient(c: AlegraContact): boolean {
-  return (c.type ?? []).includes("client");
+  const tipos = c.type ?? [];
+  return tipos.length === 0 || tipos.includes("client");
 }
 
 export function isProvider(c: AlegraContact): boolean {

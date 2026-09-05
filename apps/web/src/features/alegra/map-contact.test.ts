@@ -43,6 +43,11 @@ describe("contactToClientDraft", () => {
     const p = contactToSupplierDraft({ ...base, id: "2477", name: "Managament Company", identification: "131794211", type: ["provider"] });
     expect(p).toEqual({ name: "Managament Company", rnc: "131794211", phone: "829-555-0182", email: null, alegraId: "2477" });
     expect(isProvider({ ...base, type: ["provider"] })).toBe(true);
+    // 2026-09-05: 40 contactos de Alegra vienen con `type: []` y SÍ tienen
+    // facturas (LUISA DE LEON, id 256). Sin esto se quedaban sin ficha y sus
+    // 177 facturas sin cliente enlazado.
+    expect(isClient({ ...base, type: [] })).toBe(true);
+    expect(isProvider({ ...base, type: [] })).toBe(false);
     expect(isProvider(base)).toBe(false);
     expect(isClient({ ...base, type: ["client", "provider"] })).toBe(true);
   });
