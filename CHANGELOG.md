@@ -10,6 +10,26 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.142.0] - 2026-09-05
+
+### Agregado
+
+- **La sincronización con Alegra corre sola todos los días a las 6:00 a. m.**
+  (`.github/workflows/alegra-sync.yml`, GitHub Actions). Se puede lanzar a mano
+  con alcance y entidades elegibles, comprueba los secretos y las credenciales
+  antes de escribir, y guarda el reporte de la corrida como artefacto.
+- **Administración → Integración con Alegra:** estado de la última corrida,
+  cuántos clientes, productos, facturas y líneas hay traídos, historial de
+  corridas y botón «Sincronizar ahora» (solo admin, manager y super admin).
+  El botón no sincroniza en el servidor web: le pide a GitHub Actions que corra
+  el mismo trabajo, así el token de Alegra vive solo en los secretos.
+- **Ficha del cliente → pestaña «Compras en Alegra»:** sus facturas con
+  comprobante, forma de pago, vendedor, total y saldo, aparte de las proformas.
+- **Reportes → Ventas en Alegra:** rango de fechas y sucursal, con totales,
+  ventas por vendedor, por forma de pago, productos más vendidos y día a día.
+- **Cuentas por cobrar → Saldos en Alegra:** lo pendiente por cliente con la
+  antigüedad de la factura más vieja, y el detalle factura por factura.
+
 ## [0.141.0] - 2026-09-05
 
 ### Agregado

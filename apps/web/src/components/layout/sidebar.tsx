@@ -93,6 +93,7 @@ export const groups: NavGroup[] = [
       { label: "Estados de cuenta", href: "/cuentas-por-cobrar/estados-de-cuenta" },
       { label: "Notas de crédito", href: "/notas-credito" },
       { label: "Historial", href: "/cuentas-por-cobrar/historial" },
+      { label: "Saldos en Alegra", href: "/cuentas-por-cobrar/alegra" },
       { label: "Reportes", href: "/cuentas-por-cobrar/reportes" },
       { label: "Configuración", href: "/cuentas-por-cobrar/configuracion" },
     ],
@@ -148,6 +149,7 @@ export const groups: NavGroup[] = [
     items: [
       { label: "Dashboard reportes", href: "/reportes" },
       { label: "Ventas", href: "/reportes/ventas" },
+      { label: "Ventas en Alegra", href: "/reportes/alegra" },
       { label: "Inventario", href: "/reportes/inventario" },
       { label: "Caja", href: "/reportes/caja" },
       { label: "Clientes", href: "/reportes/clientes" },
@@ -218,6 +220,7 @@ export const groups: NavGroup[] = [
       // es configuración del negocio, no trabajo de mostrador.
       { label: "Costos de envío", href: "/envios" },
       { label: "Cuentas bancarias", href: "/cuentas-bancarias" },
+      { label: "Integración con Alegra", href: "/admin/integraciones/alegra" },
       { label: "Configuración", href: "/admin/configuracion" },
     ],
   },

@@ -5,6 +5,31 @@
 
 **Última actualización:** 2026-09-05
 
+## 2026-09-05 · La sincronización con Alegra corre sola y se ve en pantalla (v0.142.0)
+
+- **Trabajo diario** `.github/workflows/alegra-sync.yml`: cron 10:00 UTC =
+  06:00 RD, timeout 45 min, disparo manual con alcance/entidades/simulación,
+  comprobación de secretos y de credenciales antes de escribir, reporte como
+  artefacto. Las entradas del disparo manual NO se interpolan en el `run`
+  (inyección) y se validan contra lista blanca.
+- **Cuatro pantallas nuevas:** Administración → Integración con Alegra (estado,
+  historial y botón «Sincronizar ahora»), ficha del cliente → pestaña «Compras
+  en Alegra», Reportes → Ventas en Alegra (rango, sucursal, vendedor, forma de
+  pago, productos, día a día) y Cuentas por cobrar → Saldos en Alegra.
+- **Cómo se dispara desde la app:** `POST /api/alegra/sync` NO sincroniza; pide
+  a GitHub Actions que corra el workflow, así el token de Alegra nunca vive en
+  el servidor web. Roles: leer el historial casi todos; disparar solo
+  admin/manager/super_admin.
+- **Motor de agregados PURO** (`features/alegra/sales-report.ts`, 12 pruebas):
+  las facturas anuladas quedan fuera de todos los totales y se cuentan aparte.
+  Consultas con RLS y paginación siempre. Typecheck ✓ · 2 977 pruebas ✓ · build ✓.
+- **Verificado contra producción:** 468 facturas en los últimos 30 días por
+  RD$1 874 669,80; 20 facturas con saldo por RD$27 207,53, la más antigua de
+  2025-01-09; un cliente con 172 compras.
+- **Falta configurar (acción del dueño):** los cuatro secretos del repositorio
+  para el trabajo diario y `GITHUB_ACTIONS_TOKEN` en Vercel para el botón. Ver
+  `docs/alegra-sync.md`.
+
 ## 2026-09-05 · MIGRACIÓN COMPLETA desde Alegra + sincronizador (v0.141.0)
 
 - **Autorizado por el dueño** («migra todo los datos de cliente y producto

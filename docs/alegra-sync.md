@@ -138,6 +138,43 @@ nombre del cliente y del producto, así que el historial se lee igual.
 - Un fallo en una entidad se anota y **no** detiene a las demás.
 - El `business_id` es constante del código; nunca sale de la API.
 
+## Dónde se ve en la aplicación
+
+| Pantalla | Qué muestra |
+|---|---|
+| Administración → Integración con Alegra | Estado de la última corrida, qué hay traído, historial y botón «Sincronizar ahora» |
+| Ficha del cliente → «Compras en Alegra» | Sus facturas: comprobante, forma de pago, vendedor, total y saldo |
+| Reportes → Ventas en Alegra | Rango y sucursal, con totales, por vendedor, por forma de pago, productos y día a día |
+| Cuentas por cobrar → Saldos en Alegra | Pendiente por cliente con antigüedad, y el detalle factura por factura |
+
+El botón «Sincronizar ahora» **no sincroniza en el servidor web**: le pide a
+GitHub Actions que corra el mismo trabajo de las 6:00 a. m. Así el token de
+Alegra vive únicamente en los secretos del workflow y una corrida a mano queda
+registrada igual que la automática.
+
+## Qué hay que configurar una sola vez
+
+**Secretos del repositorio** (Settings → Secrets and variables → Actions), para
+que el trabajo diario funcione:
+
+| Secreto | De dónde sale |
+|---|---|
+| `ALEGRA_EMAIL` | Alegra → Configuración → API |
+| `ALEGRA_TOKEN` | Alegra → Configuración → API |
+| `NEXT_PUBLIC_SUPABASE_URL` | El mismo de `apps/web/.env.local` |
+| `SUPABASE_SERVICE_ROLE_KEY` | El mismo de `apps/web/.env.local` |
+
+**Variable de entorno de la aplicación** (Vercel), solo para el botón
+«Sincronizar ahora»:
+
+| Variable | Qué es |
+|---|---|
+| `GITHUB_ACTIONS_TOKEN` | Token de GitHub de grano fino con permiso `actions: write` **solo** sobre este repositorio |
+
+Sin `GITHUB_ACTIONS_TOKEN` todo lo demás funciona: la pantalla se ve, el
+historial se lee y la sincronización sigue corriendo sola a las 6:00 a. m.; lo
+único que se apaga es el botón, y la pantalla lo explica.
+
 ## Credenciales
 
 `ALEGRA_EMAIL` y `ALEGRA_TOKEN` en `apps/web/.env.local` (ignorado por git) y,

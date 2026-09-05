@@ -46,6 +46,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { useCustomerProfile } from "@/features/customers/customer-profile-hooks";
 import { isNewCustomer } from "@/features/customers/customer-flags";
 import { purchasesByMonth } from "@/features/customers/customer-purchases";
+import { AlegraPurchasesTab } from "@/features/alegra/client-purchases-tab";
 import { BarChart } from "@/components/ui/bar-chart";
 import { getCustomerNotes } from "@/lib/mock-data/customers";
 import {
@@ -336,6 +337,7 @@ export default function ClienteDetallePage() {
           <TabsTrigger value="purchases">
             Compras ({proformas.length})
           </TabsTrigger>
+          <TabsTrigger value="alegra">Compras en Alegra</TabsTrigger>
           <TabsTrigger value="recommendations">
             Recomendaciones ({recommendations.length})
           </TabsTrigger>
@@ -418,6 +420,10 @@ export default function ClienteDetallePage() {
             onClose={() => setSendModal({ proforma: null, tab: "whatsapp" })}
             initialTab={sendModal.tab}
           />
+        </TabsContent>
+
+        <TabsContent value="alegra">
+          <AlegraPurchasesTab clientId={c.id} />
         </TabsContent>
 
         <TabsContent value="recommendations">
