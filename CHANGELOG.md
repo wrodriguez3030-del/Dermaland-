@@ -10,6 +10,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.139.2] - 2026-09-05
+
+### Agregado
+
+- **Script `scripts/migrar-inventario-alegra.mts`:** migra el inventario COMPLETO
+  desde el export «Valor de inventario» de Alegra sin pasos manuales: crea los
+  productos que faltan (SKU secuencial, costo de Alegra, precio por la regla
+  costo + ITBIS + 30 %, marca/laboratorio/categoría inferidos como el resto del
+  catálogo), renombra los que existen con otro nombre (lista explícita), da de
+  alta el lote inicial en Principal con vencimiento provisional a 1 año y aplica
+  el plan del importador con el MISMO motor puro (`buildImportPlan`) y la misma
+  escritura que la pantalla. Dry-run por defecto; `--apply` escribe; verifica al
+  final releyendo la base. Un costo de relleno (< 10 DOP) deja el precio en 0
+  para que el POS no venda a RD$1,53 por error.
+
 ## [0.139.1] - 2026-09-05
 
 ### Corregido

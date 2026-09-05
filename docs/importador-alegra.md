@@ -111,6 +111,21 @@ del horario de facturación.
 
 ## Alternativa por línea de comandos
 
+**Migración completa (crea productos + stock en las dos sucursales):**
+`scripts/migrar-inventario-alegra.mts`. Hace lo que la pantalla NO hace: da de
+alta los productos que faltan, renombra los que existen con otro nombre (lista
+explícita en el script) y crea el lote inicial en Principal con vencimiento
+provisional a 1 año; luego aplica el mismo plan que la pantalla. Dry-run por
+defecto, `--apply` escribe, y verifica al final. Se usó el 2026-09-05
+(`ALEGRA-20260905-1409`: 91 productos nuevos, 907 movimientos, 1 408/1 408
+cuadran). Toma respaldo antes.
+
+```bash
+apps/web/node_modules/.bin/tsx scripts/migrar-inventario-alegra.mts "<archivo.xlsx>"          # simula
+apps/web/node_modules/.bin/tsx scripts/migrar-inventario-alegra.mts "<archivo.xlsx>" --apply  # escribe
+```
+
+
 Existe `scripts/import-stock-principal-from-alegra.mjs`, que hace lo mismo solo
 para Principal y corre con dry-run por defecto. Se usó el 2026-08-01 para la
 carga inicial (40 889 → 2 312 unidades). La pantalla es el camino normal; el

@@ -5,6 +5,30 @@
 
 **Última actualización:** 2026-09-05
 
+## 2026-09-05 · Inventario MIGRADO completo desde Alegra (referencia `ALEGRA-20260905-1409`)
+
+- **Autorizado por el dueño** («migra el nuevo stock», «crea los productos»,
+  «ejecuta»). Respaldo previo: `backups/20260905*` (57 tablas, 4 703 filas).
+- **Aplicado con `scripts/migrar-inventario-alegra.mts --apply`** (v0.139.2):
+  3 productos renombrados · **91 productos creados** (`DERM-000602`…`000692`) ·
+  74 lotes iniciales en Principal (317 uds, vencimiento provisional
+  **2027-09-05**, `AJU-ALEGRA-20260905-1409`) · Principal: 333 ajustes ·
+  Villa Olga (Cutis): 512 ajustes, **510 lotes nuevos** heredando el vencimiento
+  de Principal · 907 movimientos · **0 fallos**.
+- **Verificación (dos vías: el script y un comparador aparte):** 1 408/1 408
+  productos cuadran con el archivo; stock final **Principal 2 619 uds · Villa
+  Olga 1 438 uds**; catálogo 1 446 productos; 0 lotes negativos.
+- **Deuda que deja (decisión de negocio, no de código):** (1) 7 productos nuevos
+  con precio 0 porque Alegra trae costo «1» de relleno (Total Eye Deep, Total
+  Brush Tan, Sunforgettable Tan, Total Balm Golden Hour, Lip Shine Savanna,
+  Clorexin 4 % Espuma, Elta MD UV Restore Mini) — el POS no los vende hasta que
+  tengan precio; (2) los 74 lotes iniciales y los 510 de Villa Olga tienen
+  vencimiento heredado/provisional, no real; (3) la fila 577 del archivo
+  («Guantes de tela», −1) sigue en negativo en Alegra; (4) 31 productos nuevos
+  sin marca reconocida por el parser.
+- Movimientos en *Inventario → Movimientos* con motivo «Importación Alegra
+  ALEGRA-20260905-1409» y usuario «Dario (script migración Alegra)».
+
 ## 2026-09-05 · Importador de Alegra roto desde el 19/08 por el renombre de la sucursal (v0.139.1)
 
 - **Síntoma:** el dueño cargó «Alegra - Valor de inventario - 05-09-2026» y
