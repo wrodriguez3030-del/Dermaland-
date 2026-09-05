@@ -4,8 +4,10 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, Table, TBody, TD, TH, 
 import { StatCard } from "@/components/ui/stat-card";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/utils/format";
-import { getRepoContext } from "@/server/auth/context";
+import { redirect } from "next/navigation";
+import { getRepoContext, getSession } from "@/server/auth/context";
 import { facturasConSaldo } from "@/server/services/alegra/queries";
+import { ALEGRA_READ_ROLES, permiteAlegra } from "@/features/alegra/roles";
 import { diasDesde, saldosPorCliente } from "@/features/alegra/sales-report";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,12 @@ function tono(dias: number): "neutral" | "warning" | "danger" {
 }
 
 export default async function SaldosAlegraPage() {
+  // Mismo criterio que la API (`ALEGRA_READ_ROLES`): si la ruta se lo niega,
+  // la pantalla tampoco puede enseñárselo.
+  const session = await getSession();
+  if (!session) redirect("/login?next=/cuentas-por-cobrar/alegra");
+  if (!permiteAlegra(ALEGRA_READ_ROLES, session.user.role, session.isPlatformAdmin)) redirect("/");
+
   if (env.DATA_SOURCE !== "supabase") {
     return (
       <>

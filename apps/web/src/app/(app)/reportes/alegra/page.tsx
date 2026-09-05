@@ -3,9 +3,11 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Select,
 import { StatCard } from "@/components/ui/stat-card";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/utils/format";
-import { getRepoContext } from "@/server/auth/context";
+import { redirect } from "next/navigation";
+import { getRepoContext, getSession } from "@/server/auth/context";
 import { getRepositories } from "@/server/repositories";
 import { facturasEnRango, lineasDeFacturas } from "@/server/services/alegra/queries";
+import { ALEGRA_READ_ROLES, permiteAlegra } from "@/features/alegra/roles";
 import {
   productosVendidos,
   totalesDeVentas,
@@ -32,6 +34,12 @@ export default async function ReporteAlegraPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string; sucursal?: string }>;
 }) {
+  // Mismo criterio que la API (`ALEGRA_READ_ROLES`): si la ruta se lo niega,
+  // la pantalla tampoco puede enseñárselo.
+  const session = await getSession();
+  if (!session) redirect("/login?next=/reportes/alegra");
+  if (!permiteAlegra(ALEGRA_READ_ROLES, session.user.role, session.isPlatformAdmin)) redirect("/");
+
   const q = await searchParams;
   const hoy = hoyRD();
   const hasta = ES_FECHA.test(q.hasta ?? "") ? q.hasta! : hoy;

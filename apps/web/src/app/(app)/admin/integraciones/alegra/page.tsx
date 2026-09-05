@@ -4,8 +4,10 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, Table, TBody, TD, TH, 
 import { StatCard } from "@/components/ui/stat-card";
 import { env } from "@/lib/env";
 import { formatDateTime } from "@/lib/utils/format";
-import { getRepoContext } from "@/server/auth/context";
+import { redirect } from "next/navigation";
+import { getRepoContext, getSession } from "@/server/auth/context";
 import { resumenAlegra, ultimasCorridas, type CorridaSync } from "@/server/services/alegra/queries";
+import { ALEGRA_SYNC_ROLES, permiteAlegra } from "@/features/alegra/roles";
 import { SyncNowButton } from "@/features/alegra/sync-now-button";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +29,12 @@ function resumenDeCorrida(c: CorridaSync): string {
 }
 
 export default async function IntegracionAlegraPage() {
+  // Mismo criterio que la API (`ALEGRA_SYNC_ROLES`): si la ruta se lo niega,
+  // la pantalla tampoco puede enseñárselo.
+  const session = await getSession();
+  if (!session) redirect("/login?next=/admin/integraciones/alegra");
+  if (!permiteAlegra(ALEGRA_SYNC_ROLES, session.user.role, session.isPlatformAdmin)) redirect("/");
+
   if (env.DATA_SOURCE !== "supabase") {
     return (
       <>
