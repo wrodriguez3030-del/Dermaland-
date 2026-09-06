@@ -25,8 +25,10 @@ import { ExportPdfButton } from "@/components/reporting/export-pdf-button";
 import { FileText, Wallet, CalendarClock, HandCoins } from "lucide-react";
 import { AGING_LABEL, AGING_ORDER } from "@/features/receivables/aging";
 import { AgingBadge, CollectModal, METHOD_LABEL, PromiseModal, usePendingReceivables } from "@/features/receivables/components";
+import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { arApi, fecha, money, type ClientStatement } from "@/features/receivables/receivables-client";
 import type { ReportPdfSpec } from "@/lib/reports/pdf/types";
+import { seccionFacturasPendientes } from "./pdf-estado-cuenta";
 
 function hoyLabel(): string {
   return new Date().toLocaleDateString("es-DO");
@@ -87,33 +89,7 @@ function StatementContent() {
         { label: "Último pago", value: st.ultimoPago ? fecha(st.ultimoPago) : "—" },
       ],
       sections: [
-        {
-          title: "Facturas pendientes",
-          table: {
-            columns: [
-              { header: "Factura", key: "number" },
-              { header: "e-CF", key: "ecf" },
-              { header: "Emisión", key: "issued", format: "date" },
-              { header: "Vence", key: "due", format: "date" },
-              { header: "Días venc.", key: "overdue", format: "int", align: "right" },
-              { header: "Monto", key: "total", format: "currency", align: "right" },
-              { header: "Saldo", key: "balance", format: "currency", align: "right" },
-              { header: "Estado", key: "estado" },
-            ],
-            rows: st.invoices.map((i) => ({
-              number: i.number,
-              ecf: i.ecfNumber ?? "—",
-              issued: i.issuedAt,
-              due: i.dueDate,
-              overdue: i.overdueDays,
-              total: i.total,
-              balance: i.balance,
-              estado: AGING_LABEL[i.bucket],
-            })),
-            totals: { number: "TOTAL", balance: st.saldoTotal },
-            emptyMessage: "Sin facturas pendientes.",
-          },
-        },
+        seccionFacturasPendientes(st.invoices, st.saldoTotal),
         {
           title: "Pagos registrados",
           table: {
@@ -246,7 +222,12 @@ function StatementContent() {
                       <TBody>
                         {st.invoices.map((i) => (
                           <TR key={i.id}>
-                            <TD className="font-mono text-xs">{i.number}</TD>
+                            <TD className="font-mono text-xs">
+                              <span className="inline-flex items-center gap-1.5">
+                                {i.number}
+                                <EtiquetaOrigen origen={i.origen} />
+                              </span>
+                            </TD>
                             <TD className="text-xs">{fecha(i.dueDate)}</TD>
                             <TD className="text-right tabular-nums">{money(i.balance)}</TD>
                             <TD><AgingBadge bucket={i.bucket} /></TD>
