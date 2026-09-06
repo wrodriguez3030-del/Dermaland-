@@ -27,15 +27,24 @@ function urlDeLaBase() {
   return m[1].replace(/^"|"$/g, "");
 }
 
-const TABLAS_NUEVAS = [
-  "dgii_settings","dgii_certificates","ecf_sequences","electronic_invoices",
-  "electronic_invoice_items","dgii_submissions","dgii_status_logs",
-  "dgii_enablement_progress","dgii_representative_attestations","received_ecf",
-  "received_commercial_approvals","dgii_certification_datasets",
-  "dgii_certification_cases","dgii_simulation_ranges",
-  "dgii_certification_applications","dgii_certification_events",
-  "dgii_certification_evidence",
-];
+/**
+ * La lista NO se copia a mano: se lee de la fuente canónica
+ * (`apps/web/src/features/dgii/db/tablas.ts`). Antes era una copia literal de
+ * las 17, sin nada que atara las dos; al pasar el esquema a 18 tablas
+ * (`ecf_document_events`, ver C2 de la revisión final) esa copia se habría
+ * quedado corta en silencio y el verificador habría dado el visto bueno a un
+ * esquema incompleto. M3 de la revisión final.
+ */
+function tablasNuevas() {
+  const ts = readFileSync(path.join(RAIZ, "apps/web/src/features/dgii/db/tablas.ts"), "utf8");
+  const m = /export const TABLAS_NUEVAS = \[([\s\S]*?)\] as const;/.exec(ts);
+  if (!m) throw new Error("no se pudo leer TABLAS_NUEVAS de features/dgii/db/tablas.ts");
+  const nombres = [...m[1].matchAll(/"([a-z0-9_]+)"/g)].map((x) => x[1]);
+  if (nombres.length === 0) throw new Error("TABLAS_NUEVAS quedó vacía al leerla de tablas.ts");
+  return nombres;
+}
+
+const TABLAS_NUEVAS = tablasNuevas();
 
 const fallos = [];
 const ok = (msg) => console.log(`  ✓ ${msg}`);
@@ -61,7 +70,7 @@ async function main() {
     [TABLAS_NUEVAS],
   );
   sinRls.rows.length === 0
-    ? ok("las 17 tienen RLS activo")
+    ? ok(`las ${TABLAS_NUEVAS.length} tienen RLS activo`)
     : mal(`sin RLS: ${sinRls.rows.map((x) => x.relname).join(", ")}`);
 
   const legacy = await cliente.query(

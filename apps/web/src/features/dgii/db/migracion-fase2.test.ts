@@ -102,7 +102,7 @@ describe("fase 2 — migración de tablas", () => {
     return fin === -1 ? resto : resto.slice(0, fin);
   };
 
-  it("crea las 17 tablas", () => {
+  it("crea las 18 tablas", () => {
     for (const t of TABLAS_NUEVAS) {
       expect(codigo, `falta ${t}`).toMatch(
         new RegExp(`create table if not exists public\\.${t}\\s*\\(`, "i"),
@@ -161,6 +161,80 @@ describe("fase 2 — migración de tablas", () => {
     expect(m, "no encontró el CHECK de status de electronic_invoices").toBeTruthy();
     const enSql = [...m![1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]!);
     expect(enSql).toEqual([...INVOICE_STATUSES]);
+  });
+
+  it("devuelve las ocho columnas que 0045 puso en electronic_invoices y agendapp nunca tuvo", () => {
+    // C2 de la revisión final. Las escribió DermaLand, no agendapp, así que la
+    // auditoría de fidelidad contra la fuente no podía verlas faltar. Sin
+    // ellas: `queue-worker.ts:110-111` descarta el `error` del select y la cola
+    // se queda sin encontrar nada, sin un solo log; `transitions.ts:219`
+    // (`recordFailure`) no inspecciona su resultado y los fallos dejan de
+    // registrarse; y `transitions.ts:138` no puede escribir el hash de la firma.
+    const bloque = codigo.slice(codigo.indexOf("alter table public.electronic_invoices\n  add column"));
+    for (const [col, tipo] of [
+      ["idempotency_key", "text"],
+      ["retry_count", "integer not null default 0"],
+      ["next_retry_at", "timestamptz"],
+      ["last_error_class", "text"],
+      ["last_error_message", "text"],
+      ["hash_sha256", "text"],
+      ["rejected_at", "timestamptz"],
+      ["cancelled_at", "timestamptz"],
+    ] as const) {
+      expect(bloque, `falta ${col} ${tipo}`).toMatch(
+        new RegExp(`add column if not exists ${col}\\s+${tipo.replace(/ /g, "\\s+")}`, "i"),
+      );
+    }
+  });
+
+  it("la barrera de idempotencia existe y NO reusa un nombre de índice de la tabla retirada", () => {
+    // `alter table ... rename to` NO renombra los índices: tras la parte 1, la
+    // tabla retirada se queda con los nombres que 0045 les puso. Reusarlos aquí
+    // no daría error — `create index if not exists` vería el nombre ocupado y lo
+    // saltaría con un NOTICE —, y la tabla nueva se quedaría SIN barrera de
+    // idempotencia. Comprobado contra un Postgres 16 efímero.
+    const del0045 = [...leer("0045_ecf_idempotency_and_events.sql")
+      .matchAll(/create\s+(?:unique\s+)?index\s+(?:if not exists\s+)?([a-z0-9_]+)/gi)]
+      .map((m) => m[1]!.toLowerCase());
+    expect(del0045.length, "0045 declaraba índices").toBeGreaterThan(0);
+
+    const aqui = [...codigo.matchAll(/create\s+(?:unique\s+)?index\s+(?:if not exists\s+)?([a-z0-9_]+)/gi)]
+      .map((m) => m[1]!.toLowerCase());
+    for (const n of del0045) {
+      expect(aqui, `el nombre ${n} lo conserva la tabla retirada: create index if not exists lo saltaría en silencio`)
+        .not.toContain(n);
+    }
+
+    // Y la barrera tiene que estar, con otro nombre.
+    expect(codigo).toMatch(
+      /create unique index if not exists \w+\s+on public\.electronic_invoices \(idempotency_key\)\s+where idempotency_key is not null/i,
+    );
+    expect(codigo).toMatch(
+      /create index if not exists \w+\s+on public\.electronic_invoices \(business_id, next_retry_at\)\s+where next_retry_at is not null/i,
+    );
+  });
+
+  it("ecf_document_events vuelve entera: append-only de verdad y FK que RESTRINGE", () => {
+    // La parte 1 la retira (su FK apunta a electronic_invoices, que sí se
+    // renombra) y aquí se recrea. Sin ella, el insert de `transitions.ts:305`
+    // va envuelto en un try/catch deliberado: no falla, simplemente deja de
+    // haber historial fiscal, con cero señal.
+    expect(codigo).toMatch(/create table if not exists public\.ecf_document_events\s*\(/i);
+    expect(codigo).toMatch(/create or replace function public\.ecf_events_solo_insertar\(\)/i);
+    expect(codigo).toMatch(
+      /create trigger ecf_document_events_append_only\s+before update or delete on public\.ecf_document_events/i,
+    );
+    // RESTRICT, no CASCADE: viene de 20260805020813_ecf_events_fk_restrict.sql.
+    // Con CASCADE, borrar un comprobante intentaba borrar su historial, el
+    // disparador lo impedía, y el mensaje hablaba de «append-only» en vez de
+    // decir lo que pasa.
+    expect(codigo).toMatch(
+      /foreign key \(electronic_invoice_id\)\s+references public\.electronic_invoices\(id\)\s+on delete restrict/i,
+    );
+    // Acotado a esta tabla: `electronic_invoice_items`, `dgii_submissions` y
+    // `dgii_status_logs` sí cascadean a propósito, y deben seguir haciéndolo.
+    const suyo = bloqueDeTabla("ecf_document_events");
+    expect(suyo).not.toMatch(/on delete cascade/i);
   });
 
   it("no crea nada con el nombre de una tabla intocable", () => {

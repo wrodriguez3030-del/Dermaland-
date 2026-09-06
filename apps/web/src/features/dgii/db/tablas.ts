@@ -6,7 +6,19 @@
  * comprobante. No se borran: se renombran con fecha, para poder volver atrás.
  */
 
-/** Las 17 que trae el módulo de agendapp. Orden: emisión, recepción, certificación. */
+/**
+ * Las 18 del esquema fiscal nuevo. Orden: emisión, recepción, certificación,
+ * historial.
+ *
+ * Diecisiete vienen del módulo de agendapp. La decimoctava,
+ * `ecf_document_events`, NO: es trabajo propio de DermaLand
+ * (`0045_ecf_idempotency_and_events.sql:60-108`) y hoy la escribe código vivo
+ * (`server/services/dgii/transitions.ts:305`). La parte 1 la retira con las
+ * otras 12 —su clave foránea apunta a `electronic_invoices`, que sí se
+ * renombra— y la parte 2 la vuelve a crear, con su trigger append-only y su FK
+ * `on delete restrict`. La tabla vieja está vacía, así que no se pierde nada.
+ * Ver C2 de la revisión final de la rama.
+ */
 export const TABLAS_NUEVAS = [
   "dgii_settings",
   "dgii_certificates",
@@ -25,6 +37,7 @@ export const TABLAS_NUEVAS = [
   "dgii_certification_applications",
   "dgii_certification_events",
   "dgii_certification_evidence",
+  "ecf_document_events",
 ] as const;
 
 /** Las 13 del módulo viejo. Todas vacías salvo `dgii_certificates` (4 filas, 3 revocadas). */

@@ -1,14 +1,29 @@
 -- supabase/migrations/20260906090100_dgii_fase2_tablas.sql
 --
--- DGII fase 2, parte 2 de 3: las 17 tablas del módulo fiscal de agendapp.
+-- DGII fase 2, parte 2 de 3: 18 tablas — las 17 del módulo fiscal de agendapp
+-- más `ecf_document_events`, que es trabajo propio de DermaLand.
 --
--- Portadas de ~/Projects/agendapp/prisma/migrations/applied/ (commit 8dbda0f6),
--- con seis sustituciones y ninguna más: `current_user_business_id()` ->
--- `auth_business_id()`, `sales` -> `proformas`, esquema cualificado, search_path
--- de esta casa, minúsculas, y comentarios reescritos.
+-- Las 17 vienen de ~/Projects/agendapp/prisma/migrations/applied/ (commit
+-- 8dbda0f6), con SIETE sustituciones y ninguna más: `current_user_business_id()`
+-- -> `auth_business_id()`, `sales` -> `proformas`, esquema cualificado,
+-- search_path de esta casa, minúsculas, comentarios reescritos, y el renombre
+-- del CHECK `ecf_sequences_next_chk` -> `ecf_sequences_next_dentro_del_rango`
+-- (mismo predicado carácter por carácter; ver la nota de portado abajo).
+-- Antes esta cabecera decía «seis y ninguna más» y el cuerpo declaraba la
+-- séptima: M5 de la revisión final.
 --
--- Requiere la parte 1 aplicada: siete de estos nombres los ocupaba el módulo
--- viejo.
+-- LO QUE NO VIENE DE AGENDAPP, y por qué está aquí (C2 de la revisión final):
+-- * el bloque `4-bis`, con las ocho columnas y los dos índices que DermaLand
+--   escribió en `0045_ecf_idempotency_and_events.sql`;
+-- * la tabla `18) ecf_document_events`, con su trigger append-only y su clave
+--   foránea `on delete restrict`.
+-- Las dos cosas las lee y las escribe código VIVO de esta casa. El plan de la
+-- fase prometió que el módulo viejo sigue funcionando hasta la fase 8, y
+-- quitarlas la habría roto en silencio.
+--
+-- Requiere la parte 1 aplicada: ocho de estos nombres los ocupaba el módulo
+-- viejo. La guarda de la línea siguiente lo comprueba en vez de confiar en que
+-- alguien lea esta cabecera.
 --
 -- Material sensible: `dgii_certificates.pkcs12_encrypted_blob` y
 -- `.password_secret_ref` son sobres AES-256-GCM. NUNCA texto plano. El XML y las
@@ -17,7 +32,7 @@
 -- llevar Authorization ni token.
 --
 -- Nota de portado (detalle completo en task-3-report.md y docs/decisiones.md):
--- * `sales` no aparece dentro de ninguna de estas 17 tablas (solo aparecía en
+-- * `sales` no aparece dentro de ninguna de las 17 tablas portadas (solo aparecía en
 --   la sección de `ALTER TABLE sales ...` del fichero fuente, fuera de alcance
 --   de esta tarea), así que la sustitución sales -> proformas no tiene ninguna
 --   ocurrencia real que aplicar aquí.
@@ -28,7 +43,8 @@
 --   español lo que la restricción hace. El CHECK de rango
 --   (`ecf_sequences_range_chk`) y el UNIQUE (`ecf_sequences_uniq`) se
 --   conservaron con sus nombres originales de la fuente. No hay ninguna
---   adición neta sobre el DDL de origen en ninguna de las 17 tablas (el plan
+--   adición neta sobre el DDL de origen en ninguna de las 17 tablas PORTADAS
+--   (los bloques 4-bis y 18 no salen de agendapp y se declaran arriba; el plan
 --   de la fase decía lo contrario; esa afirmación del plan era incorrecta y
 --   se corrigió — ver docs/decisiones.md, entrada 2026-09-05).
 -- * `dgii_certification_events.source` y `dgii_certification_evidence.source`
@@ -179,6 +195,65 @@ drop policy if exists electronic_invoices_all on public.electronic_invoices;
 create policy electronic_invoices_all on public.electronic_invoices for all
   using (business_id = auth_business_id())
   with check (business_id = auth_business_id());
+
+-- ── 4-bis) Reincorporación de 0045_ecf_idempotency_and_events ────────────────
+--
+-- ESTAS COLUMNAS NO VIENEN DE AGENDAPP: las escribió DermaLand en
+-- `0045_ecf_idempotency_and_events.sql:22-53`, y son la barrera de idempotencia
+-- de la cola fiscal. La auditoría de fidelidad contra agendapp no podía
+-- detectarlo por construcción — allá nunca existieron.
+--
+-- El plan de la fase prometió que el módulo viejo sigue funcionando hasta la
+-- fase 8. Quitarle columnas que su código VIVO lee y escribe rompe esa promesa
+-- en silencio: `queue-worker.ts:110-111` descarta el `error` del select, así que
+-- la cola se quedaría sin encontrar nada y sin un solo log; `transitions.ts:219`
+-- (`recordFailure`) no inspecciona su resultado, así que los fallos dejarían de
+-- registrarse. Ver C2 de la revisión final.
+--
+-- El razonamiento de 0045 sigue vigente y se copia aquí para que no se pierda:
+-- un e-NCF es un número que la DGII te dio y que solo puedes gastar una vez.
+-- Una comprobación en TypeScript no puede impedirlo (en Vercel hay varias
+-- funciones sin servidor a la vez, y «leer, comprobar, escribir» no es atómico
+-- entre ellas). Lo único que lo impide de verdad es un índice único.
+alter table public.electronic_invoices
+  add column if not exists idempotency_key    text,
+  add column if not exists retry_count        integer not null default 0,
+  add column if not exists next_retry_at      timestamptz,
+  add column if not exists last_error_class   text,
+  add column if not exists last_error_message text,
+  add column if not exists hash_sha256        text,
+  add column if not exists rejected_at        timestamptz,
+  add column if not exists cancelled_at       timestamptz;
+
+comment on column public.electronic_invoices.idempotency_key is
+  'business_id:ambiente:e-NCF:operación. Ver features/dgii/idempotency.ts — el formato lo construye SIEMPRE ese módulo.';
+comment on column public.electronic_invoices.next_retry_at is
+  'Cuándo lo volverá a intentar la cola. NULL = no hay reintento pendiente.';
+comment on column public.electronic_invoices.last_error_class is
+  'VALIDATION|AUTHENTICATION|NETWORK|TIMEOUT|DGII_REJECTION|CONFIGURATION|CERTIFICATE|INTERNAL';
+
+-- NOMBRES DE ÍNDICE NUEVOS, A PROPÓSITO. `alter table ... rename to` NO renombra
+-- los índices: tras la parte 1, la tabla retirada sigue quedándose con los
+-- nombres `electronic_invoices_idempotency_key_uidx` y
+-- `electronic_invoices_pendientes_idx` de 0045. Reusarlos aquí no daría error:
+-- `create index if not exists` vería el nombre ocupado y lo SALTARÍA con un
+-- simple NOTICE, dejando la tabla nueva sin barrera de idempotencia — el
+-- fallo silencioso exacto que este bloque existe para evitar. Comprobado
+-- contra un Postgres 16 efímero.
+create unique index if not exists idx_einv_idempotency_key
+  on public.electronic_invoices (idempotency_key)
+  where idempotency_key is not null;
+
+create index if not exists idx_einv_pendientes
+  on public.electronic_invoices (business_id, next_retry_at)
+  where next_retry_at is not null;
+
+-- El tercer índice de 0045 (`electronic_invoices_encf_por_ambiente_uidx`) NO se
+-- recrea: la restricción `electronic_invoices_encf_uniq` de arriba ya cubre
+-- (business_id, ambiente, e_ncf), y lo hace de forma TOTAL en vez de excluir los
+-- cancelados. Es un endurecimiento consciente, no un descuido — ver
+-- docs/decisiones.md, entrada 2026-09-06 «La unicidad del e-NCF pasa a ser
+-- total».
 
 -- ── 5) electronic_invoice_items ──────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:132-143 (tabla) y
@@ -645,3 +720,90 @@ begin
       foreign key (evidence_id) references public.dgii_certification_evidence(id) on delete set null;
   end if;
 end $$;
+
+-- ── 18) ecf_document_events ──────────────────────────────────────────────────
+--
+-- LA DECIMOCTAVA. No viene de agendapp: es trabajo propio de DermaLand
+-- (`0045_ecf_idempotency_and_events.sql:60-108`), y hoy la escribe código VIVO
+-- (`server/services/dgii/transitions.ts:305`). El pliego (§8) la pide y tiene
+-- razón: el estado de un documento fiscal no puede ser solo la última columna
+-- escrita; cuando algo sale mal, la pregunta es «¿qué pasó y en qué orden?», y
+-- un `update status` no la contesta.
+--
+-- POR QUÉ SE RECREA EN VEZ DE SACARLA DEL RENOMBRADO. La parte 1 la retira con
+-- las otras 12 porque su clave foránea apunta a `electronic_invoices(id)` y esa
+-- tabla sí se renombra: dejarla fuera obligaría a soltar la FK en la parte 1 y
+-- recrearla en la parte 3, tocando las listas canónicas. La tabla vieja está
+-- VACÍA (0 filas), así que recrearla no pierde nada y deja el esquema nuevo
+-- autocontenido. Ver C2 de la revisión final, opción 2.
+--
+-- Sin ella, el `insert` de `transitions.ts:305` va envuelto en un `try {} catch
+-- {}` deliberado (`:319-321`): NO fallaría, simplemente dejaría de haber
+-- historial fiscal, con cero señal.
+create table if not exists public.ecf_document_events (
+  id                    uuid primary key default gen_random_uuid(),
+  business_id           uuid not null references public.businesses(id),
+  electronic_invoice_id uuid not null,
+  -- NULL en el primer evento: antes no había estado.
+  status_from           text,
+  status_to             text not null,
+  -- `transition` | `retry_scheduled` | `error` | `note`
+  event_type            text not null default 'transition',
+  error_class           text,
+  message               text,
+  -- Quién lo movió. NULL = lo movió un proceso, no una persona.
+  actor_user_id         uuid references public.users(id),
+  -- Para atar este evento con la petición que lo provocó.
+  correlation_id        text,
+  created_at            timestamptz not null default now(),
+  -- ON DELETE RESTRICT, no CASCADE. Viene de
+  -- `20260805020813_ecf_events_fk_restrict.sql`, que corrigió el CASCADE
+  -- original de 0045: borrar un comprobante intentaba borrar su historial, el
+  -- disparador append-only lo impedía, y el mensaje que salía hablaba de
+  -- «append-only» en vez de decir lo que pasa. RESTRICT dice la verdad: un
+  -- comprobante con historial fiscal no se borra. Aquí va ya incorporado, no
+  -- como parche posterior.
+  constraint ecf_document_events_electronic_invoice_id_fkey
+    foreign key (electronic_invoice_id)
+    references public.electronic_invoices(id)
+    on delete restrict
+);
+
+comment on table public.ecf_document_events is
+  'Historial APPEND-ONLY de un comprobante. No se actualiza ni se borra: si hiciera falta corregir algo, se añade otro evento.';
+
+-- Nombres nuevos por el mismo motivo que en 4-bis: la tabla retirada conserva
+-- `ecf_document_events_documento_idx` y `ecf_document_events_business_idx`, y
+-- `create index if not exists` con esos nombres se saltaría en silencio.
+create index if not exists idx_ecf_events_documento
+  on public.ecf_document_events (electronic_invoice_id, created_at);
+create index if not exists idx_ecf_events_business
+  on public.ecf_document_events (business_id, created_at desc);
+
+-- Append-only DE VERDAD: sin esto, «append-only» es una intención escrita en un
+-- comentario. Con esto, un UPDATE o un DELETE fallan aunque el que los lance sea
+-- la clave de servicio.
+create or replace function public.ecf_events_solo_insertar()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  raise exception 'ecf_document_events es append-only: no se actualiza ni se borra (intento de %)', tg_op;
+end;
+$$;
+
+drop trigger if exists ecf_document_events_append_only on public.ecf_document_events;
+create trigger ecf_document_events_append_only
+  before update or delete on public.ecf_document_events
+  for each row execute function public.ecf_events_solo_insertar();
+
+alter table public.ecf_document_events enable row level security;
+drop policy if exists ecf_document_events_select on public.ecf_document_events;
+-- SOLO SELECT, a diferencia de las otras 17. Es deliberado y viene de 0045:118:
+-- los eventos los escribe el servidor con la clave de servicio; un cliente no
+-- tiene por qué poder escribir en el historial fiscal. Sin políticas de
+-- INSERT/UPDATE/DELETE, la RLS los deniega por defecto.
+create policy ecf_document_events_select on public.ecf_document_events for select
+  using (business_id = auth_business_id());
