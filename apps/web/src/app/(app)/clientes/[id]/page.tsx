@@ -48,10 +48,11 @@ import { isNewCustomer } from "@/features/customers/customer-flags";
 import { purchasesByMonth } from "@/features/customers/customer-purchases";
 import { AlegraPurchasesTab } from "@/features/alegra/client-purchases-tab";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
-import { textoDesgloseOrigen, useListadoVentas } from "@/features/ventas/ventas-api";
+import { useListadoVentas } from "@/features/ventas/ventas-api";
 import {
   combinarComprasCliente,
-  resumenComprasCliente,
+  metricasComprasCliente,
+  textoComprasCliente,
 } from "@/features/ventas/compras-cliente";
 import { BarChart } from "@/components/ui/bar-chart";
 import { getCustomerNotes } from "@/lib/mock-data/customers";
@@ -149,7 +150,10 @@ export default function ClienteDetallePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [proformas, historicoCliente],
   );
-  const resumenCompras = React.useMemo(() => resumenComprasCliente(compras), [compras]);
+  // 🔴 UNA sola definición de «comprado» para el KPI de arriba y la leyenda de
+  // la tabla. Antes eran dos y se contradecían en pantalla: «Total gastado
+  // RD$0.00 · Compras 0» encima de «Compras (172) · RD$X comprados».
+  const metricas = React.useMemo(() => metricasComprasCliente(compras), [compras]);
   const hayMasCompras = historicoCliente.tipo === "listo" && historicoCliente.datos.hayMas;
   // Qué se está mirando y de dónde sale: un listado que mezcla dos fuentes sin
   // decir cuánto pone cada una no se puede cuadrar con nada.
@@ -165,10 +169,10 @@ export default function ClienteDetallePage() {
         : {
             aviso: hayMasCompras,
             texto:
-              `${textoDesgloseOrigen(resumenCompras.cantidadSistema, resumenCompras.cantidadAlegra)}` +
-              ` · ${formatCurrency(resumenCompras.total)} comprados` +
+              textoComprasCliente(metricas) +
+              ` · ${formatCurrency(metricas.totalGastado)} comprados` +
               (hayMasCompras
-                ? " · este cliente tiene más compras de las que caben en una página; mira la pestaña «Compras en Alegra» para el histórico completo"
+                ? " · este cliente tiene más compras de las que caben en una página, así que este total es parcial; mira la pestaña «Compras en Alegra» para el histórico completo"
                 : ""),
           };
 
@@ -282,14 +286,14 @@ export default function ClienteDetallePage() {
       <div className="mb-6 grid gap-4 lg:grid-cols-4">
         <StatCard
           label="Total gastado"
-          value={formatCurrency(stats.totalSpent)}
+          value={formatCurrency(metricas.totalGastado)}
           icon={CreditCard}
           tone="primary"
         />
-        <StatCard label="Compras" value={stats.purchases} icon={ShoppingCart} />
+        <StatCard label="Compras" value={metricas.compras} icon={ShoppingCart} />
         <StatCard
           label="Última visita"
-          value={stats.lastVisitAt ? relativeTime(stats.lastVisitAt) : "—"}
+          value={metricas.ultimaCompra ? relativeTime(metricas.ultimaCompra) : "—"}
           icon={CalendarRange}
         />
         <StatCard
@@ -371,6 +375,12 @@ export default function ClienteDetallePage() {
                   <p className="mt-3 text-[11px] opacity-50">
                     Gasto por mes (últimos 6 meses).
                   </p>
+                  {metricas.cantidadAlegra > 0 && (
+                    <p className="mt-1 text-[11px] font-medium text-amber-700">
+                      Solo ventas del sistema — las compras migradas de Alegra no entran
+                      en esta gráfica.
+                    </p>
+                  )}
                 </>
               );
             })()}
@@ -381,7 +391,7 @@ export default function ClienteDetallePage() {
       <Tabs defaultValue="purchases">
         <TabsList>
           <TabsTrigger value="purchases">
-            Compras ({compras.length})
+            Compras ({metricas.listadas})
           </TabsTrigger>
           <TabsTrigger value="alegra">Compras en Alegra</TabsTrigger>
           <TabsTrigger value="recommendations">

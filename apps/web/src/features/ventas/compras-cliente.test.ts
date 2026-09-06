@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Proforma } from "@/types";
-import { combinarComprasCliente, resumenComprasCliente } from "./compras-cliente";
+import { combinarComprasCliente, metricasComprasCliente, textoComprasCliente } from "./compras-cliente";
 import type { VentaUnificada } from "./venta-unificada";
 
 const proforma = (over: Partial<Proforma>): Proforma =>
@@ -11,6 +11,7 @@ const proforma = (over: Partial<Proforma>): Proforma =>
     customerId: "c1",
     customerName: "Ana",
     total: 100,
+    paid: 100,
     itbis: 0,
     subtotal: 100,
     status: "paid",
@@ -68,7 +69,7 @@ describe("compras del cliente, sistema + Alegra", () => {
       [{ ...alegra({ id: "p1", total: 100 }), origen: "sistema" }],
     );
     expect(filas).toHaveLength(1);
-    expect(resumenComprasCliente(filas).total).toBe(100);
+    expect(metricasComprasCliente(filas).totalGastado).toBe(100);
   });
 
   it("una factura migrada con el mismo id que otra no se repite", () => {
@@ -77,23 +78,82 @@ describe("compras del cliente, sistema + Alegra", () => {
   });
 });
 
-describe("resumen de compras del cliente", () => {
-  it("dice cuántas puso cada fuente y suma las dos", () => {
-    const filas = combinarComprasCliente([proforma({ total: 100 })], [alegra({ total: 500 })]);
-    const r = resumenComprasCliente(filas);
-    expect(r.cantidadSistema).toBe(1);
-    expect(r.cantidadAlegra).toBe(1);
-    expect(r.total).toBe(600);
+describe("🔴 una sola definición de «lo que este cliente ha comprado»", () => {
+  // El fallo que esto cierra: el KPI decía «Total gastado RD$0.00 · Compras 0»
+  // a diez centímetros de «Compras (172) · RD$X comprados». Dos números con el
+  // mismo nombre y significados distintos, en la misma pantalla.
+  it("suma las dos fuentes y dice cuántas pone cada una", () => {
+    const filas = combinarComprasCliente(
+      [proforma({ total: 100, status: "paid" })],
+      [alegra({ total: 500 })],
+    );
+    const m = metricasComprasCliente(filas);
+    expect(m.cantidadSistema).toBe(1);
+    expect(m.cantidadAlegra).toBe(1);
+    expect(m.compras).toBe(2);
+    expect(m.totalGastado).toBe(600);
   });
 
-  it("🔴 una compra anulada no suma ni cuenta", () => {
-    // Mismo criterio que el resto del plan: existe para auditarla, no para
-    // contarla como gasto del cliente.
+  it("🔴 una compra anulada no suma ni cuenta, pero se sigue listando", () => {
     const filas = combinarComprasCliente([], [alegra({ total: 500, anulada: true })]);
-    const r = resumenComprasCliente(filas);
-    expect(r.total).toBe(0);
-    expect(r.cantidadAlegra).toBe(0);
-    // Pero la fila SIGUE en la lista: se ve, tachada.
-    expect(filas).toHaveLength(1);
+    const m = metricasComprasCliente(filas);
+    expect(m.totalGastado).toBe(0);
+    expect(m.cantidadAlegra).toBe(0);
+    expect(m.listadas).toBe(1);
+  });
+
+  it("🔴 usa la regla de la casa para el sistema: una proforma sin cobrar NO es gasto", () => {
+    // `isFinalCustomerTransaction`. Si aquí se contara `total` a secas, el KPI
+    // diría que el cliente gastó RD$5 000 que todavía no ha pagado.
+    const filas = combinarComprasCliente([proforma({ total: 5000, status: "issued" })], []);
+    const m = metricasComprasCliente(filas);
+    expect(m.totalGastado).toBe(0);
+    expect(m.compras).toBe(0);
+    expect(m.listadas).toBe(1);
+  });
+
+  it("🔴 en una parcial cuenta lo PAGADO, no lo facturado", () => {
+    const filas = combinarComprasCliente(
+      [proforma({ total: 5000, paid: 1200, status: "partially_paid" })],
+      [],
+    );
+    expect(metricasComprasCliente(filas).totalGastado).toBe(1200);
+  });
+
+  it("🔴 una proforma convertida en factura no se cuenta dos veces", () => {
+    const filas = combinarComprasCliente(
+      [
+        proforma({ id: "origen", total: 3000, status: "paid" }),
+        proforma({ id: "final", total: 3000, status: "paid", sourceProformaId: "origen" }),
+      ],
+      [],
+    );
+    const m = metricasComprasCliente(filas);
+    expect(m.totalGastado).toBe(3000);
+    expect(m.compras).toBe(1);
+  });
+
+  it("la última compra mira las dos fuentes", () => {
+    // Sin esto, «Última visita» decía «—» en la ficha de alguien con 172
+    // compras migradas.
+    const filas = combinarComprasCliente([], [alegra({ fecha: "2026-09-01" })]);
+    expect(metricasComprasCliente(filas).ultimaCompra).toBe("2026-09-01");
+  });
+
+  it("la leyenda avisa cuando la tabla lista filas que no cuentan como gasto", () => {
+    const filas = combinarComprasCliente(
+      [proforma({ total: 5000, status: "issued" })],
+      [alegra({ total: 500 })],
+    );
+    const texto = textoComprasCliente(metricasComprasCliente(filas));
+    expect(texto).toMatch(/no cuentan como gasto/);
+  });
+
+  it("la leyenda habla de compras, no de «ventas» ni de «período»", () => {
+    // Esta pantalla no tiene filtro de fechas y la tabla se titula «Compras».
+    const filas = combinarComprasCliente([], [alegra({}), alegra({ id: "a2" })]);
+    const texto = textoComprasCliente(metricasComprasCliente(filas));
+    expect(texto).toMatch(/compras/);
+    expect(texto).not.toMatch(/ventas|período/);
   });
 });

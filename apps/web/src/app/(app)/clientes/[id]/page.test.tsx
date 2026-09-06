@@ -86,6 +86,25 @@ const willian: Customer = {
   updatedAt: "2026-01-01T00:00:00Z",
 } as Customer;
 
+/** Compra del sistema, pagada: cuenta como gasto final. */
+const compraSistema = (over: Partial<Proforma>): Proforma =>
+  ({
+    id: "p1",
+    number: "FAC-1",
+    createdAt: "2026-08-01T10:00:00Z",
+    customerId: UUID,
+    customerName: "WILLIAN R RODRIGUEZ",
+    total: 1000,
+    paid: 1000,
+    itbis: 0,
+    subtotal: 1000,
+    status: "paid",
+    branchId: "b1",
+    items: [],
+    payments: [],
+    ...over,
+  }) as unknown as Proforma;
+
 afterEach(() => {
   cleanup();
   hookState.current = {};
@@ -127,21 +146,18 @@ describe("perfil de cliente — estados de carga", () => {
   });
 
   it("success: muestra el cliente con sus métricas (sin flash de error)", () => {
+    // El KPI sale de las compras reales del cliente (una sola definición,
+    // `metricasComprasCliente`), no de un `stats` aparte que podía decir otra
+    // cosa que la tabla de abajo.
     hookState.current = {
       customer: willian,
       loading: false,
-      stats: {
-        totalSpent: 34908,
-        purchases: 16,
-        avgTicket: 2181.75,
-        lastVisitAt: "2026-07-04T10:00:00Z",
-        pendingProformas: 0,
-      },
+      purchases: [compraSistema({ id: "p1" }), compraSistema({ id: "p2" })],
     };
     render(<ClienteDetallePage />);
     expect(screen.getByText(/WILLIAN R RODRIGUEZ/i)).toBeInTheDocument();
     expect(screen.queryByText(/no encontrado/i)).not.toBeInTheDocument();
-    expect(screen.getByText("16")).toBeInTheDocument(); // KPI compras
+    expect(screen.getByText("2")).toBeInTheDocument(); // KPI compras
     expect(document.body.textContent).not.toContain(UUID);
   });
 });
@@ -227,5 +243,61 @@ describe("perfil de cliente — de quién son las compras que pide", () => {
     hookState.current = { customer: willian, loading: false };
     render(<ClienteDetallePage />);
     expect(filtrosPedidos.current[0]!.limite).toBe(200);
+  });
+});
+
+/**
+ * 🔴 Los dos números que dicen «lo que este cliente ha comprado» tienen que
+ * significar lo mismo. Antes no: el KPI salía de `computeCustomerPurchaseStats`
+ * (solo sistema) y la leyenda de otro cálculo (sistema + Alegra), así que la
+ * pantalla enseñaba «Total gastado RD$0.00 · Compras 0» a diez centímetros de
+ * «Compras (172) · RD$X comprados».
+ */
+describe("perfil de cliente — un solo «comprado»", () => {
+  const migrada = {
+    id: "fac-1",
+    origen: "alegra",
+    numero: "B0100000123",
+    fecha: "2025-03-14",
+    clienteId: UUID,
+    clienteNombre: "WILLIAN R RODRIGUEZ",
+    total: 4500,
+    itbis: 0,
+    subtotal: 4500,
+    formaPago: "cash",
+    vendedor: null,
+    sucursalId: null,
+    anulada: false,
+    editable: false,
+  };
+
+  it("🔴 el KPI cuenta las compras migradas, no dice RD$0.00 encima de una lista llena", () => {
+    hookState.current = { customer: willian, loading: false, purchases: [] };
+    ventasState.current = { tipo: "listo", datos: { ventas: [migrada], hayMas: false } };
+    render(<ClienteDetallePage />);
+    // «Total gastado» y la leyenda salen del MISMO cálculo: los dos importes
+    // que aparecen en pantalla tienen que ser este.
+    expect(screen.getAllByText(/RD\$4,500\.00/).length).toBeGreaterThanOrEqual(2);
+    expect(document.body.textContent).not.toMatch(/RD\$0\.00/);
+  });
+
+  it("🔴 «Última visita» mira también el histórico migrado", () => {
+    // Con 172 compras migradas en pantalla, «Última visita —» era absurdo.
+    hookState.current = { customer: willian, loading: false, purchases: [] };
+    ventasState.current = { tipo: "listo", datos: { ventas: [migrada], hayMas: false } };
+    const { container } = render(<ClienteDetallePage />);
+    expect(container.textContent).not.toMatch(/Última visita\s*—/);
+  });
+
+  it("suma las dos fuentes con la misma regla", () => {
+    hookState.current = {
+      customer: willian,
+      loading: false,
+      purchases: [compraSistema({ total: 1000, paid: 1000 })],
+    };
+    ventasState.current = { tipo: "listo", datos: { ventas: [migrada], hayMas: false } };
+    render(<ClienteDetallePage />);
+    expect(screen.getAllByText(/RD\$5,500\.00/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/1 del sistema, 1 migradas de Alegra/)).toBeInTheDocument();
   });
 });

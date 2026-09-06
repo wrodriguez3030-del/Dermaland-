@@ -1,5 +1,9 @@
 import type { Proforma } from "@/types";
-import { porOrigen } from "./agregados";
+import {
+  collectConvertedSourceIds,
+  isExcludedStatus,
+  isFinalCustomerTransaction,
+} from "@/features/customers/customer-purchases";
 import { desdeProforma, type VentaUnificada } from "./venta-unificada";
 
 /**
@@ -49,28 +53,105 @@ export function combinarComprasCliente(
   return filas.sort((a, b) => (a.venta.fecha < b.venta.fecha ? 1 : a.venta.fecha > b.venta.fecha ? -1 : 0));
 }
 
-export interface ResumenComprasCliente {
+/**
+ * 🔴 UNA sola definición de «lo que este cliente ha comprado», para el KPI y
+ * para la leyenda de la tabla.
+ *
+ * Antes había dos, a diez centímetros la una de la otra: el KPI «Total
+ * gastado» salía de `computeCustomerPurchaseStats` (solo sistema, solo
+ * transacciones finales) y la leyenda de un `porOrigen` propio (sistema +
+ * Alegra, cualquier estado no anulado). El dueño leía «Total gastado RD$0.00 ·
+ * Compras 0» justo encima de «Compras (172) · RD$X comprados». Es el mismo
+ * desconcierto que motivó este plan —«el panel dice RD$0.00 teniendo 48
+ * millones»— reproducido un nivel más abajo, en la pantalla que el plan venía
+ * a arreglar.
+ *
+ * La regla es la de la casa, sin inventar nada:
+ *  - Ventas del sistema: `isFinalCustomerTransaction` (la misma que usan el
+ *    perfil, el reporte de clientes y la gráfica «Compras por mes»), y en las
+ *    parciales cuenta lo PAGADO, no lo facturado.
+ *  - Facturas de Alegra: cuentan si no están anuladas, por su total. Es lo
+ *    mismo que suman el panel y el reporte de ventas para el histórico, y es
+ *    todo lo que se puede: `VentaUnificada` no lleva `totalPaid` ni `balance`
+ *    (lo dejó anotado la tarea 1). Una migrada con saldo abierto suma su total
+ *    facturado; su parte pendiente se mira en cuentas por cobrar.
+ */
+export interface MetricasComprasCliente {
+  /** Gasto final del cliente, las dos fuentes con la misma regla. */
+  totalGastado: number;
+  /** Compras que cuentan como gasto final. */
+  compras: number;
   cantidadSistema: number;
   cantidadAlegra: number;
-  /** Total comprado por el cliente en las dos fuentes, sin las anuladas. */
-  total: number;
+  /** Filas que la tabla lista (incluye anuladas y documentos sin cobrar). */
+  listadas: number;
+  /** Última compra no anulada, para «Última visita». */
+  ultimaCompra: string | null;
+}
+
+/** Céntimos enteros: sumar en float miles de importes arrastra redondeo. */
+const aCentavos = (n: number): number => Math.round(n * 100);
+
+export function metricasComprasCliente(compras: CompraCliente[]): MetricasComprasCliente {
+  const proformas = compras
+    .map((c) => c.proforma)
+    .filter((p): p is Proforma => p !== null);
+  const convertidas = collectConvertedSourceIds(proformas);
+
+  let centavos = 0;
+  let cantidadSistema = 0;
+  let cantidadAlegra = 0;
+  let ultimaCompra: string | null = null;
+
+  for (const { venta, proforma } of compras) {
+    const excluida = proforma ? isExcludedStatus(proforma.status) : venta.anulada;
+    if (!excluida && (!ultimaCompra || venta.fecha > ultimaCompra)) ultimaCompra = venta.fecha;
+
+    if (proforma) {
+      if (!isFinalCustomerTransaction(proforma, convertidas)) continue;
+      centavos += aCentavos(
+        proforma.status === "partially_paid" ? proforma.paid : proforma.total,
+      );
+      cantidadSistema += 1;
+    } else {
+      if (venta.anulada) continue;
+      centavos += aCentavos(venta.total);
+      cantidadAlegra += 1;
+    }
+  }
+
+  return {
+    totalGastado: centavos / 100,
+    compras: cantidadSistema + cantidadAlegra,
+    cantidadSistema,
+    cantidadAlegra,
+    listadas: compras.length,
+    ultimaCompra,
+  };
 }
 
 /**
- * Cuánto ha comprado el cliente y por qué fuente. Se apoya en `porOrigen`
- * (`agregados.ts`), que ya excluye las anuladas y suma en centavos enteros: no
- * se escribe una suma nueva.
- *
- * Aquí sí se suma en el navegador, y está bien: son las compras de UN cliente
- * —172 en el caso más grande del negocio—, ya cargadas para pintarlas. La
- * regla de no descargar filas para contarlas es sobre los totales del negocio,
- * que son 14 965 facturas y se cuentan en la base.
+ * Línea que explica la tabla de compras. Habla de COMPRAS, no de «ventas» ni
+ * de «período»: esta pantalla no tiene filtro de fechas y la tabla se titula
+ * «Compras». Y si la tabla lista más filas de las que cuentan, lo dice — si no,
+ * el contador de la pestaña y el KPI parecerían contradecirse otra vez.
  */
-export function resumenComprasCliente(compras: CompraCliente[]): ResumenComprasCliente {
-  const d = porOrigen(compras.map((c) => c.venta));
-  return {
-    cantidadSistema: d.sistema.cantidad,
-    cantidadAlegra: d.alegra.cantidad,
-    total: Math.round((d.sistema.total + d.alegra.total) * 100) / 100,
-  };
+export function textoComprasCliente(m: MetricasComprasCliente): string {
+  const plural = (n: number) => (n === 1 ? "compra" : "compras");
+  if (m.listadas === 0) return "Este cliente aún no tiene compras registradas.";
+
+  const origen =
+    m.cantidadAlegra === 0
+      ? `${m.compras} ${plural(m.compras)} del sistema`
+      : m.cantidadSistema === 0
+        ? `${m.compras} ${plural(m.compras)} · todas migradas de Alegra`
+        : `${m.compras} ${plural(m.compras)} · ${m.cantidadSistema} del sistema, ` +
+          `${m.cantidadAlegra} migradas de Alegra`;
+
+  const noCuentan = m.listadas - m.compras;
+  const cola =
+    noCuentan > 0
+      ? ` · la tabla lista ${m.listadas} filas: ${noCuentan} no cuentan como gasto (anuladas o sin cobrar)`
+      : "";
+  return `${origen}${cola}`;
 }
