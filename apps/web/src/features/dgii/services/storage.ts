@@ -40,14 +40,17 @@ export class ErrorAlmacenamientoDgii extends Error {
 
 /**
  * Valida un segmento de path: sin vacíos, sin "/" "\\" "..", sin caracteres de control.
- * Los guiones son permitidos (UUIDs los contienen). Los espacios al inicio/fin se trimean.
+ * Los guiones, espacios y otros caracteres imprimibles SÍ son permitidos.
+ * Caracteres de control (0x00–0x1f: nulo, \n, \r, tabulador, etc.) SÍ se rechazan:
+ * son peligrosos en filenames y rutas, y pueden romper auditorías y búsquedas.
  * Lanzado sin captura revela un path traversal.
  */
 function validarSegmentoSeguro(seg: string, etiqueta: string): string {
   if (typeof seg !== "string" || seg.trim() === "")
     throw new ErrorAlmacenamientoDgii(`Segmento ${etiqueta} vacío.`, "path_invalid");
-  // Rechaza espacios internos pero no guiones (válidos en UUIDs)
-  if (/ /.test(seg))
+  // Rango de caracteres de control: \x00 (nulo) a \x1f (US — Unit Separator).
+  // Rechazarlos protege filenames, auditoría, y búsquedas contra inyección invisible.
+  if (/[\x00-\x1f]/.test(seg))
     throw new ErrorAlmacenamientoDgii(`Segmento ${etiqueta} inválido.`, "path_invalid");
   if (/[/\\]/.test(seg) || seg.includes("..")) {
     throw new ErrorAlmacenamientoDgii(
