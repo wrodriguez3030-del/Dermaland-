@@ -103,11 +103,19 @@ describe("guardarXmlFirmado: almacenamiento con validación de tamaño", () => {
     expect(ruta).toBe(rutaEsperada);
   });
 
-  it("llama al upload con el bucket correcto y content-type XML", async () => {
+  it("llama a .from() con BUCKET_DGII (no otro nombre)", async () => {
     const xml = "<comprobante>test</comprobante>";
+    const mockFrom = mockClient.storage.from;
+    await guardarXmlFirmado(ctx, { tipo: "signed_xml", invoiceId: "f-1", xml });
+    expect(mockFrom).toHaveBeenCalledWith(BUCKET_DGII);
+  });
+
+  it("sube con exactamente la ruta que construirRuta devuelve, no armada aparte", async () => {
+    const xml = "<comprobante>test</comprobante>";
+    const rutaEsperada = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
     await guardarXmlFirmado(ctx, { tipo: "signed_xml", invoiceId: "f-1", xml });
     expect(mockUpload).toHaveBeenCalledWith(
-      expect.any(String),
+      rutaEsperada,
       expect.any(Buffer),
       expect.objectContaining({
         contentType: "application/xml",
@@ -169,6 +177,13 @@ describe("leerXml: lectura con ownership check", () => {
     vi.restoreAllMocks();
   });
 
+  it("llama a .from(BUCKET_DGII) para descargar", async () => {
+    const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
+    const mockFrom = mockClient.storage.from;
+    await leerXml(ctx, ruta);
+    expect(mockFrom).toHaveBeenCalledWith(BUCKET_DGII);
+  });
+
   it("devuelve el contenido del archivo", async () => {
     const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
     const contenido = await leerXml(ctx, ruta);
@@ -220,16 +235,24 @@ describe("borrarXml: limpieza best-effort", () => {
     vi.restoreAllMocks();
   });
 
+  it("llama a .from(BUCKET_DGII) para borrar", async () => {
+    const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
+    const mockFrom = mockClient.storage.from;
+    await borrarXml(ctx, ruta);
+    expect(mockFrom).toHaveBeenCalledWith(BUCKET_DGII);
+  });
+
   it("borra el archivo silenciosamente", async () => {
     const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
     await expect(borrarXml(ctx, ruta)).resolves.toBeUndefined();
     expect(mockRemove).toHaveBeenCalledWith([ruta]);
   });
 
-  it("no lanza aunque el borrado falle (best-effort)", async () => {
+  it("no lanza aunque el borrado falle (best-effort), pero SÍ llamó a .remove()", async () => {
     mockRemove.mockRejectedValue(new Error("Network error"));
     const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
     await expect(borrarXml(ctx, ruta)).resolves.toBeUndefined();
+    expect(mockRemove).toHaveBeenCalledWith([ruta]);
   });
 
   it("rechaza paths inválidos silenciosamente (ownership check)", async () => {

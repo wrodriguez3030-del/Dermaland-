@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 /** Nombre del bucket privado de almacenamiento de XML fiscales. */
@@ -85,25 +84,23 @@ export type EntradaGuardarXmlFirmado = {
   xml: string;
 };
 
-/** Contenido MIME seguro para almacenamientos DGII. */
-const MIME_TYPES_SEGUROS = new Set(["application/xml", "text/xml", "application/json", "application/octet-stream"]);
-
-/** Calcula el SHA256 en hexadecimal de un contenido de texto. */
-function calcularSha256(contenido: string): string {
-  return createHash("sha256").update(contenido, "utf8").digest("hex");
-}
-
 /**
- * Guarda el XML firmado del comprobante.
- * Valida tamaño (máx 5 MB), calcula el SHA256, y sube con el cliente de service-role.
+ * Guarda el XML firmado del comprobante en el bucket privado.
+ * Construye la ruta canónica, valida el contenido (no vacío, máx 5 MB), y sube con service-role.
  * Devuelve la ruta del objeto guardado.
  *
- * @throws ErrorAlmacenamientoDgii si el contenido excede el tamaño, es vacío, o falla la subida
+ * Nota: el SHA256 del XML lo calcula el preparador del comprobante, no este módulo.
+ *
+ * @throws ErrorAlmacenamientoDgii si la ruta es inválida, el contenido es vacío, excede 5 MB, o falla la subida
  */
 export async function guardarXmlFirmado(
   ctx: ContextoAlmacenamientoDgii,
   entrada: EntradaGuardarXmlFirmado,
 ): Promise<string> {
+  // Construir ruta primero (valida IDs contra path traversal).
+  const ruta = construirRuta(ctx, { tipo: entrada.tipo, invoiceId: entrada.invoiceId });
+
+  // Luego validar el contenido.
   if (typeof entrada.xml !== "string" || entrada.xml.length === 0)
     throw new ErrorAlmacenamientoDgii("Contenido XML vacío.", "upload_failed");
 
@@ -111,7 +108,6 @@ export async function guardarXmlFirmado(
   if (buffer.byteLength > MAX_BYTES)
     throw new ErrorAlmacenamientoDgii("Contenido excede el tamaño máximo (5 MB).", "too_large");
 
-  const ruta = construirRuta(ctx, { tipo: entrada.tipo, invoiceId: entrada.invoiceId });
   const admin = createServiceRoleClient();
   if (!admin) throw new ErrorAlmacenamientoDgii("Cliente de Supabase no disponible.", "upload_failed");
 
