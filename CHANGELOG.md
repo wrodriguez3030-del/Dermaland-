@@ -10,6 +10,68 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.144.0] - 2026-09-06
+
+### Agregado
+
+- **Las 17 tablas fiscales de agendapp, portadas a la base de DermaLand (fase
+  2 de 9).** Tres migraciones en orden — retirar el módulo viejo, crear las
+  tablas, crear las funciones —: `dgii_settings`, `dgii_certificates`,
+  `ecf_sequences`, `electronic_invoices`, `electronic_invoice_items`,
+  `dgii_submissions`, `dgii_status_logs`, `dgii_enablement_progress`,
+  `dgii_representative_attestations`, `received_ecf`,
+  `received_commercial_approvals`, `dgii_certification_datasets`,
+  `dgii_certification_cases`, `dgii_simulation_ranges`,
+  `dgii_certification_applications`, `dgii_certification_events` y
+  `dgii_certification_evidence`. Copia fiel del DDL de agendapp con seis
+  sustituciones mecánicas (el ayudante de RLS de esta casa, `sales` →
+  `proformas`, esquema cualificado, `search_path`, minúsculas, comentarios
+  reescritos). RLS con `auth_business_id()` en las 17, sin excepción.
+  **Creadas en las migraciones, pendientes de que el dueño las aplique** con
+  `scripts/db/apply-migration.mjs --apply`.
+- **`reserve_next_encf` portada tal cual de agendapp**, más cuatro funciones
+  que allá no existen porque no hacían falta: `peek_next_encf` (qué e-NCF
+  tocaría, sin consumirlo ni bloquear), `prepare_ecf_invoice` (reserva y
+  guarda la factura en una transacción, comprobando bajo bloqueo que el
+  número sigue siendo el esperado), `finalize_ecf_invoice` (marca la factura
+  como firmada) y `fail_ecf_invoice` (marca el fallo sin dejar un número
+  consumido sin explicación). El porqué de las cuatro está en
+  `docs/decisiones.md`.
+
+### Cambiado
+
+- **Las 13 tablas del módulo fiscal viejo se retiran, sin borrarse.** Nunca
+  emitió un comprobante, ni al ambiente de pruebas. Se renombran a
+  `*_legacy_20260906`: `dgii_settings`, `dgii_certificates`, `ecf_sequences`,
+  `electronic_invoices`, `electronic_invoice_items`, `dgii_submissions`,
+  `dgii_status_logs`, `dgii_received_ecf`, `dgii_commercial_approvals`,
+  `proforma_to_ecf_logs`, `dgii_logs`, `ecf_document_events` y
+  `cash_closing_ecf_items`. Se borran de verdad en una migración posterior,
+  cuando el módulo nuevo lleve tiempo funcionando. Los 4 certificados que
+  tenían (3 revocados, cifrados con otro formato de sobre) no se migran; el
+  dueño vuelve a subir el `.p12` por la pantalla nueva en la fase 6.
+- Las claves foráneas de `proformas` y `cash_closing_sales` hacia
+  `electronic_invoices` se soltaron y se recrearon apuntando a la tabla
+  nueva del mismo nombre.
+
+### Notas
+
+- **Esta fase no cambia el comportamiento de la aplicación.** No toca el
+  punto de venta ni ninguna pantalla. Mientras el dueño no aplique las tres
+  migraciones, la base sigue exactamente como está hoy.
+- **Desviación deliberada de agendapp, la única de la fase:** allá, reservar
+  el e-NCF y firmar el XML ocurren dentro de la misma transacción de Prisma;
+  DermaLand no abre transacciones desde el servidor web, así que se firma
+  primero (con el número que dice `peek_next_encf`) y se reserva después,
+  comprobando bajo bloqueo que sigue siendo el nuestro. Detalle completo, con
+  la alternativa descartada, en `docs/decisiones.md`.
+- Typecheck ✓ (0 errores) · 3 639 pruebas ✓, 132 en espera (3 771 en total,
+  324 ficheros) · build ✓ (137 páginas). Las tres migraciones se probaron en
+  dry-run, en orden, sin ejecutar nada; el verificador y la prueba del punto
+  de venta los corre el dueño después de aplicar.
+- `~/Projects/agendapp` se trató como solo lectura: `git status` de
+  `src/lib/dgii`, `docs/dgii` y `prisma` quedó en cero ficheros modificados.
+
 ## [0.143.0] - 2026-09-05
 
 ### Agregado

@@ -3,7 +3,57 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-09-05
+**Última actualización:** 2026-09-06
+
+## 2026-09-06 · Base de datos de la fase 2 portada desde agendapp (v0.144.0, fase 2 de 9)
+
+- **Por qué.** La fase 1 trajo el núcleo puro (construcción de XML, firma,
+  validación) pero no tenía dónde vivir: le faltaban las tablas y las
+  funciones que reservan un e-NCF y guardan la factura. Esta fase las trae.
+- **Qué entra** (17 tablas, todas con RLS por `auth_business_id()`):
+  `dgii_settings`, `dgii_certificates`, `ecf_sequences`,
+  `electronic_invoices`, `electronic_invoice_items`, `dgii_submissions`,
+  `dgii_status_logs`, `dgii_enablement_progress`,
+  `dgii_representative_attestations`, `received_ecf`,
+  `received_commercial_approvals`, `dgii_certification_datasets`,
+  `dgii_certification_cases`, `dgii_simulation_ranges`,
+  `dgii_certification_applications`, `dgii_certification_events` y
+  `dgii_certification_evidence`. Copia fiel del DDL de agendapp con seis
+  sustituciones mecánicas (el detalle está en el plan de la fase).
+  `reserve_next_encf` se portó tal cual; cuatro funciones son nuevas:
+  `peek_next_encf`, `prepare_ecf_invoice`, `finalize_ecf_invoice`,
+  `fail_ecf_invoice`.
+- **Qué se retira, sin borrar.** Las 13 tablas del módulo fiscal viejo, que
+  nunca emitió un comprobante: se renombran a `*_legacy_20260906`, no se
+  borran. Los 4 certificados que tenían (3 revocados) no se migran; el dueño
+  vuelve a subir el `.p12` por la pantalla nueva en la fase 6.
+- **La desviación de agendapp, y por qué.** Allá, reservar el número y firmar
+  el XML ocurren en la misma transacción de Prisma: si algo revienta, no se
+  consume nada. DermaLand no puede abrir una transacción desde el servidor
+  web, así que se firma primero — con el número que dice `peek_next_encf`,
+  sin consumirlo — y se reserva después, comprobando bajo bloqueo que el
+  número sigue siendo el nuestro (`prepare_ecf_invoice`). Un fallo al firmar
+  ya no quema un número fiscal; el costo es que, si dos cajas cobran a la
+  vez, una firma dos veces. Detalle completo y alternativa descartada en
+  `docs/decisiones.md`.
+- **`prepare_ecf_invoice` no levanta ninguna excepción propia**, a propósito:
+  `reserve_next_encf` quedó como la única fuente de los códigos `P0002` (sin
+  secuencia), `P0003` (vencida) y `P0004` (agotada), para no tener la misma
+  lógica en dos sitios. También en `docs/decisiones.md`.
+- **Esta fase NO cambia el comportamiento de la aplicación:** no toca el
+  punto de venta ni ninguna pantalla. Las claves foráneas de `proformas` y
+  `cash_closing_sales` se soltaron y se recrearon apuntando a las tablas
+  nuevas, sin que la aplicación lo note.
+- **Validado antes de documentar:** typecheck ✓ (0 errores) · 3 639 pruebas ✓,
+  132 en espera · build ✓ (137 páginas). Las tres migraciones se probaron en
+  dry-run, en orden, sin ejecutar nada.
+- **Pendiente (lo hace el dueño, no esta tarea):** aplicar las tres
+  migraciones con `scripts/db/apply-migration.mjs --apply`, correr
+  `scripts/db/verificar-dgii-fase2.mjs` y `scripts/audit-migrations.mjs`, y
+  cobrar una venta de prueba en efectivo y otra con tarjeta para comprobar
+  que el punto de venta sigue funcionando con las claves foráneas recreadas.
+- `~/Projects/agendapp` se trató como solo lectura: `git status` de
+  `src/lib/dgii`, `docs/dgii` y `prisma` quedó en cero ficheros modificados.
 
 ## 2026-09-05 · Núcleo fiscal DGII portado desde agendapp (v0.143.0, fase 1 de 9)
 

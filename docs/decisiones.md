@@ -5,6 +5,129 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — Firmar antes de reservar el e-NCF, no dentro de una transacción como agendapp
+
+**Archivos:**
+- `supabase/migrations/20260906090200_dgii_fase2_funciones.sql`
+  (`peek_next_encf`, `prepare_ecf_invoice`)
+- `docs/superpowers/plans/2026-09-05-dgii-fase2-base-de-datos.md` (sección
+  «La solución: reservar por comparación e intercambio»)
+- `apps/web/src/server/repositories/supabase/dgii-sequences.ts`
+
+### Por qué
+
+agendapp reserva el e-NCF dentro de una transacción de Prisma que también
+construye el XML y **lo firma** (`src/lib/dgii/invoice-prepare.ts:270-628`).
+Si algo revienta ahí dentro, la transacción entera se deshace y el número no
+se consume: reservar y firmar son, para agendapp, la misma operación atómica.
+
+DermaLand no puede hacer eso. La aplicación habla con la base por PostgREST y
+no abre transacciones desde el servidor web (`pg` es solo `devDependency`,
+la usan los guiones de este repo). Y aunque pudiera abrir una transacción, no
+alcanzaría: la firma XMLDSig necesita `xml-crypto` y `node-forge`, y subir el
+XML al almacenamiento necesita una llamada HTTP. Ninguna de las dos cosas
+ocurre dentro de Postgres. No hay forma de meter «reservar + firmar +
+guardar» en una sola función PL/pgSQL, por más que el diseño aprobado de la
+fase lo pidiera así.
+
+### Decisión
+
+Se invierte el orden: **firmar antes de consumir el número**, con una
+comprobación atómica de que el número sigue siendo el nuestro.
+
+1. `peek_next_encf(business, tipo, ambiente)` dice qué número tocaría, sin
+   consumirlo y sin bloquear nada.
+2. La aplicación construye el XML con ese número, lo firma y lo sube al
+   almacenamiento — fuera de cualquier transacción de base de datos.
+3. `prepare_ecf_invoice(..., p_expected_encf)` bloquea la secuencia y
+   comprueba, bajo ese bloqueo, que el próximo número sigue siendo el
+   esperado. Si lo es, lo consume e inserta la factura y sus líneas. Si no lo
+   es —otro cobro se adelantó—, devuelve `ENCF_TOMADO` sin consumir nada; la
+   aplicación firma otra vez con el número nuevo.
+
+Se descartó la alternativa obvia: reservar primero y marcar la factura como
+`failed` si la firma fallaba. Es más simple, pero **quema un número en cada
+fallo**, y un número fiscal quemado hay que declararlo anulado ante la DGII.
+agendapp perdió entre 6 y 10 números así (su v550), y le costó bastante
+arreglarlo. No se repite aquí.
+
+### Consecuencias
+
+- **Se gana:** un fallo al firmar ya no quema un número fiscal, porque en ese
+  momento todavía no se ha consumido nada.
+- **Se paga:** si dos cajas cobran a la vez, una firma el XML dos veces —
+  milisegundos de CPU local, no una llamada a la DGII. DermaLand es una
+  farmacia con dos terminales; el costo es aceptable.
+- Es la única desviación deliberada del diseño de agendapp en toda la fase 2.
+  La lógica fiscal —el orden de las comprobaciones, los gates, qué se
+  guarda— no cambia; cambia dónde está el límite de la transacción, porque
+  agendapp no tenía este problema (Prisma sí abre transacciones desde su
+  propio servidor) y DermaLand sí.
+
+---
+
+## 2026-09-06 — `prepare_ecf_invoice` no levanta ninguna excepción propia: `reserve_next_encf` es la única fuente de P0002/P0003/P0004
+
+**Archivos:**
+- `supabase/migrations/20260906090200_dgii_fase2_funciones.sql` (líneas
+  162-196, comentario y guarda del paso 2 de `prepare_ecf_invoice`)
+- `.superpowers/sdd/2026-09-05-dgii-fase2-base-de-datos/task-5-report.md`
+  (dónde se encontró y se resolvió, durante la tarea 5)
+
+### Por qué
+
+El diseño de `prepare_ecf_invoice` traía su propio
+`if v_seq_id is null then raise exception ... end if;` para el caso «no hay
+secuencia activa», con el mismo código `P0002` que ya usa `reserve_next_encf`.
+Al implementarlo apareció el problema: esa misma comprobación ya existe, con
+su propio mensaje y su propio `errcode`, dentro de `reserve_next_encf`, a la
+que `prepare_ecf_invoice` llama unas líneas más abajo para consumir el
+número de verdad. Dos sitios decidiendo lo mismo —¿hay secuencia
+utilizable?— solo podían desincronizarse: bastaba con corregir uno y olvidar
+el otro para que un caso quedara mal clasificado.
+
+### Decisión
+
+Se retiró el `raise exception` propio de `prepare_ecf_invoice`. Ahora
+`reserve_next_encf` es la **única** fuente de los tres códigos que puede
+levantar una secuencia inválida: `P0002` (no hay secuencia activa), `P0003`
+(vencida) y `P0004` (agotada).
+
+El mecanismo que lo permite: el `select ... for update` de
+`prepare_ecf_invoice` trae `next_number` y `range_end` de la misma fila que
+bloquea. Si no hay ninguna fila activa, las dos variables quedan `NULL`; si
+la secuencia está agotada pero todavía marcada `'active'`, `next_number`
+resulta mayor que `range_end`. En los dos casos la comparación
+`v_next <= v_range_end` da `NULL` o falso, el bloque que construiría
+`ENCF_TOMADO` se salta solo, y el control cae en la llamada a
+`reserve_next_encf` de más abajo — que hace su propia lectura de la misma
+fila y es quien decide, con su propia lógica, cuál de los tres códigos
+corresponde.
+
+Un revisor lo comprobó ejecutando el SQL completo contra un Postgres real:
+sin secuencia → `P0002`; agotada → `P0004` sin avanzar el contador; carrera
+→ `ENCF_TOMADO` sin consumir nada; camino feliz → factura en `draft` y
+contador `+1`.
+
+Se escribe como decisión consciente, no como detalle de implementación,
+porque cambia el contrato de la función: quien llame a `prepare_ecf_invoice`
+nunca recibe un error propio de esa función por causa de la secuencia —
+todos los que reciba vienen de `reserve_next_encf`, con sus mensajes.
+
+### Consecuencias
+
+- Un solo sitio sabe qué significa «secuencia inválida» y por qué. Corregir
+  un mensaje, un código o una condición se hace una vez, no dos.
+- `prepare_ecf_invoice` queda con una responsabilidad más angosta: decidir
+  `ENCF_TOMADO` cuando hay un número vigente y dentro de rango con el que
+  comparar, y nada más sobre si la secuencia en sí es válida.
+- Es una desviación del literal del pliego de la tarea 5 (que traía el
+  `raise exception` propio), no autorizada de antemano; se aplicó
+  extendiendo el mismo principio ya aprobado para el hueco de `range_end` en
+  esa misma función: que `reserve_next_encf` sea quien decide.
+
+---
+
 ## 2026-09-05 — `ecf_sequences_next_dentro_del_rango` es un renombre de `ecf_sequences_next_chk`, no una adición
 
 **Archivos:**
