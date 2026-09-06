@@ -21,12 +21,16 @@
 --   la sección de `ALTER TABLE sales ...` del fichero fuente, fuera de alcance
 --   de esta tarea), así que la sustitución sales -> proformas no tiene ninguna
 --   ocurrencia real que aplicar aquí.
--- * `ecf_sequences`: además de los dos CHECK de la fuente (rango y unicidad),
---   se añade `ecf_sequences_next_dentro_del_rango` en vez de renombrar
---   `ecf_sequences_next_chk` (misma expresión) porque `next_number` es el
---   estado que se mueve en cada cobro y la base debe negarse a dejarlo salir
---   del rango autorizado. Es la única adición fuera de las seis sustituciones,
---   pedida explícitamente por el pliego de la tarea 3.
+-- * `ecf_sequences_next_dentro_del_rango` NO es una adición: es el mismo CHECK
+--   que agendapp ya trae como `ecf_sequences_next_chk`
+--   (20260609_dgii_phase2_core_tables.sql:94, idéntico carácter por carácter
+--   salvo mayúsculas), solo que aquí se renombró para que el nombre diga en
+--   español lo que la restricción hace. El CHECK de rango
+--   (`ecf_sequences_range_chk`) y el UNIQUE (`ecf_sequences_uniq`) se
+--   conservaron con sus nombres originales de la fuente. No hay ninguna
+--   adición neta sobre el DDL de origen en ninguna de las 17 tablas (el plan
+--   de la fase decía lo contrario; esa afirmación del plan era incorrecta y
+--   se corrigió — ver docs/decisiones.md, entrada 2026-09-05).
 -- * `dgii_certification_events.source` y `dgii_certification_evidence.source`
 --   conservan el valor `'agendapp-system'` tal cual viene de la fuente: no es
 --   ninguna de las seis sustituciones, así que no se ha tocado.
@@ -94,8 +98,9 @@ create policy dgii_certificates_all on public.dgii_certificates for all
 
 -- ── 3) ecf_sequences ─────────────────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:79-96 (tabla) y
--- líneas 206-207 (índice). `ecf_sequences_next_dentro_del_rango` es la única
--- adición fuera de las seis sustituciones (ver nota de portado, arriba).
+-- líneas 206-207 (índice). `ecf_sequences_next_dentro_del_rango` es un
+-- renombre de `ecf_sequences_next_chk` de la fuente, no una adición (ver nota
+-- de portado, arriba).
 create table if not exists public.ecf_sequences (
   id          uuid primary key default gen_random_uuid(),
   business_id uuid not null references public.businesses(id) on delete cascade,

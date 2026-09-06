@@ -5,45 +5,59 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
-## 2026-09-05 — `ecf_sequences` lleva un CHECK de rango que agendapp no tiene
+## 2026-09-05 — `ecf_sequences_next_dentro_del_rango` es un renombre de `ecf_sequences_next_chk`, no una adición
 
 **Archivos:**
 - `supabase/migrations/20260906090100_dgii_fase2_tablas.sql` (constraint
   `ecf_sequences_next_dentro_del_rango`)
+- `docs/superpowers/plans/2026-09-05-dgii-fase2-base-de-datos.md` (líneas 629
+  y 1607-1609, corregidas en la misma ronda que esta entrada)
 
 ### Por qué
 
-DGII fase 2 porta las 17 tablas fiscales de agendapp casi literalmente (seis
-sustituciones mecánicas: el ayudante de RLS, `sales`→`proformas`, esquema
-cualificado, `search_path`, minúsculas y comentarios reescritos — ninguna
-más). `ecf_sequences.next_number` es distinto de las demás columnas portadas:
-es el **puntero que se mueve en cada cobro** dentro del rango autorizado por
-la DGII para un tipo de e-CF y ambiente. En agendapp ese avance lo controla
-enteramente la función `reserve_next_encf` (aplicación); la tabla en sí no
-tenía un CHECK que impidiera que `next_number` saliera del rango si alguna
-otra vía (una migración futura, un `UPDATE` manual de soporte, un bug en una
-función nueva) lo empujara fuera de `[range_start, range_end + 1]`.
+**Corrección de esta misma entrada** (ronda de revisión 1 de la tarea 3;
+hallazgo Importante). La versión anterior, y el plan de la fase en dos
+sitios, afirmaban que `ecf_sequences_next_dentro_del_rango` era un CHECK que
+agendapp no traía («no está en agendapp», «que agendapp no tiene»). Es falso.
+`~/Projects/agendapp/prisma/migrations/applied/20260609_dgii_phase2_core_tables.sql:94`
+ya trae:
+
+```sql
+CONSTRAINT ecf_sequences_next_chk  CHECK (next_number >= range_start AND next_number <= range_end + 1),
+```
+
+que es, carácter por carácter salvo mayúsculas, la misma expresión que quedó
+en `ecf_sequences_next_dentro_del_rango`. No es una restricción nueva: es el
+mismo CHECK de la fuente, con otro nombre.
 
 ### Decisión
 
-Añadir `constraint ecf_sequences_next_dentro_del_rango check (next_number >=
-range_start and next_number <= range_end + 1)` a la tabla portada, además del
-CHECK de rango (`range_start <= range_end`) y el UNIQUE
-(`business_id, tipo_ecf, ambiente, range_start`) que sí trae agendapp y que se
-conservan tal cual. Es la única adición sobre el DDL de origen en las 17
-tablas; todo lo demás es copia fiel con las seis sustituciones. Con esta
-constraint, un número fiscal fuera de lo autorizado no es un bug que se
-descubre en producción: es un `INSERT`/`UPDATE` que la base rechaza.
+Al portar `ecf_sequences` se **renombró** `ecf_sequences_next_chk` →
+`ecf_sequences_next_dentro_del_rango`, para que el nombre diga en español lo
+que la restricción hace (que `next_number` — el puntero que se mueve en cada
+cobro — no salga del rango autorizado), no para añadir una garantía que no
+existiera. El CHECK de rango (`ecf_sequences_range_chk`,
+`range_start <= range_end`) y el UNIQUE (`ecf_sequences_uniq`,
+`business_id, tipo_ecf, ambiente, range_start`) se conservaron de la fuente
+tal cual, con sus nombres originales. **No hay ninguna adición neta sobre el
+DDL de origen** en `ecf_sequences` ni en ninguna de las 17 tablas de la fase
+2: el porte es copia fiel con las seis sustituciones del pliego (ayudante de
+RLS, `sales`→`proformas`, esquema cualificado, `search_path`, minúsculas,
+comentarios reescritos) y nada más.
 
 ### Consecuencias
 
-- Cualquier función que toque `ecf_sequences.next_number` (la futura
-  `reserve_next_encf` de la fase 4, o soporte manual) tiene que respetar el
-  rango o la base la rechaza con un error de constraint, no con datos
-  corruptos silenciosos.
-- No cambia el comportamiento observable de la aplicación: hoy nada escribe
-  en `ecf_sequences` (fase 2 solo crea la tabla), así que la constraint no
-  tiene filas que validar todavía.
+- El comportamiento de la base en este punto es idéntico al de agendapp:
+  `next_number` ya estaba acotado al rango en la fuente, así que no cambia
+  nada observable para la aplicación.
+- El plan de la fase tenía la afirmación errónea en el paso 3 de la tarea 3
+  (línea 629) y en el paso 7 de la tarea 8 (línea 1609); ambas se corrigieron
+  para no seguir propagando el error a quien ejecute las fases siguientes. El
+  error era del plan, no de la migración: la migración y el `task-3-report.md`
+  ya decían, desde el principio, que el CHECK es "semánticamente igual" al de
+  la fuente.
+- Esta entrada sustituye a la que llevaba el mismo título y fecha, que
+  afirmaba lo contrario.
 
 ---
 
