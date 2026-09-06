@@ -5,6 +5,230 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — Tarea 5 (orquestación): se firma ANTES de validar contra el XSD, no al revés
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+
+### Por qué
+
+El resumen de una frase del pliego describía el paso 3 como "`buildEcfXml` →
+`validateEcfXml` contra el XSD → `signEcfXml`". Implementado literalmente, la
+validación SIEMPRE falla: los XSD oficiales exigen `<Signature>` como
+`xs:any minOccurs="1"` al final de `<ECF>`
+(`core/xsd/e-CF-32-v1.0.xsd:424`), y el propio `core/builder.test.ts` ya lo
+prueba y lo documenta — "el XML SIN firma falla el XSD solo por el
+`<Signature>` requerido (Fase 6)". Validar el XML sin firmar habría hecho que
+CUALQUIER comprobante, sin excepción, se reportara como XSD inválido.
+
+agendapp (`invoice-prepare.ts:428-433`, SOLO LECTURA) confirma cuál es el
+orden que de verdad funciona: construye, firma, verifica la firma y **luego**
+valida el `signed.signedXml` contra el XSD.
+
+### Decisión
+
+El orden real en `prepararComprobante` es: `buildEcfXml` → `signEcfXml` →
+`validateEcfXml` sobre el XML **ya firmado**. Es una corrección de un error
+de transcripción del pliego, no una desviación de la lógica fiscal: el
+orden de los GATES (habilitación → configuración → certificado → mirar el
+número) y el de la PERSISTENCIA (subir → preparar → finalizar) no cambian;
+solo se corrige en qué momento exacto, dentro del paso 3, se llama a
+`validateEcfXml`.
+
+### Consecuencias
+
+- Un XML mal formado (que ni siquiera pasaría el XSD con la firma puesta)
+  se detecta ANTES de subir al bucket y ANTES de `prepararFactura`: no se
+  consume ningún número por un documento que de todos modos no serviría.
+- Quien lea el pliego de la tarea 5 sin leer esta entrada esperaría el orden
+  contrario. Queda escrito aquí para que no se repita el error en una fase
+  futura que porte lógica parecida.
+
+---
+
+## 2026-09-06 — Tarea 5: `dobles()` de la prueba necesitó emisor y certificado de prueba que el pliego no traía
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.test.ts`
+
+### Por qué
+
+El pliego trae `dobles()` con tres claves: `habilitacion`, `secuencias`,
+`almacenamiento`. Ninguna prueba mockea Supabase (no hay
+`vi.mock("@/lib/supabase/server")`, a diferencia de `enablement.test.ts`),
+así que `obtenerConfiguracion`/`obtenerCertificadoActivo` reales — que
+`prepararComprobante` SÍ necesita usar por defecto, per el pliego
+("Consume: ... `certificates.ts`, `settings.ts`") — corren de verdad en la
+prueba. Comprobado empíricamente (`console.log` temporal, borrado después):
+en `apps/web` sin `.env.local` cargado por vitest, `createServiceRoleClient()`
+devuelve `null`. Con eso, `obtenerConfiguracion` devuelve `null` (sin
+lanzar) pero `obtenerCertificadoActivo` **lanza** (`obtenerClienteOFallar()`
+lanza si el cliente es `null`) — ninguno de los dos deja construir ni firmar
+un XML real, y las pruebas 1/3/5 (que exigen llegar hasta "subir" y
+"prepare") no podrían pasar nunca sin ayuda.
+
+### Decisión
+
+`prepararComprobante` trata `configuracion` y `certificado` como
+dependencias inyectables MÁS (mismo patrón que `habilitacion`: un VALOR ya
+resuelto, no una función), con default = los servicios reales
+(`obtenerConfiguracion`, `obtenerCertificadoActivo` + `parsePkcs12Certificate`
+del núcleo). `dobles()` se amplió con esas dos claves:
+- `configuracion`: un objeto `ConfiguracionFiscal` de prueba (RNC, Provincia y
+  Municipio con el catálogo jerárquico de 6 dígitos que exige el XSD
+  oficial — un `"25"`/`"01"` cortos, como los que usan `settings.test.ts` y
+  `enablement.test.ts` para pruebas que NO pasan por el XSD, no son un
+  elemento válido de ese enum; el teléfono también exige el patrón
+  `###-###-####`).
+- `certificado`: `{certificatePem, privateKeyPem}` de
+  `getDummyCert()` (`core/__port__/dgii-test-cert.ts`) — el certificado
+  autofirmado en memoria que la regla global de la fase exige para
+  cualquier prueba de firma. Ningún `.p12` real entra al repositorio.
+
+El resto del cuerpo de los `it(...)` es literal del pliego, sin cambios.
+
+### Consecuencias
+
+- Las pruebas de "camino feliz" (1, 3, 5) ejercitan `buildEcfXml`,
+  `signEcfXml` y `validateEcfXml` REALES contra el XSD oficial — no un doble
+  — lo que de paso confirma en verde el resultado de la entrada anterior de
+  esta lista (firmar antes de validar).
+- La prueba "no abre ni una conexión a la DGII" queda más honesta: no
+  depende de que Supabase esté (o no) configurado en el entorno donde corre
+  vitest — `habilitacion`/`configuracion`/`certificado` son valores fijos,
+  nunca tocan `fetch`, pase lo que pase con las variables de entorno.
+
+---
+
+## 2026-09-06 — Tarea 5: la ruta de almacenamiento durante el baile usa un id de intento, no el `invoiceId` final
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+
+### Por qué
+
+El path canónico es `dgii/{businessId}/invoices/{invoiceId}/signed.xml`. El
+baile sube el XML (paso 4) ANTES de llamar a `prepararFactura` (paso 5), que
+es quien INSERTA la fila de `electronic_invoices` y le asigna su `id`
+(`gen_random_uuid()` por defecto — confirmado leyendo el `insert` de
+`prepare_ecf_invoice` en `20260906090200_dgii_fase2_funciones.sql:255-267`:
+no acepta un id de quien llama). En el momento de subir, el `invoiceId` real
+**todavía no existe**.
+
+### Decisión
+
+Cada intento de firma sube con un id generado en el cliente
+(`randomUUID()`, `node:crypto`) como segmento `{invoiceId}` de la ruta — uno
+nuevo por reintento, porque cada reintento firma un XML distinto (e-NCF
+distinto). La ruta resultante se guarda tal cual en `xml_signed_path` vía
+`finalizarFactura`; la recuperación posterior (`leerXml`) usa esa ruta
+guardada, no la reconstruye a partir del `id` de la fila. El segmento de la
+ruta y el `id` de `electronic_invoices` no tienen por qué coincidir — nada
+en `storage.ts` ni en la fase 2 lo exige.
+
+### Consecuencias
+
+- Un reintento por `ENCF_TOMADO` dejaría el objeto de un intento anterior
+  huérfano en el bucket (nunca referenciado por ninguna fila). No es un
+  riesgo fiscal —no se consumió ningún número por ese intento— así que el
+  pliego no pide limpiarlo (su compensación, paso 7, es solo para fallos
+  DESPUÉS de consumir), y esta tarea no la añade para no alterar el baile
+  documentado. Queda anotado por si una fase futura quiere un barrido de
+  higiene del bucket.
+
+---
+
+## 2026-09-06 — Tarea 5: el sha256 llega a `finalizarFactura` sin tocar `dgii-sequences.ts`, y el hueco que deja fase 2 al descubierto
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+
+### Por qué
+
+La nota del encargo decía: "El sha256 del XML firmado lo calcula este
+módulo, no el de almacenamiento: se decidió así en la ronda 3 de la tarea 1"
+(confirmado en `task-1-report.md`: se borró un `calcularSha256()` que nadie
+llamaba, con el comentario "el SHA256 del XML lo calcula el preparador, no
+este módulo"). Pero `finalizarFactura(invoiceId, datos)` en
+`dgii-sequences.ts` tipa `datos` como `{ xml_signed_path: string }` — sin
+sitio para el hash.
+
+Al buscar dónde debía ir, aparece el hueco real de fase 2: el comentario de
+`finalize_ecf_invoice` en `20260906090200_dgii_fase2_funciones.sql:298` dice
+`p_datos: {xml_signed_path, xml_sha256, security_code}`, pero el CUERPO de
+la función solo lee `xml_signed_path` — `xml_sha256` y `security_code` se
+documentan y nunca se usan. Y la columna que sí existe en la tabla
+(`electronic_invoices.hash_sha256`, reincorporada de `0045` en
+`20260906090100_dgii_fase2_tablas.sql:228`) tiene OTRO nombre que el que
+promete ese comentario. Ninguna migración de esta tarea puede tocar eso
+(fuera de alcance: "no apliques migraciones, no escribas en la base").
+
+### Decisión
+
+`prepare.ts` calcula `xmlSha256` con `createHash("sha256")` sobre el XML
+firmado y lo envía en `datos` de todos modos, vía una variable intermedia
+tipada (`const datosFinalizar: {xml_signed_path: string; xml_sha256: string}`)
+en vez de un objeto literal en la llamada: TypeScript permite pasar una
+variable con MÁS propiedades que las que pide el parámetro (no aplica el
+chequeo de "excess properties", que solo mira literales), así que
+`dgii-sequences.ts` queda intacto — cero modificación a un archivo ya
+cerrado en una tarea anterior. Hoy ese campo de más lo ignora
+`finalize_ecf_invoice` (jsonb no valida forma), así que no persiste en la
+base; el día que una migración futura lo lea (con el nombre de columna que
+sea), este módulo no necesita cambiar.
+
+### Consecuencias
+
+- El cálculo del hash tiene un destino real (no queda como código muerto
+  esperando a que alguien lo use, que es justo el patrón que la ronda 3 de
+  la tarea 1 corrigió).
+- Queda documentado para quien cierre ese hueco de fase 2: hace falta
+  decidir el nombre de columna definitivo (`hash_sha256` ya existe;
+  `xml_sha256` es solo el nombre del comentario) y escribir el `update` de
+  `finalize_ecf_invoice` que hoy falta. No se resuelve aquí.
+
+---
+
+## 2026-09-06 — Tarea 5: por qué existe `dgii-invoices.ts`, y qué NO resuelve todavía
+
+**Archivos:**
+- `apps/web/src/server/repositories/supabase/dgii-invoices.ts` (nuevo)
+- `apps/web/src/features/dgii/services/prepare.ts`
+
+### Por qué
+
+El pliego pide crear este archivo sin decir para qué. `prepare_ecf_invoice`
+devuelve `IDEMPOTENT_PROFORMA_YA_FACTURADA` con SOLO `invoice_id` — sin
+`e_ncf` ni ruta del XML (`20260906090200_dgii_fase2_funciones.sql:198-205`).
+`ResultadoPreparar` (el de esta tarea) exige `eNcf` y `rutaXml` como
+`string` también en el caso idempotente, así que hace falta leer esos dos
+campos de la factura que YA existía.
+
+### Decisión
+
+`crearRepositorioFacturas` expone `leerResumen(invoiceId)`: una lectura
+suelta de `electronic_invoices` (id, e_ncf, xml_signed_path) filtrada por
+`business_id`, del mismo tipo que `leerConfiguracion`/`leerCertificadoActivo`
+en `dgii-settings.ts` — no es el baile transaccional, así que no vive en
+`dgii-sequences.ts`. `prepararComprobante` la usa de MEJOR ESFUERZO: si no
+se puede leer (Supabase no configurado, fila no encontrada, lo que sea), se
+responde igual `{ok:true, invoiceId, eNcf:"", rutaXml:""}` en vez de fallar
+o de inventar un dato fiscal.
+
+### Lo que queda fuera, a propósito
+
+Los tipos que exigen `FechaVencimientoSecuencia` en el XSD (31, 33, 41, 43,
+44, 45, 46, 47 — ver `core/builder.ts`, `requiereVencimiento`) necesitan la
+fecha de vencimiento de la secuencia autorizada
+(`ecf_sequences.expires_at`), y ningún repositorio de esta tarea ni de la
+fase 2 expone esa lectura todavía. agendapp aprendió esto por las malas
+(v525: "un comprobante con una fecha fiscal inventada es peor que uno que
+falta") y no se repite aquí: sin esa lectura, `buildEcfXml` rechaza el
+comprobante con un mensaje claro ANTES de firmar y ANTES de consumir el
+e-NCF — falla seguro, no falla en silencio ni inventa la fecha. Con las
+pruebas de esta tarea (tipo 32, que no exige vencimiento) esto no se
+ejercita; queda para quien construya el flujo de tipo 31 (crédito fiscal),
+que si necesita añadir esa lectura, probablemente vaya en `dgii-invoices.ts`
+o en `dgii-sequences.ts`.
+
+---
+
 ## 2026-09-06 — Los gates de habilitación leen los repositorios directamente, no `certificates.ts`
 
 **Archivos:**
