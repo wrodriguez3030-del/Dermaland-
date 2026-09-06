@@ -1,11 +1,20 @@
 /**
- * Acceso a la configuración fiscal (`dgii_settings`) y al certificado
- * (`dgii_certificates`) de la fase 2.
+ * Acceso a la configuración fiscal (`dgii_settings`), al certificado
+ * (`dgii_certificates`) y al conteo de secuencias (`ecf_sequences`) de la
+ * fase 2.
  *
  * Solo traduce llamadas: el cifrado/descifrado y las reglas de vigencia viven
  * en `features/dgii/services/certificates.ts`. El `business_id` lo pone
  * SIEMPRE este repositorio, nunca quien llama — mismo contrato que
  * `dgii-sequences.ts`.
+ *
+ * `contarSecuenciasActivas` (tarea 4, gates de habilitación) vive aquí y no
+ * en `dgii-sequences.ts` a propósito: ese otro repositorio es el baile
+ * transaccional de `peek/prepare/finalize/fail` sobre las funciones PL/pgSQL
+ * de la fase 2; esto es una lectura de metadata simple, del mismo tipo que
+ * `leerConfiguracion`/`leerCertificadoActivo` de aquí al lado. Crear un
+ * segundo repositorio solo para esto habría sido la "consulta suelta" que
+ * el pliego pide evitar.
  *
  * **El cliente lo construye quien llame `crearRepositorioConfiguracion`.**
  * Las tablas nuevas solo conceden `select/insert/update` a `service_role`
@@ -199,6 +208,29 @@ export function crearRepositorioConfiguracion(cliente: SupabaseClient, businessI
         .eq("business_id", businessId)
         .eq("is_active", true);
       desenvolver(r as never, "dgii_certificates.desactivar");
+    },
+
+    /**
+     * Secuencias activas del negocio: el total (cualquier ambiente) y las
+     * que están en ambiente de producción (`ecf`). Equivalente a los dos
+     * `prisma.ecfSequence.count(...)` de `enablement-service.ts` en agendapp
+     * (uno sin filtro de ambiente, otro con `ambiente: "ecf"`), aquí en una
+     * sola consulta: trae solo la columna `ambiente` de las filas `active` y
+     * cuenta en memoria. La tabla es pequeña (un puñado de secuencias por
+     * negocio como mucho) y así se evita el mecanismo `count/head` de
+     * PostgREST, más frágil de simular en pruebas y de depurar en producción.
+     */
+    async contarSecuenciasActivas(): Promise<{ activas: number; produccion: number }> {
+      const r = await cliente
+        .from("ecf_sequences")
+        .select("ambiente")
+        .eq("business_id", businessId)
+        .eq("status", "active");
+      const filas = desenvolver(r as never, "ecf_sequences.select_activas") as { ambiente: string }[];
+      return {
+        activas: filas.length,
+        produccion: filas.filter((f) => f.ambiente === "ecf").length,
+      };
     },
   };
 }

@@ -5,6 +5,62 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — Los gates de habilitación leen los repositorios directamente, no `certificates.ts`
+
+**Archivos:**
+- `apps/web/src/features/dgii/services/enablement.ts` (tarea 4 de la fase 3A)
+- `apps/web/src/server/repositories/supabase/dgii-settings.ts` (método nuevo `contarSecuenciasActivas`)
+
+### Por qué
+
+El pliego de la tarea 4 señala `certificates.ts` (tarea 2) como lo que hay
+que reutilizar para "el certificado activo y su vigencia". Pero
+`obtenerCertificadoActivo` DESCIFRA el `.p12` y, si el certificado activo
+está vencido (o aún no es vigente), LANZA `ErrorCertificado(..., "vencido")`
+sin devolver la fila — se pierde `valid_to`, justo el dato que un gate
+necesita para poder decir "hay certificado, pero venció el DD/MM" sin una
+excepción de por medio. Un certificado vencido no es un error de
+programación: es un estado normal del negocio, y un gate tiene que poder
+describirlo sin capturar una excepción.
+
+Es, además, lo que hace el propio origen: `enablement-service.ts` de
+agendapp tampoco pasa por el equivalente de `certificates.ts` para esto —
+hace su propio `prisma.dgiiCertificate.findFirst({ select: { alias,
+valid_to } })`, una lectura de metadata mínima, sin descifrar nada. Ir al
+repositorio directamente es el port fiel; pasar por `certificates.ts`
+habría sido la desviación.
+
+Por separado, `evaluarHabilitacion` necesita contar las secuencias activas
+de `ecf_sequences` (dos conteos en agendapp: el total y el de ambiente
+`ecf`), y ningún repositorio de la fase 2 tenía un método para eso:
+`dgii-sequences.ts` es el baile transaccional `peek/prepare/finalize/fail`
+sobre las funciones PL/pgSQL, no lecturas de metadata sueltas.
+
+### Decisión
+
+`evaluarHabilitacion` llama a
+`crearRepositorioConfiguracion(...).leerCertificadoActivo()` directamente
+para la metadata del certificado (existe + `valid_to`), en vez de
+`certificates.ts`. `certificates.ts` se queda como el único que descifra el
+`.p12` para firmar de verdad (lo usará la tarea 5).
+
+El conteo de secuencias se añadió como `contarSecuenciasActivas` en
+`dgii-settings.ts` — no en `dgii-sequences.ts` ni en un repositorio
+nuevo—: es una lectura de metadata simple, del mismo tipo que
+`leerConfiguracion`/`leerCertificadoActivo` que ya viven ahí.
+
+### Consecuencias
+
+- No hay dos caminos que decidan si el certificado está vigente: la
+  vigencia se calcula una sola vez, en `evaluarHabilitacion`, a partir de la
+  misma columna `valid_to` que usa `certificates.ts` — solo que sin la
+  excepción de por medio.
+- Quien busque "el conteo de secuencias" en `dgii-sequences.ts` no lo va a
+  encontrar ahí: está en `dgii-settings.ts`, junto a la configuración y el
+  certificado.
+
+---
+
 ## 2026-09-06 — La persistencia DGII portada vive en `features/dgii/services/`, no en `server/services/dgii/`
 
 **Archivos:**

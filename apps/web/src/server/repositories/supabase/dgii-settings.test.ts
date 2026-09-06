@@ -121,4 +121,28 @@ describe("repositorio de configuración/certificado fiscal", () => {
     const repo = crearRepositorioConfiguracion(c as never, "biz-1");
     await expect(repo.leerConfiguracion()).rejects.toThrow(/relation does not exist/);
   });
+
+  it("contarSecuenciasActivas cuenta el total y, aparte, las de ambiente ecf", async () => {
+    const filas = [{ ambiente: "testecf" }, { ambiente: "certecf" }, { ambiente: "ecf" }, { ambiente: "ecf" }];
+    const c = clienteFalso({ data: filas, error: null });
+    const repo = crearRepositorioConfiguracion(c as never, "biz-1");
+    expect(await repo.contarSecuenciasActivas()).toEqual({ activas: 4, produccion: 2 });
+    // Filtra por el negocio y solo por status=active (el ambiente se cuenta en memoria).
+    expect(c.llamadas.filter((l) => l.metodo === "eq")).toEqual([
+      { metodo: "eq", args: ["business_id", "biz-1"] },
+      { metodo: "eq", args: ["status", "active"] },
+    ]);
+  });
+
+  it("contarSecuenciasActivas devuelve ceros si el negocio no tiene ninguna activa", async () => {
+    const c = clienteFalso({ data: [], error: null });
+    const repo = crearRepositorioConfiguracion(c as never, "biz-1");
+    expect(await repo.contarSecuenciasActivas()).toEqual({ activas: 0, produccion: 0 });
+  });
+
+  it("contarSecuenciasActivas propaga el error de la base", async () => {
+    const c = clienteFalso({ data: null, error: { message: "timeout" } });
+    const repo = crearRepositorioConfiguracion(c as never, "biz-1");
+    await expect(repo.contarSecuenciasActivas()).rejects.toThrow(/timeout/);
+  });
 });
