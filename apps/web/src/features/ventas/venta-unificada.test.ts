@@ -48,4 +48,62 @@ describe("modelo unificado de ventas", () => {
     expect(v.itbis).toBe(180);
     expect(typeof v.total).toBe("number");
   });
+
+  // ── Ronda de corrección 1: números mal en silencio ──────────────────────
+
+  it("una proforma con el estado extendido 'voided' se marca anulada, no solo 'cancelled'", () => {
+    // El CHECK real de la columna (0003_dgii_pos.sql) admite 'voided' además
+    // de 'cancelled'; no está en el union TS `ProformaStatus`. Mismo criterio
+    // que `isExcludedStatus` de features/customers/customer-purchases.ts.
+    const v = desdeProforma({
+      id: "p-2", number: "PRO-002", createdAt: "2026-09-01T10:00:00Z",
+      customerName: "Ana", total: 100, itbis: 0, subtotal: 100, status: "voided",
+    } as never);
+    expect(v.anulada).toBe(true);
+  });
+
+  it("una factura de Alegra en borrador no cuenta, igual que una anulada", () => {
+    // Mismo criterio que `cuentaParaTotales` de features/alegra/sales-report.ts:
+    // status !== 'void' && status !== 'draft'. Aquí 'anulada' es el único
+    // flag de exclusión del modelo unificado, así que cubre los dos casos.
+    const v = desdeFacturaAlegra({ id: "a-2", ncf: "B02", date: "2026-08-01", total: 500, status: "draft" } as never);
+    expect(v.anulada).toBe(true);
+  });
+
+  it("el vendedor de una proforma es sellerName, no cashierName: son roles distintos", () => {
+    // cashierName es quien cobra (en el POS está fijo en el código,
+    // "Rosa Peralta"); sellerName es el vendedor responsable, base de
+    // incentivos. Usar cashierName mostraría el mismo nombre en el 100% de
+    // las ventas del sistema.
+    const v = desdeProforma({
+      id: "p-3", number: "PRO-003", createdAt: "2026-09-01T10:00:00Z",
+      customerName: "Ana", total: 100, itbis: 0, subtotal: 100, status: "issued",
+      sellerName: "Marcos Vendedor", cashierName: "Rosa Peralta",
+    } as never);
+    expect(v.vendedor).toBe("Marcos Vendedor");
+  });
+
+  it("un pago mixto (dos métodos) no se le atribuye a uno solo: se marca 'mixed'", () => {
+    // Mitad efectivo, mitad tarjeta: antes se le colgaba el 100% del total
+    // al primer método. Mismo criterio que `saleMethodSummary`
+    // (features/sales/sales-report.ts).
+    const v = desdeProforma({
+      id: "p-4", number: "PRO-004", createdAt: "2026-09-01T10:00:00Z",
+      customerName: "Ana", total: 200, itbis: 0, subtotal: 200, status: "paid",
+      payments: [
+        { method: "cash", amount: 100 },
+        { method: "card", amount: 100 },
+      ],
+    } as never);
+    expect(v.formaPago).toBe("mixed");
+  });
+
+  it("con un solo método de pago, formaPago sigue siendo ese método", () => {
+    const v = desdeProforma({
+      id: "p-5", number: "PRO-005", createdAt: "2026-09-01T10:00:00Z",
+      customerName: "Ana", total: 100, itbis: 0, subtotal: 100, status: "paid",
+      payments: [{ method: "cash", amount: 100 }],
+    } as never);
+    expect(v.formaPago).toBe("cash");
+  });
 });

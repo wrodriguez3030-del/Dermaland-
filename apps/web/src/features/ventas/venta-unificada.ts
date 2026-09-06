@@ -10,6 +10,9 @@
  * factura que en Alegra sigue viva, y los dos sistemas dejarían de cuadrar.
  */
 import type { Proforma } from "@/types";
+import { isExcludedStatus } from "@/features/customers/customer-purchases";
+import { saleMethodSummary } from "@/features/sales/sales-report";
+import { cuentaParaTotales } from "@/features/alegra/sales-report";
 
 export type OrigenVenta = "sistema" | "alegra";
 
@@ -64,6 +67,14 @@ const numero = (v: number | string | null | undefined): number => Number(v ?? 0)
  * editar o anular, así que `editable` es siempre `true`.
  */
 export function desdeProforma(p: Proforma): VentaUnificada {
+  // Pago mixto (dos o más métodos reales, p. ej. mitad efectivo y mitad
+  // tarjeta): atribuírselo a uno solo le cuelga el 100% del total a un
+  // método que solo cobró la mitad. Mismo criterio de
+  // `saleMethodSummary` (features/sales/sales-report.ts): "mixed" cuando
+  // hay dos o más grupos de pago, reutilizado en vez de reinventado. No
+  // resuelve el reparto por método —eso cambia el modelo y es otra tarea—,
+  // pero deja de mentir sobre cuál método cobró todo.
+  const metodo = saleMethodSummary(p);
   return {
     id: p.id,
     origen: "sistema",
@@ -74,20 +85,28 @@ export function desdeProforma(p: Proforma): VentaUnificada {
     total: p.total,
     itbis: p.itbis,
     subtotal: p.subtotal,
-    // Si hubo pago mixto se toma el primero: el modelo unificado guarda una
-    // sola forma de pago por venta.
-    formaPago: p.payments?.[0]?.method ?? null,
-    vendedor: p.cashierName,
+    formaPago: metodo === "mixed" ? "mixed" : (p.payments?.[0]?.method ?? null),
+    // `sellerName` es el vendedor responsable (base de incentivos);
+    // `cashierName` es quien cobra en caja. Son roles distintos a propósito
+    // (types/index.ts) y en el POS `cashierName` está fijo en el código
+    // ("Rosa Peralta"): usarlo aquí habría mostrado el mismo nombre en el
+    // 100% de las ventas del sistema.
+    vendedor: p.sellerName ?? null,
     sucursalId: p.branchId,
-    anulada: p.status === "cancelled",
+    // Reutiliza el mismo criterio que las métricas del cliente
+    // (`isExcludedStatus`): cubre 'cancelled' y también el estado extendido
+    // de la DB 'voided', que no está en el union TS `ProformaStatus`.
+    anulada: isExcludedStatus(p.status),
     editable: true,
   };
 }
 
 /**
  * Factura de Alegra → venta unificada. Es historial: `editable` es siempre
- * `false`. Usa el mismo criterio de anuladas que
- * `features/alegra/sales-report.ts` (`status === "void"`).
+ * `false`. `anulada` reutiliza tal cual el criterio de
+ * `features/alegra/sales-report.ts` (`cuentaParaTotales`): una factura en
+ * borrador no cuenta igual que una anulada, y aquí es el único flag de
+ * exclusión que tiene el modelo unificado, así que cubre los dos casos.
  */
 export function desdeFacturaAlegra(f: FilaFacturaAlegra): VentaUnificada {
   return {
@@ -105,7 +124,7 @@ export function desdeFacturaAlegra(f: FilaFacturaAlegra): VentaUnificada {
     formaPago: f.payment_method ?? null,
     vendedor: f.seller_name ?? null,
     sucursalId: f.branch_id ?? null,
-    anulada: f.status === "void",
+    anulada: !cuentaParaTotales(f),
     editable: false,
   };
 }
