@@ -5,6 +5,58 @@ riesgo se cierra, mover la entrada al final con `[CERRADO YYYY-MM-DD]`.
 
 ---
 
+## R-FIS-03 · Al aplicar la fase 2, el módulo DGII viejo se queda a oscuras hasta la fase 3
+
+**Fecha:** 2026-09-06
+**Severidad:** Media
+**Dueño:** el dueño, que decide cuándo aplica las tres migraciones.
+
+Las migraciones de la fase 2 **no están aplicadas**. Cuando se apliquen, el
+módulo fiscal viejo pierde sus tablas (se renombran a `*_legacy_20260906`) y
+deja de funcionar lo siguiente, hasta que la fase 3 reconecte el módulo nuevo:
+
+- las pantallas `/dgii/configuracion`, `/dgii/certificado`, `/dgii/estado` —que
+  está en la barra lateral— y `/dgii/habilitacion`;
+- `/api/dgii/certificate/current` y `/api/dgii/certificate/test-local`;
+- el **cron diario `/api/dgii/cola`** (`0 7 * * *`, declarado en `vercel.json`),
+  que se queda sin trabajo. Está vivo en producción: el killswitch
+  `DGII_TESTECF_SEND_ENABLED` gatea sólo `enviar` y `consultar`; `validar` y
+  `firmar` corren siempre.
+
+**El punto de venta NO está en riesgo**, ni antes ni después de aplicar:
+ninguna función del POS toca las tablas fiscales y no hay disparadores sobre
+`proformas`, `proforma_items`, `proforma_payments`, `cash_closings`,
+`cash_closing_sales` ni `cash_register_sessions`.
+
+**Lo más incómodo, y hay que nombrarlo:** entre aplicar y la fase 6 **no habrá
+forma de subir un `.p12`**. Los 4 certificados quedan en
+`dgii_certificates_legacy_20260906`, ninguna migración los copia, y la pantalla
+de subida actual (`server/services/certificate-storage.ts`) escribe cuatro
+columnas que la tabla nueva no tiene: `pkcs12_storage_bucket`,
+`pkcs12_storage_path`, `iv` y `tag`. La tabla nueva usa `storage_bucket` /
+`storage_path` y no tiene sitio para el IV ni el tag del sobre AES-256-GCM.
+
+### Mitigación / plan de salida
+
+- Con el módulo fiscal sin emitir ni un comprobante, quedarse a oscuras no
+  cuesta nada operativamente: la farmacia factura por el POS, que no depende de
+  esto.
+- La ventana la cierra la fase 3 (pantallas y servicios) y la fase 6
+  (certificado). Si hiciera falta acortarla, lo barato es adelantar el arreglo
+  de `certificate-storage.ts` a las cuatro columnas nuevas.
+- Tras aplicar, `scripts/audit-migrations.mjs` reportará `0003_dgii_pos`,
+  `0045_ecf_idempotency_and_events` y `20260805020813_ecf_events_fk_restrict`
+  como `PARCIAL` / `NO_APLICADA`. **Es esperado, no un fallo:** `classify()`
+  compara objetos declarados contra objetos existentes, y esos objetos ahora se
+  llaman `*_legacy_20260906`.
+- `apps/web/src/server/db/database.types.ts` sigue describiendo el esquema
+  VIEJO y no se regeneró. Consecuencia: tras aplicar, todo sigue compilando y
+  todos los fallos son de ejecución. Regenerarlo romperá el build en los
+  ficheros del módulo viejo — **eso es la señal que hoy no existe**, y toca
+  decidir entonces si se arreglan o se marcan como retirados hasta la fase 3.
+
+---
+
 ## R-SEC-02 · Cuenta de prueba con rol admin efectivo en producción
 
 **Fecha:** 2026-08-06

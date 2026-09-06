@@ -5,6 +5,340 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — La unicidad del e-NCF pasa a ser TOTAL: un comprobante anulado bloquea su número
+
+**Archivos:**
+- `supabase/migrations/20260906090100_dgii_fase2_tablas.sql`
+  (`electronic_invoices_encf_uniq`)
+- `supabase/migrations/0045_ecf_idempotency_and_events.sql:42-47` (lo anterior)
+
+### Por qué
+
+`0045` creó la unicidad del e-NCF como un índice único **parcial**, que dejaba
+fuera los cancelados:
+
+```sql
+create unique index electronic_invoices_encf_por_ambiente_uidx
+  on public.electronic_invoices (business_id, ambiente, e_ncf)
+  where e_ncf is not null and status <> 'cancelled';
+```
+
+La tabla portada de agendapp lo trae como restricción **total**:
+
+```sql
+constraint electronic_invoices_encf_uniq unique (business_id, ambiente, e_ncf)
+```
+
+La diferencia no es de nombre: la versión nueva es **más estricta**. Con el
+índice parcial, cancelar un comprobante liberaba su número y otro comprobante
+podía volver a usarlo. Con la restricción total, no: el número queda ocupado
+para siempre, lo use quien lo use.
+
+La revisión final de la rama lo marcó porque el cambio se estaba colando sin
+que nadie lo decidiera: la migración nueva reemplazaba la tabla entera, y con
+ella la regla, en silencio.
+
+### Decisión
+
+**Se queda la restricción TOTAL.** Un número anulado ante la DGII no se
+reutiliza: la anulación es un trámite con la administración, no un `DELETE`. Si
+un e-NCF se emitió y luego se anuló, ese número ya tiene historia ante la DGII
+y volver a usarlo es exactamente el problema que esta fase entera existe para
+evitar.
+
+El índice parcial de `0045` (`electronic_invoices_encf_por_ambiente_uidx`) **no
+se recrea**: la restricción total lo cubre y lo supera.
+
+El `ambiente` sigue dentro de la llave, y eso no cambia: que un e-NCF exista en
+`testecf` no debe estorbar a producción.
+
+### Consecuencias
+
+- Cancelar un comprobante ya no libera su número. Si hiciera falta reemplazar
+  uno anulado, el nuevo lleva **otro** e-NCF, que es lo que la DGII espera.
+- Es más estricto que lo que DermaLand tenía. Sobre una tabla vacía (0
+  comprobantes emitidos) no hay nada que migrar ni ninguna fila que choque.
+- Si algún día apareciera un caso real que necesite reutilizar un número
+  anulado, hay que traerlo aquí y decidirlo de nuevo, no aflojar la restricción
+  sobre la marcha.
+
+---
+
+## 2026-09-06 — Los índices que vuelven de `0045` cambian de nombre a propósito
+
+**Archivos:**
+- `supabase/migrations/20260906090100_dgii_fase2_tablas.sql` (bloques `4-bis` y
+  `18`)
+- `supabase/migrations/0045_ecf_idempotency_and_events.sql`
+
+### Por qué
+
+`alter table … rename to` **no renombra los índices**. Tras la parte 1, la
+`electronic_invoices` retirada se queda con los nombres que `0045` les puso
+(`electronic_invoices_idempotency_key_uidx`,
+`electronic_invoices_pendientes_idx`), y `ecf_document_events_legacy_20260906`
+con los suyos.
+
+Y `create index if not exists <nombre ya ocupado>` **no falla**: emite un
+`NOTICE: relation "…" already exists, skipping` y sigue. Comprobado contra un
+Postgres 16 efímero: la tabla nueva se queda con **cero** índices y la
+migración reporta éxito.
+
+Copiar los nombres de `0045` tal cual —que era lo que decía el informe de
+revisión— habría dejado la tabla nueva **sin barrera de idempotencia**, en
+silencio. Justo el fallo que reintroducir `0045` existe para evitar.
+
+### Decisión
+
+Los cuatro índices reintroducidos llevan nombres nuevos, con el prefijo `idx_`
+que ya usa el resto del esquema nuevo:
+
+| `0045` | aquí |
+|---|---|
+| `electronic_invoices_idempotency_key_uidx` | `idx_einv_idempotency_key` |
+| `electronic_invoices_pendientes_idx` | `idx_einv_pendientes` |
+| `ecf_document_events_documento_idx` | `idx_ecf_events_documento` |
+| `ecf_document_events_business_idx` | `idx_ecf_events_business` |
+
+Hay una guarda en `migracion-fase2.test.ts` que se pone roja si alguien vuelve
+a cualquiera de los nombres de `0045`.
+
+### Consecuencias
+
+- Cuando llegue el día de borrar de verdad las tablas `_legacy_20260906`, los
+  nombres viejos se van con ellas y no chocan con nada.
+- La misma trampa acecha a cualquier futura migración que renombre una tabla y
+  recree índices con los mismos nombres. El patrón: **renombrar una tabla no
+  libera los nombres de sus índices.**
+
+---
+
+## 2026-09-06 — Cada `revoke execute` de las RPC fiscales lleva su `grant` a `service_role`
+
+**Archivos:** `supabase/migrations/20260906090200_dgii_fase2_funciones.sql`
+
+### Por qué
+
+Las cinco funciones fiscales revocan `execute` de `public, anon, authenticated`,
+a diferencia del único precedente de la casa (`0038_web_orders.sql:120`, que
+revoca sólo de `anon, authenticated`). Revocar de `public` quita también lo que
+`service_role` heredaba por PUBLIC.
+
+Comprobado contra un Postgres 16 efímero: sin un grant explícito,
+`has_function_privilege('service_role', …, 'execute')` da **FALSE en las cinco**.
+En un proyecto Supabase eso normalmente lo salva `alter default privileges … on
+functions to … service_role`, pero eso es una suposición sobre cómo está
+configurada la base, no algo que el fichero de migración garantice. Si esa
+suposición fuera falsa, la fase 3 se estrellaría con «permission denied for
+function» y hoy no había forma de saberlo sin mirar la base.
+
+### Decisión
+
+Después de cada `revoke` va su `grant execute … to service_role`, y el
+verificador comprueba las dos caras: que `anon` y `authenticated` **no** pueden,
+y que `service_role` **sí**.
+
+### Consecuencias
+
+- No afloja nada: `service_role` es la clave del servidor, que ya se salta la
+  RLS entera. Lo que hace es que el permiso deje de depender de una suposición.
+- Queda escrito también el **alcance real** del `revoke`, en la cabecera del
+  fichero: protege el cruce ENTRE empresas. Dentro de una, cualquier usuario
+  autenticado puede hacer `PATCH /rest/v1/ecf_sequences` y retroceder
+  `next_number` sin tocar ninguna función, porque la política es
+  `for all using (business_id = auth_business_id())`. No es una regresión de esta
+  rama (`0003_dgii_pos.sql:150` ya la tenía, y agendapp también), pero el patrón
+  de la casa para un contador que sólo debe tocar el servidor es el contrario:
+  `proforma_counters` tiene RLS y **cero políticas**. Pendiente de decidir en la
+  fase 4, antes de que se construya encima.
+
+---
+
+## 2026-09-06 — Firmar antes de reservar el e-NCF, no dentro de una transacción como agendapp
+
+**Archivos:**
+- `supabase/migrations/20260906090200_dgii_fase2_funciones.sql`
+  (`peek_next_encf`, `prepare_ecf_invoice`)
+- `docs/superpowers/plans/2026-09-05-dgii-fase2-base-de-datos.md` (sección
+  «La solución: reservar por comparación e intercambio»)
+- `apps/web/src/server/repositories/supabase/dgii-sequences.ts`
+
+### Por qué
+
+agendapp reserva el e-NCF dentro de una transacción de Prisma que también
+construye el XML y **lo firma** (`src/lib/dgii/invoice-prepare.ts:270-628`).
+Si algo revienta ahí dentro, la transacción entera se deshace y el número no
+se consume: reservar y firmar son, para agendapp, la misma operación atómica.
+
+DermaLand no puede hacer eso. La aplicación habla con la base por PostgREST y
+no abre transacciones desde el servidor web (`pg` es solo `devDependency`,
+la usan los guiones de este repo). Y aunque pudiera abrir una transacción, no
+alcanzaría: la firma XMLDSig necesita `xml-crypto` y `node-forge`, y subir el
+XML al almacenamiento necesita una llamada HTTP. Ninguna de las dos cosas
+ocurre dentro de Postgres. No hay forma de meter «reservar + firmar +
+guardar» en una sola función PL/pgSQL, por más que el diseño aprobado de la
+fase lo pidiera así.
+
+### Decisión
+
+Se invierte el orden: **firmar antes de consumir el número**, con una
+comprobación atómica de que el número sigue siendo el nuestro.
+
+1. `peek_next_encf(business, tipo, ambiente)` dice qué número tocaría, sin
+   consumirlo y sin bloquear nada.
+2. La aplicación construye el XML con ese número, lo firma y lo sube al
+   almacenamiento — fuera de cualquier transacción de base de datos.
+3. `prepare_ecf_invoice(..., p_expected_encf)` bloquea la secuencia y
+   comprueba, bajo ese bloqueo, que el próximo número sigue siendo el
+   esperado. Si lo es, lo consume e inserta la factura y sus líneas. Si no lo
+   es —otro cobro se adelantó—, devuelve `ENCF_TOMADO` sin consumir nada; la
+   aplicación firma otra vez con el número nuevo.
+
+Se descartó la alternativa obvia: reservar primero y marcar la factura como
+`failed` si la firma fallaba. Es más simple, pero **quema un número en cada
+fallo**, y un número fiscal quemado hay que declararlo anulado ante la DGII.
+agendapp perdió entre 6 y 10 números así (su v550), y le costó bastante
+arreglarlo. No se repite aquí.
+
+### Consecuencias
+
+- **Se gana:** un fallo al firmar ya no quema un número fiscal, porque en ese
+  momento todavía no se ha consumido nada.
+- **Se paga:** si dos cajas cobran a la vez, una firma el XML dos veces —
+  milisegundos de CPU local, no una llamada a la DGII. DermaLand es una
+  farmacia con dos terminales; el costo es aceptable.
+- Es la única desviación deliberada del diseño de agendapp en toda la fase 2.
+  La lógica fiscal —el orden de las comprobaciones, los gates, qué se
+  guarda— no cambia; cambia dónde está el límite de la transacción, porque
+  agendapp no tenía este problema (Prisma sí abre transacciones desde su
+  propio servidor) y DermaLand sí.
+
+---
+
+## 2026-09-06 — `prepare_ecf_invoice` no levanta ninguna excepción propia: `reserve_next_encf` es la única fuente de P0002/P0003/P0004
+
+**Archivos:**
+- `supabase/migrations/20260906090200_dgii_fase2_funciones.sql` (líneas
+  162-196, comentario y guarda del paso 2 de `prepare_ecf_invoice`)
+- `.superpowers/sdd/2026-09-05-dgii-fase2-base-de-datos/task-5-report.md`
+  (dónde se encontró y se resolvió, durante la tarea 5)
+
+### Por qué
+
+El diseño de `prepare_ecf_invoice` traía su propio
+`if v_seq_id is null then raise exception ... end if;` para el caso «no hay
+secuencia activa», con el mismo código `P0002` que ya usa `reserve_next_encf`.
+Al implementarlo apareció el problema: esa misma comprobación ya existe, con
+su propio mensaje y su propio `errcode`, dentro de `reserve_next_encf`, a la
+que `prepare_ecf_invoice` llama unas líneas más abajo para consumir el
+número de verdad. Dos sitios decidiendo lo mismo —¿hay secuencia
+utilizable?— solo podían desincronizarse: bastaba con corregir uno y olvidar
+el otro para que un caso quedara mal clasificado.
+
+### Decisión
+
+Se retiró el `raise exception` propio de `prepare_ecf_invoice`. Ahora
+`reserve_next_encf` es la **única** fuente de los tres códigos que puede
+levantar una secuencia inválida: `P0002` (no hay secuencia activa), `P0003`
+(vencida) y `P0004` (agotada).
+
+El mecanismo que lo permite: el `select ... for update` de
+`prepare_ecf_invoice` trae `next_number` y `range_end` de la misma fila que
+bloquea. Si no hay ninguna fila activa, las dos variables quedan `NULL`; si
+la secuencia está agotada pero todavía marcada `'active'`, `next_number`
+resulta mayor que `range_end`. En los dos casos la comparación
+`v_next <= v_range_end` da `NULL` o falso, el bloque que construiría
+`ENCF_TOMADO` se salta solo, y el control cae en la llamada a
+`reserve_next_encf` de más abajo — que hace su propia lectura de la misma
+fila y es quien decide, con su propia lógica, cuál de los tres códigos
+corresponde.
+
+Un revisor lo comprobó ejecutando el SQL completo contra un Postgres real:
+sin secuencia → `P0002`; agotada → `P0004` sin avanzar el contador; carrera
+→ `ENCF_TOMADO` sin consumir nada; camino feliz → factura en `draft` y
+contador `+1`.
+
+Se escribe como decisión consciente, no como detalle de implementación,
+porque cambia el contrato de la función: quien llame a `prepare_ecf_invoice`
+nunca recibe un error propio de esa función por causa de la secuencia —
+todos los que reciba vienen de `reserve_next_encf`, con sus mensajes.
+
+### Consecuencias
+
+- Un solo sitio sabe qué significa «secuencia inválida» y por qué. Corregir
+  un mensaje, un código o una condición se hace una vez, no dos.
+- `prepare_ecf_invoice` queda con una responsabilidad más angosta: decidir
+  `ENCF_TOMADO` cuando hay un número vigente y dentro de rango con el que
+  comparar, y nada más sobre si la secuencia en sí es válida.
+- Es una desviación del literal del pliego de la tarea 5 (que traía el
+  `raise exception` propio), no autorizada de antemano; se aplicó
+  extendiendo el mismo principio ya aprobado para el hueco de `range_end` en
+  esa misma función: que `reserve_next_encf` sea quien decide.
+
+---
+
+## 2026-09-05 — `ecf_sequences_next_dentro_del_rango` es un renombre de `ecf_sequences_next_chk`, no una adición
+
+**Archivos:**
+- `supabase/migrations/20260906090100_dgii_fase2_tablas.sql` (constraint
+  `ecf_sequences_next_dentro_del_rango`)
+- `docs/superpowers/plans/2026-09-05-dgii-fase2-base-de-datos.md` (líneas 629
+  y 1607-1609, corregidas en la misma ronda que esta entrada)
+
+### Por qué
+
+**Corrección de esta misma entrada** (ronda de revisión 1 de la tarea 3;
+hallazgo Importante). La versión anterior, y el plan de la fase en dos
+sitios, afirmaban que `ecf_sequences_next_dentro_del_rango` era un CHECK que
+agendapp no traía («no está en agendapp», «que agendapp no tiene»). Es falso.
+`~/Projects/agendapp/prisma/migrations/applied/20260609_dgii_phase2_core_tables.sql:94`
+ya trae:
+
+```sql
+CONSTRAINT ecf_sequences_next_chk  CHECK (next_number >= range_start AND next_number <= range_end + 1),
+```
+
+que es, carácter por carácter salvo mayúsculas, la misma expresión que quedó
+en `ecf_sequences_next_dentro_del_rango`. No es una restricción nueva: es el
+mismo CHECK de la fuente, con otro nombre.
+
+### Decisión
+
+Al portar `ecf_sequences` se **renombró** `ecf_sequences_next_chk` →
+`ecf_sequences_next_dentro_del_rango`, para que el nombre diga en español lo
+que la restricción hace (que `next_number` — el puntero que se mueve en cada
+cobro — no salga del rango autorizado), no para añadir una garantía que no
+existiera. El CHECK de rango (`ecf_sequences_range_chk`,
+`range_start <= range_end`) y el UNIQUE (`ecf_sequences_uniq`,
+`business_id, tipo_ecf, ambiente, range_start`) se conservaron de la fuente
+tal cual, con sus nombres originales. **No hay ninguna adición neta sobre el
+DDL de origen** en `ecf_sequences` ni en ninguna de las 17 tablas PORTADAS de la
+fase (nota de 2026-09-06: la revisión final añadió después, y a propósito, dos
+bloques que NO salen de agendapp — las ocho columnas de `0045` sobre
+`electronic_invoices` y la tabla `ecf_document_events`; ver las entradas de
+arriba. Lo que sigue siendo cierto es que no hay adiciones sobre el DDL
+portado)
+2: el porte es copia fiel con las siete sustituciones del pliego (ayudante de
+RLS, `sales`→`proformas`, esquema cualificado, `search_path`, minúsculas,
+comentarios reescritos, y el renombre del CHECK `ecf_sequences_next_chk` →
+`ecf_sequences_next_dentro_del_rango`) y nada más.
+
+### Consecuencias
+
+- El comportamiento de la base en este punto es idéntico al de agendapp:
+  `next_number` ya estaba acotado al rango en la fuente, así que no cambia
+  nada observable para la aplicación.
+- El plan de la fase tenía la afirmación errónea en el paso 3 de la tarea 3
+  (línea 629) y en el paso 7 de la tarea 8 (línea 1609); ambas se corrigieron
+  para no seguir propagando el error a quien ejecute las fases siguientes. El
+  error era del plan, no de la migración: la migración y el `task-3-report.md`
+  ya decían, desde el principio, que el CHECK es "semánticamente igual" al de
+  la fuente.
+- Esta entrada sustituye a la que llevaba el mismo título y fecha, que
+  afirmaba lo contrario.
+
+---
+
 ## 2026-08-19 — El enlace de Azul es POR PEDIDO, no un enlace fijo del comercio
 
 **Archivos:**

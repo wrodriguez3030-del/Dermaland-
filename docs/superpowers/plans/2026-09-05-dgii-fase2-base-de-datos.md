@@ -1,5 +1,20 @@
 # DGII Fase 2 — Base de datos
 
+> **NOTA POSTERIOR (2026-09-06) — este plan se ejecutó y luego se corrigió.**
+> La revisión final de la rama encontró 16 hallazgos y el resultado final se
+> APARTA de este plan en tres puntos, todos a propósito. Lo que sigue es el
+> plan tal como se aprobó, conservado como registro; para el estado real, manda
+> `docs/estado-actual.md` y
+> `.superpowers/sdd/2026-09-05-dgii-fase2-base-de-datos/correccion-final-report.md`.
+>
+> 1. **Son 18 tablas, no 17.** La decimoctava es `ecf_document_events`, que no
+>    viene de agendapp: la escribió DermaLand en `0045` y hoy la usa código
+>    vivo. Donde este plan diga «las 17», hay que leer «las 17 portadas».
+> 2. **Vuelven las ocho columnas de idempotencia de `electronic_invoices`** que
+>    ese mismo `0045` añadió. Este plan no las contemplaba.
+> 3. **La afirmación de la línea de más abajo sobre el comportamiento era
+>    FALSA** en su segunda mitad, y está corregida ahí mismo.
+
 > **Para quien ejecute esto:** usa `superpowers:subagent-driven-development` (recomendado) o
 > `superpowers:executing-plans` para ir tarea por tarea. Los pasos llevan casilla (`- [ ]`).
 
@@ -34,8 +49,13 @@ verificar, vitest para las guardas.
   `proforma_items`, `proforma_payments`, `cash_closings`, `cash_closing_sales`,
   `billing_settings`, `proforma_counters`, `next_proforma_number`, `payment_methods`,
   `cash_registers`, `cash_register_sessions`.
-- **Esta fase no cambia el comportamiento de la aplicación.** No toca el punto de venta ni
-  ninguna pantalla. Al terminar, la aplicación se comporta exactamente igual que hoy.
+- **Esta fase no toca el punto de venta.** Ni la numeración, ni el cobro, ni el cierre de
+  caja. ~~No toca ninguna pantalla; al terminar, la aplicación se comporta exactamente igual
+  que hoy.~~ **CORREGIDO 2026-09-06:** eso era falso. Al aplicar las migraciones dejan de
+  funcionar las pantallas `/dgii/configuracion`, `/dgii/certificado`, `/dgii/estado` y
+  `/dgii/habilitacion`, y el cron diario `/api/dgii/cola` (`0 7 * * *`, `vercel.json`) se
+  queda sin trabajo hasta que la fase 3 reconecte el módulo nuevo. Detalle en
+  `docs/estado-actual.md`.
 
 ---
 
@@ -626,9 +646,13 @@ create policy ecf_sequences_all on public.ecf_sequences for all
 Repetir el bloque de tres líneas de RLS (`enable row level security` + `drop policy if exists`
 + `create policy`) **para las 17**, con el nombre `<tabla>_all`.
 
-> `ecf_sequences_next_dentro_del_rango` no está en agendapp. Se añade porque `next_number` es
-> el estado que se mueve en cada cobro, y si alguna vez sale del rango la base debe negarse
-> antes que emitir un número fuera de lo autorizado. Anotar en `docs/decisiones.md`.
+> **Corregido tras la ronda de revisión 1 de la tarea 3 (2026-09-05):** esta nota decía
+> «`ecf_sequences_next_dentro_del_rango` no está en agendapp» y era falso.
+> `20260609_dgii_phase2_core_tables.sql:94` ya trae `CONSTRAINT ecf_sequences_next_chk
+> CHECK (next_number >= range_start AND next_number <= range_end + 1)` — la misma expresión,
+> carácter por carácter. `ecf_sequences_next_dentro_del_rango` es ese mismo CHECK, renombrado
+> en español para que el nombre diga lo que la restricción hace; no hay ninguna adición sobre
+> el DDL de origen. Anotar el renombre (y esta corrección) en `docs/decisiones.md`.
 
 - [ ] **Paso 4: correrla y ver que pasa**
 
@@ -1604,9 +1628,12 @@ Esperado: `0`.
 - `CHANGELOG.md`: entrada `[0.144.0]` con qué tablas entran, cuáles se retiran y la desviación
   de la transacción.
 - `docs/estado-actual.md`: bloque nuevo al principio.
-- `docs/decisiones.md`: **dos** decisiones — (1) por qué se firma antes de consumir el número
-  en vez de envolverlo todo en una transacción como agendapp; (2) por qué se añadió el CHECK
-  `ecf_sequences_next_dentro_del_rango` que agendapp no tiene.
+- `docs/decisiones.md`: la decisión de por qué se firma antes de consumir el número en vez de
+  envolverlo todo en una transacción como agendapp. (La decisión sobre
+  `ecf_sequences_next_dentro_del_rango` ya quedó documentada en la tarea 3, con su corrección:
+  **no** es un CHECK que agendapp no tenga — es `ecf_sequences_next_chk` de la fuente
+  (`20260609_dgii_phase2_core_tables.sql:94`), renombrado. No repetir aquí la afirmación de
+  que es una adición.)
 - `package.json`: versión a `0.144.0`.
 
 - [ ] **Paso 8: commit y push a Gitea**
