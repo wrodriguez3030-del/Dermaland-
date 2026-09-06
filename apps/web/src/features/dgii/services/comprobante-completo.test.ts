@@ -30,8 +30,12 @@
 //    `EcfBuilderInvalidInput`.
 //  - El "código de seguridad" (primeros 6 caracteres del `SignatureValue`)
 //    no lo calcula el firmador: ya vive en `core/print-representation.ts`
-//    como `securityCodeFromSignedXml`, escrito en la fase 1 para la
-//    representación impresa oficial (Informe Técnico e-CF v1.0 §18).
+//    como `securityCodeFromSignedXml`. OJO — no es una regla certificada:
+//    es la interpretación que trajo el portado de agendapp del Informe
+//    Técnico e-CF v1.0 §18, y el propio núcleo la marca "a CONFIRMAR en
+//    TestECF" en el JSDoc de la función (`core/print-representation.ts:64-67`).
+//    Esta prueba fija el comportamiento HOY IMPLEMENTADO, no una regla ya
+//    verificada contra la DGII.
 import { describe, expect, it } from "vitest";
 import type { BuildEcfXmlInput } from "../core/builder-types";
 import { buildEcfXml } from "../core/builder";
@@ -103,7 +107,11 @@ describe("un comprobante completo, de principio a fin", () => {
       );
     // `!` justificado: si no hubiera match, la aserción de arriba ya habría
     // fallado la prueba antes de llegar aquí.
-    expect(m).not.toBeNull();
+    expect(
+      m,
+      "No se encontró <SignatureValue> dentro de firmado.signedXml -- " +
+        "¿cambió cómo xml-crypto serializa la firma?",
+    ).not.toBeNull();
     // `noUncheckedIndexedAccess`: el grupo 1 no es opcional en el patrón, así
     // que si `exec` matcheó, el grupo capturó algo -- `!` justificado.
     const valorFirma = m![1]!.replace(/\s+/g, "");
