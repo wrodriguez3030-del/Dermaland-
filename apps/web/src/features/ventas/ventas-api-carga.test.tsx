@@ -8,10 +8,15 @@ import { useResumenVentas } from "./ventas-api";
  * lo que NUNCA puede pasar: que una respuesta obsoleta o a medias se guarde
  * como buena y la pantalla enseñe RD$0.00 como si fuera el total.
  *
- * El bug que cierra la última prueba: si el aborto llega DESPUÉS de las
- * cabeceras y mientras se lee el cuerpo, `res.json()` rechaza con AbortError,
- * pero `res.ok` ya vale `true`. Tragarse ese error dejaba `json = null`, que se
- * interpreta como «cero ventas», y eso se guardaba en estado «listo».
+ * El arreglo tiene DOS mitades independientes y cada una tiene su prueba, que
+ * solo ella mata:
+ *
+ *  1. Un 200 cuyo cuerpo no se puede leer va a `error`, no a `listo` con
+ *     ceros → «un 200 con el cuerpo roto…» y «…con el cuerpo que no es JSON».
+ *     Sin aborto de por medio: la guarda por `signal.aborted` no las salva.
+ *  2. Una respuesta obsoleta (abortada) no escribe estado, aunque su cuerpo
+ *     llegue entero y válido → «una respuesta que llega tarde…». Ahí no hay
+ *     ningún error que atrapar: solo la guarda la descarta.
  */
 
 /** Respuesta falsa cuyo cuerpo se resuelve (o rechaza) cuando la prueba quiera. */
@@ -87,7 +92,52 @@ describe("carga del resumen de ventas", () => {
     }
   });
 
-  it("🔴 abortar a mitad del CUERPO no puede dejar un RD$0.00 en estado listo", async () => {
+  it("🔴 un 200 con el cuerpo roto a media lectura es un error, no cero ventas", async () => {
+    // Pasa de verdad: el dueño abre el reporte desde el móvil de la sucursal,
+    // el servidor manda las cabeceras y la conexión se corta leyendo el cuerpo.
+    // Sin este arreglo la pantalla decía «Total facturado RD$0.00 · Sin ventas
+    // en el período», sin aviso, indistinguible de un periodo vacío de verdad.
+    // NO hay aborto aquí: la guarda por `signal.aborted` no puede salvarla.
+    const { res, rechazar } = respuestaConCuerpoAbierto();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(res)));
+    const { result } = renderHook(() => useResumenVentas({}));
+    await act(async () => {
+      rechazar(new TypeError("network error"));
+      await Promise.resolve();
+    });
+    await dejarCorrer();
+    expect(result.current.tipo).toBe("error");
+  });
+
+  it("🔴 un 200 cuyo cuerpo no es JSON tampoco pasa por cero ventas", async () => {
+    // Un proxy que devuelve una página HTML con estado 200: `res.json()`
+    // rechaza con SyntaxError. Mismo desenlace, misma exigencia.
+    const { res, rechazar } = respuestaConCuerpoAbierto();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(res)));
+    const { result } = renderHook(() => useResumenVentas({}));
+    await act(async () => {
+      rechazar(new SyntaxError("Unexpected token < in JSON at position 0"));
+      await Promise.resolve();
+    });
+    await dejarCorrer();
+    expect(result.current.tipo).toBe("error");
+  });
+
+  it("un 400 con el cuerpo ilegible sigue siendo error (el estado manda)", async () => {
+    // Una respuesta de ERROR puede legítimamente no traer JSON. No se exige
+    // cuerpo para saber que falló.
+    const { res, rechazar } = respuestaConCuerpoAbierto(false, 502);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(res)));
+    const { result } = renderHook(() => useResumenVentas({}));
+    await act(async () => {
+      rechazar(new SyntaxError("Unexpected token < in JSON at position 0"));
+      await Promise.resolve();
+    });
+    await dejarCorrer();
+    expect(result.current.tipo).toBe("error");
+  });
+
+  it("abortar a mitad del cuerpo no deja rastro: se sigue esperando a la nueva", async () => {
     // Pasa al cambiar de periodo o de sucursal con una petición en vuelo: la
     // vieja se aborta cuando ya mandó las cabeceras. Sin la guarda por
     // `signal.aborted`, esa respuesta muerta se guardaba como buena y la
@@ -133,10 +183,11 @@ describe("carga del resumen de ventas", () => {
     }
   });
 
-  it("🔴 una respuesta que llega tarde tampoco pisa a la nueva", async () => {
-    // Misma familia: el cuerpo de la vieja se lee ENTERO justo después del
-    // aborto. `res.ok` es true y el JSON es válido; lo único que la descarta
-    // es la guarda por `signal.aborted`.
+  it("🔴 una respuesta que llega tarde no pisa a la nueva", async () => {
+    // La otra mitad del arreglo, y la única prueba que la mata: el cuerpo de
+    // la vieja se lee ENTERO y VÁLIDO justo después del aborto. `res.ok` es
+    // true y no hay ningún error que atrapar; lo único que la descarta es la
+    // guarda por `signal.aborted`.
     const primera = respuestaConCuerpoAbierto();
     const segunda = respuestaConCuerpoAbierto();
     const llamadas = [primera, segunda];

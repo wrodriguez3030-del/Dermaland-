@@ -222,14 +222,31 @@ function useVentasApi<T>(
     setEstado({ tipo: "cargando" });
     fetch(`/api/ventas?${consulta}`, { signal: ctrl.signal, cache: "no-store" })
       .then(async (res) => {
-        // El `catch` de aquí solo absorbe un cuerpo que NO es JSON válido. Un
-        // aborto a mitad del cuerpo tiene que subir: tragárselo convertía una
-        // lectura interrumpida en un `null` que más abajo se lee como
-        // «cero ventas».
-        const json: unknown = await res.json().catch((e: unknown) => {
+        /**
+         * 🔴 Un cuerpo que no se puede leer NO es un dato.
+         *
+         * Si el servidor contestó 200 y el cuerpo se corta a medias (conexión
+         * caída → `TypeError`) o no es JSON (`SyntaxError`), lo que hay es un
+         * error, no «cero ventas». Devolver `null` aquí hacía que
+         * `comoResumenVentas(null)` diera todo a cero y que ese cero se
+         * guardara como «listo», sin aviso: indistinguible de un periodo real
+         * sin ventas. Es el mismo RD$0.00 silencioso que este trabajo existe
+         * para matar, entrando por la puerta de al lado.
+         *
+         * La excepción es una respuesta de ERROR: ahí el cuerpo puede
+         * legítimamente no ser JSON (un 502 de un proxy, por ejemplo), y lo que
+         * manda es el estado, no el cuerpo.
+         */
+        let json: unknown = null;
+        try {
+          json = await res.json();
+        } catch (e: unknown) {
+          // Un aborto a mitad del cuerpo sube tal cual: lo descarta la guarda
+          // de abajo, no se convierte en un error que enseñar.
           if (e instanceof DOMException && e.name === "AbortError") throw e;
-          return null;
-        });
+          if (res.ok) throw new Error(FALLO_HISTORICO);
+          json = null;
+        }
         if (!res.ok) throw new Error(comoMensajeError(json) ?? FALLO_HISTORICO);
         return interpretarRef.current(json);
       })
