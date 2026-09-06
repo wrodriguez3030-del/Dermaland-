@@ -136,7 +136,15 @@ en `storage.ts` ni en la fase 2 lo exige.
   fiscal, no un fichero temporal. `prepararComprobante` ahora borra el XML
   del intento perdido tanto al reintentar como al agotar los 3 intentos
   (y también en el caso `IDEMPOTENT_PROFORMA_YA_FACTURADA`, por el mismo
-  motivo), con pruebas dedicadas en `prepare.test.ts`.
+  motivo), con pruebas dedicadas en `prepare.test.ts`. **Precisión añadida en
+  el cierre (tarea 7):** esta frase, tal cual quedó tras la ronda 1,
+  sobrestimaba la cobertura — de los tres caminos de borrado, solo dos
+  tenían prueba propia ("una carrera perdida borra el XML antes de
+  reintentar" y "una carrera que no cede se rinde"); el de
+  `IDEMPOTENT_PROFORMA_YA_FACTURADA` no la tenía, y quitar ese borrado en
+  `prepare.ts` dejaba las 13 pruebas de entonces igual de verdes (comprobado
+  por mutación). La tarea 7 añadió la prueba que faltaba; ahora sí son tres
+  de tres.
 
 ---
 

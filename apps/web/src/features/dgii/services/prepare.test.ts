@@ -16,6 +16,13 @@
 // carrera perdida borra su XML antes de reintentar y al rendirse) y los dos
 // hallazgos Menores (mensaje de XSD truncado; motivo desconocido no se
 // re-etiqueta como ENCF_TOMADO). Las 8 pruebas originales no se tocaron.
+//
+// CIERRE (tarea 7): I4 cubría tres caminos de borrado, pero solo dos tenían
+// prueba dedicada — el de IDEMPOTENT_PROFORMA_YA_FACTURADA no la tenía
+// (comprobado por mutación: quitar ese borrado dejaba las 13 pruebas de
+// entonces en verde), aunque `docs/decisiones.md` decía que los tres la
+// tenían. Añadida aquí la prueba que faltaba; el texto de `decisiones.md`
+// también se corrigió.
 import { describe, it, expect, vi } from "vitest";
 import { prepararComprobante } from "./prepare";
 import { getDummyCert } from "../core/__port__/dgii-test-cert";
@@ -170,6 +177,21 @@ describe("preparar un comprobante", () => {
     const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
     expect(r).toMatchObject({ ok: true, invoiceId: "f-vieja" });
     expect(d.secuencias.finalizarFactura).not.toHaveBeenCalled();
+  });
+
+  it("si la proforma ya tenía comprobante, el XML huérfano de ESTE intento también se borra", async () => {
+    // Añadida en el cierre (tarea 7). Es el tercer camino de borrado que cita
+    // I4 (ronda de corrección 1) — el de "una carrera perdida" (arriba) y el
+    // de "se rinde tras 3 intentos" ya tenían prueba propia; éste no, y
+    // `docs/decisiones.md` decía "con pruebas dedicadas" para los tres sin
+    // que fuera cierto. Mutación comprobada: comentar la línea de borrado en
+    // esta rama de `prepare.ts` deja las demás 13 pruebas de este fichero en
+    // verde igual — sin esta prueba, nada lo habría cachado.
+    const d = dobles();
+    d.secuencias.prepararFactura = vi.fn(async (): Promise<ResultadoPrepararFactura> => ({ ok: false, motivo: "IDEMPOTENT_PROFORMA_YA_FACTURADA", invoice_id: "f-vieja" }));
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r).toMatchObject({ ok: true, invoiceId: "f-vieja" });
+    expect(d.almacenamiento.borrarXml).toHaveBeenCalledTimes(1);
   });
 
   it("si finalizar falla, se marca el fallo y se borra el XML subido", async () => {
