@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import {
-  Badge,
   Card,
   CardContent,
   CardHeader,
@@ -27,6 +25,28 @@ import {
 import type { Proforma } from "@/types";
 
 /**
+ * 🔴 Aviso obligatorio de estas tarjetas: son SOLO del sistema.
+ *
+ * El resumen que da la base son dos números —total y cantidad—; no sabe
+ * desglosar el histórico migrado por vendedor, producto, forma de pago ni
+ * comprobante. Sin este aviso, el dueño lee arriba «Total facturado
+ * RD$48 454 899,08 · 14 743 transacciones» y cuatro tarjetas más abajo
+ * «Ventas por vendedor: sin ventas con vendedor», cuando `seller_name` tiene
+ * DESTENY REYNOSO con 5 513 facturas y LAURA MEJIA con 1 027. Dos cifras que
+ * no cuadran y nada que explique por qué es exactamente el desconcierto que
+ * este plan vino a cerrar.
+ */
+function AvisoSoloSistema({ mostrar }: { mostrar: boolean }) {
+  if (!mostrar) return null;
+  return (
+    <p className="mt-1 text-[11px] font-medium text-amber-700">
+      Solo ventas del sistema — el histórico migrado de Alegra no se desglosa
+      así todavía; su total está arriba y sus facturas, más abajo.
+    </p>
+  );
+}
+
+/**
  * Bloques de PRESENTACIÓN del reporte de ventas: las gráficas, los resúmenes
  * (vendedor, productos, clientes, comprobantes) y el detalle completo que solo
  * sale al imprimir.
@@ -42,7 +62,14 @@ import type { Proforma } from "@/types";
  */
 
 /** Gráficas y tablas de resumen del reporte (todas sobre `report`). */
-export function ResumenesVentas({ report }: { report: SalesReport }) {
+export function ResumenesVentas({
+  report,
+  soloSistema,
+}: {
+  report: SalesReport;
+  /** `true` cuando el histórico SÍ entra en los KPIs de arriba y estas tarjetas no. */
+  soloSistema: boolean;
+}) {
   return (
     <>
     {/* ── Gráficas / resúmenes ── */}
@@ -50,6 +77,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Tendencia de ventas</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent>
           {report.trend.length ? (
@@ -62,6 +90,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Medios de pago</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent>
           <BarChart
@@ -73,6 +102,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Ventas por sucursal</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent>
           {report.branches.length ? (
@@ -88,6 +118,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Top cajeros / vendedores</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent>
           {report.cashiers.length ? (
@@ -107,6 +138,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Ventas por vendedor</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -150,6 +182,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Productos más vendidos</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -182,6 +215,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Clientes principales</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -214,6 +248,7 @@ export function ResumenesVentas({ report }: { report: SalesReport }) {
       <Card>
         <CardHeader>
           <CardTitle>Comprobantes</CardTitle>
+          <AvisoSoloSistema mostrar={soloSistema} />
         </CardHeader>
         <CardContent className="p-0">
           <Table>

@@ -685,7 +685,7 @@ export default function ReporteVentasPage() {
       </div>
 
       {/* ── Gráficas y resúmenes (ventas del sistema) ── */}
-      <ResumenesVentas report={report} />
+      <ResumenesVentas report={report} soloSistema={historico.participa} />
 
       {/* ── Tabla detallada (interactiva, solo pantalla) ── */}
       <Card className="screen-only">
