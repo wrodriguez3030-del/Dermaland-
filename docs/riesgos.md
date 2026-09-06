@@ -169,6 +169,59 @@ bug de esa fase, sino porque la lectura que hace falta nunca se construyó.
 
 ---
 
+## R-FIS-06 · Un rechazo de `prepararFactura` puede dejar un e-NCF consumido, en `draft`, sin motivo y con su XML huérfano en el bucket
+
+**Fecha:** 2026-09-06
+**Severidad:** Alta — no es hipotético: `prepare_ecf_invoice` hace commit
+del incremento de la secuencia y del `insert` en `draft` ANTES de que la
+respuesta HTTP llegue de vuelta a este proceso.
+**Dueño:** quien haga el barrido de facturas `draft` huérfanas en la fase
+3B o 4.
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts` (paso 5 del
+baile, la llamada a `secuencias.prepararFactura` dentro de
+`prepararComprobante`), `apps/web/src/server/repositories/supabase/dgii-sequences.ts`
+(`prepararFactura` → RPC `prepare_ecf_invoice`).
+
+Encontrado en la revisión final de la fase 3A (hallazgo Crítico C2). Si
+`prepararFactura` **lanza** — timeout de Vercel, 5xx de PostgREST — en vez
+de devolver `{ok:false}` con un motivo estructurado, `prepare.ts` no tiene
+forma de saber si la RPC alcanzó a comprometer su escritura antes de que la
+excepción llegara. A diferencia de `finalizarFactura` (la otra llamada
+consumidora del mismo archivo, compensada con `marcarFallo` + `borrarXml`
+desde la ronda de corrección 1), esta no se puede compensar de la misma
+manera: no llega ningún `invoice_id` con el que llamar a `marcarFallo`, ni
+ruta de bucket que borrar con `borrarXml` — la respuesta que los traería es
+exactamente la que se perdió.
+
+**Qué se corrigió aquí, y qué no:** ahora `prepare.ts` deja un
+`console.error` con `businessId`, `tipoEcf`, el candidato de e-NCF y el
+número de intento (nunca el XML, el certificado ni la contraseña) antes de
+devolver `{ok:false}`. Es lo mínimo que hace ese número **reconciliable**
+después — antes de esta corrección el archivo entero no tenía un solo
+`console.*`. No resuelve el barrido en sí: eso sigue pendiente.
+
+### Mitigación / plan de salida
+
+1. Barrido periódico (cron o script manual) de facturas en `draft` más
+   viejas que un umbral razonable (p. ej. 15 minutos) sin
+   `xml_signed_path`: son candidatas exactas a este escenario. Cruzar con
+   el `console.error` de arriba para confirmar `businessId`/e-NCF.
+2. Decidir, para cada caso que el barrido encuentre, si se llama a
+   `marcarFallo` (motivo: huérfana por timeout, recuperada por barrido) o
+   si —dado que el e-NCF sigue siendo válido y no llegó a firmarse con
+   éxito ningún XML sobre él— se reintenta la emisión con ese mismo
+   número antes de darlo por perdido. Requiere conocer el estado real de
+   `ecf_sequences` en ese momento; no es una decisión que este código deba
+   tomar solo.
+3. Borrar de storage el XML asociado al intento perdido, una vez
+   identificado (mismo patrón que `borrarDeMejorEsfuerzo` ya usa en el
+   resto de `prepare.ts`).
+4. Es trabajo de la fase 3B o 4, según el pliego de la revisión final de la
+   fase 3A — no de esta corrección, que solo deja el rastro para que el
+   barrido sea posible.
+
+---
+
 ## R-SEC-02 · Cuenta de prueba con rol admin efectivo en producción
 
 **Fecha:** 2026-08-06

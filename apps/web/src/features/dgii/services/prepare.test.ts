@@ -171,6 +171,41 @@ describe("preparar un comprobante", () => {
     expect(d.secuencias.prepararFactura).toHaveBeenCalledTimes(1);
   });
 
+  it("si prepararFactura RECHAZA con una excepción, deja un rastro con console.error antes de perder el número", async () => {
+    // C2 (revisión final, hallazgo Crítico): a diferencia de
+    // `finalizarFactura` (compensada con `marcarFallo`/`borrarXml` desde la
+    // ronda de corrección 1), un throw de `prepararFactura` no se puede
+    // compensar de la misma manera -no llega ningún `invoice_id` con el que
+    // llamar a `marcarFallo`, ni ruta de bucket que borrar: la respuesta
+    // que los traería es justo la que se perdió-. Lo único que puede dejar
+    // ese número reconciliable después es un registro. Antes de esta
+    // corrección, este archivo no tenía un solo `console.*`.
+    const d = dobles();
+    d.secuencias.prepararFactura = vi.fn(async (): Promise<ResultadoPrepararFactura> => {
+      throw new Error("timeout de PostgREST");
+    });
+    const espia = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+      expect(r.ok).toBe(false);
+      // El candidato de e-NCF (el número en riesgo) tiene que quedar en el
+      // registro -junto al businessId, el tipo y el intento- para que ese
+      // número sea reconciliable después. Nunca el XML, el certificado ni
+      // la contraseña: eso no se comprueba aquí porque no tiene que estar.
+      expect(espia).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          businessId: "b1",
+          tipoEcf: "32",
+          eNcfCandidato: "E320000000007",
+          intento: 1,
+        }),
+      );
+    } finally {
+      espia.mockRestore();
+    }
+  });
+
   it("si la proforma ya tenía comprobante, devuelve ése y no emite otro", async () => {
     const d = dobles();
     d.secuencias.prepararFactura = vi.fn(async (): Promise<ResultadoPrepararFactura> => ({ ok: false, motivo: "IDEMPOTENT_PROFORMA_YA_FACTURADA", invoice_id: "f-vieja" }));

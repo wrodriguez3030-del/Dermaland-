@@ -58,6 +58,36 @@ import "server-only";
  *     no se re-etiqueta en silencio como `ENCF_TOMADO`.
  *   - El mensaje de un XSD inválido se trunca antes de entrar en `motivo`
  *     (un municipio inválido produce una enumeración de ~700 códigos).
+ *
+ * REVISIÓN FINAL (dos hallazgos Críticos, corregidos aquí):
+ *   - C1: la llamada a `construir()` no pasaba `indicadorMontoGravado`. El
+ *     XSD lo declara `minOccurs="0"` (`core/xsd/e-CF-32-v1.0.xsd:16`), así
+ *     que ni la validación XSD ni la prueba de extremo a extremo lo
+ *     detectaban — pero la DGII rechazó un e-CF gravado real por su
+ *     ausencia (`core/indicador-monto-gravado.ts`, con el mensaje literal
+ *     del rechazo del 23/08/2026 sobre `E410000000001`). Ahora se calcula
+ *     con `indicadorMontoGravadoPara` (el módulo del núcleo, portado en la
+ *     fase 1, que hasta esta corrección no tenía un solo llamador) y se
+ *     pasa al constructor. Prueba de fijación:
+ *     `comprobante-completo.test.ts`, "el XML que prepararComprobante firma
+ *     y sube lleva IndicadorMontoGravado".
+ *   - C2: si `prepararFactura` LANZA (no si devuelve `{ok:false}`), el
+ *     número puede haber quedado consumido igual —`prepare_ecf_invoice`
+ *     hace commit del incremento y del `insert` en `draft` antes de que la
+ *     respuesta HTTP se pierda (timeout de Vercel, 5xx de PostgREST)— y
+ *     hasta esta corrección no quedaba ni un `console.*` que lo dijera: es
+ *     la ÚNICA llamada consumidora de este archivo cuyo rechazo no se
+ *     compensaba (`finalizarFactura`, la otra, sí lo está desde antes).
+ *     Compensarlo de verdad (`marcarFallo`/`borrarXml`) no es posible aquí:
+ *     ninguno de los dos existe sin el `invoice_id`, que en este fallo
+ *     nunca llega a este proceso. Ahora se registra con `console.error` lo
+ *     mínimo para hacer ese número reconciliable después (businessId, tipo,
+ *     candidato de e-NCF, intento, motivo) — nunca el XML, el certificado
+ *     ni la contraseña. El barrido de las facturas `draft` huérfanas que
+ *     esto puede dejar es trabajo de la fase 3B/4: `docs/riesgos.md`,
+ *     entrada "R-FIS-06". Prueba de fijación: `prepare.test.ts`, "si
+ *     prepararFactura RECHAZA con una excepción, deja un rastro con
+ *     console.error antes de perder el número".
  */
 import { randomUUID, createHash } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -88,6 +118,7 @@ import {
 } from "./storage";
 import { buildEcfXml } from "../core/builder";
 import type { BuildEcfXmlInput, EcfTipoBuilder } from "../core/builder-types";
+import { indicadorMontoGravadoPara } from "../core/indicador-monto-gravado";
 import { signEcfXml } from "../core/signer";
 import { validateEcfXml } from "../core/validator";
 import { loadXsdForTipo } from "../core/xsd-loader";
@@ -377,6 +408,17 @@ export async function prepararComprobante(
         }
       : null;
 
+    // C1 (revisión final): `IndicadorMontoGravado` (IdDoc) según la regla
+    // única del núcleo — ver la cabecera de este archivo ("REVISIÓN FINAL").
+    // No se pasa `montoItemLlevaItbisIncluido`: el builder SIEMPRE calcula
+    // `MontoItem` sin el impuesto incluido (`builder.ts:82-84`), así que el
+    // valor correcto aquí es siempre "0" para los tipos que lo declaran
+    // (31/32/33/34/41/45) y `undefined` (nodo omitido) para el resto —
+    // exactamente lo que devuelve `indicadorMontoGravadoPara` sin opciones.
+    // Se calcula UNA vez, fuera del `for`: no depende de `candidato` ni
+    // cambia entre reintentos, igual que `emisor`/`comprador` arriba.
+    const indicadorMontoGravado = indicadorMontoGravadoPara(entrada.tipoEcf);
+
     for (let intento = 1; intento <= MAX_INTENTOS; intento++) {
       // 3) Construir → firmar → validar. Firmar es lo que "gasta" CPU local en
       //    cada reintento; el número todavía no se ha tocado.
@@ -392,6 +434,7 @@ export async function prepararComprobante(
           tipoEcf: entrada.tipoEcf,
           eNcf: candidato,
           fechaEmision: ahora().toISOString(),
+          indicadorMontoGravado,
           ambiente,
           emisor,
           comprador,
@@ -458,6 +501,27 @@ export async function prepararComprobante(
       try {
         resultado = await secuencias.prepararFactura(candidato, factura, lineas);
       } catch (e) {
+        // C2 (revisión final): esta es la ÚNICA llamada consumidora de este
+        // archivo cuyo rechazo no se compensaba. Si `prepararFactura` LANZA
+        // (timeout de Vercel, 5xx de PostgREST) en vez de devolver
+        // `{ok:false}`, `prepare_ecf_invoice` puede haber hecho commit del
+        // incremento del e-NCF y del `insert` en `draft` ANTES de que la
+        // respuesta se perdiera — y no llega ningún `invoice_id` con el que
+        // llamar a `marcarFallo` ni ruta que borrar con `borrarXml`: no es
+        // un fallo que se pueda compensar con lo que ya se tiene en mano.
+        // Sin este registro, un número gastado así no dejaba NINGÚN
+        // rastro (este archivo no tenía un solo `console.*`). Se registra
+        // solo lo que hace falta para ENCONTRAR la fila después — nunca el
+        // XML, el certificado ni la contraseña. El barrido de las facturas
+        // `draft` huérfanas que esto puede dejar es trabajo de la fase
+        // 3B/4 (`docs/riesgos.md`, "R-FIS-06").
+        console.error("[dgii] prepararFactura rechazó: el e-NCF puede haber quedado consumido sin registro.", {
+          businessId: ctx.businessId,
+          tipoEcf: entrada.tipoEcf,
+          eNcfCandidato: candidato,
+          intento,
+          motivo: mensajeDeError(e),
+        });
         return { ok: false, motivo: mensajeDeError(e) };
       }
 

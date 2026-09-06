@@ -44,6 +44,7 @@ import { securityCodeFromSignedXml } from "../core/print-representation";
 import { signEcfXml } from "../core/signer";
 import { validateEcfXml } from "../core/validator";
 import { loadXsdForTipo } from "../core/xsd-loader";
+import { prepararComprobante } from "./prepare";
 
 /**
  * Entrada válida de un e-CF tipo 32 (Factura de Consumo Electrónica). Misma
@@ -117,5 +118,77 @@ describe("un comprobante completo, de principio a fin", () => {
     const valorFirma = m![1]!.replace(/\s+/g, "");
 
     expect(securityCodeFromSignedXml(firmado.signedXml)).toBe(valorFirma.slice(0, 6));
+  });
+});
+
+describe("IndicadorMontoGravado llega al XML firmado (hallazgo Crítico C1, revisión final)", () => {
+  // El XSD declara `IndicadorMontoGravado` `minOccurs="0"`
+  // (`core/xsd/e-CF-32-v1.0.xsd:16`): un XML que lo omite pasa la
+  // validación XSD igual, y así estuvo pasando `prepare.ts` hasta esta
+  // corrección. La DGII sí lo exige para 31/32/33/34/41/45 y rechazó un
+  // e-CF real por su ausencia (`core/indicador-monto-gravado.ts`, con el
+  // mensaje literal del rechazo). Por eso esta prueba NO puede conformarse
+  // con llamar a `buildEcfXml` directamente (eso ya lo hace la prueba de
+  // arriba, y no se rompería si alguien quitara el campo solo de
+  // `prepare.ts`): ejercita `prepararComprobante` de verdad -con dobles,
+  // nada de base, bucket ni red- para que el hueco real -la llamada dentro
+  // de `prepare.ts`- quede cubierto.
+  it("el XML que prepararComprobante firma y sube lleva IndicadorMontoGravado", async () => {
+    const cert = getDummyCert();
+    let xmlSubido = "";
+
+    const opciones = {
+      habilitacion: { bloqueos: [], configurado: true, certificadoActivo: true, secuenciasActivas: 1 },
+      // Mismos valores que `prepare.test.ts` (`dobles().configuracion`):
+      // el emisor real que build/sign necesitan para no fallar antes de
+      // llegar a "subir". Provincia/Municipio con el catálogo jerárquico
+      // de 6 dígitos que exige el XSD oficial (Santiago = 25xxxx).
+      configuracion: {
+        businessId: "b1",
+        rncEmisor: "131561985",
+        razonSocialEmisor: "DermaLand SRL",
+        direccionEmisor: "Calle Principal 123, Santiago",
+        provinciaCodigo: "250000",
+        municipioCodigo: "250101",
+        correoEmisor: "fiscal@dermaland.test",
+        telefonoEmisor: "809-555-1234",
+        ambiente: "testecf",
+        dgiiEnabledRealSend: false,
+      },
+      certificado: { certificatePem: cert.certificatePem, privateKeyPem: cert.privateKeyPem },
+      secuencias: {
+        peekNextEncf: async () => "E320000000009",
+        prepararFactura: async () => ({ ok: true, invoice_id: "f-1", e_ncf: "E320000000009" }),
+        finalizarFactura: async () => ({ ok: true, invoice_id: "f-1" }),
+        marcarFallo: async () => ({ ok: true, invoice_id: "f-1" }),
+      },
+      almacenamiento: {
+        // Captura el XML real que `prepare.ts` firma y manda a "subir" -es
+        // el único punto de este doble por el que pasa el XML completo.
+        guardarXmlFirmado: async (entrada: { invoiceId: string; xml: string }) => {
+          xmlSubido = entrada.xml;
+          return "dgii/b1/invoices/f-1/signed.xml";
+        },
+        borrarXml: async () => {},
+      },
+    };
+
+    const resultado = await prepararComprobante(
+      { businessId: "b1", userId: "u1" },
+      {
+        tipoEcf: "32",
+        customer: { nombre: "Cliente de prueba", rncOCedula: "131245678" },
+        items: [{ nombre: "Producto", cantidad: 1, precioUnitario: 100, itbisRate: 0.18 }],
+      },
+      opciones as never,
+    );
+
+    expect(resultado.ok).toBe(true);
+    expect(xmlSubido).toContain("<IndicadorMontoGravado>0</IndicadorMontoGravado>");
+
+    // No solo el substring: el comprobante con el nodo puesto sigue
+    // pasando el XSD oficial (mismo espíritu que el resto de este archivo).
+    const res = await validateEcfXml({ xml: xmlSubido, xsd: await loadXsdForTipo("32"), schemaName: "e-CF-32" });
+    expect(res.ok, JSON.stringify(res.errors)).toBe(true);
   });
 });
