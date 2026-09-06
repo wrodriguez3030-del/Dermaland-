@@ -10,6 +10,43 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.145.0] - 2026-09-06
+
+### Agregado
+
+- **Fase 3A del portado DGII: DermaLand ya prepara y firma un comprobante
+  fiscal.** En `apps/web/src/features/dgii/services/`: el almacenamiento
+  privado de los XML firmados, el certificado (cifrado en reposo, descifrado
+  solo en memoria), la configuración fiscal, los gates de habilitación, y la
+  orquestación que ata todo eso al número fiscal.
+- **Un e-CF construido, firmado y validado contra el XSD oficial de la DGII**,
+  con un e-NCF real consumido y el XML guardado en el bucket privado
+  `dgii-xml`. Prueba de extremo a extremo con certificado autofirmado en
+  memoria: ningún certificado real entra al repositorio.
+
+### Cambiado
+
+- La reserva del número fiscal ya no ocurre dentro de una transacción como en
+  agendapp, porque DermaLand no las abre desde el servidor web. Se mira el
+  número sin consumirlo, se firma fuera, y se consume comprobando bajo bloqueo
+  que sigue siendo el nuestro. **Un fallo al firmar ya no quema un número.**
+
+### Notas
+
+- **Esta fase no envía nada a la DGII**, y ninguna prueba abre una conexión.
+  El envío y el veredicto son la fase 3B, que ya tiene su plan escrito.
+- **No cambia el comportamiento de la aplicación**, pero no porque no toque
+  nada: `prepararComprobante` todavía no tiene ningún llamador. El cron diario
+  `/api/dgii/cola` y el módulo fiscal viejo siguen funcionando igual, y la
+  pantalla de configuración DGII sigue rota desde la fase 2 — se reemplaza en
+  la fase 6.
+- La revisión final de la rama encontró dos fallos Críticos que ninguna
+  revisión por tarea pudo ver, ambos corregidos antes de fusionar: faltaba
+  `IndicadorMontoGravado` —que el XSD declara opcional y la DGII exige, así que
+  cada ticket gravado habría quemado un número— y un rechazo de
+  `prepare_ecf_invoice` consumía el número sin dejar rastro.
+- Riesgos abiertos anotados en `docs/riesgos.md`: `R-FIS-04` a `R-FIS-08`.
+
 ## [0.144.0] - 2026-09-06
 
 ### Agregado

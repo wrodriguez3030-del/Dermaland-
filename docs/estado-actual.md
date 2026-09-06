@@ -5,6 +5,38 @@
 
 **Última actualización:** 2026-09-06
 
+## 2026-09-06 · DermaLand prepara y firma un comprobante fiscal (v0.145.0, fase 3A)
+
+- **Qué hace ya.** Construye un e-CF con los datos del negocio, lo valida contra el
+  **XSD oficial de la DGII**, lo firma con el certificado, verifica la firma, lo guarda
+  en el bucket privado `dgii-xml`, y consume un **e-NCF real** de la secuencia. Todo
+  probado de extremo a extremo con un certificado autofirmado generado en memoria.
+- **Qué NO hace.** No envía nada a la DGII, y ninguna prueba abre una conexión. Eso es
+  la fase 3B, que ya tiene plan escrito.
+- **Cómo se sustituyó la transacción de agendapp.** agendapp reserva el número dentro
+  de la transacción que también firma; DermaLand no abre transacciones desde el servidor
+  web. Aquí se mira el número sin consumirlo, se firma fuera, y se consume comprobando
+  bajo bloqueo que sigue siendo el nuestro. Un fallo al firmar no quema un número.
+- **Dónde vive.** `apps/web/src/features/dgii/services/`, no en `server/services/dgii/`
+  como decía el diseño: ese directorio lo ocupa el módulo viejo, que tiene un cron diario
+  vivo hasta la fase 8.
+- **Dos fallos Críticos que encontró la revisión final de la rama**, y que ninguna de las
+  siete revisiones por tarea pudo ver:
+  1. Faltaba `IndicadorMontoGravado`. El XSD lo declara opcional, así que la validación
+     pasaba; la DGII lo exige. Cada ticket con ITBIS habría quemado un número fiscal a
+     declarar anulado. agendapp ya lo había arreglado y el portado se saltó esa línea.
+  2. Un rechazo de `prepare_ecf_invoice` consumía el número y se iba sin dejar rastro:
+     factura en `draft` sin motivo, XML huérfano en el bucket, cero registros.
+- **La lección que deja:** el XSD no es la red que parecía. Valida la forma del documento,
+  no lo que la DGII exige de verdad. Un campo opcional en el esquema puede ser obligatorio
+  en la práctica, y eso solo está escrito en los módulos portados.
+- **Riesgos abiertos:** `R-FIS-04` (el hash del XML no se persiste), `R-FIS-05` (el crédito
+  fiscal —tipo 31— falla por falta de la fecha de vencimiento de la secuencia; es lo
+  primero de la fase 4), `R-FIS-06` (barrido de facturas `draft` huérfanas), `R-FIS-07`
+  (el cambio de certificado no es atómico), `R-FIS-08` (RFCE sin llamador, con su punto
+  de inserción anotado).
+- Typecheck ✓ · 961 pruebas del módulo ✓ · build ✓ · agendapp intacto.
+
 ## 2026-09-06 · Base de datos de la fase 2 portada desde agendapp (v0.144.0, fase 2 de 9)
 
 - **Por qué.** La fase 1 trajo el núcleo puro (construcción de XML, firma,

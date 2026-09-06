@@ -306,9 +306,12 @@ equivocado.
 **Por qué esto no es "simplemente añadir la llamada" y hace falta
 nombrarlo ahora:** `resolveEcfDelivery` lanza (`RangeError`) si el total no
 es un número utilizable, A PROPÓSITO — es una función que solo puede
-llamarse ANTES de comprometerse a nada. Su propia prueba guardián
-(`core/rfce-routing-v499.test.ts`, `core/rfce-routing-paridad-v500.test.ts`,
-y el comentario de cabecera del archivo) fija la razón: si la decisión se
+llamarse ANTES de comprometerse a nada. La razón está escrita en el
+comentario de cabecera del archivo y en dos pruebas portadas de agendapp
+(`core/rfce-routing-v499.test.ts:83` y `core/rfce-routing-paridad-v500.test.ts:37`)
+que **hoy están en `describe.skip`**: documentan el porqué, pero no vigilan
+nada todavía, porque esperan a ficheros que DermaLand aún no tiene. Al
+cablear RFCE hay que revivirlas. La razón: si la decisión se
 tomara DESPUÉS de reservar el e-NCF y resultara "resumen", el número ya
 estaría quemado por un documento que iba al servicio equivocado — el mismo
 tipo de incidente que ya le costó a agendapp 6-10 números quemados en v550
