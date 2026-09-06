@@ -305,6 +305,128 @@ describe("preparar un comprobante", () => {
       globalThis.fetch = fetchOriginal;
     }
   });
+
+  // ── Segunda tanda (revisión externa): I1, I2, I4, I5 ─────────────────────
+
+  it("I1 — verifica la firma antes de subir: el XSD solo exige que exista <Signature>, no que sea válida", async () => {
+    const d = dobles();
+    const espia = vi.fn((_entrada: { signedXml: string; certificatePem?: string }) => ({
+      ok: true as const,
+      errors: [] as string[],
+    }));
+    const r = await prepararComprobante(
+      { businessId: "b1", userId: "u1" },
+      entradaValida(),
+      { ...d, verificar: espia } as never,
+    );
+    expect(r.ok).toBe(true);
+    expect(espia).toHaveBeenCalledTimes(1);
+    // Con el MISMO certificado que firmó -no el embebido en el XML-, igual que agendapp.
+    expect(espia.mock.calls[0]![0]).toMatchObject({ certificatePem: d.certificado.certificatePem });
+    // Orden real de ejecución (no de líneas de código): verificar ANTES de
+    // subir. Si fuera al revés, una firma que no verificara ya habría
+    // subido evidencia fiscal firmada al bucket.
+    const iVerificar = espia.mock.invocationCallOrder[0]!;
+    const iSubir = d.almacenamiento.guardarXmlFirmado.mock.invocationCallOrder[0]!;
+    expect(iVerificar).toBeLessThan(iSubir);
+  });
+
+  it("I1 — si la firma no verifica, no se sube nada ni se consume ningún número", async () => {
+    const d = dobles({ verificar: vi.fn(() => ({ ok: false, errors: ["firma adulterada"] })) });
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo).toContain("firma adulterada");
+    expect(d.almacenamiento.guardarXmlFirmado).not.toHaveBeenCalled();
+    expect(d.secuencias.prepararFactura).not.toHaveBeenCalled();
+  });
+
+  it("I2 — subtotal_gravado guarda el subtotal de TODAS las líneas, no solo las gravadas", async () => {
+    // Farmacia: un medicamento exento (itbisRate 0) + una cosmética gravada
+    // al 18%. Antes, subtotal_gravado solo sumaba la línea gravada (100) y
+    // la fila no cuadraba: subtotal_gravado + total_itbis (18) != total (218).
+    const d = dobles();
+    let facturaCapturada: { subtotal_gravado?: number; total_itbis?: number; total?: number } | undefined;
+    d.secuencias.prepararFactura = vi.fn(async (...args: unknown[]): Promise<ResultadoPrepararFactura> => {
+      facturaCapturada = args[1] as typeof facturaCapturada;
+      return { ok: true, invoice_id: "f-1", e_ncf: "E320000000007" };
+    });
+    const entrada = {
+      tipoEcf: "32" as const,
+      customer: { nombre: "Cliente de prueba" },
+      items: [
+        { nombre: "Medicamento exento", cantidad: 1, precioUnitario: 100, itbisRate: 0 },
+        { nombre: "Cosmética gravada", cantidad: 1, precioUnitario: 100, itbisRate: 0.18 },
+      ],
+    };
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entrada, d as never);
+    expect(r.ok).toBe(true);
+    expect(facturaCapturada?.subtotal_gravado).toBe(200);
+    expect(facturaCapturada?.total_itbis).toBe(18);
+    expect(facturaCapturada?.total).toBe(218);
+    // La comprobación de fondo: la fila tiene que cuadrar.
+    expect(facturaCapturada!.subtotal_gravado! + facturaCapturada!.total_itbis!).toBe(facturaCapturada!.total);
+  });
+
+  it("I4 — una venta a crédito se declara TipoPago 2 ante la DGII, no 1 (Contado) por defecto", async () => {
+    const d = dobles();
+    let xmlSubido = "";
+    d.almacenamiento.guardarXmlFirmado = vi.fn(async (...args: unknown[]) => {
+      xmlSubido = (args[0] as { invoiceId: string; xml: string }).xml;
+      return "dgii/b1/invoices/f-1/signed.xml";
+    });
+    const entrada = { ...entradaValida(), tipoPago: "2" as const };
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entrada, d as never);
+    expect(r.ok).toBe(true);
+    expect(xmlSubido).toContain("<TipoPago>2</TipoPago>");
+  });
+
+  it("I4 — si no se indica tipoPago, se conserva el default de siempre (Contado, \"1\")", async () => {
+    const d = dobles();
+    let xmlSubido = "";
+    d.almacenamiento.guardarXmlFirmado = vi.fn(async (...args: unknown[]) => {
+      xmlSubido = (args[0] as { invoiceId: string; xml: string }).xml;
+      return "dgii/b1/invoices/f-1/signed.xml";
+    });
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r.ok).toBe(true);
+    expect(xmlSubido).toContain("<TipoPago>1</TipoPago>");
+  });
+
+  it("I5 — si la proforma ya tenía comprobante pero no se pudo leer su e-NCF, el campo queda AUSENTE, no vacío", async () => {
+    const d = dobles({ facturas: null });
+    d.secuencias.prepararFactura = vi.fn(
+      async (): Promise<ResultadoPrepararFactura> => ({ ok: false, motivo: "IDEMPOTENT_PROFORMA_YA_FACTURADA", invoice_id: "f-vieja" }),
+    );
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r).toMatchObject({ ok: true, invoiceId: "f-vieja" });
+    if (r.ok) {
+      expect(r.eNcf).toBeUndefined();
+      expect("eNcf" in r).toBe(false);
+      expect(r.rutaXml).toBeUndefined();
+    }
+  });
+
+  it("I5 — si la proforma ya tenía comprobante y SÍ se puede leer, el eNcf viene relleno (no ausente)", async () => {
+    const d = dobles({
+      facturas: {
+        leerResumen: vi.fn(async () => ({
+          id: "f-vieja",
+          eNcf: "E320000000123",
+          rutaXmlFirmado: "dgii/b1/invoices/f-vieja/signed.xml",
+        })),
+      },
+    });
+    d.secuencias.prepararFactura = vi.fn(
+      async (): Promise<ResultadoPrepararFactura> => ({ ok: false, motivo: "IDEMPOTENT_PROFORMA_YA_FACTURADA", invoice_id: "f-vieja" }),
+    );
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r).toMatchObject({
+      ok: true,
+      invoiceId: "f-vieja",
+      eNcf: "E320000000123",
+      rutaXml: "dgii/b1/invoices/f-vieja/signed.xml",
+    });
+  });
 });
 
 function entradaValida() {

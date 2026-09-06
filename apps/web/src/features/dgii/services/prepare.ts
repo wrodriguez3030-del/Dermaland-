@@ -88,6 +88,38 @@ import "server-only";
  *     entrada "R-FIS-06". Prueba de fijación: `prepare.test.ts`, "si
  *     prepararFactura RECHAZA con una excepción, deja un rastro con
  *     console.error antes de perder el número".
+ *
+ * SEGUNDA TANDA (revisión final, cuatro hallazgos Importantes corregidos
+ * aquí — I6/I7 quedan solo documentados en `docs/riesgos.md`, y dos
+ * Menores baratos en el mismo pase; detalle completo en el informe de esta
+ * tanda):
+ *   - I1: la firma se PONE (`signEcfXml`) pero nunca se comprobaba
+ *     (`verifyEcfSignature`, portado en `core/signer.ts:162`, sin
+ *     llamador). El XSD de abajo NO la sustituye: solo exige que exista el
+ *     elemento `<Signature>` (`core/validator.ts` valida forma, no
+ *     criptografía). agendapp firma y verifica en el mismo punto
+ *     (`invoice-prepare.ts:429-430`, con el MISMO certificado que firmó,
+ *     no el embebido en el XML); aquí ahora también, antes del XSD.
+ *   - I2: `subtotal_gravado` guardaba `totalesBuilder.montoGravado` (solo
+ *     los tramos con ITBIS declarable), no el subtotal de TODAS las
+ *     líneas. agendapp guarda su `subtotal` local —que sí suma gravado +
+ *     exento + no facturable—, el mismo significado que
+ *     `built.totals.subtotal` (`core/builder.ts:134`). En un carrito de
+ *     farmacia que mezcle un medicamento exento con cosmética gravada
+ *     -el caso NORMAL, no el raro- la fila vieja no cuadraba:
+ *     `subtotal_gravado + total_itbis ≠ total`. Antes/después con números
+ *     reales: `docs/decisiones.md`.
+ *   - I4: `EntradaPrepararComprobante` no tenía forma de decir "esta venta
+ *     es a crédito": `builder.ts:187` aplica `TipoPago` "1" (Contado) por
+ *     defecto siempre. Con el módulo de cuentas por cobrar de DermaLand ya
+ *     en producción, una venta a crédito se declaraba al contado ante la
+ *     DGII — el único hallazgo de esta tanda que produce un dato FISCAL
+ *     FALSO en silencio en vez de fallar alto. Ahora `tipoPago` existe en
+ *     la entrada y se pasa al builder cuando viene informado.
+ *   - I5: el caso idempotente devolvía `ok:true` con `eNcf: ""` cuando el
+ *     enriquecimiento de mejor esfuerzo no lograba leer la factura vieja.
+ *     `eNcf`/`rutaXml` pasan a ser OPCIONALES en la variante `ok:true`:
+ *     ausentes si no se pudieron leer, nunca `""`.
  */
 import { randomUUID, createHash } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -117,9 +149,9 @@ import {
   type ContextoAlmacenamientoDgii,
 } from "./storage";
 import { buildEcfXml } from "../core/builder";
-import type { BuildEcfXmlInput, EcfTipoBuilder } from "../core/builder-types";
+import type { BuildEcfXmlInput, EcfTipoBuilder, TipoPago } from "../core/builder-types";
 import { indicadorMontoGravadoPara } from "../core/indicador-monto-gravado";
-import { signEcfXml } from "../core/signer";
+import { signEcfXml, verifyEcfSignature } from "../core/signer";
 import { validateEcfXml } from "../core/validator";
 import { loadXsdForTipo } from "../core/xsd-loader";
 import { itbisPercentFromDecimal } from "../core/itbis-rate";
@@ -178,6 +210,18 @@ export interface EntradaPrepararComprobante {
   proformaId?: string | null;
   customer?: ClientePreparar | null;
   items: ItemPreparar[];
+  /**
+   * I4 (segunda tanda, revisión externa): "1"=Contado, "2"=Crédito,
+   * "3"=Gratuito (XSD `TipoPagoType`, `core/builder-types.ts`). Antes esta
+   * entrada no tenía este campo y `builder.ts:187` aplicaba SIEMPRE su
+   * default "1" (Contado) — con el módulo de cuentas por cobrar de
+   * DermaLand ya en producción, una venta a crédito se declaraba al
+   * contado ante la DGII sin que nada lo pidiera ni lo avisara: el único
+   * hallazgo de esta tanda que producía un dato fiscal FALSO en vez de
+   * fallar. Si se omite, se conserva el default de siempre — cero cambio
+   * para quien no lo pase.
+   */
+  tipoPago?: TipoPago | null;
 }
 
 /** Certificado ya descifrado y listo para `signEcfXml` (PEM, no `.p12`). */
@@ -220,12 +264,29 @@ export interface DependenciasPreparar {
   construir?: typeof buildEcfXml;
   firmar?: typeof signEcfXml;
   validar?: typeof validateEcfXml;
+  /** I1 (segunda tanda, revisión externa): verifica la firma recién puesta, antes del XSD. */
+  verificar?: typeof verifyEcfSignature;
   cargarXsd?: typeof loadXsdForTipo;
 }
 
-/** Resultado de preparar un comprobante. `bloqueos` solo aparece cuando el motivo es un gate cerrado. */
+/**
+ * Resultado de preparar un comprobante. `bloqueos` solo aparece cuando el
+ * motivo es un gate cerrado.
+ *
+ * I5 (segunda tanda, revisión externa): `eNcf`/`rutaXml` son OPCIONALES
+ * incluso con `ok: true`. El caso idempotente (la proforma ya tenía
+ * comprobante) enriquece la respuesta de MEJOR ESFUERZO
+ * (`leerResumenDeMejorEsfuerzo`); si esa lectura falla, antes se devolvía
+ * igual `eNcf: ""` — una cadena vacía que NO es un e-NCF pero que el tipo
+ * prometía como si lo fuera, y que un punto de venta habría impreso tal
+ * cual. Ahora, si no se pudo leer, la clave queda AUSENTE: quien llame
+ * tiene que mirar `if (!resultado.eNcf)` antes de usarlo. Se prefirió esto
+ * a devolver `ok:false` porque nada falló — el comprobante YA EXISTE y no
+ * hay (ni se debe) que volver a emitirlo; justificación completa en el
+ * informe de esta tanda.
+ */
 export type ResultadoPreparar =
-  | { ok: true; invoiceId: string; eNcf: string; rutaXml: string }
+  | { ok: true; invoiceId: string; eNcf?: string; rutaXml?: string }
   | { ok: false; motivo: string; bloqueos?: string[] };
 
 // ── Helpers privados ─────────────────────────────────────────────────────
@@ -325,8 +386,9 @@ async function compensarFallo(
 /**
  * `eNcf` y `rutaXml` de una factura idempotente. `prepare_ecf_invoice` solo
  * devuelve `invoice_id` en ese caso (ver `dgii-invoices.ts`); esto es un
- * enriquecimiento de mejor esfuerzo — si no se puede leer, igual se responde
- * `ok:true` con esas dos cadenas vacías en vez de inventar un dato fiscal.
+ * enriquecimiento de mejor esfuerzo — si no se puede leer, se responde
+ * `ok:true` SIN esas dos claves (I5, segunda tanda) en vez de inventar un
+ * dato fiscal con una cadena vacía.
  */
 async function leerResumenDeMejorEsfuerzo(
   facturasOverride: Pick<RepositorioFacturas, "leerResumen"> | null | undefined,
@@ -381,6 +443,8 @@ export async function prepararComprobante(
     const construir = opciones.construir ?? buildEcfXml;
     const firmar = opciones.firmar ?? signEcfXml;
     const validar = opciones.validar ?? validateEcfXml;
+    // I1 (segunda tanda): verifica la firma recién puesta, antes del XSD.
+    const verificar = opciones.verificar ?? verifyEcfSignature;
     const cargarXsd = opciones.cargarXsd ?? loadXsdForTipo;
 
     // El XSD no depende del e-NCF: se carga una sola vez, no en cada reintento.
@@ -428,13 +492,19 @@ export async function prepararComprobante(
       // redondea por tramo (I1/I2/I3) antes de sumar, así que una suma
       // ingenua por línea podría diferir en centavos de lo que el XML firmado
       // ya dice. Un solo cálculo evita ese drift cabecera↔persistencia.
-      let totalesBuilder!: { montoGravado: number; totalItbis: number; total: number };
+      // I2 (segunda tanda): `subtotal`, no `montoGravado` — ver la cabecera
+      // de este archivo y `docs/decisiones.md` para el antes/después.
+      let totalesBuilder!: { subtotal: number; totalItbis: number; total: number };
       try {
         const built = construir({
           tipoEcf: entrada.tipoEcf,
           eNcf: candidato,
           fechaEmision: ahora().toISOString(),
           indicadorMontoGravado,
+          // I4 (segunda tanda): si la venta es a crédito (o gratuita), se
+          // declara tal cual; si no viene, el builder conserva su default
+          // de siempre ("1", Contado) — cero cambio para quien no lo pase.
+          ...(entrada.tipoPago ? { tipoPago: entrada.tipoPago } : {}),
           ambiente,
           emisor,
           comprador,
@@ -453,6 +523,25 @@ export async function prepararComprobante(
           privateKeyPem: certificado.privateKeyPem,
         });
         signedXml = firmado.signedXml;
+
+        // I1 (segunda tanda, revisión externa): verificar la firma recién
+        // puesta, no solo confiar en que `signEcfXml` no lanzó. El XSD de
+        // abajo NO comprueba criptografía: solo exige que exista el
+        // elemento `<Signature>` (`core/validator.ts` valida forma, no
+        // firma). Sin esto, una firma sintácticamente válida pero que no
+        // verificara -bug del firmador, degradación de `xml-crypto`,
+        // cert/key que no hacen pareja- habría pasado el XSD igual y se
+        // habría subido y persistido como si fuera un comprobante fiscal
+        // firmado de verdad. Mismo punto y mismo criterio que agendapp
+        // (`invoice-prepare.ts:429-430`): se verifica con el certificado
+        // que FIRMÓ, no con el que viene embebido en el XML.
+        const verificado = verificar({ signedXml, certificatePem: certificado.certificatePem });
+        if (!verificado.ok) {
+          return {
+            ok: false,
+            motivo: `La firma no se pudo verificar: ${verificado.errors.join("; ") || "motivo desconocido"}.`,
+          };
+        }
 
         const validado = await validar({ xml: signedXml, xsd, schemaName: `e-CF-${entrada.tipoEcf}` });
         if (!validado.ok) {
@@ -482,7 +571,10 @@ export async function prepararComprobante(
         proforma_id: entrada.proformaId ?? null,
         customer_id: entrada.customer?.customerId ?? null,
         customer_rnc: entrada.customer?.rncOCedula ?? null,
-        subtotal_gravado: totalesBuilder.montoGravado,
+        // I2 (segunda tanda): el subtotal de TODAS las líneas (gravado +
+        // exento + no facturable), igual que agendapp — no solo lo
+        // gravado. Ver la cabecera de este archivo y `docs/decisiones.md`.
+        subtotal_gravado: totalesBuilder.subtotal,
         total_itbis: totalesBuilder.totalItbis,
         total: totalesBuilder.total,
         xml_generated_path: null,
@@ -542,8 +634,11 @@ export async function prepararComprobante(
           return {
             ok: true,
             invoiceId: resultado.invoice_id,
-            eNcf: resumen?.eNcf ?? "",
-            rutaXml: resumen?.rutaXmlFirmado ?? "",
+            // I5 (segunda tanda): AUSENTES si no se pudo leer, nunca `""`
+            // — una cadena vacía no es un e-NCF y el punto de venta la
+            // habría impreso igual. Ver `ResultadoPreparar` más arriba.
+            ...(resumen?.eNcf ? { eNcf: resumen.eNcf } : {}),
+            ...(resumen?.rutaXmlFirmado ? { rutaXml: resumen.rutaXmlFirmado } : {}),
           };
         }
 

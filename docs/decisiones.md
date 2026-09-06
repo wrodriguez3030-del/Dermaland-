@@ -5,6 +5,61 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — Segunda tanda (revisión externa, I2): `subtotal_gravado` pasa a guardar el subtotal de TODAS las líneas, no solo las gravadas
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+
+### Antes
+
+`prepararComprobante` guardaba `factura.subtotal_gravado =
+totalesBuilder.montoGravado` — la suma de SOLO los tramos con ITBIS
+declarable (`core/builder.ts`, indicador `"1"`/`"2"`/`"3"`: 18 %, 16 %,
+gravado 0 %). Un ítem exento (indicador `"4"`) o no facturable (indicador
+`"0"`) no entraba en ese número.
+
+En un ticket que mezcle, por ejemplo, un medicamento exento (RD$100,
+`itbisRate` 0) con una cosmética gravada al 18 % (RD$100 + RD$18 de ITBIS),
+el resultado era: `subtotal_gravado = 100` (solo la línea gravada),
+`total_itbis = 18`, `total = 218`. La fila no cuadraba:
+`subtotal_gravado + total_itbis` (118) ≠ `total` (218) — la diferencia es
+exactamente el importe de las líneas exentas, que desaparecía de la
+ecuación.
+
+### Después
+
+Ahora guarda `factura.subtotal_gravado = totalesBuilder.subtotal` — el
+campo que YA calcula `core/builder.ts:134`
+(`subtotal = montoGravado + montoExento + noFacturable`), la suma de TODAS
+las líneas antes de ITBIS. Mismo ticket de arriba: `subtotal_gravado = 200`,
+`total_itbis = 18`, `total = 218` — `subtotal_gravado + total_itbis = total`
+se cumple siempre. Prueba de fijación: `prepare.test.ts`, "I2 — subtotal_gravado
+guarda el subtotal de TODAS las líneas, no solo las gravadas".
+
+### Por qué
+
+agendapp (`invoice-prepare.ts:227-236`, SOLO LECTURA) calcula `subtotal`
+sumando TODAS las líneas sin distinguir exentas de gravadas, y lo guarda en
+la misma columna (`subtotal_gravado: subtotal`, línea 505). El nombre de la
+columna es un resabio histórico —"gravado" ya no describe lo que guarda, ni
+aquí ni en agendapp— pero renombrarla es una migración, fuera del alcance
+de esta corrección; lo que sí había que alinear era EL VALOR, y ahí
+agendapp es la fuente de verdad ya portada. DermaLand es una farmacia: un
+ticket con medicamentos exentos y cosmética gravada en el mismo carrito es
+el caso NORMAL, no el raro, así que el hallazgo no era hipotético.
+
+### Consecuencias
+
+- `apps/web/src/server/repositories/supabase/dgii.ts:191` lee esta misma
+  columna como `amount` para el listado de comprobantes — con el valor
+  viejo, una factura mixta se mostraba con un monto menor al real. Queda
+  corregido con el mismo cambio, sin tocar ese archivo.
+- Quien lea la columna asumiendo "solo lo gravado" (por su nombre) se
+  equivoca desde ahora — igual que ya se equivocaba leyendo la de
+  agendapp. Documentado aquí para que no se repita esa lectura ingenua en
+  un reporte futuro.
+
+---
+
 ## 2026-09-06 — Tarea 5 (orquestación): se firma ANTES de validar contra el XSD, no al revés
 
 **Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
