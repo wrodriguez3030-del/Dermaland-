@@ -66,6 +66,25 @@ describe("combinarDesglose", () => {
     expect(r.filas).toEqual(sistema);
   });
 
+  it("🔴 la etiqueta migrada se puede traducir: `cash` no puede convivir con «Efectivo»", () => {
+    // Alegra guarda `cash`/`credit-card` y la pantalla dice «Efectivo». Sin
+    // traducir, la misma tabla enseñaría las dos formas del mismo concepto y
+    // parecerían dos medios de pago distintos.
+    const crudas: FilaDesglose[] = [
+      { clave: "cash", etiqueta: "cash", origen: "alegra", cantidad: 869, total: 2_689_272.65 },
+      { clave: "", etiqueta: "Sin forma de pago", origen: "alegra", cantidad: 12_672, total: 40_912_469.65 },
+    ];
+    const r = combinarDesglose({
+      sistema: [],
+      historicoParticipa: true,
+      estado: listo(crudas),
+      etiquetaMigrada: (f) => (f.clave === "cash" ? "Efectivo" : f.etiqueta),
+    });
+    expect(r.filas.map((f) => f.etiqueta)).toEqual(["Sin forma de pago", "Efectivo"]);
+    // La clave NO cambia: es lo que ata la fila a su grupo en la base.
+    expect(r.filas.map((f) => f.clave)).toEqual(["", "cash"]);
+  });
+
   it("🔴 no se cuela la mitad «sistema» del desglose: esa la pone el reporte, ya filtrada", () => {
     // El desglose de la base solo sabe filtrar por fecha, sucursal y cliente.
     // Si sus filas de sistema entraran, la misma tabla mezclaría una fila

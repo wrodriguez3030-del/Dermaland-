@@ -77,8 +77,16 @@ export function combinarDesglose(entrada: {
   historicoParticipa: boolean;
   /** Estado de la petición del desglose. */
   estado: EstadoVentas<FilaDesglose[]>;
+  /**
+   * Cómo se escribe la etiqueta de una fila migrada. Existe para la forma de
+   * pago: Alegra guarda `cash`/`credit-card` y la pantalla dice «Efectivo» /
+   * «Tarjeta de crédito». Sin esto, la misma tabla enseñaría «Efectivo» en la
+   * fila del sistema y «cash» en la migrada. Por defecto, la etiqueta que dio
+   * la base.
+   */
+  etiquetaMigrada?: ((fila: FilaDesglose) => string) | undefined;
 }): EstadoTarjeta {
-  const { sistema, historicoParticipa, estado } = entrada;
+  const { sistema, historicoParticipa, estado, etiquetaMigrada } = entrada;
 
   // El histórico no entra en ninguna parte de la pantalla: arriba y aquí
   // cuentan lo mismo, así que no hay nada que aclarar.
@@ -97,7 +105,9 @@ export function combinarDesglose(entrada: {
     return { filas: sistema, cargando: false, error: estado.mensaje, soloSistema: true };
   }
 
-  const migradas: FilaTarjeta[] = estado.datos.filter((f) => f.origen === "alegra");
+  const migradas: FilaTarjeta[] = estado.datos
+    .filter((f) => f.origen === "alegra")
+    .map((f) => (etiquetaMigrada ? { ...f, etiqueta: etiquetaMigrada(f) } : f));
   return {
     filas: [...sistema, ...migradas].sort((a, b) => b.total - a.total),
     cargando: false,

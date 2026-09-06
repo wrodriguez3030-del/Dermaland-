@@ -22,6 +22,7 @@ import {
   SALE_STATUS_LABEL,
   type SalesReport,
 } from "@/features/sales/sales-report";
+import { METODO_ETIQUETA } from "@/features/alegra/sales-report";
 import { useDesgloseVentas } from "@/features/ventas/ventas-api";
 import {
   AvisoSoloSistema,
@@ -112,6 +113,12 @@ export function ResumenesVentas({
     sistema: pagosSistema,
     historicoParticipa,
     estado: desglosePago,
+    // Alegra guarda `cash`/`credit-card`; se traducen con el MISMO diccionario
+    // que ya usa la tabla del histórico (`METODO_ETIQUETA`), no con uno nuevo.
+    // La clave vacía se deja como vino: la base ya la resolvió a «Sin forma de
+    // pago», que es el texto de `agregados.ts`; `METODO_ETIQUETA[""]` dice
+    // «Sin método» y serían dos nombres para lo mismo.
+    etiquetaMigrada: (f) => (f.clave ? (METODO_ETIQUETA[f.clave] ?? f.etiqueta) : f.etiqueta),
   });
   const tarjetaProducto = combinarDesglose({
     sistema: productosSistema,

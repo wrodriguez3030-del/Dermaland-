@@ -64,12 +64,23 @@
 --                 factura, no unidades: `alegra_invoice_items.quantity` es
 --                 numeric(14,3) y no cabe en el `integer` que devuelve esta
 --                 función sin redondear (y redondear unidades vendidas es
---                 mentir). `total` es la suma de los totales de renglón, que
---                 no tiene por qué dar el total de la factura (ITBIS y
---                 descuentos de cabecera van aparte). También SOLO Alegra: el
---                 sistema ya tiene `topProducts` sobre `proforma_items`.
---                 Verificado sobre la base real: los 31 213 renglones traen
---                 product_id, y el índice `alegra_invoice_items_product`
+--                 mentir). También SOLO Alegra: el sistema ya tiene
+--                 `topProducts` sobre `proforma_items`.
+--
+--                 🔴 `total` es la suma de los totales de RENGLÓN y NO cuadra
+--                 al céntimo con la suma de las facturas. Medido sobre la base
+--                 real el 06/09/2026: renglones RD$48 454 899,50 contra
+--                 facturas RD$48 454 899,08 — 42 centavos de diferencia en
+--                 30 707 renglones, arrastre de redondeo de la propia
+--                 migración de Alegra. Por eso el desglose por producto NO
+--                 sirve para cuadrar contra el KPI (el de vendedor sí: ése
+--                 suma cabeceras); sirve para saber qué se vendió.
+--
+--                 Verificado sobre la base real: los 31 213 renglones de la
+--                 tabla traen product_id (ni uno vacío), de los que 506 son de
+--                 facturas anuladas o en borrador y esta función deja fuera;
+--                 hay 1 248 productos distintos, así que el tope de 200 filas
+--                 recorta de verdad. El índice `alegra_invoice_items_product`
 --                 (20260905200000_alegra_sync.sql:70) ya existe.
 --
 -- El `product_id` es NULLABLE en el esquema. Aunque hoy no haya ni uno vacío,
@@ -79,9 +90,12 @@
 --
 -- TOPE DE FILAS: la función devuelve como mucho 200 filas, las de mayor
 -- importe. Ninguna consulta de este plan puede devolver una tabla entera, y
--- 'producto' podría traer una fila por cada uno de los 1 487 productos
--- migrados. Quien llame lo sabe y lo dice (ver TOPE_DESGLOSE en
--- apps/web/src/server/repositories/supabase/ventas-unificadas.ts).
+-- 'producto' hoy ya tiene 1 248 grupos (medido). Quien llame lo sabe y lo dice
+-- (ver TOPE_DESGLOSE en
+-- apps/web/src/server/repositories/supabase/ventas-unificadas.ts). Para
+-- 'vendedor' y 'forma_pago' el tope no recorta nada —4 y 5 grupos— así que su
+-- suma SÍ cuadra con `resumen_ventas_unificadas`, que es lo que comprueba
+-- scripts/db/verificar-desglose-ventas.mjs.
 --
 -- Una dimensión desconocida devuelve CERO filas, no un error: la validación
 -- del nombre vive en la ruta HTTP con zod (400), que es donde puede explicar
