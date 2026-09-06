@@ -1,0 +1,124 @@
+import { describe, it, expect } from "vitest";
+import {
+  comoListadoVentas,
+  comoMensajeError,
+  comoResumenVentas,
+  consultaVentas,
+  textoDesgloseOrigen,
+} from "./ventas-api";
+
+describe("lectura del resumen de /api/ventas", () => {
+  it("suma el total a partir del desglose, no de un campo suelto", () => {
+    // El número grande y su explicación tienen que salir del MISMO dato: si el
+    // total viniera por un lado y el desglose por otro, podrían discrepar y el
+    // usuario vería «RD$100» explicado como «60 + 30».
+    const r = comoResumenVentas({
+      resumen: {
+        total: 999,
+        cantidad: 999,
+        porOrigen: { sistema: { total: 60, cantidad: 2 }, alegra: { total: 30, cantidad: 1 } },
+      },
+    });
+    expect(r.total).toBe(90);
+    expect(r.cantidad).toBe(3);
+  });
+
+  it("una respuesta rota da ceros, nunca NaN en pantalla", () => {
+    const r = comoResumenVentas({ resumen: { porOrigen: { alegra: { total: "no-es-un-número" } } } });
+    expect(r.total).toBe(0);
+    expect(r.porOrigen.alegra.total).toBe(0);
+    expect(r.porOrigen.sistema.cantidad).toBe(0);
+  });
+
+  it("acepta importes en texto (PostgREST devuelve numeric como cadena)", () => {
+    const r = comoResumenVentas({
+      resumen: { porOrigen: { alegra: { total: "48454899.08", cantidad: "14743" } } },
+    });
+    expect(r.porOrigen.alegra.total).toBeCloseTo(48454899.08, 2);
+    expect(r.porOrigen.alegra.cantidad).toBe(14743);
+  });
+});
+
+describe("lectura del listado de /api/ventas", () => {
+  it("una factura de Alegra NUNCA llega editable, aunque el JSON lo diga", () => {
+    // `editable` decide si la pantalla enseña «Editar» o «Anular». No se cree a
+    // la red: lo decide el origen, igual que en `venta-unificada.ts`.
+    const { ventas } = comoListadoVentas({
+      ventas: [{ id: "a", fecha: "2026-01-01", origen: "alegra", editable: true }],
+      hayMas: false,
+    });
+    expect(ventas).toHaveLength(1);
+    expect(ventas[0]!.editable).toBe(false);
+  });
+
+  it("descarta filas sin id o sin fecha en vez de pintar basura", () => {
+    const { ventas } = comoListadoVentas({
+      ventas: [{ id: "a", fecha: "2026-01-01" }, { fecha: "2026-01-02" }, { id: "c" }, null],
+    });
+    expect(ventas.map((v) => v.id)).toEqual(["a"]);
+  });
+
+  it("sin origen conocido, una venta es del sistema (y editable)", () => {
+    const { ventas } = comoListadoVentas({ ventas: [{ id: "a", fecha: "2026-01-01" }] });
+    expect(ventas[0]!.origen).toBe("sistema");
+    expect(ventas[0]!.editable).toBe(true);
+  });
+
+  it("hayMas solo es cierto si el servidor lo dice", () => {
+    expect(comoListadoVentas({ ventas: [], hayMas: "sí" }).hayMas).toBe(false);
+    expect(comoListadoVentas({ ventas: [], hayMas: true }).hayMas).toBe(true);
+  });
+});
+
+describe("consulta que se le manda a /api/ventas", () => {
+  it("solo manda incluirAlegra cuando hay que APAGARLO", () => {
+    // La ruta apaga Alegra únicamente con el literal "false"; mandar el
+    // booleano serializado de cualquier otra forma lo dejaría encendido sin
+    // que se note.
+    expect(consultaVentas("listado", { incluirAlegra: false })).toContain("incluirAlegra=false");
+    expect(consultaVentas("listado", { incluirAlegra: true })).not.toContain("incluirAlegra");
+    expect(consultaVentas("listado", {})).not.toContain("incluirAlegra");
+  });
+
+  it("no manda filtros vacíos (un rango a medias no es un rango)", () => {
+    const q = consultaVentas("resumen", { desde: undefined, hasta: "2026-09-05", sucursalId: "" });
+    expect(q).toBe("vista=resumen&hasta=2026-09-05");
+  });
+
+  it("desplazamiento 0 sí viaja (es la primera página, no 'sin valor')", () => {
+    expect(consultaVentas("listado", { desplazamiento: 0 })).toContain("desplazamiento=0");
+  });
+});
+
+describe("texto del desglose por origen", () => {
+  it("dice cuánto pone cada fuente cuando hay las dos", () => {
+    const t = textoDesgloseOrigen(2, 3);
+    expect(t).toContain("del sistema");
+    expect(t).toContain("migradas de Alegra");
+  });
+
+  it("no habla de Alegra si no hay nada migrado en el período", () => {
+    expect(textoDesgloseOrigen(4, 0)).not.toMatch(/Alegra/);
+  });
+
+  it("avisa cuando TODO lo del período es histórico migrado", () => {
+    // Es el caso real de hoy: `proformas` está vacía y todo viene de Alegra.
+    expect(textoDesgloseOrigen(0, 14743)).toMatch(/todas migradas de Alegra/);
+  });
+
+  it("sin ventas lo dice, no enseña un cero suelto", () => {
+    expect(textoDesgloseOrigen(0, 0)).toBe("Sin ventas en el período.");
+  });
+});
+
+describe("mensaje de error de la respuesta", () => {
+  it("usa el del servidor cuando lo trae", () => {
+    expect(comoMensajeError({ error: "La función no existe todavía." })).toBe(
+      "La función no existe todavía.",
+    );
+  });
+  it("da null cuando no hay mensaje utilizable", () => {
+    expect(comoMensajeError({ error: 42 })).toBeNull();
+    expect(comoMensajeError(null)).toBeNull();
+  });
+});
