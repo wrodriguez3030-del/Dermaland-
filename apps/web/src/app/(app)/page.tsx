@@ -30,6 +30,7 @@ import {
   formatDateTime,
   daysUntil,
   formatDate,
+  formatNumber,
 } from "@/lib/utils/format";
 import { useProformas } from "@/features/sales/proforma-store";
 import {
@@ -66,8 +67,94 @@ import {
 } from "@/features/dashboard/dashboard-metrics";
 import { CheckCircle2, Info, AlertCircle } from "lucide-react";
 import type { Proforma } from "@/types";
+// Segunda fuente de "Ventas del período": el resumen YA CALCULADO de
+// `/api/ventas?vista=resumen` (sistema + histórico migrado de Alegra). Solo
+// se toman los TIPOS (borrado en compilación, no arrastra código de servidor
+// al bundle del cliente) — la lógica de negocio (excluir anuladas, sumar en
+// centavos) vive en esos módulos y no se reimplementa aquí.
+import type { DesgloseOrigen } from "@/features/ventas/agregados";
+import type { OrigenVenta } from "@/features/ventas/venta-unificada";
 
 const SALE_DONE = new Set(["paid", "partially_paid", "issued", "converted_to_ecf"]);
+
+// ── Ventas migradas de Alegra: helpers puros (sin red, sin reloj) ──────────
+// El panel NUNCA descarga filas para sumarlas (ver "El rendimiento no es un
+// extra de este plan" en la spec): pide el resumen ya calculado en la base y
+// solo interpreta esa respuesta pequeña.
+
+/** Espejo de `ResumenVentas["porOrigen"]` (server/repositories/supabase/ventas-unificadas.ts). */
+interface ResumenVentasApi {
+  porOrigen: Record<OrigenVenta, DesgloseOrigen>;
+}
+
+/** Número seguro desde JSON sin tipar: NaN/Infinity/ausente caen a 0 (nunca se confía a ciegas en la red). */
+function numeroSeguro(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : 0;
+}
+
+function comoDesglose(v: unknown): DesgloseOrigen {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  return { total: numeroSeguro(o.total), cantidad: numeroSeguro(o.cantidad) };
+}
+
+/** Interpreta el JSON de `GET /api/ventas?vista=resumen`. */
+function comoResumenVentas(json: unknown): ResumenVentasApi {
+  const o = (json && typeof json === "object" ? json : {}) as Record<string, unknown>;
+  const r = (o.resumen && typeof o.resumen === "object" ? o.resumen : {}) as Record<string, unknown>;
+  const po = (r.porOrigen && typeof r.porOrigen === "object" ? r.porOrigen : {}) as Record<string, unknown>;
+  return { porOrigen: { sistema: comoDesglose(po.sistema), alegra: comoDesglose(po.alegra) } };
+}
+
+/** Mensaje de error del cuerpo de una respuesta no-OK, si lo trae (ver `toUserFacingMessage`). */
+function comoMensajeError(json: unknown): string | null {
+  const o = (json && typeof json === "object" ? json : {}) as Record<string, unknown>;
+  return typeof o.error === "string" ? o.error : null;
+}
+
+/**
+ * Rango `desde`/`hasta` (YYYY-MM-DD, inclusive) para pedir el resumen de
+ * Alegra según los filtros de mes/año del panel. `resumen_ventas_unificadas`
+ * (la función de la base) solo entiende un rango continuo — no "este mes en
+ * cualquier año" —, así que da `null` (sin acotar por fecha) cuando no hace
+ * falta rango (los dos "Todos") y también en el único combo que un rango no
+ * puede expresar: mes fijo + año "Todos". Ese combo se detecta aparte
+ * (`mesSinAnioNoSoportado`, dentro del componente) para avisar en vez de
+ * pedir sin querer el histórico completo de Alegra.
+ */
+function rangoParaResumen(month: MonthFilter, year: YearFilter): { desde: string; hasta: string } | null {
+  if (year === "all") return null;
+  if (month === "all") return { desde: `${year}-01-01`, hasta: `${year}-12-31` };
+  const anio = Number(year);
+  const mes = Number(month);
+  const mm = String(mes).padStart(2, "0");
+  const ultimoDia = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+  return { desde: `${year}-${mm}-01`, hasta: `${year}-${mm}-${String(ultimoDia).padStart(2, "0")}` };
+}
+
+/**
+ * Texto del desglose por origen bajo "Ventas del período": cuánto puso el
+ * sistema y cuánto es histórico migrado. Un total que mezcla dos fuentes sin
+ * decir cuánto pone cada una no se puede auditar.
+ */
+function textoDesgloseOrigen(cantidadSistema: number, cantidadAlegra: number): string {
+  const total = cantidadSistema + cantidadAlegra;
+  const plural = (n: number) => (n === 1 ? "venta" : "ventas");
+  if (total === 0) return "Sin ventas en el período.";
+  if (cantidadAlegra === 0) return `${formatNumber(cantidadSistema)} ${plural(cantidadSistema)} del sistema`;
+  if (cantidadSistema === 0) {
+    return `${formatNumber(cantidadAlegra)} ${plural(cantidadAlegra)} · todas migradas de Alegra`;
+  }
+  return (
+    `${formatNumber(total)} ${plural(total)} · ${formatNumber(cantidadSistema)} del sistema, ` +
+    `${formatNumber(cantidadAlegra)} migradas de Alegra`
+  );
+}
+
+/** Estado de la carga del resumen de Alegra: nunca un cero que parezca un dato mientras está en camino. */
+type EstadoResumenAlegra =
+  | { tipo: "cargando" }
+  | { tipo: "listo"; resumen: ResumenVentasApi }
+  | { tipo: "error"; mensaje: string };
 
 export default function DashboardPage() {
   // Datos REALES (Supabase o local según DATA_SOURCE). Antes el dashboard
@@ -121,6 +208,79 @@ export default function DashboardPage() {
   );
   const salesToday = filteredSaleDocs.reduce((s, p) => s + p.total, 0);
   const transactionsToday = filteredSaleDocs.length;
+
+  // ── Ventas migradas de Alegra: segunda fuente, sumada a la del sistema ──
+  // NO se toca `useProformas` ni `salesToday`/`transactionsToday` de arriba:
+  // esto es una fuente AL LADO. Se pide el RESUMEN (`vista=resumen`), nunca
+  // las filas — traer las 14 965 facturas al navegador para sumarlas es
+  // exactamente el problema que este trabajo corrige.
+  const sucursalIdResumen = branchFilter === ALL_BRANCHES ? undefined : branchFilter;
+  const rangoResumen = React.useMemo(
+    () => rangoParaResumen(monthFilter, yearFilter),
+    [monthFilter, yearFilter],
+  );
+  const mesSinAnioNoSoportado = monthFilter !== "all" && yearFilter === "all";
+  const [resumenAlegra, setResumenAlegra] = React.useState<EstadoResumenAlegra>({ tipo: "cargando" });
+
+  React.useEffect(() => {
+    // El combo "mes fijo + año Todos" no es un rango continuo: no hay nada
+    // que pedirle a la base sin mentir sobre el filtro (ver `rangoParaResumen`).
+    if (mesSinAnioNoSoportado) return;
+    const ctrl = new AbortController();
+    setResumenAlegra({ tipo: "cargando" });
+    const params = new URLSearchParams({ vista: "resumen" });
+    if (sucursalIdResumen) params.set("sucursalId", sucursalIdResumen);
+    if (rangoResumen) {
+      params.set("desde", rangoResumen.desde);
+      params.set("hasta", rangoResumen.hasta);
+    }
+    fetch(`/api/ventas?${params.toString()}`, { signal: ctrl.signal, cache: "no-store" })
+      .then(async (res) => {
+        const json: unknown = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(comoMensajeError(json) ?? "No se pudo cargar el histórico migrado de Alegra.");
+        }
+        return comoResumenVentas(json);
+      })
+      .then((resumen) => setResumenAlegra({ tipo: "listo", resumen }))
+      .catch((e: unknown) => {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setResumenAlegra({
+          tipo: "error",
+          // La migración `20260906130000_resumen_ventas_unificadas.sql` puede no
+          // estar aplicada todavía: la API responde 400 con un mensaje claro en
+          // vez de camuflarlo, y aquí se enseña sin fingir un RD$0.00 silencioso.
+          mensaje: e instanceof Error ? e.message : "No se pudo cargar el histórico migrado de Alegra.",
+        });
+      });
+    return () => ctrl.abort();
+  }, [sucursalIdResumen, rangoResumen, mesSinAnioNoSoportado]);
+
+  // Mientras el resumen está en camino no hay número fiable que enseñar en
+  // "Ventas del período" — ni siquiera el del sistema solo: hoy `proformas`
+  // está vacía y ese RD$0.00 es EXACTAMENTE lo que hizo pensar que los datos
+  // no se habían migrado. Se enseña un indicador de carga, nunca un cero que
+  // parezca un dato. En el combo sin soporte o si la carga falla, se cae a lo
+  // que ya se tenía (el sistema) con un aviso — nunca en silencio.
+  const cargandoAlegra = !mesSinAnioNoSoportado && resumenAlegra.tipo === "cargando";
+  const alegraDesglose =
+    !mesSinAnioNoSoportado && resumenAlegra.tipo === "listo" ? resumenAlegra.resumen.porOrigen.alegra : null;
+  const ventasTotal = salesToday + (alegraDesglose?.total ?? 0);
+  const ventasCantidad = transactionsToday + (alegraDesglose?.cantidad ?? 0);
+  const ventasCaption: { aviso: boolean; texto: string } = mesSinAnioNoSoportado
+    ? {
+        aviso: true,
+        texto:
+          "El histórico migrado de Alegra no admite un mes sin año: elige también un año para incluirlo. Mostrando solo lo del sistema.",
+      }
+    : resumenAlegra.tipo === "cargando"
+      ? { aviso: false, texto: "Cargando el histórico migrado de Alegra…" }
+      : resumenAlegra.tipo === "error"
+        ? {
+            aviso: true,
+            texto: "No se pudo cargar el histórico migrado de Alegra. Mostrando solo lo del sistema.",
+          }
+        : { aviso: false, texto: textoDesgloseOrigen(transactionsToday, alegraDesglose?.cantidad ?? 0) };
 
   // Actividad de ventas del día (para el listado "Ventas recientes"): proformas
   // y facturas completadas hoy, más recientes primero.
@@ -262,16 +422,41 @@ export default function DashboardPage() {
         </Select>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Ventas del período"
-          value={formatCurrency(salesToday)}
-          hint={`${transactionsToday} ${transactionsToday === 1 ? "venta" : "ventas"}`}
-          icon={Coins}
-          tone="primary"
-          href="/ventas"
-          ariaLabel={`Ventas del período: ${formatCurrency(salesToday)} en ${transactionsToday} ventas. Ver ventas.`}
-        />
+      <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex flex-col gap-1.5">
+          <StatCard
+            label="Ventas del período"
+            value={cargandoAlegra ? "Cargando…" : formatCurrency(ventasTotal)}
+            hint={
+              cargandoAlegra
+                ? undefined
+                : `${formatNumber(ventasCantidad)} ${ventasCantidad === 1 ? "venta" : "ventas"}`
+            }
+            icon={Coins}
+            tone="primary"
+            href="/ventas"
+            ariaLabel={
+              cargandoAlegra
+                ? "Ventas del período: cargando."
+                : `Ventas del período: ${formatCurrency(ventasTotal)} en ${ventasCantidad} ventas. Ver ventas.`
+            }
+          />
+          {/* Desglose por origen: sistema vs. migrado de Alegra. Un total que
+              mezcla dos fuentes sin decir cuánto pone cada una no se puede
+              auditar (plan "alegra-integrada-al-sistema"). */}
+          <p
+            className={
+              ventasCaption.aviso
+                ? "flex items-start gap-1 px-1 text-[11px] leading-snug text-amber-700"
+                : "px-1 text-[11px] leading-snug opacity-55"
+            }
+          >
+            {ventasCaption.aviso && (
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+            )}
+            <span>{ventasCaption.texto}</span>
+          </p>
+        </div>
         <StatCard
           label="Productos en catálogo"
           value={products.length.toLocaleString("es-DO")}
