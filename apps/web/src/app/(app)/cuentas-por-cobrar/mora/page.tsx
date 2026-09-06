@@ -122,7 +122,19 @@ export default function MoraPage() {
                             <Button size="sm" variant="outline" title="Registrar promesa" onClick={() => setPromiseFor(m)}>
                               <CalendarClock className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" title="Registrar pago" onClick={() => setCollectFor(m.invoices)}>
+                            {/* Solo las cobrables: si toda la mora de este
+                                cliente es histórico de Alegra, el botón se
+                                apaga y dice por qué. */}
+                            <Button
+                              size="sm"
+                              title={
+                                m.invoices.some((i) => i.cobrable)
+                                  ? "Registrar pago"
+                                  : "Toda la mora de este cliente son facturas migradas de Alegra: se cobran en Alegra, no aquí."
+                              }
+                              disabled={!m.invoices.some((i) => i.cobrable)}
+                              onClick={() => setCollectFor(m.invoices.filter((i) => i.cobrable))}
+                            >
                               <HandCoins className="h-3.5 w-3.5" />
                             </Button>
                           </div>

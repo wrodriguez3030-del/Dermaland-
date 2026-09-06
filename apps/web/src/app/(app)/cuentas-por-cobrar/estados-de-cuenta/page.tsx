@@ -165,7 +165,17 @@ function StatementContent() {
               <Button size="sm" variant="outline" onClick={() => setPromiseOpen(true)}>
                 <CalendarClock className="h-4 w-4" /> Promesa
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setCollectOpen(true)} disabled={st.invoices.length === 0}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCollectOpen(true)}
+                disabled={!st.invoices.some((i) => i.cobrable)}
+                title={
+                  st.invoices.length > 0 && !st.invoices.some((i) => i.cobrable)
+                    ? "El saldo de este cliente son facturas migradas de Alegra: se cobran en Alegra, no aquí."
+                    : undefined
+                }
+              >
                 <HandCoins className="h-4 w-4" /> Cobrar
               </Button>
               <ExportPdfButton getSpec={pdfSpec} fileSlug={`Estado_Cuenta_${st.client.name.replace(/\s+/g, "_")}`} />
@@ -300,7 +310,7 @@ function StatementContent() {
           <CollectModal
             open={collectOpen}
             onClose={() => setCollectOpen(false)}
-            invoices={st.invoices}
+            invoices={st.invoices.filter((i) => i.cobrable)}
             onDone={() => load(clientId)}
           />
           <PromiseModal

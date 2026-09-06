@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import { Badge, Button, Input, Label, Modal, Select, Textarea } from "@/components/ui";
+import { AlertTriangle, HandCoins } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { AGING_CLASS, AGING_LABEL, AGING_TONE, type AgingBucket } from "./aging";
 import { arApi, money, type ReceivableRow } from "./receivables-client";
 
@@ -57,6 +59,13 @@ export const METHOD_LABEL: Record<string, string> = {
  * Modal de cobro: aplica un pago (total o parcial) a UNA o VARIAS facturas del
  * listado seleccionado. El monto por factura es editable (parciales); el RPC
  * server valida que ningún pago exceda el saldo.
+ *
+ * 🔴 Las facturas migradas de Alegra NO se cobran desde aquí y el filtro está
+ * EN ESTE COMPONENTE, no en cada pantalla que lo abre: son cinco (pendientes,
+ * cobros, mora, estados de cuenta y las que vengan) y basta que una se olvide
+ * para registrar en DermaLand un pago que Alegra nunca verá. Aquí se apartan
+ * una sola vez, se enseñan con su motivo —un botón muerto sin explicación no
+ * explica nada— y nunca entran en el envío.
  */
 export function CollectModal({
   open,
@@ -79,7 +88,11 @@ export function CollectModal({
 
   React.useEffect(() => {
     if (open) {
-      setAmounts(Object.fromEntries(invoices.map((i) => [i.id, i.balance.toFixed(2)])));
+      setAmounts(
+        Object.fromEntries(
+          invoices.filter((i) => i.cobrable).map((i) => [i.id, i.balance.toFixed(2)]),
+        ),
+      );
       setReference("");
       setBank("");
       setComments("");
@@ -87,7 +100,9 @@ export function CollectModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, invoices.map((i) => i.id).join(",")]);
 
-  const items = invoices
+  const cobrables = invoices.filter((i) => i.cobrable);
+  const bloqueadas = invoices.filter((i) => !i.cobrable);
+  const items = cobrables
     .map((i) => ({ proformaId: i.id, amount: Number(amounts[i.id] ?? 0) }))
     .filter((i) => i.amount > 0);
   const total = items.reduce((s, i) => s + i.amount, 0);
@@ -109,7 +124,7 @@ export function CollectModal({
   return (
     <Modal
       open={open}
-      title={invoices.length > 1 ? `Cobrar ${invoices.length} facturas` : "Registrar cobro"}
+      title={cobrables.length > 1 ? `Cobrar ${cobrables.length} facturas` : "Registrar cobro"}
       onClose={onClose}
       footer={
         <div className="flex items-center justify-between gap-3">
@@ -126,22 +141,49 @@ export function CollectModal({
       }
     >
       <div className="space-y-4">
-        <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-black/5 p-2">
-          {invoices.map((inv) => (
-            <div key={inv.id} className="flex items-center justify-between gap-3 text-sm">
-              <div className="min-w-0">
-                <div className="font-medium">{inv.number} · {inv.customerName}</div>
-                <div className="text-xs opacity-60">Saldo: {money(inv.balance)}</div>
-              </div>
-              <Input
-                className="w-32 text-right tabular-nums"
-                inputMode="decimal"
-                value={amounts[inv.id] ?? ""}
-                onChange={(e) => setAmounts((a) => ({ ...a, [inv.id]: e.target.value.replace(/[^\d.]/g, "") }))}
-              />
+        {bloqueadas.length > 0 && (
+          <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+            <div className="space-y-1">
+              <p className="font-medium">
+                {bloqueadas.length === 1
+                  ? "Una factura de la selección no se puede cobrar desde DermaLand:"
+                  : `${bloqueadas.length} facturas de la selección no se pueden cobrar desde DermaLand:`}
+              </p>
+              <p>{bloqueadas[0]?.motivoNoCobrable ?? "No admite cobros."}</p>
+              <ul className="list-disc pl-4">
+                {bloqueadas.map((inv) => (
+                  <li key={inv.id}>
+                    {inv.number} · {inv.customerName} · {money(inv.balance)}
+                  </li>
+                ))}
+              </ul>
+              <p>Se quedan fuera de este cobro; el resto sí se puede aplicar.</p>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+        {cobrables.length === 0 ? (
+          <p className="rounded-lg border border-black/5 p-3 text-sm opacity-70">
+            No hay ninguna factura cobrable en la selección.
+          </p>
+        ) : (
+          <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-black/5 p-2">
+            {cobrables.map((inv) => (
+              <div key={inv.id} className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <div className="font-medium">{inv.number} · {inv.customerName}</div>
+                  <div className="text-xs opacity-60">Saldo: {money(inv.balance)}</div>
+                </div>
+                <Input
+                  className="w-32 text-right tabular-nums"
+                  inputMode="decimal"
+                  value={amounts[inv.id] ?? ""}
+                  onChange={(e) => setAmounts((a) => ({ ...a, [inv.id]: e.target.value.replace(/[^\d.]/g, "") }))}
+                />
+              </div>
+            ))}
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <Label htmlFor="ar-method">Método</Label>
@@ -170,6 +212,40 @@ export function CollectModal({
         </p>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * Botón de cobro de una fila. Si la factura no se puede cobrar queda
+ * deshabilitado CON el motivo a la vista (`title` y etiqueta de origen al
+ * lado): un botón apagado sin explicación parece un fallo de la aplicación.
+ */
+export function BotonCobrar({
+  row,
+  onClick,
+}: {
+  row: ReceivableRow;
+  onClick: () => void;
+}) {
+  if (!row.cobrable) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <EtiquetaOrigen origen={row.origen} />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled
+          title={row.motivoNoCobrable ?? "Esta factura no admite cobros."}
+        >
+          <HandCoins className="h-3.5 w-3.5" /> Cobrar
+        </Button>
+      </span>
+    );
+  }
+  return (
+    <Button size="sm" variant="outline" onClick={onClick}>
+      <HandCoins className="h-3.5 w-3.5" /> Cobrar
+    </Button>
   );
 }
 

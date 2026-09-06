@@ -23,7 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui";
 import { Wallet, AlertTriangle, FileText, HandCoins, X } from "lucide-react";
 import { AGING_LABEL, AGING_ORDER, computeAging, todayRD, type AgingBucket } from "@/features/receivables/aging";
-import { AgingBadge, CollectModal, usePendingReceivables } from "@/features/receivables/components";
+import { AgingBadge, BotonCobrar, CollectModal, usePendingReceivables } from "@/features/receivables/components";
 import { fecha, money, type ReceivableRow } from "@/features/receivables/receivables-client";
 
 /** Facturas con saldo pendiente: la tabla operativa del módulo. */
@@ -57,6 +57,7 @@ export default function PendientesPage() {
     return true;
   });
   const hasFilters = q.trim() !== "" || bucket !== "all" || branch !== "all" || seller !== "all" || minAmount !== "";
+  const cobrables = filtered.filter((r) => r.cobrable);
   const pag = usePagination(filtered, { resetKey: `${q}|${bucket}|${branch}|${seller}|${minAmount}` });
   const aging = computeAging(filtered, todayRD());
 
@@ -67,7 +68,19 @@ export default function PendientesPage() {
         description="Ventas a crédito con saldo por cobrar."
         breadcrumbs={[{ label: "Cuentas por cobrar" }, { label: "Facturas pendientes" }]}
         actions={
-          <Button size="sm" onClick={() => setToCollect(filtered.slice(0, 20))} disabled={filtered.length === 0}>
+          <Button
+            size="sm"
+            // Solo las cobrables: las migradas de Alegra no entran ni por el
+            // botón de arriba (el modal las apartaría igualmente, pero es mejor
+            // que el contador diga la verdad desde el principio).
+            onClick={() => setToCollect(cobrables.slice(0, 20))}
+            disabled={cobrables.length === 0}
+            title={
+              cobrables.length === 0 && filtered.length > 0
+                ? "Las facturas de este listado son migradas de Alegra: se cobran en Alegra, no aquí."
+                : undefined
+            }
+          >
             <HandCoins className="h-4 w-4" /> Cobrar…
           </Button>
         }
@@ -188,9 +201,7 @@ export default function PendientesPage() {
                       <TD className="text-right font-medium tabular-nums">{money(r.balance)}</TD>
                       <TD><AgingBadge bucket={r.bucket} /></TD>
                       <TD className="pr-4 text-right">
-                        <Button size="sm" variant="outline" onClick={() => setToCollect([r])}>
-                          <HandCoins className="h-3.5 w-3.5" /> Cobrar
-                        </Button>
+                        <BotonCobrar row={r} onClick={() => setToCollect([r])} />
                       </TD>
                     </TR>
                   ))}

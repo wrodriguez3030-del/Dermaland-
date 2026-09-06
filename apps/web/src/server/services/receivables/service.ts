@@ -2,6 +2,8 @@ import "server-only";
 import type { RepoContext } from "@/server/repositories/types";
 import { SupabaseRepositoryError, UserFacingRepositoryError, getClient } from "@/server/repositories/supabase/client";
 import { agingBucket, computeAging, overdueDays, todayRD, type AgingBucket, type AgingTotals } from "@/features/receivables/aging";
+import { facturasConSaldo } from "@/server/services/alegra/queries";
+import type { OrigenVenta } from "@/features/ventas/venta-unificada";
 
 /**
  * Cuentas por Cobrar — servicio central (fuente única para pantallas, reportes
@@ -33,14 +35,77 @@ export interface ReceivableRow {
   paid: number;
   balance: number;
   status: string;
+  /** De dónde sale la deuda: el sistema propio o el histórico migrado de Alegra. */
+  origen: OrigenVenta;
+  /** `false` para las de Alegra: se ven, no se cobran desde aquí. */
+  cobrable: boolean;
+  /** Por qué no se puede cobrar. Tiene que poder enseñarse: un botón muerto sin motivo no explica nada. */
+  motivoNoCobrable: string | null;
 }
+
+/**
+ * 🔴 Por qué una factura de Alegra NO se cobra desde DermaLand: el pago se
+ * registraría aquí y no allá, los saldos de los dos sistemas dejarían de
+ * cuadrar y el histórico —que es la contabilidad real del negocio— quedaría
+ * mintiendo. Se cobra en Alegra; aquí solo se mira.
+ */
+export const MOTIVO_ALEGRA_NO_COBRABLE =
+  "Factura migrada de Alegra: el cobro se registra en Alegra, no aquí. Si se aplicara desde DermaLand, los dos sistemas dejarían de cuadrar.";
 
 async function branchNames(sb: Awaited<ReturnType<typeof getClient>>, businessId: string): Promise<Map<string, string>> {
   const { data } = await sb.from("branches").select("id, name").eq("business_id", businessId);
   return new Map(((data ?? []) as { id: string; name: string }[]).map((b) => [b.id, b.name]));
 }
 
-/** Facturas con saldo pendiente (la lista maestra del módulo). */
+/**
+ * Facturas de Alegra que quedaron con saldo, con la forma de una cuenta por
+ * cobrar. NO se copia ni se toca ninguna: se leen (`facturasConSaldo`, que ya
+ * excluye las anuladas y usa el índice `alegra_invoices_open_balance`) y se
+ * traducen al vuelo.
+ *
+ * 🔴 Alegra no guarda fecha de vencimiento, así que se usa la fecha de la
+ * factura. No es un invento: es el mismo criterio que ya enseña
+ * `/cuentas-por-cobrar/alegra`, que mide la antigüedad con los días desde la
+ * emisión. La alternativa —dejarla sin fecha— las metía TODAS en «al día», y
+ * una factura de 2025 con saldo abierto no está al día.
+ */
+async function listPendingAlegra(
+  ctx: RepoContext,
+  branches: Map<string, string>,
+  today: string,
+): Promise<ReceivableRow[]> {
+  const facturas = await facturasConSaldo(ctx);
+  return facturas.map((f) => ({
+    id: f.id,
+    number: f.ncf ?? "—",
+    ecfNumber: null,
+    customerId: f.clientId,
+    customerName: f.clientName ?? "Sin cliente",
+    customerPhone: null,
+    branchId: f.branchId ?? "",
+    branchName: f.branchId ? (branches.get(f.branchId) ?? "—") : "—",
+    sellerName: f.sellerName,
+    cashierName: "—",
+    issuedAt: f.date.slice(0, 10),
+    dueDate: f.date.slice(0, 10),
+    creditDays: null,
+    overdueDays: Math.max(0, overdueDays(f.date.slice(0, 10), today)),
+    bucket: agingBucket(f.date.slice(0, 10), today),
+    total: f.total,
+    paid: f.totalPaid,
+    balance: f.balance,
+    status: f.status,
+    origen: "alegra" as const,
+    cobrable: false,
+    motivoNoCobrable: MOTIVO_ALEGRA_NO_COBRABLE,
+  }));
+}
+
+/**
+ * Facturas con saldo pendiente (la lista maestra del módulo): las del sistema
+ * y las migradas de Alegra, juntas. Cada una dice de dónde viene y si se puede
+ * cobrar; el total de lo que se debe ya no deja fuera el histórico.
+ */
 export async function listPending(ctx: RepoContext): Promise<ReceivableRow[]> {
   const sb = await getClient("receivables.listPending");
   const today = todayRD();
@@ -59,7 +124,7 @@ export async function listPending(ctx: RepoContext): Promise<ReceivableRow[]> {
   if (error) throw new SupabaseRepositoryError("receivables.listPending", error);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ((data ?? []) as any[]).map((r) => {
+  const sistema: ReceivableRow[] = ((data ?? []) as any[]).map((r) => {
     const issued = String(r.created_at).slice(0, 10);
     const due: string | null = r.due_date ?? null;
     const creditDays = due
@@ -85,7 +150,20 @@ export async function listPending(ctx: RepoContext): Promise<ReceivableRow[]> {
       paid: Number(r.paid),
       balance: Number(r.balance),
       status: r.status,
+      origen: "sistema" as const,
+      cobrable: true,
+      motivoNoCobrable: null,
     };
+  });
+
+  const alegra = await listPendingAlegra(ctx, branches, today);
+  // Mismo orden que traía la consulta: por vencimiento ascendente, lo que no
+  // vence al final. Lo más viejo primero, que es lo que hay que perseguir.
+  return [...sistema, ...alegra].sort((a, b) => {
+    if (a.dueDate === b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate < b.dueDate ? -1 : 1;
   });
 }
 
@@ -107,6 +185,11 @@ export interface ArSummary {
   porVendedor: { label: string; value: number }[];
   cobradoPorMes: { label: string; value: number }[];
   promesasHoy: number;
+  /**
+   * Cuánto de lo pendiente pone cada fuente. No es un extra: el total suma dos
+   * sistemas y sin este desglose nadie puede cuadrarlo con ninguno de los dos.
+   */
+  porOrigen: Record<OrigenVenta, { total: number; facturas: number }>;
 }
 
 /** Pagos de COBRANZA (registrados por el módulo): balance_after no nulo. */
@@ -206,6 +289,16 @@ export async function summary(ctx: RepoContext): Promise<ArSummary> {
     .eq("status", "pending")
     .lte("promised_date", today);
 
+  const porOrigen: ArSummary["porOrigen"] = {
+    sistema: { total: 0, facturas: 0 },
+    alegra: { total: 0, facturas: 0 },
+  };
+  for (const r of pending) {
+    const b = porOrigen[r.origen];
+    b.total = round2(b.total + r.balance);
+    b.facturas += 1;
+  }
+
   return {
     totalPendiente: aging.totalAmount,
     facturasPendientes: aging.totalCount,
@@ -227,6 +320,7 @@ export async function summary(ctx: RepoContext): Promise<ArSummary> {
     porVendedor: byKey(pending, (r) => r.sellerName ?? r.cashierName),
     cobradoPorMes: monthLabels,
     promesasHoy: promesasHoy ?? 0,
+    porOrigen,
   };
 }
 
@@ -252,6 +346,20 @@ export async function collect(ctx: RepoContext, input: CollectInput): Promise<Co
   if (!input.items?.length) throw new UserFacingRepositoryError("No hay pagos que aplicar.");
   if (!AR_METHODS.has(input.method)) throw new UserFacingRepositoryError("Método de pago inválido.");
   const sb = await getClient("receivables.collect");
+  // 🔴 Ninguna factura de Alegra se cobra desde aquí. El RPC ya lo impediría
+  // —busca la venta en `proformas` y lanza «Venta no encontrada.» si no está—,
+  // pero ese mensaje no explica nada. Esta comprobación cuesta una consulta
+  // por índice en una operación poco frecuente y devuelve el motivo de verdad,
+  // también a quien llame la API sin pasar por la pantalla.
+  const ids = input.items.map((i) => i.proformaId);
+  const { data: migradas, error: errMigradas } = await sb
+    .from("alegra_invoices")
+    .select("id")
+    .eq("business_id", ctx.businessId)
+    .in("id", ids);
+  if (errMigradas) throw new SupabaseRepositoryError("receivables.collect.alegra", errMigradas);
+  if ((migradas ?? []).length > 0) throw new UserFacingRepositoryError(MOTIVO_ALEGRA_NO_COBRABLE);
+
   // Banco y comentarios viajan en la referencia (proforma_payments.reference),
   // como hace el POS con last4 — sin columnas nuevas.
   const refParts = [input.reference?.trim(), input.bank ? `Banco: ${input.bank.trim()}` : null, input.comments?.trim()]
