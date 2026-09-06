@@ -18,8 +18,13 @@ import type { CustomerProfileState } from "@/features/customers/customer-profile
 
 const UUID = "d76d0d15-815e-4f56-a9ae-7fc21bc58af9";
 
-const { hookState } = vi.hoisted(() => ({
+const { hookState, ventasState } = vi.hoisted(() => ({
   hookState: { current: {} as Partial<CustomerProfileState> },
+  // Estado de `/api/ventas?clienteId=…` (las compras migradas de Alegra).
+  // Sin esto, la ficha intentaría una petición real en jsdom.
+  ventasState: {
+    current: { tipo: "listo", datos: { ventas: [] as unknown[], hayMas: false } } as unknown,
+  },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -29,6 +34,10 @@ vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: React.ReactNode }) => (
     <a href={typeof href === "string" ? href : "#"}>{children}</a>
   ),
+}));
+vi.mock("@/features/ventas/ventas-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/ventas/ventas-api")>()),
+  useListadoVentas: () => ventasState.current,
 }));
 vi.mock("@/features/customers/customer-profile-hooks", () => ({
   useCustomerProfile: () => ({
@@ -74,6 +83,7 @@ const willian: Customer = {
 afterEach(() => {
   cleanup();
   hookState.current = {};
+  ventasState.current = { tipo: "listo", datos: { ventas: [], hayMas: false } };
 });
 
 describe("perfil de cliente — estados de carga", () => {
@@ -126,5 +136,68 @@ describe("perfil de cliente — estados de carga", () => {
     expect(screen.queryByText(/no encontrado/i)).not.toBeInTheDocument();
     expect(screen.getByText("16")).toBeInTheDocument(); // KPI compras
     expect(document.body.textContent).not.toContain(UUID);
+  });
+});
+
+/**
+ * Las compras migradas de Alegra van en el listado principal, no escondidas en
+ * otra pestaña: quien abre la ficha de alguien que lleva años comprando no
+ * puede ver «sin compras». Y se ven, pero no se tocan.
+ */
+describe("perfil de cliente — compras migradas de Alegra", () => {
+  const compraAlegra = {
+    id: "fac-1",
+    origen: "alegra",
+    numero: "B0100000123",
+    fecha: "2025-03-14",
+    clienteId: UUID,
+    clienteNombre: "WILLIAN R RODRIGUEZ",
+    total: 4500,
+    itbis: 0,
+    subtotal: 4500,
+    formaPago: "cash",
+    vendedor: "Laura Mejía",
+    sucursalId: null,
+    anulada: false,
+    editable: false,
+  };
+
+  it("una compra de Alegra sale en «Compras» con su etiqueta de origen", () => {
+    hookState.current = { customer: willian, loading: false };
+    ventasState.current = {
+      tipo: "listo",
+      datos: { ventas: [compraAlegra], hayMas: false },
+    };
+    render(<ClienteDetallePage />);
+    expect(screen.getByText("B0100000123")).toBeInTheDocument();
+    expect(screen.getByText(/Migrada de Alegra/i)).toBeInTheDocument();
+    // El contador de la pestaña cuenta las dos fuentes, no solo el sistema.
+    expect(screen.getByText(/Compras \(1\)/)).toBeInTheDocument();
+  });
+
+  it("🔴 una compra de Alegra no ofrece editar, imprimir ni enviar", () => {
+    // Alegra manda y DermaLand solo lee: un botón de enviar sobre historial
+    // ajeno haría creer que el documento sale de aquí.
+    hookState.current = { customer: willian, loading: false };
+    ventasState.current = {
+      tipo: "listo",
+      datos: { ventas: [compraAlegra], hayMas: false },
+    };
+    render(<ClienteDetallePage />);
+    const fila = screen.getByText("B0100000123").closest("tr");
+    expect(fila).not.toBeNull();
+    expect(fila!.textContent).toMatch(/Solo lectura/i);
+    // Ni un enlace ni un botón en toda la fila: nada que abrir, editar,
+    // imprimir o enviar.
+    expect(fila!.querySelectorAll("a, button")).toHaveLength(0);
+  });
+
+  it("si el histórico no carga, lo dice en vez de enseñar una lista corta", () => {
+    hookState.current = { customer: willian, loading: false };
+    ventasState.current = { tipo: "error", mensaje: "fallo" };
+    render(<ClienteDetallePage />);
+    expect(
+      screen.getByText(/No se pudieron cargar las compras migradas de Alegra/i),
+    ).toBeInTheDocument();
   });
 });
