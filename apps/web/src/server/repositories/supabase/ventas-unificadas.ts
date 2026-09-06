@@ -5,11 +5,15 @@
  * y los mapeadores) y `features/ventas/agregados.ts` (las sumas en memoria
  * para lo que ya viene cargado).
  *
- * Dos funciones, y la distinción es el corazón del plan (ver "El rendimiento
+ * Tres funciones, y la distinción es el corazón del plan (ver "El rendimiento
  * no es un extra de este plan" en la spec):
  *
  *  - `resumenVentas`: totales calculados EN LA BASE. Ni una fila viaja. Es
  *    lo que usa el panel.
+ *  - `desgloseVentas`: los mismos totales AGRUPADOS en la base (por vendedor,
+ *    forma de pago o producto), con el origen de cada grupo. Es lo que usan
+ *    las tarjetas de resumen del reporte de ventas. Tampoco viaja una fila de
+ *    venta: viaja el desglose ya hecho, con tope de 200 grupos.
  *  - `listarVentasUnificadas`: filas, pero paginadas con tope duro de 200.
  *    Es lo que usan los listados (reportes, ficha del cliente, CxC).
  *
@@ -56,6 +60,27 @@ export interface ResumenVentas {
   porOrigen: Record<OrigenVenta, DesgloseOrigen>;
 }
 
+/** Las tres formas de agrupar que sabe `desglose_ventas_unificadas`. */
+export const DIMENSIONES_DESGLOSE = ["vendedor", "forma_pago", "producto"] as const;
+export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
+
+/**
+ * Una línea del desglose: un grupo (un vendedor, una forma de pago, un
+ * producto) de UNA de las dos fuentes. El mismo vendedor puede aparecer dos
+ * veces —una por origen— y es lo que se quiere: así se ve cuánto puso cada
+ * sistema sin tener que adivinarlo.
+ */
+export interface FilaDesglose {
+  /** Clave de agrupación. Cadena vacía cuando el dato no venía (sin vendedor, sin forma de pago…). */
+  clave: string;
+  /** Texto para la pantalla. Nunca vacío: la base ya resolvió el «sin dato». */
+  etiqueta: string;
+  origen: OrigenVenta;
+  /** Ventas del grupo. En la dimensión `producto` son RENGLONES de factura, no unidades. */
+  cantidad: number;
+  total: number;
+}
+
 export interface ListaVentasUnificadas {
   ventas: VentaUnificada[];
   /** `true` si hay más filas después de esta página. */
@@ -83,6 +108,14 @@ const LIMITE_POR_DEFECTO = 50;
  * facturas de Alegra).
  */
 const TOPE_DESPLAZAMIENTO = 20_000;
+/**
+ * Tope de filas del desglose. El MISMO 200 que ya aplica la función SQL
+ * (`limit 200`), repetido aquí porque una migración se puede reemplazar sin
+ * tocar este archivo: si un día la función devolviera más, la pantalla
+ * seguiría sin recibir una tabla entera. `producto` puede tener una fila por
+ * cada uno de los 1 487 productos migrados.
+ */
+const TOPE_DESGLOSE = 200;
 /** Tope de fila por request a PostgREST: pedir más se corta en SILENCIO (ver `pagination.ts`). */
 const TANDA_POSTGREST = 1000;
 
@@ -281,4 +314,67 @@ export async function resumenVentas(
     cantidad: sistema.cantidad + alegra.cantidad,
     porOrigen: { sistema, alegra },
   };
+}
+
+/** Fila que devuelve la función `desglose_ventas_unificadas` (ver la migración). */
+interface FilaDesgloseRpc {
+  clave: string | null;
+  etiqueta: string | null;
+  origen: string | null;
+  cantidad: number | string | null;
+  total: number | string | null;
+}
+
+/**
+ * Desglose de ventas —sistema + Alegra— agrupado EN LA BASE por vendedor,
+ * forma de pago o producto. Hermano de `resumenVentas`, y por el mismo
+ * motivo: agrupar 14 965 facturas y 31 213 renglones en Node significaría
+ * descargarlos, que es justo lo que este plan corrige.
+ *
+ * Único acceso a la base: una llamada RPC a `desglose_ventas_unificadas`. Ni
+ * un `.from()`. `business_id` sale del JWT verificado (`ctx.businessId`),
+ * nunca de quien llama.
+ *
+ * Si la migración `20260906140000_desglose_ventas_unificadas.sql` aún no está
+ * aplicada, esto lanza un error claro (42883, función inexistente) que la
+ * pantalla ENSEÑA — una tabla vacía sería indistinguible de «no hubo ventas».
+ */
+export async function desgloseVentas(
+  ctx: CtxVentasUnificadas,
+  filtros: FiltrosVentas,
+  dimension: DimensionDesglose,
+): Promise<FilaDesglose[]> {
+  const sb = await clienteDe(ctx, "ventasUnificadas.desglose");
+  const incluirAlegra = filtros.incluirAlegra !== false;
+
+  const { data, error } = await sb.rpc("desglose_ventas_unificadas", {
+    p_business_id: ctx.businessId,
+    p_desde: filtros.desde ?? null,
+    p_hasta: filtros.hasta ?? null,
+    p_cliente_id: filtros.clienteId ?? null,
+    p_sucursal_id: filtros.sucursalId ?? null,
+    p_dimension: dimension,
+  });
+  if (error) failRepo("ventasUnificadas.desglose", error);
+
+  const filas: FilaDesglose[] = [];
+  for (const cruda of (data as FilaDesgloseRpc[] | null) ?? []) {
+    // 🔴 El origen se comprueba, no se copia: una fila con un `origen` que no
+    // conocemos NO se cuela como «sistema» (que es la que la pantalla pinta
+    // sin etiqueta, y por tanto la que pasa desapercibida). Se descarta.
+    const origen: OrigenVenta | null =
+      cruda.origen === "alegra" ? "alegra" : cruda.origen === "sistema" ? "sistema" : null;
+    if (!origen) continue;
+    if (origen === "alegra" && !incluirAlegra) continue;
+    filas.push({
+      clave: cruda.clave ?? "",
+      // La base ya resuelve el «sin dato»; este respaldo es para una fila rota,
+      // no para la lógica de negocio.
+      etiqueta: cruda.etiqueta ?? "—",
+      origen,
+      cantidad: Math.trunc(numero(cruda.cantidad)),
+      total: numero(cruda.total),
+    });
+  }
+  return filas.slice(0, TOPE_DESGLOSE);
 }
