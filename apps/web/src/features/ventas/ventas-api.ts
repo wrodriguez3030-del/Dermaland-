@@ -29,14 +29,6 @@ import type { OrigenVenta, VentaUnificada } from "./venta-unificada";
  * facturas migradas.
  */
 
-/**
- * Tope duro de filas por página. Lo decide el servidor
- * (`ventas-unificadas.ts#TOPE_LISTADO`); aquí se repite solo para no pedir de
- * más y creer que se recibió todo. Si los dos dejaran de coincidir, el
- * servidor sigue mandando: devuelve 200 y `hayMas: true`.
- */
-export const TOPE_LISTADO_VENTAS = 200;
-
 export interface ResumenVentasApi {
   total: number;
   cantidad: number;
