@@ -26,6 +26,7 @@ import {
   type ResumenVentasApi,
 } from "@/features/ventas/ventas-api";
 import { METODO_ETIQUETA } from "@/features/alegra/sales-report";
+import type { SalesReportFilters } from "@/features/sales/sales-report";
 
 /**
  * El histórico migrado de Alegra dentro del reporte de ventas.
@@ -58,6 +59,33 @@ export interface FiltroSinHistorico {
  */
 export function filtrosSinHistorico(filtros: FiltroSinHistorico[]): string[] {
   return filtros.filter((f) => f.activo).map((f) => f.etiqueta);
+}
+
+/**
+ * 🔴 Qué filtros del reporte de ventas dejan al histórico fuera.
+ *
+ * Vive aquí, y no como un literal dentro de `page.tsx`, porque es una regla de
+ * dinero: `/api/ventas` solo sabe filtrar por fecha, sucursal y cliente. Si
+ * alguien borrara de esta lista, por ejemplo, «Método de pago», la pantalla
+ * sumaría los RD$48 millones del histórico SIN FILTRAR a un total del sistema
+ * que sí está filtrado por «Efectivo», y lo presentaría como un total filtrado.
+ * Una regla así se prueba una por una, no se confía a un literal en el JSX.
+ *
+ * `includeProformas` NO entra a propósito: excluye documentos no facturados
+ * del sistema, y en Alegra todo lo migrado son facturas — el filtro no cambia
+ * lo que el histórico debería aportar. `from`/`hasta` y `branchId` tampoco:
+ * esos SÍ los sabe aplicar la ruta.
+ */
+export function filtrosDelReporteSinHistorico(filtros: SalesReportFilters): string[] {
+  return filtrosSinHistorico([
+    { etiqueta: "Método de pago", activo: Boolean(filtros.method) },
+    { etiqueta: "Tipo de comprobante", activo: Boolean(filtros.comprobante) },
+    { etiqueta: "Estado", activo: Boolean(filtros.status) },
+    { etiqueta: "Cajero", activo: Boolean(filtros.cashierId) },
+    { etiqueta: "Vendedor", activo: Boolean(filtros.sellerId) },
+    { etiqueta: "Cliente", activo: Boolean(filtros.customerQuery?.trim()) },
+    { etiqueta: "Producto", activo: Boolean(filtros.productQuery?.trim()) },
+  ]);
 }
 
 export interface EstadoHistorico {

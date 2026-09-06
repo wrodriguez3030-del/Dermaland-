@@ -93,7 +93,7 @@ import {
   CasillaIncluirAlegra,
   LeyendaHistorico,
   TablaHistoricoAlegra,
-  filtrosSinHistorico,
+  filtrosDelReporteSinHistorico,
   useHistoricoAlegra,
 } from "./historico-alegra";
 import { DetalleImpresionVentas, ResumenesVentas } from "./resumenes-ventas";
@@ -359,16 +359,7 @@ export default function ReporteVentasPage() {
   // no facturados del sistema, y en Alegra todo lo migrado son facturas — el
   // filtro no cambia lo que el histórico debería aportar.
   const filtrosNoAplicables = React.useMemo(
-    () =>
-      filtrosSinHistorico([
-        { etiqueta: "Método de pago", activo: Boolean(filters.method) },
-        { etiqueta: "Tipo de comprobante", activo: Boolean(filters.comprobante) },
-        { etiqueta: "Estado", activo: Boolean(filters.status) },
-        { etiqueta: "Cajero", activo: Boolean(filters.cashierId) },
-        { etiqueta: "Vendedor", activo: Boolean(filters.sellerId) },
-        { etiqueta: "Cliente", activo: Boolean(filters.customerQuery?.trim()) },
-        { etiqueta: "Producto", activo: Boolean(filters.productQuery?.trim()) },
-      ]),
+    () => filtrosDelReporteSinHistorico(filters),
     [filters],
   );
   const historico = useHistoricoAlegra({

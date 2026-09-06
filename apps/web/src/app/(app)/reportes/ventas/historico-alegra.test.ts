@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { filtrosSinHistorico, resolverHistorico } from "./historico-alegra";
+import {
+  filtrosDelReporteSinHistorico,
+  filtrosSinHistorico,
+  resolverHistorico,
+} from "./historico-alegra";
+import { EMPTY_FILTERS, type SalesReportFilters } from "@/features/sales/sales-report";
 import type { ResumenVentasApi } from "@/features/ventas/ventas-api";
 
 const resumen = (totalAlegra: number, cantidadAlegra: number): ResumenVentasApi => ({
@@ -114,5 +119,56 @@ describe("el histórico en los KPIs del reporte de ventas", () => {
       cantidadSistema: 5,
     });
     expect(h.leyenda.texto).toMatch(/excluido/i);
+  });
+});
+
+describe("qué filtros del reporte dejan al histórico fuera, uno por uno", () => {
+  // 🔴 Cada línea de esta tabla es una forma concreta de mentir. Si alguien
+  // borra una entrada de `filtrosDelReporteSinHistorico`, la pantalla suma los
+  // RD$48 millones del histórico SIN FILTRAR a un total del sistema que sí
+  // está filtrado, y lo presenta como un total filtrado. Antes esa lista era
+  // un literal dentro del JSX, sin una sola prueba.
+  const casos: { filtro: keyof SalesReportFilters; valor: unknown; etiqueta: string }[] = [
+    { filtro: "method", valor: "cash", etiqueta: "Método de pago" },
+    { filtro: "comprobante", valor: "b02", etiqueta: "Tipo de comprobante" },
+    { filtro: "status", valor: "paid", etiqueta: "Estado" },
+    { filtro: "cashierId", valor: "u-1", etiqueta: "Cajero" },
+    { filtro: "sellerId", valor: "u-2", etiqueta: "Vendedor" },
+    { filtro: "customerQuery", valor: "Ana", etiqueta: "Cliente" },
+    { filtro: "productQuery", valor: "crema", etiqueta: "Producto" },
+  ];
+
+  it.each(casos)("«$etiqueta» deja el histórico fuera", ({ filtro, valor, etiqueta }) => {
+    const f = { ...EMPTY_FILTERS, [filtro]: valor } as SalesReportFilters;
+    expect(filtrosDelReporteSinHistorico(f)).toContain(etiqueta);
+  });
+
+  it("sin filtros, el histórico entra", () => {
+    expect(filtrosDelReporteSinHistorico(EMPTY_FILTERS)).toEqual([]);
+  });
+
+  it("fecha y sucursal NO lo dejan fuera: la ruta sí sabe aplicarlos", () => {
+    const f: SalesReportFilters = {
+      ...EMPTY_FILTERS,
+      from: "2026-01-01",
+      to: "2026-09-05",
+      branchId: "b-1",
+    };
+    expect(filtrosDelReporteSinHistorico(f)).toEqual([]);
+  });
+
+  it("«Incluir proformas» tampoco: en Alegra todo lo migrado son facturas", () => {
+    const f: SalesReportFilters = { ...EMPTY_FILTERS, includeProformas: false };
+    expect(filtrosDelReporteSinHistorico(f)).toEqual([]);
+  });
+
+  it("un texto de solo espacios no cuenta como filtro puesto", () => {
+    const f: SalesReportFilters = { ...EMPTY_FILTERS, customerQuery: "   " };
+    expect(filtrosDelReporteSinHistorico(f)).toEqual([]);
+  });
+
+  it("con varios puestos, los nombra todos", () => {
+    const f: SalesReportFilters = { ...EMPTY_FILTERS, method: "cash", cashierId: "u-1" };
+    expect(filtrosDelReporteSinHistorico(f)).toEqual(["Método de pago", "Cajero"]);
   });
 });
