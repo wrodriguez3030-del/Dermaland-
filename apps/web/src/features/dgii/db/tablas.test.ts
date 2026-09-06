@@ -38,4 +38,50 @@ describe("listas canónicas de tablas fiscales", () => {
       expect(TABLAS_LEGACY, `${t} es intocable`).not.toContain(t);
     }
   });
+
+  it("TABLAS_NUEVAS contiene exactamente las 17 tablas esperadas, en el orden correcto", () => {
+    // La lista se define aquí y en tablas.ts para que un cambio silencioso en una
+    // se vea como fallo ruidoso en la otra. Si alguien cambia un nombre (ej: mal
+    // transcrito de agendapp) sin actualizar también aquí, la prueba falla.
+    expect(TABLAS_NUEVAS).toEqual([
+      "dgii_settings",
+      "dgii_certificates",
+      "ecf_sequences",
+      "electronic_invoices",
+      "electronic_invoice_items",
+      "dgii_submissions",
+      "dgii_status_logs",
+      "dgii_enablement_progress",
+      "dgii_representative_attestations",
+      "received_ecf",
+      "received_commercial_approvals",
+      "dgii_certification_datasets",
+      "dgii_certification_cases",
+      "dgii_simulation_ranges",
+      "dgii_certification_applications",
+      "dgii_certification_events",
+      "dgii_certification_evidence",
+    ]);
+  });
+
+  it("TABLAS_LEGACY contiene exactamente las 13 tablas esperadas, en el orden correcto", () => {
+    // La lista se define aquí y en tablas.ts para que un cambio silencioso en una
+    // se vea como fallo ruidoso en la otra. Si alguien cambia un nombre (ej: mal
+    // transcrito de agendapp) sin actualizar también aquí, la prueba falla.
+    expect(TABLAS_LEGACY).toEqual([
+      "dgii_settings",
+      "dgii_certificates",
+      "ecf_sequences",
+      "electronic_invoices",
+      "electronic_invoice_items",
+      "dgii_submissions",
+      "dgii_status_logs",
+      "dgii_received_ecf",
+      "dgii_commercial_approvals",
+      "proforma_to_ecf_logs",
+      "dgii_logs",
+      "ecf_document_events",
+      "cash_closing_ecf_items",
+    ]);
+  });
 });
