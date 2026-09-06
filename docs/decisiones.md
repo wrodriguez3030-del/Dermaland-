@@ -5,6 +5,414 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — Segunda tanda (revisión externa, I2): `subtotal_gravado` pasa a guardar el subtotal de TODAS las líneas, no solo las gravadas
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+
+### Antes
+
+`prepararComprobante` guardaba `factura.subtotal_gravado =
+totalesBuilder.montoGravado` — la suma de SOLO los tramos con ITBIS
+declarable (`core/builder.ts`, indicador `"1"`/`"2"`/`"3"`: 18 %, 16 %,
+gravado 0 %). Un ítem exento (indicador `"4"`) o no facturable (indicador
+`"0"`) no entraba en ese número.
+
+En un ticket que mezcle, por ejemplo, un medicamento exento (RD$100,
+`itbisRate` 0) con una cosmética gravada al 18 % (RD$100 + RD$18 de ITBIS),
+el resultado era: `subtotal_gravado = 100` (solo la línea gravada),
+`total_itbis = 18`, `total = 218`. La fila no cuadraba:
+`subtotal_gravado + total_itbis` (118) ≠ `total` (218) — la diferencia es
+exactamente el importe de las líneas exentas, que desaparecía de la
+ecuación.
+
+### Después
+
+Ahora guarda `factura.subtotal_gravado = totalesBuilder.subtotal` — el
+campo que YA calcula `core/builder.ts:134`
+(`subtotal = montoGravado + montoExento + noFacturable`), la suma de TODAS
+las líneas antes de ITBIS. Mismo ticket de arriba: `subtotal_gravado = 200`,
+`total_itbis = 18`, `total = 218` — `subtotal_gravado + total_itbis = total`
+se cumple siempre. Prueba de fijación: `prepare.test.ts`, "I2 — subtotal_gravado
+guarda el subtotal de TODAS las líneas, no solo las gravadas".
+
+### Por qué
+
+agendapp (`invoice-prepare.ts:227-236`, SOLO LECTURA) calcula `subtotal`
+sumando TODAS las líneas sin distinguir exentas de gravadas, y lo guarda en
+la misma columna (`subtotal_gravado: subtotal`, línea 505). El nombre de la
+columna es un resabio histórico —"gravado" ya no describe lo que guarda, ni
+aquí ni en agendapp— pero renombrarla es una migración, fuera del alcance
+de esta corrección; lo que sí había que alinear era EL VALOR, y ahí
+agendapp es la fuente de verdad ya portada. DermaLand es una farmacia: un
+ticket con medicamentos exentos y cosmética gravada en el mismo carrito es
+el caso NORMAL, no el raro, así que el hallazgo no era hipotético.
+
+### Consecuencias
+
+- `apps/web/src/server/repositories/supabase/dgii.ts:191` lee esta misma
+  columna como `amount` para el listado de comprobantes — con el valor
+  viejo, una factura mixta se mostraba con un monto menor al real. Queda
+  corregido con el mismo cambio, sin tocar ese archivo.
+- Quien lea la columna asumiendo "solo lo gravado" (por su nombre) se
+  equivoca desde ahora — igual que ya se equivocaba leyendo la de
+  agendapp. Documentado aquí para que no se repita esa lectura ingenua en
+  un reporte futuro.
+
+---
+
+## 2026-09-06 — Tarea 5 (orquestación): se firma ANTES de validar contra el XSD, no al revés
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+
+### Por qué
+
+El resumen de una frase del pliego describía el paso 3 como "`buildEcfXml` →
+`validateEcfXml` contra el XSD → `signEcfXml`". Implementado literalmente, la
+validación SIEMPRE falla: los XSD oficiales exigen `<Signature>` como
+`xs:any minOccurs="1"` al final de `<ECF>`
+(`core/xsd/e-CF-32-v1.0.xsd:424`), y el propio `core/validator.test.ts:120` ya
+lo prueba y lo documenta — "el XML SIN firma falla el XSD solo por el
+`<Signature>` requerido (Fase 6)". Validar el XML sin firmar habría hecho que
+CUALQUIER comprobante, sin excepción, se reportara como XSD inválido.
+(Corregido en la ronda de corrección 1: la primera versión de esta entrada
+citaba `core/builder.test.ts`, que no es donde vive esa prueba.)
+
+agendapp (`invoice-prepare.ts:428-433`, SOLO LECTURA) confirma cuál es el
+orden que de verdad funciona: construye, firma, verifica la firma y **luego**
+valida el `signed.signedXml` contra el XSD.
+
+### Decisión
+
+El orden real en `prepararComprobante` es: `buildEcfXml` → `signEcfXml` →
+`validateEcfXml` sobre el XML **ya firmado**. Es una corrección de un error
+de transcripción del pliego, no una desviación de la lógica fiscal: el
+orden de los GATES (habilitación → configuración → certificado → mirar el
+número) y el de la PERSISTENCIA (subir → preparar → finalizar) no cambian;
+solo se corrige en qué momento exacto, dentro del paso 3, se llama a
+`validateEcfXml`.
+
+### Consecuencias
+
+- Un XML mal formado (que ni siquiera pasaría el XSD con la firma puesta)
+  se detecta ANTES de subir al bucket y ANTES de `prepararFactura`: no se
+  consume ningún número por un documento que de todos modos no serviría.
+- Quien lea el pliego de la tarea 5 sin leer esta entrada esperaría el orden
+  contrario. Queda escrito aquí para que no se repita el error en una fase
+  futura que porte lógica parecida.
+
+---
+
+## 2026-09-06 — Tarea 5: `dobles()` de la prueba necesitó emisor y certificado de prueba que el pliego no traía
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.test.ts`
+
+### Por qué
+
+El pliego trae `dobles()` con tres claves: `habilitacion`, `secuencias`,
+`almacenamiento`. Ninguna prueba mockea Supabase (no hay
+`vi.mock("@/lib/supabase/server")`, a diferencia de `enablement.test.ts`),
+así que `obtenerConfiguracion`/`obtenerCertificadoActivo` reales — que
+`prepararComprobante` SÍ necesita usar por defecto, per el pliego
+("Consume: ... `certificates.ts`, `settings.ts`") — corren de verdad en la
+prueba. Comprobado empíricamente (`console.log` temporal, borrado después):
+en `apps/web` sin `.env.local` cargado por vitest, `createServiceRoleClient()`
+devuelve `null`. Con eso, `obtenerConfiguracion` devuelve `null` (sin
+lanzar) pero `obtenerCertificadoActivo` **lanza** (`obtenerClienteOFallar()`
+lanza si el cliente es `null`) — ninguno de los dos deja construir ni firmar
+un XML real, y las pruebas 1/3/5 (que exigen llegar hasta "subir" y
+"prepare") no podrían pasar nunca sin ayuda.
+
+### Decisión
+
+`prepararComprobante` trata `configuracion` y `certificado` como
+dependencias inyectables MÁS (mismo patrón que `habilitacion`: un VALOR ya
+resuelto, no una función), con default = los servicios reales
+(`obtenerConfiguracion`, `obtenerCertificadoActivo` + `parsePkcs12Certificate`
+del núcleo). `dobles()` se amplió con esas dos claves:
+- `configuracion`: un objeto `ConfiguracionFiscal` de prueba (RNC, Provincia y
+  Municipio con el catálogo jerárquico de 6 dígitos que exige el XSD
+  oficial — un `"25"`/`"01"` cortos, como los que usan `settings.test.ts` y
+  `enablement.test.ts` para pruebas que NO pasan por el XSD, no son un
+  elemento válido de ese enum; el teléfono también exige el patrón
+  `###-###-####`).
+- `certificado`: `{certificatePem, privateKeyPem}` de
+  `getDummyCert()` (`core/__port__/dgii-test-cert.ts`) — el certificado
+  autofirmado en memoria que la regla global de la fase exige para
+  cualquier prueba de firma. Ningún `.p12` real entra al repositorio.
+
+El resto del cuerpo de los `it(...)` es literal del pliego, sin cambios.
+
+### Consecuencias
+
+- Las pruebas de "camino feliz" (1, 3, 5) ejercitan `buildEcfXml`,
+  `signEcfXml` y `validateEcfXml` REALES contra el XSD oficial — no un doble
+  — lo que de paso confirma en verde el resultado de la entrada anterior de
+  esta lista (firmar antes de validar).
+- La prueba "no abre ni una conexión a la DGII" queda más honesta: no
+  depende de que Supabase esté (o no) configurado en el entorno donde corre
+  vitest — `habilitacion`/`configuracion`/`certificado` son valores fijos,
+  nunca tocan `fetch`, pase lo que pase con las variables de entorno.
+
+---
+
+## 2026-09-06 — Tarea 5: la ruta de almacenamiento durante el baile usa un id de intento, no el `invoiceId` final
+
+**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+
+### Por qué
+
+El path canónico es `dgii/{businessId}/invoices/{invoiceId}/signed.xml`. El
+baile sube el XML (paso 4) ANTES de llamar a `prepararFactura` (paso 5), que
+es quien INSERTA la fila de `electronic_invoices` y le asigna su `id`
+(`gen_random_uuid()` por defecto — confirmado leyendo el `insert` de
+`prepare_ecf_invoice` en `20260906090200_dgii_fase2_funciones.sql:255-267`:
+no acepta un id de quien llama). En el momento de subir, el `invoiceId` real
+**todavía no existe**.
+
+### Decisión
+
+Cada intento de firma sube con un id generado en el cliente
+(`randomUUID()`, `node:crypto`) como segmento `{invoiceId}` de la ruta — uno
+nuevo por reintento, porque cada reintento firma un XML distinto (e-NCF
+distinto). La ruta resultante se guarda tal cual en `xml_signed_path` vía
+`finalizarFactura`; la recuperación posterior (`leerXml`) usa esa ruta
+guardada, no la reconstruye a partir del `id` de la fila. El segmento de la
+ruta y el `id` de `electronic_invoices` no tienen por qué coincidir — nada
+en `storage.ts` ni en la fase 2 lo exige.
+
+### Consecuencias
+
+- Un reintento por `ENCF_TOMADO` deja el objeto de un intento anterior sin
+  ninguna fila que lo referencie. **Corregido en la ronda de corrección 1
+  (I4):** la primera versión de esta entrada decía que no se limpiaba
+  ("no es un riesgo fiscal... esta tarea no la añade"). Una revisión externa
+  lo marcó bien: aunque no quema número, es un comprobante con FIRMA REAL
+  guardado indefinidamente sin ninguna fila que lo apunte — evidencia
+  fiscal, no un fichero temporal. `prepararComprobante` ahora borra el XML
+  del intento perdido tanto al reintentar como al agotar los 3 intentos
+  (y también en el caso `IDEMPOTENT_PROFORMA_YA_FACTURADA`, por el mismo
+  motivo), con pruebas dedicadas en `prepare.test.ts`. **Precisión añadida en
+  el cierre (tarea 7):** esta frase, tal cual quedó tras la ronda 1,
+  sobrestimaba la cobertura — de los tres caminos de borrado, solo dos
+  tenían prueba propia ("una carrera perdida borra el XML antes de
+  reintentar" y "una carrera que no cede se rinde"); el de
+  `IDEMPOTENT_PROFORMA_YA_FACTURADA` no la tenía, y quitar ese borrado en
+  `prepare.ts` dejaba las 13 pruebas de entonces igual de verdes (comprobado
+  por mutación). La tarea 7 añadió la prueba que faltaba; ahora sí son tres
+  de tres.
+
+---
+
+## 2026-09-06 — Tarea 5: el sha256 llega a `finalizarFactura` ensanchando su tipo, no con un truco de TypeScript
+
+**Archivos:**
+- `apps/web/src/features/dgii/services/prepare.ts`
+- `apps/web/src/server/repositories/supabase/dgii-sequences.ts`
+
+### Por qué
+
+La nota del encargo decía: "El sha256 del XML firmado lo calcula este
+módulo, no el de almacenamiento: se decidió así en la ronda 3 de la tarea 1"
+(confirmado en `task-1-report.md`: se borró un `calcularSha256()` que nadie
+llamaba, con el comentario "el SHA256 del XML lo calcula el preparador, no
+este módulo"). Pero `finalizarFactura(invoiceId, datos)` en
+`dgii-sequences.ts` tipaba `datos` como `{ xml_signed_path: string }` — sin
+sitio para el hash.
+
+Al buscar dónde debía ir, apareció un hueco real de fase 2, más grande de
+lo que la primera versión de esta entrada decía (corregido en la ronda de
+corrección 1 — I1; el detalle completo, con los nombres exactos y qué hay
+que hacer para cerrarlo, vive en `docs/riesgos.md`, entrada `R-FIS-04`, no
+aquí):
+- El comentario de `finalize_ecf_invoice`
+  (`20260906090200_dgii_fase2_funciones.sql:298`) dice
+  `p_datos: {xml_signed_path, xml_sha256, security_code}`, pero el CUERPO
+  de la función solo lee `xml_signed_path`.
+- La columna real para el hash existe, pero se llama
+  `electronic_invoices.hash_sha256`
+  (`20260906090100_dgii_fase2_tablas.sql:243`), no `xml_sha256` como dice
+  el comentario.
+- `security_code` **no existe en `electronic_invoices` en absoluto** —la
+  primera versión de esta entrada decía solo que estaba "sin usar", que es
+  impreciso. La única columna con ese nombre en toda la migración es
+  `dgii_certification_cases.security_code`
+  (`20260906090100_dgii_fase2_tablas.sql:548`), una tabla de certificación,
+  no de facturación.
+- Ninguna migración de esta tarea puede tocar eso (fuera de alcance: "no
+  apliques migraciones, no escribas en la base").
+
+### Decisión
+
+Se descartó el enfoque original de esta entrada (una variable intermedia
+tipada para colar el campo sin que TypeScript lo viera, aprovechando que el
+chequeo de "excess properties" solo mira objetos literales). Una revisión
+externa lo marcó: una errata en el nombre del campo pasaría inadvertida
+hasta producción. En su lugar, `finalizarFactura` en `dgii-sequences.ts`
+ensancha su tipo de forma aditiva:
+`datos: { xml_signed_path: string; xml_sha256?: string }` — un campo
+opcional, una línea, sin tocar la lógica de la función (sigue reenviando
+`datos` tal cual a `p_datos`). Una errata en el nombre la cacha el
+compilador, no un `grep` en producción.
+
+### Consecuencias
+
+- El cálculo del hash tiene un destino real (no queda como código muerto
+  esperando a que alguien lo use, que es justo el patrón que la ronda 3 de
+  la tarea 1 corrigió), y su nombre de campo está protegido por el tipo.
+- **Hoy sigue sin persistir de verdad**: `finalize_ecf_invoice` no escribe
+  `hash_sha256` (ni ningún otro campo del hash). Todo comprobante firmado
+  hasta que se cierre ese hueco queda con `hash_sha256` NULO. Riesgo
+  abierto y plan de cierre en `docs/riesgos.md`, entrada `R-FIS-04`.
+
+---
+
+## 2026-09-06 — Tarea 5: por qué existe `dgii-invoices.ts`, y qué NO resuelve todavía
+
+**Archivos:**
+- `apps/web/src/server/repositories/supabase/dgii-invoices.ts` (nuevo)
+- `apps/web/src/features/dgii/services/prepare.ts`
+
+### Por qué
+
+El pliego pide crear este archivo sin decir para qué. `prepare_ecf_invoice`
+devuelve `IDEMPOTENT_PROFORMA_YA_FACTURADA` con SOLO `invoice_id` — sin
+`e_ncf` ni ruta del XML (`20260906090200_dgii_fase2_funciones.sql:198-205`).
+`ResultadoPreparar` (el de esta tarea) exige `eNcf` y `rutaXml` como
+`string` también en el caso idempotente, así que hace falta leer esos dos
+campos de la factura que YA existía.
+
+### Decisión
+
+`crearRepositorioFacturas` expone `leerResumen(invoiceId)`: una lectura
+suelta de `electronic_invoices` (id, e_ncf, xml_signed_path) filtrada por
+`business_id`, del mismo tipo que `leerConfiguracion`/`leerCertificadoActivo`
+en `dgii-settings.ts` — no es el baile transaccional, así que no vive en
+`dgii-sequences.ts`. `prepararComprobante` la usa de MEJOR ESFUERZO: si no
+se puede leer (Supabase no configurado, fila no encontrada, lo que sea), se
+responde igual `{ok:true, invoiceId, eNcf:"", rutaXml:""}` en vez de fallar
+o de inventar un dato fiscal.
+
+### Lo que queda fuera, a propósito
+
+Los tipos que exigen `FechaVencimientoSecuencia` en el XSD (31, 33, 41, 43,
+44, 45, 46, 47 — ver `core/builder.ts`, `requiereVencimiento`) necesitan la
+fecha de vencimiento de la secuencia autorizada
+(`ecf_sequences.expires_at`), y ningún repositorio de esta tarea ni de la
+fase 2 expone esa lectura todavía. agendapp aprendió esto por las malas
+(v525: "un comprobante con una fecha fiscal inventada es peor que uno que
+falta") y no se repite aquí: sin esa lectura, `buildEcfXml` rechaza el
+comprobante con un mensaje claro ANTES de firmar y ANTES de consumir el
+e-NCF — falla seguro, no falla en silencio ni inventa la fecha. Con las
+pruebas de esta tarea (tipo 32, que no exige vencimiento) esto no se
+ejercita; queda para quien construya el flujo de tipo 31 (crédito fiscal),
+que si necesita añadir esa lectura, probablemente vaya en `dgii-invoices.ts`
+o en `dgii-sequences.ts`. **Riesgo abierto con severidad y plan de cierre:**
+`docs/riesgos.md`, entrada `R-FIS-05` (ronda de corrección 1 — confirmado
+con sonda que falla limpio, sin gastar número; es lo primero que va a
+tropezar quien cablee el POS en la fase 4, porque el tipo 31 es el que
+`document-resolver.ts` elige para todo cliente de crédito fiscal).
+
+---
+
+## 2026-09-06 — Los gates de habilitación leen los repositorios directamente, no `certificates.ts`
+
+**Archivos:**
+- `apps/web/src/features/dgii/services/enablement.ts` (tarea 4 de la fase 3A)
+- `apps/web/src/server/repositories/supabase/dgii-settings.ts` (método nuevo `contarSecuenciasActivas`)
+
+### Por qué
+
+El pliego de la tarea 4 señala `certificates.ts` (tarea 2) como lo que hay
+que reutilizar para "el certificado activo y su vigencia". Pero
+`obtenerCertificadoActivo` DESCIFRA el `.p12` y, si el certificado activo
+está vencido (o aún no es vigente), LANZA `ErrorCertificado(..., "vencido")`
+sin devolver la fila — se pierde `valid_to`, justo el dato que un gate
+necesita para poder decir "hay certificado, pero venció el DD/MM" sin una
+excepción de por medio. Un certificado vencido no es un error de
+programación: es un estado normal del negocio, y un gate tiene que poder
+describirlo sin capturar una excepción.
+
+Es, además, lo que hace el propio origen: `enablement-service.ts` de
+agendapp tampoco pasa por el equivalente de `certificates.ts` para esto —
+hace su propio `prisma.dgiiCertificate.findFirst({ select: { alias,
+valid_to } })`, una lectura de metadata mínima, sin descifrar nada. Ir al
+repositorio directamente es el port fiel; pasar por `certificates.ts`
+habría sido la desviación.
+
+Por separado, `evaluarHabilitacion` necesita contar las secuencias activas
+de `ecf_sequences` (dos conteos en agendapp: el total y el de ambiente
+`ecf`), y ningún repositorio de la fase 2 tenía un método para eso:
+`dgii-sequences.ts` es el baile transaccional `peek/prepare/finalize/fail`
+sobre las funciones PL/pgSQL, no lecturas de metadata sueltas.
+
+### Decisión
+
+`evaluarHabilitacion` llama a
+`crearRepositorioConfiguracion(...).leerCertificadoActivo()` directamente
+para la metadata del certificado (existe + `valid_to`), en vez de
+`certificates.ts`. `certificates.ts` se queda como el único que descifra el
+`.p12` para firmar de verdad (lo usará la tarea 5).
+
+El conteo de secuencias se añadió como `contarSecuenciasActivas` en
+`dgii-settings.ts` — no en `dgii-sequences.ts` ni en un repositorio
+nuevo—: es una lectura de metadata simple, del mismo tipo que
+`leerConfiguracion`/`leerCertificadoActivo` que ya viven ahí.
+
+### Consecuencias
+
+- No hay dos caminos que decidan si el certificado está vigente: la
+  vigencia se calcula una sola vez, en `evaluarHabilitacion`, a partir de la
+  misma columna `valid_to` que usa `certificates.ts` — solo que sin la
+  excepción de por medio.
+- Quien busque "el conteo de secuencias" en `dgii-sequences.ts` no lo va a
+  encontrar ahí: está en `dgii-settings.ts`, junto a la configuración y el
+  certificado.
+
+---
+
+## 2026-09-06 — La persistencia DGII portada vive en `features/dgii/services/`, no en `server/services/dgii/`
+
+**Archivos:**
+- `apps/web/src/features/dgii/services/certificates.ts` (tarea 2 de la fase 3A)
+- `apps/web/src/features/dgii/services/storage.ts` (tarea 1)
+- `apps/web/src/server/repositories/supabase/dgii-settings.ts`
+
+### Por qué
+
+El diseño aprobado de la fase 3A decía que la capa de persistencia portada de
+agendapp fuera a `apps/web/src/server/services/dgii/`. Ese directorio ya está
+ocupado por el módulo fiscal viejo de DermaLand (`builder.ts`,
+`queue-worker.ts`, `dashboard.ts`, `pdf.ts`, `qr.ts` y otra veintena de
+archivos), que sigue vivo — tiene un cron diario en `vercel.json`
+(`/api/dgii/cola`) — y no se retira hasta la fase 8. Poner ahí el código
+nuevo habría mezclado dos módulos fiscales con esquemas de base
+incompatibles en el mismo directorio.
+
+### Decisión
+
+El código portado de la fase 3A vive en `apps/web/src/features/dgii/services/`,
+junto al núcleo puro que la fase 1 dejó en `apps/web/src/features/dgii/core/`.
+Así todo el módulo nuevo queda bajo `features/dgii/` y el viejo se queda
+intacto en `server/services/dgii/` hasta que le toque su retirada.
+
+Debía haberse anotado aquí desde la tarea 1 (que ya creó
+`features/dgii/services/storage.ts` con este mismo motivo, documentado solo en
+`task-1-report.md`); se deja constancia ahora, con la tarea 2 añadiendo el
+segundo archivo al mismo directorio.
+
+### Consecuencias
+
+- Quien busque "el servicio de certificados/almacenamiento DGII" en
+  `server/services/dgii/` no lo va a encontrar ahí — está en
+  `features/dgii/services/`. Vale la pena repetirlo en el README del módulo
+  cuando se escriba.
+- El repositorio `apps/web/src/server/repositories/supabase/dgii-settings.ts`
+  SÍ se queda en `server/repositories/supabase/`, junto a
+  `dgii-sequences.ts`: esa carpeta no tiene el choque de nombres que sí tiene
+  `server/services/dgii/`, así que no hizo falta desviarse ahí.
+
+---
+
 ## 2026-09-06 — La unicidad del e-NCF pasa a ser TOTAL: un comprobante anulado bloquea su número
 
 **Archivos:**
