@@ -89,6 +89,8 @@ export interface NuevaFilaCertificadoDgii {
   /** Sobre sellado AES-256-GCM, serializado a JSON (columna `text`, no necesita hex). */
   password_secret_ref: string;
   kdf?: string;
+  /** Quién subió el certificado. `null` si no hay usuario identificable. */
+  uploaded_by: string | null;
 }
 
 function desenvolver<T>(r: { data: T; error: { message: string } | null }, que: string): T {
@@ -177,6 +179,7 @@ export function crearRepositorioConfiguracion(cliente: SupabaseClient, businessI
           password_secret_ref: fila.password_secret_ref,
           kdf: fila.kdf ?? "AES-256-GCM",
           is_active: true,
+          uploaded_by: fila.uploaded_by,
         })
         .select("id")
         .single();

@@ -33,18 +33,25 @@ import "server-only";
  *    dada, es `clave_incorrecta`. Verificado empíricamente (ver
  *    task-2-report.md) contra los tres casos de entrada corrupta y un `.p12`
  *    real con contraseña equivocada.
- * 5. **Sin auditoría.** agendapp llama `recordAudit(...)` en cada operación;
- *    la interfaz de esta tarea (`obtenerCertificadoActivo`/
- *    `guardarCertificado`) no la pide y esta fase no trae un repositorio de
- *    auditoría equivalente. Queda fuera a propósito — no es lógica fiscal,
- *    así que no hace falta anotarlo en `docs/decisiones.md`, pero se deja
- *    constancia aquí para quien retome el módulo en fases posteriores.
+ * 5. **Auditoría con `auditRepository` (ronda de corrección 1).** agendapp
+ *    llama `recordAudit(...)` en cada operación sobre el certificado; la
+ *    primera versión de este archivo lo dejó fuera porque la interfaz
+ *    pedida no lo mencionaba. Es una regresión real, no un detalle: el
+ *    `.p12` es el material con el que se firman comprobantes ante la DGII,
+ *    y no saber quién lo subió ni cuándo es un hueco de cumplimiento. Se usa
+ *    el `auditRepository` que ya existe en
+ *    `server/repositories/supabase/audit.ts` (acción
+ *    `"dgii_certificate_upload"`, igual que agendapp) y `guardarCertificado`
+ *    ahora recibe `userId` y lo escribe en `uploaded_by`. La entrada de
+ *    auditoría lleva SOLO alias, huella (`fingerprintSha256`) y fechas de
+ *    vigencia — nunca el `.p12`, la contraseña, ni el sobre cifrado.
  *
  * Regla dura de toda la fase: el `.p12` NUNCA se guarda ni se registra en
  * claro — ni en la base, ni en un log, ni en un mensaje de error.
  */
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { crearRepositorioConfiguracion } from "@/server/repositories/supabase/dgii-settings";
+import { auditRepository } from "@/server/repositories/supabase/audit";
 import * as forge from "node-forge";
 import {
   getDgiiEncryptionKeyFromEnv,
@@ -97,6 +104,10 @@ export interface ArgsGuardarCertificado {
   pkcs12: Buffer;
   password: string;
   alias?: string | null;
+  /** Quién sube el certificado — se escribe en `uploaded_by` y en la auditoría. */
+  userId: string;
+  /** Para la entrada de auditoría (`AuditLog.userName` es obligatorio ahí). */
+  userName?: string;
 }
 
 function obtenerClienteOFallar() {
@@ -258,6 +269,30 @@ export async function guardarCertificado(
     valid_to: parsed.metadata.validTo,
     pkcs12_encrypted_blob: Buffer.from(JSON.stringify(sobreP12), "utf8"),
     password_secret_ref: JSON.stringify(sobrePassword),
+    uploaded_by: args.userId,
   });
+
+  // Auditoría: SOLO metadata pública del certificado (alias, huella, fechas).
+  // Nunca el .p12, la contraseña, ni el sobre cifrado. `auditRepository.log`
+  // nunca lanza (ver server/repositories/supabase/audit.ts) — un fallo de
+  // auditoría no puede tumbar la subida del certificado.
+  await auditRepository.log(
+    { businessId },
+    {
+      businessId,
+      userId: args.userId,
+      userName: args.userName ?? "",
+      action: "dgii_certificate_upload",
+      entity: "dgii_certificates",
+      entityId: id,
+      metadata: {
+        alias: args.alias ?? null,
+        fingerprint_sha256: parsed.metadata.fingerprintSha256,
+        valid_from: parsed.metadata.validFrom,
+        valid_to: parsed.metadata.validTo,
+      },
+    },
+  );
+
   return { id };
 }

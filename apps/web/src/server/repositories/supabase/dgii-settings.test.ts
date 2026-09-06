@@ -89,6 +89,7 @@ describe("repositorio de configuración/certificado fiscal", () => {
       valid_to: "2034-01-01T00:00:00.000Z",
       pkcs12_encrypted_blob: blob,
       password_secret_ref: '{"v":1}',
+      uploaded_by: "user-1",
     });
     expect(r).toEqual({ id: "cert-nuevo" });
     const llamadaInsert = c.llamadas.find((l) => l.metodo === "insert");
@@ -97,6 +98,7 @@ describe("repositorio de configuración/certificado fiscal", () => {
     expect(payload.is_active).toBe(true);
     expect(payload.pkcs12_encrypted_blob).toBe(`\\x${blob.toString("hex")}`);
     expect(payload.password_secret_ref).toBe('{"v":1}');
+    expect(payload.uploaded_by).toBe("user-1");
   });
 
   it("desactivarCertificados apaga is_active pero NO toca revoked_at (no es una revocación)", async () => {
