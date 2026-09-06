@@ -29,7 +29,7 @@ export interface LineaAPreparar {
   /**
    * FRACCIÓN, no porcentaje: el 18 % del ITBIS se escribe `0.18`, no `18`.
    *
-   * La columna es `numeric(5,4)` (`20260906090100_dgii_fase2_tablas.sql:188`),
+   * La columna es `numeric(5,4)` (`20260906090100_dgii_fase2_tablas.sql:288`),
    * así que el máximo es 9.9999: un `18` heredado de la tabla vieja —que era
    * `numeric(5,2)` y sí guardaba porcentajes— DESBORDA. La convención no
    * estaba escrita en ningún sitio. M7 de la revisión final.
@@ -50,7 +50,7 @@ export type ResultadoFinalizar =
 
 /**
  * `fail_ecf_invoice` devuelve `jsonb_build_object('ok', true, 'invoice_id',
- * p_invoice_id)` (`20260906090200_dgii_fase2_funciones.sql:320`), igual que
+ * p_invoice_id)` (`20260906090200_dgii_fase2_funciones.sql:368`), igual que
  * `finalize_ecf_invoice`. El tipo declaraba solo `{ ok: true }` y una prueba
  * simulaba una respuesta que la función NUNCA emite. No rompía nada
  * —TypeScript no se queja de campos de más y `desenvolver` castea—, pero la

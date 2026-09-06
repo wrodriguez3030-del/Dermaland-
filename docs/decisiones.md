@@ -318,9 +318,10 @@ bloques que NO salen de agendapp — las ocho columnas de `0045` sobre
 `electronic_invoices` y la tabla `ecf_document_events`; ver las entradas de
 arriba. Lo que sigue siendo cierto es que no hay adiciones sobre el DDL
 portado)
-2: el porte es copia fiel con las seis sustituciones del pliego (ayudante de
+2: el porte es copia fiel con las siete sustituciones del pliego (ayudante de
 RLS, `sales`→`proformas`, esquema cualificado, `search_path`, minúsculas,
-comentarios reescritos) y nada más.
+comentarios reescritos, y el renombre del CHECK `ecf_sequences_next_chk` →
+`ecf_sequences_next_dentro_del_rango`) y nada más.
 
 ### Consecuencias
 

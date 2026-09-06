@@ -15,14 +15,21 @@
 -- MARCHA ATRÁS COMPLETA. Antes esta cabecera decía «volver atrás sea renombrar
 -- de vuelta», y eso NO basta: se dejaba fuera las dos claves foráneas. Quien
 -- hiciera la reversa obvia dejaría `proformas` y `cash_closing_sales` sin su
--- clave foránea PARA SIEMPRE Y EN SILENCIO (I3 de la revisión final). Los
--- cuatro pasos, en orden:
+-- clave foránea PARA SIEMPRE Y EN SILENCIO (I3 de la revisión final).
 --
---   1) renombrar las 13 de vuelta (quitarles el sufijo _legacy_20260906);
---   2) soltar las FK que la parte 3 creó hacia la electronic_invoices NUEVA:
+-- El orden no es libre: las tablas nuevas ocupan ocho de los trece nombres
+-- viejos. Hay que quitarlas de en medio antes de poder devolver los
+-- originales; por eso renombrar va después de borrar, no antes. Los cuatro
+-- pasos, en el orden que sí funciona:
+--
+--   1) soltar las FK que la parte 3 creó hacia la electronic_invoices NUEVA:
 --        alter table public.proformas          drop constraint if exists proformas_electronic_invoice_fk;
 --        alter table public.cash_closing_sales drop constraint if exists cash_closing_sales_electronic_invoice_fk;
---   3) recrearlas apuntando a la electronic_invoices restaurada, tal como
+--   2) borrar las 18 tablas nuevas y las 5 funciones (ahí se va la
+--      electronic_invoices nueva, ya sin la FK que la protegía);
+--   3) renombrar las 13 de vuelta (quitarles el sufijo _legacy_20260906):
+--      con las nuevas fuera, los ocho nombres que chocaban ya están libres;
+--   4) recrearlas apuntando a la electronic_invoices restaurada, tal como
 --      estaban en 0003_dgii_pos.sql:599-608:
 --        alter table public.proformas
 --          add constraint proformas_electronic_invoice_fk
@@ -32,11 +39,11 @@
 --          add constraint cash_closing_sales_electronic_invoice_fk
 --          foreign key (electronic_invoice_id) references public.electronic_invoices(id)
 --          on delete set null deferrable initially deferred;
---   4) borrar las 18 tablas nuevas y las 5 funciones.
 --
--- Sin el paso 3, proformas y cash_closing_sales quedan SIN clave foránea y en
--- silencio. Hacia adelante no hay hueco: si se aplicó la 1 y no la 3, basta con
--- correr las partes 2 y 3, que son idempotentes y reconstruyen las dos FK.
+-- Sin el paso 4, proformas y cash_closing_sales quedan SIN clave foránea y en
+-- silencio. Hacia adelante no hay hueco: si se aplicó el paso 3 y no el 4,
+-- basta con correr las partes 2 y 3, que son idempotentes y reconstruyen las
+-- dos FK.
 --
 -- Idempotente: cada renombrado comprueba con `to_regclass` que la tabla existe
 -- con el nombre viejo y que el nombre nuevo está libre.
