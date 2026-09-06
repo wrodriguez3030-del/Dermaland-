@@ -204,15 +204,41 @@ function useVentasApi<T>(
   React.useEffect(() => {
     if (!activo) return;
     const ctrl = new AbortController();
+    /**
+     * 🔴 Una respuesta OBSOLETA no puede escribir estado.
+     *
+     * La comprobación va pegada a CADA `setEstado`, no solo dentro del
+     * `catch`: el aborto puede llegar después de las cabeceras y mientras se
+     * lee el cuerpo. En ese momento `res.ok` ya vale `true`, así que sin esta
+     * guarda una lectura interrumpida se guardaría como respuesta buena —con
+     * todo a cero y en estado «listo»— y la pantalla enseñaría RD$0.00 como si
+     * fuera el total, sin el aviso. Es exactamente el fallo que este trabajo
+     * existe para cerrar.
+     *
+     * Pasa de verdad al cambiar de periodo o de sucursal con una petición en
+     * vuelo: la vieja se aborta y, contra 14 965 facturas, la nueva tarda.
+     */
+    const vigente = () => !ctrl.signal.aborted;
     setEstado({ tipo: "cargando" });
     fetch(`/api/ventas?${consulta}`, { signal: ctrl.signal, cache: "no-store" })
       .then(async (res) => {
-        const json: unknown = await res.json().catch(() => null);
+        // El `catch` de aquí solo absorbe un cuerpo que NO es JSON válido. Un
+        // aborto a mitad del cuerpo tiene que subir: tragárselo convertía una
+        // lectura interrumpida en un `null` que más abajo se lee como
+        // «cero ventas».
+        const json: unknown = await res.json().catch((e: unknown) => {
+          if (e instanceof DOMException && e.name === "AbortError") throw e;
+          return null;
+        });
         if (!res.ok) throw new Error(comoMensajeError(json) ?? FALLO_HISTORICO);
         return interpretarRef.current(json);
       })
-      .then((datos) => setEstado({ tipo: "listo", datos }))
+      .then((datos) => {
+        if (!vigente()) return;
+        setEstado({ tipo: "listo", datos });
+      })
       .catch((e: unknown) => {
+        if (!vigente()) return;
         if (e instanceof DOMException && e.name === "AbortError") return;
         // La migración `20260906130000_resumen_ventas_unificadas.sql` puede no
         // estar aplicada todavía: la API responde con un mensaje claro y aquí

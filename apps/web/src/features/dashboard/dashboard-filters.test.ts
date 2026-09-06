@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesPeriod, availableYears } from "./dashboard-filters";
+import { matchesPeriod, availableYears, mesSinAnio, rangoDelPeriodo } from "./dashboard-filters";
 
 const d = (s: string) => new Date(s).toISOString();
 
@@ -38,5 +38,32 @@ describe("availableYears", () => {
 
   it("lista vacía → []", () => {
     expect(availableYears([])).toEqual([]);
+  });
+});
+
+describe("rango de fechas del filtro de periodo", () => {
+  it("un mes concreto da su primer y último día, sin fallar en febrero", () => {
+    expect(rangoDelPeriodo("2", "2024")).toEqual({ desde: "2024-02-01", hasta: "2024-02-29" });
+    expect(rangoDelPeriodo("2", "2026")).toEqual({ desde: "2026-02-01", hasta: "2026-02-28" });
+    expect(rangoDelPeriodo("12", "2026")).toEqual({ desde: "2026-12-01", hasta: "2026-12-31" });
+  });
+
+  it("un año entero va del 1 de enero al 31 de diciembre", () => {
+    expect(rangoDelPeriodo("all", "2025")).toEqual({ desde: "2025-01-01", hasta: "2025-12-31" });
+  });
+
+  it("sin año no hay rango: null es «no acotes por fecha»", () => {
+    expect(rangoDelPeriodo("all", "all")).toBeNull();
+    expect(rangoDelPeriodo("7", "all")).toBeNull();
+  });
+
+  it("🔴 «un mes de cualquier año» se detecta como combo imposible", () => {
+    // `rangoDelPeriodo` devuelve null también aquí, y null significa «todo el
+    // histórico». Sin esta comprobación aparte, elegir «Julio · Todos» pediría
+    // sin querer las 14 965 facturas y enseñaría un total del periodo
+    // equivocado.
+    expect(mesSinAnio("7", "all")).toBe(true);
+    expect(mesSinAnio("all", "all")).toBe(false);
+    expect(mesSinAnio("7", "2026")).toBe(false);
   });
 });

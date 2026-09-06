@@ -46,6 +46,8 @@ import { useCustomers } from "@/features/customers/customer-store";
 import {
   matchesPeriod,
   availableYears,
+  mesSinAnio,
+  rangoDelPeriodo,
   MONTH_NAMES,
   type MonthFilter,
   type YearFilter,
@@ -79,26 +81,6 @@ import {
 } from "@/features/ventas/ventas-api";
 
 const SALE_DONE = new Set(["paid", "partially_paid", "issued", "converted_to_ecf"]);
-
-/**
- * Rango `desde`/`hasta` (YYYY-MM-DD, inclusive) para pedir el resumen de
- * Alegra según los filtros de mes/año del panel. `resumen_ventas_unificadas`
- * (la función de la base) solo entiende un rango continuo — no "este mes en
- * cualquier año" —, así que da `null` (sin acotar por fecha) cuando no hace
- * falta rango (los dos "Todos") y también en el único combo que un rango no
- * puede expresar: mes fijo + año "Todos". Ese combo se detecta aparte
- * (`mesSinAnioNoSoportado`, dentro del componente) para avisar en vez de
- * pedir sin querer el histórico completo de Alegra.
- */
-function rangoParaResumen(month: MonthFilter, year: YearFilter): { desde: string; hasta: string } | null {
-  if (year === "all") return null;
-  if (month === "all") return { desde: `${year}-01-01`, hasta: `${year}-12-31` };
-  const anio = Number(year);
-  const mes = Number(month);
-  const mm = String(mes).padStart(2, "0");
-  const ultimoDia = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
-  return { desde: `${year}-${mm}-01`, hasta: `${year}-${mm}-${String(ultimoDia).padStart(2, "0")}` };
-}
 
 export default function DashboardPage() {
   // Datos REALES (Supabase o local según DATA_SOURCE). Antes el dashboard
@@ -160,10 +142,10 @@ export default function DashboardPage() {
   // exactamente el problema que este trabajo corrige.
   const sucursalIdResumen = branchFilter === ALL_BRANCHES ? undefined : branchFilter;
   const rangoResumen = React.useMemo(
-    () => rangoParaResumen(monthFilter, yearFilter),
+    () => rangoDelPeriodo(monthFilter, yearFilter),
     [monthFilter, yearFilter],
   );
-  const mesSinAnioNoSoportado = monthFilter !== "all" && yearFilter === "all";
+  const mesSinAnioNoSoportado = mesSinAnio(monthFilter, yearFilter);
   // El combo "mes fijo + año Todos" no es un rango continuo: no hay nada que
   // pedirle a la base sin mentir sobre el filtro (ver `rangoParaResumen`), así
   // que la petición ni se lanza.
