@@ -1,3 +1,15 @@
+import "server-only";
+
+/**
+ * Menor (segunda tanda, revisión externa): este archivo llama a
+ * `createServiceRoleClient()` -la service-role key de Supabase- igual que
+ * `certificates.ts`, `enablement.ts`, `prepare.ts` y `storage.ts`, pero era
+ * el ÚNICO de los cinco sin `import "server-only"`. Sin él, Next.js no
+ * impide que un Client Component importe este módulo por error y arrastre
+ * la clave hacia el bundle del navegador; con él, el build falla en el
+ * momento en que alguien lo intente, no en producción. Prueba de fijación
+ * para los cinco archivos a la vez: `server-only-imports.test.ts`.
+ */
 import type { DgiiAmbienteTarget } from "@/features/dgii/core/killswitches";
 import { ambienteTargetOf } from "@/features/dgii/core/killswitches";
 import { createServiceRoleClient } from "@/lib/supabase/server";
