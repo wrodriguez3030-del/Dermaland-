@@ -45,6 +45,18 @@ import "server-only";
  *    ahora recibe `userId` y lo escribe en `uploaded_by`. La entrada de
  *    auditoría lleva SOLO alias, huella (`fingerprintSha256`) y fechas de
  *    vigencia — nunca el `.p12`, la contraseña, ni el sobre cifrado.
+ * 6. **La llamada de auditoría va en `try/catch` (ronda de corrección 2).**
+ *    La ronda 1 asumió que `auditRepository.log` "nunca lanza" — falso:
+ *    ese repositorio solo atrapa el error BLANDO de Supabase (`{ error }`
+ *    no nulo) con un `console.warn`; no tiene `try/catch` alrededor del
+ *    `insert`, así que un rechazo de verdad (red caída, cliente mal
+ *    formado) sube tal cual. Sin protección propia aquí, ese rechazo habría
+ *    tumbado `guardarCertificado` DESPUÉS de que el certificado ya quedara
+ *    insertado y activo: el usuario vería "falló la subida" de un
+ *    certificado que en realidad sí se guardó, y subiría un segundo.
+ *    Mismo patrón que `borrarXml` en `storage.ts` (tarea 1): perder una
+ *    entrada de auditoría es malo; perder de vista un certificado que sí se
+ *    guardó por culpa de esa auditoría es peor.
  *
  * Regla dura de toda la fase: el `.p12` NUNCA se guarda ni se registra en
  * claro — ni en la base, ni en un log, ni en un mensaje de error.
@@ -273,26 +285,45 @@ export async function guardarCertificado(
   });
 
   // Auditoría: SOLO metadata pública del certificado (alias, huella, fechas).
-  // Nunca el .p12, la contraseña, ni el sobre cifrado. `auditRepository.log`
-  // nunca lanza (ver server/repositories/supabase/audit.ts) — un fallo de
-  // auditoría no puede tumbar la subida del certificado.
-  await auditRepository.log(
-    { businessId },
-    {
-      businessId,
-      userId: args.userId,
-      userName: args.userName ?? "",
-      action: "dgii_certificate_upload",
-      entity: "dgii_certificates",
-      entityId: id,
-      metadata: {
-        alias: args.alias ?? null,
-        fingerprint_sha256: parsed.metadata.fingerprintSha256,
-        valid_from: parsed.metadata.validFrom,
-        valid_to: parsed.metadata.validTo,
+  // Nunca el .p12, la contraseña, ni el sobre cifrado.
+  //
+  // `try/catch` A PROPÓSITO, y solo aquí: el certificado YA quedó insertado
+  // y activo en la línea de arriba. `auditRepository.log` (ver
+  // `server/repositories/supabase/audit.ts`) solo atrapa el error blando de
+  // Supabase (`{ error }` no nulo, con `console.warn`) — no tiene
+  // `try/catch` alrededor del `insert`, así que un rechazo de verdad (red
+  // caída, cliente mal formado) sube tal cual. Sin atraparlo aquí, ese
+  // rechazo tumbaría `guardarCertificado` DESPUÉS de guardar el certificado:
+  // el usuario vería "falló la subida" de algo que sí se guardó, y subiría
+  // un segundo. Esto NO es licencia para envolver cualquier error en
+  // try/catch — cada `throw ErrorCertificado(...)` de arriba (p12 inválido,
+  // clave incorrecta, vencido, fallo de descifrado) debe seguir
+  // propagándose: ahí el usuario SÍ necesita saber que la operación falló.
+  try {
+    await auditRepository.log(
+      { businessId },
+      {
+        businessId,
+        userId: args.userId,
+        userName: args.userName ?? "",
+        action: "dgii_certificate_upload",
+        entity: "dgii_certificates",
+        entityId: id,
+        metadata: {
+          alias: args.alias ?? null,
+          fingerprint_sha256: parsed.metadata.fingerprintSha256,
+          valid_from: parsed.metadata.validFrom,
+          valid_to: parsed.metadata.validTo,
+        },
       },
-    },
-  );
+    );
+  } catch (err) {
+    console.warn(
+      `[dgii:certificates] auditoría de subida falló para el certificado ${id} ` +
+        `(el certificado igual quedó guardado y activo):`,
+      err instanceof Error ? err.message : err,
+    );
+  }
 
   return { id };
 }

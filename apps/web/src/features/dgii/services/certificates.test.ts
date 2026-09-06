@@ -22,6 +22,8 @@ import {
 import { parsePkcs12Certificate, EcfCertificateParseError } from "../core/certificate-parser";
 import { ErrorCertificado, obtenerCertificadoActivo, guardarCertificado } from "./certificates";
 import * as supabaseServer from "@/lib/supabase/server";
+import { auditRepository } from "@/server/repositories/supabase/audit";
+import * as forge from "node-forge";
 
 describe("certificado fiscal", () => {
   it("el sobre cifrado va y vuelve sin perder un byte", () => {
@@ -151,6 +153,37 @@ function crearClienteEnMemoria() {
       tablas[tabla]!.push(fila);
     },
   };
+}
+
+/**
+ * Genera un `.p12` dummy AÚN NO VIGENTE (`notBefore` en el futuro).
+ * `__port__/dgii-test-cert.ts` (núcleo, fase 1, "sin cambios") solo expone
+ * "válido" (`makeDummyPkcs12()`) y "ya vencido"
+ * (`makeDummyPkcs12(pwd, true)` / `getExpiredDummyCert`), no "todavía no
+ * vigente" — así que este caso se genera aquí, local a esta prueba, con el
+ * mismo procedimiento que el `makeCert`+`makeDummyPkcs12` internos de ese
+ * archivo compartido, sin tocarlo.
+ */
+function hacerPkcs12NoVigenteAun(password: string): { pkcs12Bytes: Uint8Array; password: string } {
+  const keys = forge.pki.rsa.generateKeyPair(2048);
+  const cert = forge.pki.createCertificate();
+  cert.publicKey = keys.publicKey;
+  cert.serialNumber = "0123456789ABCDEF";
+  cert.validity.notBefore = new Date("2099-01-01T00:00:00Z");
+  cert.validity.notAfter = new Date("2100-01-01T00:00:00Z");
+  const attrs = [
+    { name: "commonName", value: "DUMMY ECF TEST FUTURO" },
+    { name: "organizationName", value: "Negocio Dummy SRL" },
+    { shortName: "OU", value: "RNC 130000000" },
+    { name: "countryName", value: "DO" },
+  ];
+  cert.setSubject(attrs);
+  cert.setIssuer(attrs); // self-signed
+  cert.sign(keys.privateKey, forge.md.sha256.create());
+  const p12Asn1 = forge.pkcs12.toPkcs12Asn1(keys.privateKey, [cert], password, { algorithm: "3des" });
+  const der = forge.asn1.toDer(p12Asn1).getBytes();
+  const pkcs12Bytes = Uint8Array.from(Buffer.from(der, "binary"));
+  return { pkcs12Bytes, password };
 }
 
 describe("obtenerCertificadoActivo y guardarCertificado (con Supabase de mentira)", () => {
@@ -316,5 +349,106 @@ describe("obtenerCertificadoActivo y guardarCertificado (con Supabase de mentira
     expect(volcado).not.toContain(password);
     expect(volcado).not.toContain(Buffer.from(pkcs12Bytes).toString("base64"));
     expect(volcado).not.toContain(Buffer.from(pkcs12Bytes).toString("hex"));
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Ronda de corrección 2 — hallazgo Importante: un fallo de auditoría no
+  // puede tumbar una subida que ya se guardó.
+  // ───────────────────────────────────────────────────────────────────────
+
+  it("un fallo de auditoría NO tumba la subida: el certificado queda guardado y activo igual", async () => {
+    // Mismo patrón que borrarXml en storage.test.ts (tarea 1):
+    // mockRejectedValue sobre la operación de "mejor esfuerzo" y comprobar
+    // que la operación principal resuelve igual.
+    vi.spyOn(auditRepository, "log").mockRejectedValue(new Error("network down"));
+
+    const { pkcs12Bytes, password } = makeDummyPkcs12("clave-audit-cae");
+    const resultado = await guardarCertificado("biz-1", {
+      pkcs12: Buffer.from(pkcs12Bytes),
+      password,
+      userId: "user-1",
+    });
+
+    expect(resultado.id).toBeTruthy();
+    const fila = cliente.leerTabla("dgii_certificates").find((f) => f.id === resultado.id);
+    expect(fila).toBeTruthy();
+    expect(fila?.is_active).toBe(true);
+
+    // Y sigue siendo el que se lee como activo.
+    const activo = await obtenerCertificadoActivo("biz-1");
+    expect(activo?.id).toBe(resultado.id);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Ronda de corrección 2 — huecos menores de cobertura.
+  // ───────────────────────────────────────────────────────────────────────
+
+  it("el atajo de vigencia en claro dispara con un vencido, ANTES de intentar descifrar", async () => {
+    // Si se borrara el atajo (la comprobación sobre valid_from/valid_to en
+    // claro, antes de descifrar) y solo quedara la reconfirmación final, el
+    // código intentaría descifrar/parsear el sobre de abajo — que es
+    // deliberadamente basura, no JSON — y fallaría con p12_invalido, no con
+    // vencido. Por eso esta prueba SÍ distingue "el atajo existe" de "solo
+    // hay reconfirmación al final": si se quita el atajo, deja de estar en
+    // verde.
+    cliente.sembrar("dgii_certificates", {
+      id: "cert-vencido-atajo",
+      business_id: "biz-1",
+      alias: "Viejo",
+      subject_dn: null,
+      issuer_dn: null,
+      serial_number: null,
+      valid_from: "2019-01-01T00:00:00.000Z",
+      valid_to: "2021-01-01T00:00:00.000Z",
+      pkcs12_encrypted_blob: `\\x${Buffer.from("esto no es un sobre sellado", "utf8").toString("hex")}`,
+      password_secret_ref: "esto tampoco es un sobre sellado",
+      kdf: "AES-256-GCM",
+      is_active: true,
+      uploaded_by: null,
+      created_at: new Date().toISOString(),
+      revoked_at: null,
+    });
+
+    await expect(obtenerCertificadoActivo("biz-1")).rejects.toMatchObject({ codigo: "vencido" });
+  });
+
+  it("el atajo de vigencia en claro dispara con uno AÚN NO VIGENTE, antes de intentar descifrar", async () => {
+    // Mismo razonamiento que la prueba anterior, para la otra mitad del
+    // atajo (`valid_from > ahora`) — la única que agendapp también
+    // contempla en `parsePkcs12Certificate` pero que ninguna prueba de esta
+    // tarea ejercitaba todavía.
+    cliente.sembrar("dgii_certificates", {
+      id: "cert-futuro-atajo",
+      business_id: "biz-1",
+      alias: "Futuro",
+      subject_dn: null,
+      issuer_dn: null,
+      serial_number: null,
+      valid_from: "2099-01-01T00:00:00.000Z",
+      valid_to: "2100-01-01T00:00:00.000Z",
+      pkcs12_encrypted_blob: `\\x${Buffer.from("esto no es un sobre sellado", "utf8").toString("hex")}`,
+      password_secret_ref: "esto tampoco es un sobre sellado",
+      kdf: "AES-256-GCM",
+      is_active: true,
+      uploaded_by: null,
+      created_at: new Date().toISOString(),
+      revoked_at: null,
+    });
+
+    await expect(obtenerCertificadoActivo("biz-1")).rejects.toMatchObject({ codigo: "vencido" });
+  });
+
+  it("guardar un certificado AÚN NO VIGENTE falla con vencido, sin consumir nada", async () => {
+    // El otro sentido del hueco: solo se probaba "ya vencido" al guardar,
+    // nunca "todavía no vigente" (valid_from en el futuro).
+    const { pkcs12Bytes, password } = hacerPkcs12NoVigenteAun("clave-futura");
+    await expect(
+      guardarCertificado("biz-1", {
+        pkcs12: Buffer.from(pkcs12Bytes),
+        password,
+        userId: "user-1",
+      }),
+    ).rejects.toMatchObject({ codigo: "vencido" });
+    expect(cliente.leerTabla("dgii_certificates")).toHaveLength(0);
   });
 });
