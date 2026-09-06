@@ -73,11 +73,21 @@ async function main() {
     : mal(`se esperaban 13 tablas *_legacy_20260906 y hay ${legacy.rows[0].n}`);
 
   console.log("\n2) Comportamiento (todo dentro de una transacción que se deshace)\n");
+
+  // Verificar que existe al menos un plan antes de intentar crear un negocio de prueba
+  const planes = await cliente.query("select id from public.plans limit 1");
+  if (planes.rows.length === 0) {
+    await cliente.end();
+    mal("el verificador necesita al menos un plan en public.plans para crear su negocio de prueba");
+    console.log(fallos.length === 0 ? "\n✓ fase 2 verificada\n" : `\n✗ ${fallos.length} fallos\n`);
+    process.exit(1);
+  }
+
   await cliente.query("begin");
   try {
     const { rows: [neg] } = await cliente.query(
       `insert into public.businesses (legal_name, commercial_name, rnc, plan_id)
-       values ('VERIFICADOR FASE 2 — se deshace', 'VER-FASE-2', '00000000000', '00000000-0000-0000-0000-000000000001')
+       values ('VERIFICADOR FASE 2 — se deshace', 'VER-FASE-2', '00000000000', (select id from public.plans limit 1))
        returning id`,
     );
     const biz = neg.id;
