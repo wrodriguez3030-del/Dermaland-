@@ -76,3 +76,250 @@ end;
 $$;
 
 revoke execute on function reserve_next_encf(uuid, text, text) from public, anon, authenticated;
+
+-- ── peek_next_encf: qué número tocaría, sin consumir ni bloquear ─────────────
+-- La aplicación firma el XML con este número. Si entre el peek y el prepare
+-- otro cobro se lo lleva, `prepare_ecf_invoice` lo detecta y devuelve
+-- ENCF_TOMADO; entonces se vuelve a firmar. Firmar cuesta milisegundos de CPU
+-- local; quemar un número fiscal cuesta un trámite ante la DGII.
+create or replace function public.peek_next_encf(
+  p_business_id uuid,
+  p_tipo_ecf    text,
+  p_ambiente    text
+) returns text
+language plpgsql
+stable
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  v_next bigint;
+begin
+  select next_number into v_next
+  from public.ecf_sequences
+  where business_id = p_business_id
+    and tipo_ecf    = p_tipo_ecf
+    and ambiente    = p_ambiente
+    and status      = 'active'
+    and next_number <= range_end
+    and (expires_at is null or expires_at >= now())
+  order by range_start asc
+  limit 1;
+
+  if v_next is null then
+    raise exception 'peek_next_encf: no hay secuencia utilizable para business=% tipo=% ambiente=%',
+      p_business_id, p_tipo_ecf, p_ambiente using errcode = 'P0002';
+  end if;
+
+  return 'E' || p_tipo_ecf || lpad(v_next::text, 10, '0');
+end;
+$$;
+
+revoke execute on function public.peek_next_encf(uuid, text, text) from public, anon, authenticated;
+
+-- ── prepare_ecf_invoice: consume el número e inserta la factura, atómico ─────
+-- p_factura: {tipo_ecf, ambiente, proforma_id, customer_id, customer_rnc,
+--             subtotal_gravado, total_itbis, total, xml_generated_path}
+-- p_items:   [{line_no, name_item, quantity, unit_price, itbis_rate, monto_item}, …]
+create or replace function public.prepare_ecf_invoice(
+  p_business_id   uuid,
+  p_expected_encf text,
+  p_factura       jsonb,
+  p_items         jsonb
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  v_tipo      text := p_factura->>'tipo_ecf';
+  v_ambiente  text := p_factura->>'ambiente';
+  v_proforma  uuid := nullif(p_factura->>'proforma_id', '')::uuid;
+  v_next      bigint;
+  v_range_end bigint;
+  v_actual    text;
+  v_encf      text;
+  v_seq_id    uuid;
+  v_encf_num  bigint;
+  v_invoice   uuid;
+  v_ya        uuid;
+  it          jsonb;
+begin
+  -- 1) Idempotencia. Se bloquea la proforma y se re-comprueba DENTRO de la
+  --    transacción: sin esto, dos cobros a la vez de la misma proforma sacaban
+  --    dos comprobantes con dos números.
+  if v_proforma is not null then
+    select electronic_invoice_id into v_ya
+    from public.proformas
+    where id = v_proforma and business_id = p_business_id
+    for update;
+    if v_ya is not null then
+      return jsonb_build_object('ok', false, 'motivo', 'IDEMPOTENT_PROFORMA_YA_FACTURADA',
+                                'invoice_id', v_ya);
+    end if;
+  end if;
+
+  -- 2) Bloquear la secuencia y traer next_number Y range_end en el mismo
+  --    SELECT ... FOR UPDATE. range_end viaja aquí porque, bajo el mismo
+  --    bloqueo, hace falta saber si next_number sigue dentro de rango antes
+  --    de construir un e-NCF "esperado" con él.
+  --
+  --    Adrede NO se levanta ninguna excepción aquí, ni cuando no aparece
+  --    ninguna fila (v_seq_id/v_next quedan NULL) ni cuando la secuencia
+  --    está agotada pero todavía marcada 'active' (v_next > v_range_end):
+  --    las dos cosas hacen que la comparación de abajo (`v_next <=
+  --    v_range_end`) dé NULL o falso y el `if` se salte solo, cayendo al
+  --    camino normal. reserve_next_encf, más abajo, vuelve a leer la misma
+  --    fila y es la única con la lógica de qué error corresponde en cada
+  --    caso (P0002 sin secuencia, P0003 vencida, P0004 agotada) — duplicarla
+  --    aquí sólo podía desincronizarse con ella. Sin esto, además, un
+  --    e-NCF "esperado" fuera de rango habría devuelto ENCF_TOMADO con un
+  --    e_ncf_actual que no existe: un motivo confuso para algo que en
+  --    realidad es una secuencia agotada.
+  select id, next_number, range_end into v_seq_id, v_next, v_range_end
+  from public.ecf_sequences
+  where business_id = p_business_id
+    and tipo_ecf    = v_tipo
+    and ambiente    = v_ambiente
+    and status      = 'active'
+  order by range_start asc
+  for update
+  limit 1;
+
+  if v_next <= v_range_end then
+    v_actual := 'E' || v_tipo || lpad(v_next::text, 10, '0');
+    if v_actual is distinct from p_expected_encf then
+      -- Otro cobro se adelantó. No se consume nada: la aplicación vuelve a firmar
+      -- con `e_ncf_actual` y llama otra vez. Es un no, no un error.
+      return jsonb_build_object('ok', false, 'motivo', 'ENCF_TOMADO', 'e_ncf_actual', v_actual);
+    end if;
+  end if;
+
+  -- 3) Ahora sí, consumir. Reusa la función portada: una sola implementación
+  --    del incremento, la que agendapp lleva meses corriendo en producción.
+  v_encf := public.reserve_next_encf(p_business_id, v_tipo, v_ambiente);
+  v_encf_num := (substring(v_encf from 4))::bigint;
+
+  select id into v_seq_id
+  from public.ecf_sequences
+  where business_id = p_business_id and tipo_ecf = v_tipo and ambiente = v_ambiente
+    and range_start <= v_encf_num and range_end >= v_encf_num
+  limit 1;
+
+  -- 4) La factura nace en `draft`: todavía no está firmada.
+  insert into public.electronic_invoices (
+    business_id, tipo_ecf, e_ncf, secuencia_id, status, ambiente,
+    customer_id, customer_rnc, subtotal_gravado, total_itbis, total,
+    xml_generated_path, generated_at
+  ) values (
+    p_business_id, v_tipo, v_encf, v_seq_id, 'draft', v_ambiente,
+    nullif(p_factura->>'customer_id','')::uuid,
+    nullif(p_factura->>'customer_rnc',''),
+    coalesce((p_factura->>'subtotal_gravado')::numeric, 0),
+    coalesce((p_factura->>'total_itbis')::numeric, 0),
+    coalesce((p_factura->>'total')::numeric, 0),
+    nullif(p_factura->>'xml_generated_path',''),
+    now()
+  ) returning id into v_invoice;
+
+  for it in select * from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) loop
+    insert into public.electronic_invoice_items (
+      business_id, electronic_invoice_id, line_no, name_item,
+      quantity, unit_price, itbis_rate, monto_item
+    ) values (
+      p_business_id, v_invoice,
+      (it->>'line_no')::int, it->>'name_item',
+      coalesce((it->>'quantity')::numeric, 1),
+      (it->>'unit_price')::numeric,
+      coalesce((it->>'itbis_rate')::numeric, 0),
+      (it->>'monto_item')::numeric
+    );
+  end loop;
+
+  if v_proforma is not null then
+    update public.proformas set electronic_invoice_id = v_invoice
+    where id = v_proforma and business_id = p_business_id;
+  end if;
+
+  return jsonb_build_object('ok', true, 'invoice_id', v_invoice, 'e_ncf', v_encf);
+end;
+$$;
+
+revoke execute on function public.prepare_ecf_invoice(uuid, text, jsonb, jsonb) from public, anon, authenticated;
+
+-- ── finalize_ecf_invoice: la firma ya está hecha y subida ────────────────────
+-- p_datos: {xml_signed_path, xml_sha256, security_code}
+create or replace function public.finalize_ecf_invoice(
+  p_business_id uuid,
+  p_invoice_id  uuid,
+  p_datos       jsonb
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  v_filas int;
+begin
+  update public.electronic_invoices
+     set status          = 'signed',
+         xml_signed_path = nullif(p_datos->>'xml_signed_path',''),
+         signed_at       = now(),
+         updated_at      = now()
+   where id = p_invoice_id
+     and business_id = p_business_id
+     and status = 'draft';
+  get diagnostics v_filas = row_count;
+
+  if v_filas = 0 then
+    -- O no es nuestra, o ya no estaba en draft. Las dos cosas son un no.
+    return jsonb_build_object('ok', false, 'motivo', 'NO_ESTABA_EN_DRAFT');
+  end if;
+
+  return jsonb_build_object('ok', true, 'invoice_id', p_invoice_id);
+end;
+$$;
+
+revoke execute on function public.finalize_ecf_invoice(uuid, uuid, jsonb) from public, anon, authenticated;
+
+-- ── fail_ecf_invoice: falló después de consumir el número ────────────────────
+-- El número queda gastado, pero con nombre y motivo. Un número gastado que nadie
+-- puede explicar es lo que hay que evitar: la DGII pregunta por el rango entero.
+create or replace function public.fail_ecf_invoice(
+  p_business_id uuid,
+  p_invoice_id  uuid,
+  p_motivo      text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+begin
+  update public.electronic_invoices
+     set status              = 'error',
+         dgii_status_message = left(coalesce(p_motivo, 'sin motivo'), 500),
+         updated_at          = now()
+   where id = p_invoice_id and business_id = p_business_id;
+
+  return jsonb_build_object('ok', true, 'invoice_id', p_invoice_id);
+end;
+$$;
+
+revoke execute on function public.fail_ecf_invoice(uuid, uuid, text) from public, anon, authenticated;
+
+-- ── Las dos claves foráneas, ahora apuntando a la tabla nueva ────────────────
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'proformas_electronic_invoice_fk') then
+    alter table public.proformas
+      add constraint proformas_electronic_invoice_fk
+      foreign key (electronic_invoice_id) references public.electronic_invoices(id)
+      on delete set null deferrable initially deferred;
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'cash_closing_sales_electronic_invoice_fk') then
+    alter table public.cash_closing_sales
+      add constraint cash_closing_sales_electronic_invoice_fk
+      foreign key (electronic_invoice_id) references public.electronic_invoices(id)
+      on delete set null deferrable initially deferred;
+  end if;
+end $$;

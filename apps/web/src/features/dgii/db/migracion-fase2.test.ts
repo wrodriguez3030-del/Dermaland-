@@ -178,3 +178,108 @@ describe("fase 2 — reserve_next_encf", () => {
     expect(codigo).toMatch(/revoke execute on function reserve_next_encf\(uuid, text, text\) from public, anon, authenticated/i);
   });
 });
+
+describe("fase 2 — preparar sin quemar números", () => {
+  const codigo = leer("20260906090200_dgii_fase2_funciones.sql").replace(/--.*$/gm, "");
+
+  it("peek NO consume: si mirara y consumiera, firmar mal quemaría el número", () => {
+    const fn = codigo.slice(codigo.indexOf("function public.peek_next_encf"));
+    const cuerpo = fn.slice(0, fn.indexOf("$$;"));
+    expect(cuerpo).not.toMatch(/update\s+public\.ecf_sequences/i);
+    expect(cuerpo).not.toMatch(/for update/i);   // ni siquiera bloquea
+  });
+
+  it("prepare comprueba que el número sigue siendo el nuestro ANTES de consumirlo", () => {
+    const fn = codigo.slice(codigo.indexOf("function public.prepare_ecf_invoice"));
+    const cuerpo = fn.slice(0, fn.indexOf("$$;"));
+    expect(cuerpo).toMatch(/for update/i);
+    expect(cuerpo).toMatch(/p_expected_encf/);
+    expect(cuerpo).toMatch(/ENCF_TOMADO/);
+    // El orden manda: bloquear, comparar, y sólo entonces reservar.
+    expect(cuerpo.indexOf("for update")).toBeLessThan(cuerpo.indexOf("reserve_next_encf"));
+    expect(cuerpo.indexOf("p_expected_encf")).toBeLessThan(cuerpo.indexOf("reserve_next_encf"));
+  });
+
+  it("una carrera devuelve un no, no una excepción: la aplicación tiene que reintentar", () => {
+    const fn = codigo.slice(codigo.indexOf("function public.prepare_ecf_invoice"));
+    const cuerpo = fn.slice(0, fn.indexOf("$$;"));
+    const bloque = cuerpo.slice(cuerpo.indexOf("ENCF_TOMADO") - 400, cuerpo.indexOf("ENCF_TOMADO") + 200);
+    expect(bloque).toMatch(/return jsonb_build_object/i);
+    expect(bloque).not.toMatch(/raise exception/i);
+  });
+
+  it("idempotencia por proforma: dos cobros de la misma proforma no sacan dos comprobantes", () => {
+    const fn = codigo.slice(codigo.indexOf("function public.prepare_ecf_invoice"));
+    const cuerpo = fn.slice(0, fn.indexOf("$$;"));
+    expect(cuerpo).toMatch(/from public\.proformas[\s\S]{0,200}for update/i);
+    expect(cuerpo).toMatch(/IDEMPOTENT_PROFORMA_YA_FACTURADA/);
+    expect(cuerpo.indexOf("IDEMPOTENT_PROFORMA_YA_FACTURADA")).toBeLessThan(cuerpo.indexOf("reserve_next_encf"));
+  });
+
+  it("la factura nace en `draft` y sólo finalize la pasa a `signed`", () => {
+    const prep = codigo.slice(codigo.indexOf("function public.prepare_ecf_invoice"));
+    expect(prep.slice(0, prep.indexOf("$$;"))).toMatch(/'draft'/);
+    const fin = codigo.slice(codigo.indexOf("function public.finalize_ecf_invoice"));
+    expect(fin.slice(0, fin.indexOf("$$;"))).toMatch(/status\s*=\s*'signed'/i);
+  });
+
+  it("fail deja el motivo escrito: un comprobante que falló sin motivo no se puede resolver", () => {
+    const fn = codigo.slice(codigo.indexOf("function public.fail_ecf_invoice"));
+    const cuerpo = fn.slice(0, fn.indexOf("$$;"));
+    expect(cuerpo).toMatch(/status\s*=\s*'error'/i);
+    expect(cuerpo).toMatch(/dgii_status_message/);
+  });
+
+  it("las cuatro filtran por business_id: ninguna puede tocar otra empresa", () => {
+    for (const f of ["peek_next_encf", "prepare_ecf_invoice", "finalize_ecf_invoice", "fail_ecf_invoice"]) {
+      const fn = codigo.slice(codigo.indexOf(`function public.${f}`));
+      expect(fn.slice(0, fn.indexOf("$$;")), `${f} no filtra por business_id`).toMatch(/business_id\s*=\s*p_business_id/);
+    }
+  });
+
+  it("ninguna es llamable desde el navegador", () => {
+    for (const f of ["peek_next_encf(uuid, text, text)", "prepare_ecf_invoice(uuid, text, jsonb, jsonb)",
+                     "finalize_ecf_invoice(uuid, uuid, jsonb)", "fail_ecf_invoice(uuid, uuid, text)"]) {
+      expect(codigo, `falta el revoke de ${f}`).toMatch(
+        new RegExp(`revoke execute on function public\\.${f.replace(/[()]/g, "\\$&")} from public, anon, authenticated`, "i"),
+      );
+    }
+  });
+
+  it("las dos claves foráneas vuelven, apuntando a la tabla NUEVA", () => {
+    expect(codigo).toMatch(/alter table public\.proformas[\s\S]{0,200}references public\.electronic_invoices\(id\)/i);
+    expect(codigo).toMatch(/alter table public\.cash_closing_sales[\s\S]{0,200}references public\.electronic_invoices\(id\)/i);
+  });
+
+  it("secuencia agotada pero todavía marcada 'active': NO inventa un ENCF_TOMADO, deja que reserve_next_encf la agote de verdad", () => {
+    // Hueco del pliego (detectado antes de implementar, no en revisión): el
+    // SELECT que bloquea la secuencia miraba status='active' pero no
+    // range_end. Si la secuencia estuviera agotada y aun así marcada activa,
+    // v_actual se habría construido con un número fuera de rango y la función
+    // habría devuelto ENCF_TOMADO con un e_ncf_actual que no existe — confuso,
+    // aunque inofensivo porque reserve_next_encf después habría levantado
+    // P0004 igual. La corrección: traer range_end bajo el mismo FOR UPDATE y
+    // sólo construir/comparar el e-NCF esperado cuando next_number sigue
+    // dentro de rango; si no, cae al camino normal (reserve_next_encf, que sí
+    // sabe marcar 'exhausted' y levantar P0004 con el motivo correcto).
+    const fn = codigo.slice(codigo.indexOf("function public.prepare_ecf_invoice"));
+    const cuerpo = fn.slice(0, fn.indexOf("$$;"));
+
+    // range_end viaja en el mismo SELECT ... FOR UPDATE que next_number: sin
+    // eso no hay forma de saber, bajo el mismo bloqueo, si next_number sigue
+    // dentro de rango.
+    expect(cuerpo).toMatch(/select\s+id,\s*next_number,\s*range_end\s+into\s+v_seq_id,\s*v_next,\s*v_range_end/i);
+    expect(cuerpo).toMatch(/select\s+id,\s*next_number,\s*range_end\s+into\s+v_seq_id,\s*v_next,\s*v_range_end[\s\S]{0,400}for update/i);
+
+    // La guarda contra el rango existe y decide ANTES de construir v_actual:
+    // así nunca se arma un e-NCF "esperado" con un número fuera de rango.
+    const idxGuarda  = cuerpo.search(/if\s+v_next\s*<=\s*v_range_end\s+then/i);
+    const idxVActual = cuerpo.indexOf("v_actual := ");
+    const idxTomado  = cuerpo.indexOf("ENCF_TOMADO");
+    const idxReserve = cuerpo.indexOf("reserve_next_encf");
+    expect(idxGuarda, "falta el `if v_next <= v_range_end then` que envuelve ENCF_TOMADO").toBeGreaterThan(-1);
+    expect(idxGuarda).toBeLessThan(idxVActual);
+    expect(idxVActual).toBeLessThan(idxTomado);
+    expect(idxTomado).toBeLessThan(idxReserve);
+  });
+});
