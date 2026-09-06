@@ -230,6 +230,34 @@ describe("fase 2 — preparar sin quemar números", () => {
     expect(cuerpo).toMatch(/dgii_status_message/);
   });
 
+  it("fail comprueba row_count antes de decir que sí: un invoice_id ajeno o inexistente no puede devolver éxito", () => {
+    // Hallazgo de revisión (ronda 1): el UPDATE de fail_ecf_invoice no
+    // comprobaba row_count, a diferencia de finalize_ecf_invoice. Sin esto,
+    // llamarla con un business_id de otra empresa (o un invoice_id que no
+    // existe) devolvía {"ok":true} sin haber tocado ninguna fila: la factura
+    // real se queda en 'draft' sin motivo y el número ya consumido queda sin
+    // nadie que lo explique — justo lo que esta función existe para impedir.
+    const fn = codigo.slice(codigo.indexOf("function public.fail_ecf_invoice"));
+    const cuerpo = fn.slice(0, fn.indexOf("$$;"));
+
+    expect(cuerpo).toMatch(/get diagnostics\s+v_\w+\s*=\s*row_count/i);
+    expect(cuerpo).toMatch(/if\s+v_\w+\s*=\s*0\s+then/i);
+
+    // Orden: el UPDATE corre, LUEGO se mira row_count, LUEGO (si fue 0) se
+    // devuelve un "ok":false — antes del "ok":true final, no después.
+    const idxUpdate      = cuerpo.search(/update\s+public\.electronic_invoices/i);
+    const idxDiagnostics = cuerpo.search(/get diagnostics/i);
+    const idxSiCero      = cuerpo.search(/if\s+v_\w+\s*=\s*0\s+then/i);
+    const idxOkFalse      = cuerpo.indexOf("'ok', false");
+    const idxOkTrue        = cuerpo.indexOf("'ok', true");
+
+    expect(idxUpdate).toBeGreaterThan(-1);
+    expect(idxDiagnostics).toBeGreaterThan(idxUpdate);
+    expect(idxSiCero).toBeGreaterThan(idxDiagnostics);
+    expect(idxOkFalse).toBeGreaterThan(idxSiCero);
+    expect(idxOkFalse).toBeLessThan(idxOkTrue);
+  });
+
   it("las cuatro filtran por business_id: ninguna puede tocar otra empresa", () => {
     for (const f of ["peek_next_encf", "prepare_ecf_invoice", "finalize_ecf_invoice", "fail_ecf_invoice"]) {
       const fn = codigo.slice(codigo.indexOf(`function public.${f}`));

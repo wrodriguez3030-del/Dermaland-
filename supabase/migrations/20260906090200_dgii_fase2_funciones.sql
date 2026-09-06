@@ -285,6 +285,11 @@ revoke execute on function public.finalize_ecf_invoice(uuid, uuid, jsonb) from p
 -- ── fail_ecf_invoice: falló después de consumir el número ────────────────────
 -- El número queda gastado, pero con nombre y motivo. Un número gastado que nadie
 -- puede explicar es lo que hay que evitar: la DGII pregunta por el rango entero.
+-- Por eso el UPDATE comprueba su propio row_count (igual que finalize_ecf_invoice
+-- arriba): si no tocó ninguna fila —invoice_id de otra empresa, o que no
+-- existe— NO puede devolver éxito. Un {"ok":true} falso aquí es exactamente el
+-- escenario que esta función debía impedir: la factura real se queda sin
+-- motivo y el número ya consumido queda sin nadie que lo explique.
 create or replace function public.fail_ecf_invoice(
   p_business_id uuid,
   p_invoice_id  uuid,
@@ -294,12 +299,23 @@ language plpgsql
 security definer
 set search_path = public, auth, extensions
 as $$
+declare
+  v_filas int;
 begin
   update public.electronic_invoices
      set status              = 'error',
          dgii_status_message = left(coalesce(p_motivo, 'sin motivo'), 500),
          updated_at          = now()
    where id = p_invoice_id and business_id = p_business_id;
+  get diagnostics v_filas = row_count;
+
+  if v_filas = 0 then
+    -- O no es nuestra, o no existe. Las dos cosas son un no, y a propósito no
+    -- se distinguen: decir "no es tuya" a quien pasa un invoice_id de otra
+    -- empresa le estaría confirmando que ese id existe. Mismo criterio que
+    -- finalize_ecf_invoice.
+    return jsonb_build_object('ok', false, 'motivo', 'FACTURA_NO_ENCONTRADA');
+  end if;
 
   return jsonb_build_object('ok', true, 'invoice_id', p_invoice_id);
 end;
