@@ -10,7 +10,8 @@
 - **Por qué.** La fase 1 trajo el núcleo puro (construcción de XML, firma,
   validación) pero no tenía dónde vivir: le faltaban las tablas y las
   funciones que reservan un e-NCF y guardan la factura. Esta fase las trae.
-- **Qué entra** (17 tablas, todas con RLS por `auth_business_id()`):
+- **Qué entra** (18 tablas, todas con RLS por
+  `(select public.auth_business_id())`):
   `dgii_settings`, `dgii_certificates`, `ecf_sequences`,
   `electronic_invoices`, `electronic_invoice_items`, `dgii_submissions`,
   `dgii_status_logs`, `dgii_enablement_progress`,
@@ -18,11 +19,31 @@
   `received_commercial_approvals`, `dgii_certification_datasets`,
   `dgii_certification_cases`, `dgii_simulation_ranges`,
   `dgii_certification_applications`, `dgii_certification_events` y
-  `dgii_certification_evidence`. Copia fiel del DDL de agendapp con seis
-  sustituciones mecánicas (el detalle está en el plan de la fase).
+  `dgii_certification_evidence` — y `ecf_document_events`, la decimoctava, que
+  NO viene de agendapp. Copia fiel del DDL de agendapp con siete sustituciones
+  mecánicas (el detalle está en el plan de la fase).
   `reserve_next_encf` se portó tal cual; cuatro funciones son nuevas:
   `peek_next_encf`, `prepare_ecf_invoice`, `finalize_ecf_invoice`,
   `fail_ecf_invoice`.
+- **Lo que NO viene de agendapp y está aquí a propósito.** La migración `0045`
+  de esta casa añadió a `electronic_invoices` ocho columnas
+  (`idempotency_key`, `retry_count`, `next_retry_at`, `last_error_class`,
+  `last_error_message`, `hash_sha256`, `rejected_at`, `cancelled_at`), el
+  índice único que es LA barrera contra gastar dos veces el mismo e-NCF, y la
+  tabla `ecf_document_events` con su disparador append-only. La primera
+  versión de esta rama las descartó todas —la auditoría de fidelidad contra
+  agendapp no podía verlo, porque allá nunca existieron— y las devolvió la
+  revisión final. Las lee y las escribe código vivo: `queue-worker.ts`,
+  `dashboard.ts` y `transitions.ts`.
+- **Los índices reintroducidos llevan nombres NUEVOS a propósito.**
+  `alter table … rename to` no renombra los índices: la tabla retirada
+  conserva los nombres que `0045` les puso, y `create index if not exists` con
+  esos mismos nombres se los salta con un simple NOTICE. Reusarlos habría
+  dejado la tabla nueva sin barrera de idempotencia, en silencio.
+- **Guarda de orden.** Las partes 2 y 3 se niegan a correr si la parte 1 no
+  está aplicada. Antes eso era una frase en la cabecera y nada lo obligaba: la
+  parte 2 no habría creado las ocho tablas cuyo nombre ocupa el módulo viejo y
+  habría reportado éxito.
 - **Qué se retira, sin borrar.** Las 13 tablas del módulo fiscal viejo, que
   nunca emitió un comprobante: se renombran a `*_legacy_20260906`, no se
   borran. Los 4 certificados que tenían (3 revocados) no se migran; el dueño
@@ -40,13 +61,56 @@
   `reserve_next_encf` quedó como la única fuente de los códigos `P0002` (sin
   secuencia), `P0003` (vencida) y `P0004` (agotada), para no tener la misma
   lógica en dos sitios. También en `docs/decisiones.md`.
-- **Esta fase NO cambia el comportamiento de la aplicación:** no toca el
-  punto de venta ni ninguna pantalla. Las claves foráneas de `proformas` y
-  `cash_closing_sales` se soltaron y se recrearon apuntando a las tablas
-  nuevas, sin que la aplicación lo note.
-- **Validado antes de documentar:** typecheck ✓ (0 errores) · 3 639 pruebas ✓,
-  132 en espera · build ✓ (137 páginas). Las tres migraciones se probaron en
-  dry-run, en orden, sin ejecutar nada.
+- **Esta fase NO toca el punto de venta:** ni la numeración, ni el cobro, ni
+  el cierre de caja. Las claves foráneas de `proformas` y `cash_closing_sales`
+  se soltaron y se recrearon apuntando a las tablas nuevas, sin que la
+  aplicación lo note. Comprobado por dos vías independientes: ninguna función
+  del POS (`emit_sale_atomic`, `void_sale_atomic`, `reserve_invoice_number`,
+  `next_proforma_number`) toca las 13 viejas ni las 18 nuevas, y no hay un
+  solo disparador sobre `proformas`, `proforma_items`, `proforma_payments`,
+  `cash_closings`, `cash_closing_sales` ni `cash_register_sessions`.
+- **Pero SÍ cambia el comportamiento de la aplicación.** La frase que estaba
+  aquí antes —«esta fase NO cambia el comportamiento de la aplicación: no toca
+  el punto de venta ni ninguna pantalla»— era FALSA en su segunda mitad, y
+  llevaba escrita en esta memoria desde el 2026-09-06. Al aplicar las
+  migraciones:
+  - dejan de funcionar las pantallas `/dgii/configuracion`,
+    `/dgii/certificado`, `/dgii/estado` (que está en la barra lateral) y
+    `/dgii/habilitacion`, más `/api/dgii/certificate/current` y
+    `/api/dgii/certificate/test-local`;
+  - **el cron diario `/api/dgii/cola` (`0 7 * * *`, declarado en
+    `vercel.json`) se queda sin trabajo** hasta que la fase 3 reconecte el
+    módulo nuevo. Ese cron está VIVO en producción: el killswitch
+    `DGII_TESTECF_SEND_ENABLED` gatea sólo `enviar` y `consultar`; `validar` y
+    `firmar` corren siempre, y el otro juego de killswitches
+    (`features/dgii/core/killswitches.ts`) todavía no tiene ningún llamador.
+  Mientras el dueño no aplique las tres migraciones, la base sigue igual que
+  hoy y no cambia nada.
+- **Hasta la fase 6 no habrá pantalla capaz de subir un `.p12`.** Los 4
+  certificados quedan en `dgii_certificates_legacy_20260906` y ninguna
+  migración los copia. La recuperación que decía el plan —«el dueño vuelve a
+  subir el `.p12` por la pantalla nueva»— es circular mientras tanto, porque
+  la pantalla de subida actual (`server/services/certificate-storage.ts`)
+  escribe cuatro columnas que la tabla nueva no tiene:
+  `pkcs12_storage_bucket`, `pkcs12_storage_path`, `iv` y `tag` (la nueva usa
+  `storage_bucket` / `storage_path` y no tiene sitio para el IV ni el tag del
+  sobre AES-256-GCM). Entre aplicar y la fase 6 no hay forma de poner un
+  certificado.
+- **Corregido antes de fusionar (2026-09-06), tras la revisión final de la
+  rama.** Dos hallazgos críticos que ninguna revisión por tarea podía ver —el
+  CHECK de `status` sin `'prepared'`, y el descarte de la migración `0045`—,
+  cuatro importantes y ocho menores. Hallazgo por hallazgo, con la evidencia
+  de las pruebas en rojo y en verde, en
+  `.superpowers/sdd/2026-09-05-dgii-fase2-base-de-datos/correccion-final-report.md`.
+- **Validado antes de documentar:** typecheck ✓ (0 errores) · suite completa
+  ✓ · build ✓. Las tres migraciones se probaron en dry-run, en orden, sin
+  ejecutar nada, **y además se aplicaron de punta a punta contra un Postgres
+  16 efímero en Docker**, con el estado «antes» reconstruido (las 13 tablas
+  viejas con sus nombres de índice reales): las dos guardas de orden muerden,
+  quedan 13 retiradas y 18 vivas con RLS y política, los índices caen sobre
+  las tablas nuevas, la barrera de idempotencia rechaza el duplicado y el
+  verificador pasa entero sin dejar una fila. Contra la base REAL no se ha
+  ejecutado nada.
 - **Pendiente (lo hace el dueño, no esta tarea):** aplicar las tres
   migraciones con `scripts/db/apply-migration.mjs --apply`, correr
   `scripts/db/verificar-dgii-fase2.mjs` y `scripts/audit-migrations.mjs`, y

@@ -5,6 +5,155 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — La unicidad del e-NCF pasa a ser TOTAL: un comprobante anulado bloquea su número
+
+**Archivos:**
+- `supabase/migrations/20260906090100_dgii_fase2_tablas.sql`
+  (`electronic_invoices_encf_uniq`)
+- `supabase/migrations/0045_ecf_idempotency_and_events.sql:42-47` (lo anterior)
+
+### Por qué
+
+`0045` creó la unicidad del e-NCF como un índice único **parcial**, que dejaba
+fuera los cancelados:
+
+```sql
+create unique index electronic_invoices_encf_por_ambiente_uidx
+  on public.electronic_invoices (business_id, ambiente, e_ncf)
+  where e_ncf is not null and status <> 'cancelled';
+```
+
+La tabla portada de agendapp lo trae como restricción **total**:
+
+```sql
+constraint electronic_invoices_encf_uniq unique (business_id, ambiente, e_ncf)
+```
+
+La diferencia no es de nombre: la versión nueva es **más estricta**. Con el
+índice parcial, cancelar un comprobante liberaba su número y otro comprobante
+podía volver a usarlo. Con la restricción total, no: el número queda ocupado
+para siempre, lo use quien lo use.
+
+La revisión final de la rama lo marcó porque el cambio se estaba colando sin
+que nadie lo decidiera: la migración nueva reemplazaba la tabla entera, y con
+ella la regla, en silencio.
+
+### Decisión
+
+**Se queda la restricción TOTAL.** Un número anulado ante la DGII no se
+reutiliza: la anulación es un trámite con la administración, no un `DELETE`. Si
+un e-NCF se emitió y luego se anuló, ese número ya tiene historia ante la DGII
+y volver a usarlo es exactamente el problema que esta fase entera existe para
+evitar.
+
+El índice parcial de `0045` (`electronic_invoices_encf_por_ambiente_uidx`) **no
+se recrea**: la restricción total lo cubre y lo supera.
+
+El `ambiente` sigue dentro de la llave, y eso no cambia: que un e-NCF exista en
+`testecf` no debe estorbar a producción.
+
+### Consecuencias
+
+- Cancelar un comprobante ya no libera su número. Si hiciera falta reemplazar
+  uno anulado, el nuevo lleva **otro** e-NCF, que es lo que la DGII espera.
+- Es más estricto que lo que DermaLand tenía. Sobre una tabla vacía (0
+  comprobantes emitidos) no hay nada que migrar ni ninguna fila que choque.
+- Si algún día apareciera un caso real que necesite reutilizar un número
+  anulado, hay que traerlo aquí y decidirlo de nuevo, no aflojar la restricción
+  sobre la marcha.
+
+---
+
+## 2026-09-06 — Los índices que vuelven de `0045` cambian de nombre a propósito
+
+**Archivos:**
+- `supabase/migrations/20260906090100_dgii_fase2_tablas.sql` (bloques `4-bis` y
+  `18`)
+- `supabase/migrations/0045_ecf_idempotency_and_events.sql`
+
+### Por qué
+
+`alter table … rename to` **no renombra los índices**. Tras la parte 1, la
+`electronic_invoices` retirada se queda con los nombres que `0045` les puso
+(`electronic_invoices_idempotency_key_uidx`,
+`electronic_invoices_pendientes_idx`), y `ecf_document_events_legacy_20260906`
+con los suyos.
+
+Y `create index if not exists <nombre ya ocupado>` **no falla**: emite un
+`NOTICE: relation "…" already exists, skipping` y sigue. Comprobado contra un
+Postgres 16 efímero: la tabla nueva se queda con **cero** índices y la
+migración reporta éxito.
+
+Copiar los nombres de `0045` tal cual —que era lo que decía el informe de
+revisión— habría dejado la tabla nueva **sin barrera de idempotencia**, en
+silencio. Justo el fallo que reintroducir `0045` existe para evitar.
+
+### Decisión
+
+Los cuatro índices reintroducidos llevan nombres nuevos, con el prefijo `idx_`
+que ya usa el resto del esquema nuevo:
+
+| `0045` | aquí |
+|---|---|
+| `electronic_invoices_idempotency_key_uidx` | `idx_einv_idempotency_key` |
+| `electronic_invoices_pendientes_idx` | `idx_einv_pendientes` |
+| `ecf_document_events_documento_idx` | `idx_ecf_events_documento` |
+| `ecf_document_events_business_idx` | `idx_ecf_events_business` |
+
+Hay una guarda en `migracion-fase2.test.ts` que se pone roja si alguien vuelve
+a cualquiera de los nombres de `0045`.
+
+### Consecuencias
+
+- Cuando llegue el día de borrar de verdad las tablas `_legacy_20260906`, los
+  nombres viejos se van con ellas y no chocan con nada.
+- La misma trampa acecha a cualquier futura migración que renombre una tabla y
+  recree índices con los mismos nombres. El patrón: **renombrar una tabla no
+  libera los nombres de sus índices.**
+
+---
+
+## 2026-09-06 — Cada `revoke execute` de las RPC fiscales lleva su `grant` a `service_role`
+
+**Archivos:** `supabase/migrations/20260906090200_dgii_fase2_funciones.sql`
+
+### Por qué
+
+Las cinco funciones fiscales revocan `execute` de `public, anon, authenticated`,
+a diferencia del único precedente de la casa (`0038_web_orders.sql:120`, que
+revoca sólo de `anon, authenticated`). Revocar de `public` quita también lo que
+`service_role` heredaba por PUBLIC.
+
+Comprobado contra un Postgres 16 efímero: sin un grant explícito,
+`has_function_privilege('service_role', …, 'execute')` da **FALSE en las cinco**.
+En un proyecto Supabase eso normalmente lo salva `alter default privileges … on
+functions to … service_role`, pero eso es una suposición sobre cómo está
+configurada la base, no algo que el fichero de migración garantice. Si esa
+suposición fuera falsa, la fase 3 se estrellaría con «permission denied for
+function» y hoy no había forma de saberlo sin mirar la base.
+
+### Decisión
+
+Después de cada `revoke` va su `grant execute … to service_role`, y el
+verificador comprueba las dos caras: que `anon` y `authenticated` **no** pueden,
+y que `service_role` **sí**.
+
+### Consecuencias
+
+- No afloja nada: `service_role` es la clave del servidor, que ya se salta la
+  RLS entera. Lo que hace es que el permiso deje de depender de una suposición.
+- Queda escrito también el **alcance real** del `revoke`, en la cabecera del
+  fichero: protege el cruce ENTRE empresas. Dentro de una, cualquier usuario
+  autenticado puede hacer `PATCH /rest/v1/ecf_sequences` y retroceder
+  `next_number` sin tocar ninguna función, porque la política es
+  `for all using (business_id = auth_business_id())`. No es una regresión de esta
+  rama (`0003_dgii_pos.sql:150` ya la tenía, y agendapp también), pero el patrón
+  de la casa para un contador que sólo debe tocar el servidor es el contrario:
+  `proforma_counters` tiene RLS y **cero políticas**. Pendiente de decidir en la
+  fase 4, antes de que se construya encima.
+
+---
+
 ## 2026-09-06 — Firmar antes de reservar el e-NCF, no dentro de una transacción como agendapp
 
 **Archivos:**
@@ -163,7 +312,12 @@ existiera. El CHECK de rango (`ecf_sequences_range_chk`,
 `range_start <= range_end`) y el UNIQUE (`ecf_sequences_uniq`,
 `business_id, tipo_ecf, ambiente, range_start`) se conservaron de la fuente
 tal cual, con sus nombres originales. **No hay ninguna adición neta sobre el
-DDL de origen** en `ecf_sequences` ni en ninguna de las 17 tablas de la fase
+DDL de origen** en `ecf_sequences` ni en ninguna de las 17 tablas PORTADAS de la
+fase (nota de 2026-09-06: la revisión final añadió después, y a propósito, dos
+bloques que NO salen de agendapp — las ocho columnas de `0045` sobre
+`electronic_invoices` y la tabla `ecf_document_events`; ver las entradas de
+arriba. Lo que sigue siendo cierto es que no hay adiciones sobre el DDL
+portado)
 2: el porte es copia fiel con las seis sustituciones del pliego (ayudante de
 RLS, `sales`→`proformas`, esquema cualificado, `search_path`, minúsculas,
 comentarios reescritos) y nada más.

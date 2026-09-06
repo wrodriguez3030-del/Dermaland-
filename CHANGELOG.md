@@ -15,20 +15,41 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 ### Agregado
 
 - **Las 17 tablas fiscales de agendapp, portadas a la base de DermaLand (fase
-  2 de 9).** Tres migraciones en orden — retirar el módulo viejo, crear las
-  tablas, crear las funciones —: `dgii_settings`, `dgii_certificates`,
+  2 de 9), más `ecf_document_events`: 18 en total.** Tres migraciones en orden
+  — retirar el módulo viejo, crear las tablas, crear las funciones —:
+  `dgii_settings`, `dgii_certificates`,
   `ecf_sequences`, `electronic_invoices`, `electronic_invoice_items`,
   `dgii_submissions`, `dgii_status_logs`, `dgii_enablement_progress`,
   `dgii_representative_attestations`, `received_ecf`,
   `received_commercial_approvals`, `dgii_certification_datasets`,
   `dgii_certification_cases`, `dgii_simulation_ranges`,
   `dgii_certification_applications`, `dgii_certification_events` y
-  `dgii_certification_evidence`. Copia fiel del DDL de agendapp con seis
+  `dgii_certification_evidence`. Copia fiel del DDL de agendapp con siete
   sustituciones mecánicas (el ayudante de RLS de esta casa, `sales` →
   `proformas`, esquema cualificado, `search_path`, minúsculas, comentarios
-  reescritos). RLS con `auth_business_id()` en las 17, sin excepción.
+  reescritos, y el renombre del CHECK `ecf_sequences_next_chk` →
+  `ecf_sequences_next_dentro_del_rango`, con el mismo predicado). RLS con
+  `(select public.auth_business_id())` en las 18, sin excepción, en la forma
+  que `0009_rls_initplan_remaining.sql` dejó autorizada el 2026-05-29.
   **Creadas en las migraciones, pendientes de que el dueño las aplique** con
   `scripts/db/apply-migration.mjs --apply`.
+- **`ecf_document_events`, la decimoctava, que NO viene de agendapp.** Es
+  trabajo propio de DermaLand (`0045_ecf_idempotency_and_events.sql`) y hoy la
+  escribe código vivo: la parte 1 la retira —su clave foránea apunta a
+  `electronic_invoices`, que sí se renombra— y la parte 2 la vuelve a crear
+  entera, con sus dos índices, su disparador append-only y la clave foránea
+  `on delete restrict` de `20260805020813_ecf_events_fk_restrict.sql` ya
+  incorporada. La vieja está vacía, así que no se pierde historial.
+- **Las ocho columnas de idempotencia de `electronic_invoices` vuelven**:
+  `idempotency_key`, `retry_count`, `next_retry_at`, `last_error_class`,
+  `last_error_message`, `hash_sha256`, `rejected_at` y `cancelled_at`, con el
+  índice único parcial que es LA barrera contra gastar dos veces el mismo
+  e-NCF. Tampoco vienen de agendapp: las escribió DermaLand en `0045`, y
+  `queue-worker.ts`, `dashboard.ts` y `transitions.ts` las leen y las escriben
+  hoy mismo.
+- **Guarda de orden en las partes 2 y 3.** Si la parte 1 no está aplicada, se
+  niegan a correr con un mensaje claro en vez de reportar éxito sobre una base
+  a medias.
 - **`reserve_next_encf` portada tal cual de agendapp**, más cuatro funciones
   que allá no existen porque no hacían falta: `peek_next_encf` (qué e-NCF
   tocaría, sin consumirlo ni bloquear), `prepare_ecf_invoice` (reserva y
@@ -56,19 +77,52 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ### Notas
 
-- **Esta fase no cambia el comportamiento de la aplicación.** No toca el
-  punto de venta ni ninguna pantalla. Mientras el dueño no aplique las tres
-  migraciones, la base sigue exactamente como está hoy.
+- **Esta fase NO toca el punto de venta**: ni la numeración, ni el cobro, ni
+  el cierre de caja. Comprobado por dos vías independientes: ninguna función
+  del POS (`emit_sale_atomic`, `void_sale_atomic`, `reserve_invoice_number`,
+  `next_proforma_number`) toca las 13 viejas ni las 18 nuevas, y no hay un
+  solo disparador sobre `proformas`, `proforma_items`, `proforma_payments`,
+  `cash_closings`, `cash_closing_sales` ni `cash_register_sessions`.
+- **Pero sí cambia el comportamiento de la aplicación, y conviene decirlo
+  claro.** Al aplicar las migraciones se retira el módulo DGII viejo, así que
+  dejan de funcionar las pantallas `/dgii/configuracion`,
+  `/dgii/certificado`, `/dgii/estado` y `/dgii/habilitacion`, y **el cron
+  diario `/api/dgii/cola` (`0 7 * * *`, `vercel.json`) se queda sin trabajo**
+  hasta que la fase 3 reconecte el módulo nuevo. Ese cron está vivo en
+  producción: el killswitch `DGII_TESTECF_SEND_ENABLED` gatea sólo `enviar` y
+  `consultar`; `validar` y `firmar` corren siempre. Mientras el dueño no
+  aplique las tres migraciones, la base sigue exactamente como está hoy y no
+  cambia nada.
+- **Hasta la fase 6 no habrá pantalla capaz de subir un `.p12`.** Los 4
+  certificados quedan en `dgii_certificates_legacy_20260906` y ninguna
+  migración los copia; y la pantalla de subida actual escribe cuatro columnas
+  (`pkcs12_storage_bucket`, `pkcs12_storage_path`, `iv`, `tag`) que la tabla
+  nueva no tiene. Entre aplicar y la fase 6, `/dgii/certificado`,
+  `/dgii/estado` y el firmado se comportan como si no existiera ningún
+  certificado, y no hay forma de poner uno.
 - **Desviación deliberada de agendapp, la única de la fase:** allá, reservar
   el e-NCF y firmar el XML ocurren dentro de la misma transacción de Prisma;
   DermaLand no abre transacciones desde el servidor web, así que se firma
   primero (con el número que dice `peek_next_encf`) y se reserva después,
   comprobando bajo bloqueo que sigue siendo el nuestro. Detalle completo, con
   la alternativa descartada, en `docs/decisiones.md`.
-- Typecheck ✓ (0 errores) · 3 639 pruebas ✓, 132 en espera (3 771 en total,
-  324 ficheros) · build ✓ (137 páginas). Las tres migraciones se probaron en
-  dry-run, en orden, sin ejecutar nada; el verificador y la prueba del punto
-  de venta los corre el dueño después de aplicar.
+- **Corregido antes de fusionar, tras la revisión final de la rama.** Dos
+  hallazgos críticos que ninguna revisión por tarea podía ver: el CHECK de
+  `electronic_invoices.status` no aceptaba `'prepared'` —el único camino no
+  terminal que sale de `signed`, así que la fase 3 habría dejado facturas
+  clavadas con su e-NCF ya gastado— y la rama descartaba entera la migración
+  `0045`, que es trabajo propio de esta casa y no de agendapp. También: la
+  guarda de orden entre migraciones, la marcha atrás completa (le faltaban las
+  dos claves foráneas), el `(select …)` de las políticas, el `grant execute …
+  to service_role` que acompaña a cada `revoke`, y el `notify pgrst`. El
+  detalle, hallazgo por hallazgo, está en
+  `.superpowers/sdd/2026-09-05-dgii-fase2-base-de-datos/correccion-final-report.md`.
+- Typecheck ✓ (0 errores) · pruebas ✓ (suite completa) · build ✓. Las tres
+  migraciones se probaron en dry-run, en orden, sin ejecutar nada, **y además
+  se aplicaron de punta a punta contra un Postgres 16 efímero en Docker** con
+  el estado «antes» reconstruido: las dos guardas de orden muerden, quedan 13
+  tablas retiradas y 18 vivas con RLS, y el verificador pasa entero sin dejar
+  una fila. Contra la base real las corre el dueño.
 - `~/Projects/agendapp` se trató como solo lectura: `git status` de
   `src/lib/dgii`, `docs/dgii` y `prisma` quedó en cero ficheros modificados.
 
