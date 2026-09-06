@@ -5,6 +5,45 @@
 
 **Última actualización:** 2026-09-05
 
+## 2026-09-05 · Núcleo fiscal DGII portado desde agendapp (v0.143.0, fase 1 de 9)
+
+- **Por qué.** El módulo fiscal que DermaLand tenía (~27 700 líneas) nunca emitió
+  un comprobante, ni al ambiente de pruebas, y su propia documentación lo
+  declaraba «no apto». El de agendapp está certificado ante la DGII desde el
+  28 de julio y facturando en producción desde agosto. El dueño aprobó portarlo
+  entero y retirar el viejo.
+- **Qué entró** (`apps/web/src/features/dgii/core/`): 40 ficheros de núcleo,
+  5 constructores auxiliares (`builders/`) y los 14 XSD oficiales con su
+  `SOURCE.md`. Construcción del XML de los 10 tipos de e-CF, reglas fiscales
+  (RFCE, ITBIS, indicador de monto gravado, notas que modifican), firma XMLDSig,
+  validación contra XSD sin red, cliente DGII con transporte inyectable, máquina
+  de estados, killswitches y representación impresa. Copia literal: no hubo que
+  reescribir un solo import de agendapp, porque esos ficheros no importaban nada
+  de su aplicación.
+- **Pruebas.** 45 ficheros portados. **607 pasan, 0 fallan.** Suite completa de
+  DermaLand: 3 591 pruebas ✓ · typecheck ✓ · build ✓.
+- **132 pruebas en espera, no escondidas.** Son guardas de arquitectura que
+  vigilan servicios, rutas API y pantallas de las fases 2 a 9. Cada una lleva
+  encima la fase que la revive y el fichero que le falta; el índice completo
+  está en [`docs/dgii/pruebas-pendientes-por-fase.md`](dgii/pruebas-pendientes-por-fase.md).
+  Las que más esperan: `submission-service.ts` (19), `estado-veredicto.ts` (7),
+  `invoice-prepare.ts` (6).
+- **Dos adaptaciones**, ambas en `core/__port__/`: un traductor de rutas
+  (agendapp guarda el módulo en `src/lib/dgii/`, DermaLand en
+  `src/features/dgii/core/`) y el generador de certificados autofirmados en
+  memoria — no entra ni un certificado real al repositorio.
+- **Riesgo conocido para la fase 6:** los XSD se leen del disco en ejecución.
+  Cuando existan las rutas API habrá que declararlos en `next.config.ts`
+  (`outputFileTracingIncludes`) o Vercel no los empaquetará y el validador
+  fallará en producción. La guarda que lo vigila ya está portada y marcada.
+- **Esta fase NO cambia el comportamiento de la aplicación**: no toca el punto de
+  venta, ni rutas, ni pantallas, ni la base de datos. El módulo viejo sigue
+  funcionando; se retira en la fase 8.
+- **La certificación no se hereda:** DermaLand SRL tendrá que hacer su propio
+  trámite de 15 pasos ante la DGII.
+- `~/Projects/agendapp` se trató como solo lectura: `git status` de `src/lib/dgii`
+  y `docs/dgii` quedó en cero ficheros modificados.
+
 ## 2026-09-05 · La sincronización con Alegra corre sola y se ve en pantalla (v0.142.0)
 
 - **Trabajo diario** `.github/workflows/alegra-sync.yml`: cron 10:00 UTC =

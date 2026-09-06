@@ -10,6 +10,42 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.143.0] - 2026-09-05
+
+### Agregado
+
+- **Núcleo fiscal DGII portado desde agendapp (fase 1 de 9).** agendapp está
+  certificado ante la DGII desde el 28 de julio y facturando en producción; su
+  módulo entra en DermaLand tal cual, en `apps/web/src/features/dgii/core/`:
+  40 ficheros de núcleo, 5 constructores auxiliares y los 14 esquemas XSD
+  oficiales, con su `SOURCE.md` y una prueba que comprueba el SHA-256 de cada
+  uno. Construcción del XML de los 10 tipos de e-CF, reglas fiscales (RFCE,
+  ITBIS, indicador de monto gravado, notas que modifican), firma XMLDSig,
+  validación contra XSD sin red, cliente de la DGII con transporte inyectable,
+  máquina de estados, killswitches y representación impresa.
+- **607 pruebas portadas de agendapp** (45 ficheros) que ejercitan ese núcleo.
+  Incluye el generador de certificados autofirmados en memoria: no entra ni un
+  certificado real al repositorio.
+
+### Notas
+
+- **Esta fase no cambia el comportamiento de la aplicación.** No toca el punto
+  de venta, ni rutas, ni pantallas, ni la base de datos. El módulo fiscal
+  anterior sigue en su sitio; se retira en la fase 8.
+- **La certificación no se hereda.** DermaLand SRL tendrá que hacer su propio
+  trámite de 15 pasos ante la DGII. Lo que se gana es un software que ya pasó
+  esas pruebas una vez.
+- 132 pruebas quedan en espera, cada una marcada en el código con la fase que la
+  revive y el fichero que le falta. El detalle está en
+  [`docs/dgii/pruebas-pendientes-por-fase.md`](docs/dgii/pruebas-pendientes-por-fase.md).
+  Son *guardas de arquitectura*: vigilan servicios, rutas y pantallas de las
+  fases 2 a 9, que todavía no existen aquí.
+- Dos adaptaciones de portado, ambas en `core/__port__/`: un traductor de rutas
+  (agendapp guarda el módulo en `src/lib/dgii/`, DermaLand en
+  `src/features/dgii/core/`) y el ayudante de certificados de prueba.
+- `~/Projects/agendapp` se trató como **solo lectura**: `git status` del módulo
+  quedó en cero ficheros modificados.
+
 ## [0.142.0] - 2026-09-05
 
 ### Agregado
