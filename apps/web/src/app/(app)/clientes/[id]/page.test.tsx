@@ -18,13 +18,16 @@ import type { CustomerProfileState } from "@/features/customers/customer-profile
 
 const UUID = "d76d0d15-815e-4f56-a9ae-7fc21bc58af9";
 
-const { hookState, ventasState } = vi.hoisted(() => ({
+const { hookState, ventasState, filtrosPedidos } = vi.hoisted(() => ({
   hookState: { current: {} as Partial<CustomerProfileState> },
   // Estado de `/api/ventas?clienteId=…` (las compras migradas de Alegra).
   // Sin esto, la ficha intentaría una petición real en jsdom.
   ventasState: {
     current: { tipo: "listo", datos: { ventas: [] as unknown[], hayMas: false } } as unknown,
   },
+  // Con QUÉ filtros llamó la ficha. El mock los captura porque lo que hay que
+  // fijar no es solo que pida, sino que pida las compras DE ESE cliente.
+  filtrosPedidos: { current: [] as Record<string, unknown>[] },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -37,7 +40,10 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("@/features/ventas/ventas-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/ventas/ventas-api")>()),
-  useListadoVentas: () => ventasState.current,
+  useListadoVentas: (filtros: Record<string, unknown>) => {
+    filtrosPedidos.current.push(filtros);
+    return ventasState.current;
+  },
 }));
 vi.mock("@/features/customers/customer-profile-hooks", () => ({
   useCustomerProfile: () => ({
@@ -84,6 +90,7 @@ afterEach(() => {
   cleanup();
   hookState.current = {};
   ventasState.current = { tipo: "listo", datos: { ventas: [], hayMas: false } };
+  filtrosPedidos.current = [];
 });
 
 describe("perfil de cliente — estados de carga", () => {
@@ -199,5 +206,26 @@ describe("perfil de cliente — compras migradas de Alegra", () => {
     expect(
       screen.getByText(/No se pudieron cargar las compras migradas de Alegra/i),
     ).toBeInTheDocument();
+  });
+});
+
+describe("perfil de cliente — de quién son las compras que pide", () => {
+  it("🔴 pide las compras DE ESE cliente, no las de todo el negocio", () => {
+    // Sin `clienteId`, `/api/ventas` devuelve hasta 200 facturas migradas de
+    // cualquier cliente: la ficha listaría compras ajenas con nombre y
+    // apellido y las sumaría en «RD$X comprados». Fuga de datos y total
+    // inventado, y nada más en la suite lo notaría.
+    hookState.current = { customer: willian, loading: false };
+    render(<ClienteDetallePage />);
+    expect(filtrosPedidos.current.length).toBeGreaterThan(0);
+    for (const f of filtrosPedidos.current) {
+      expect(f.clienteId).toBe(UUID);
+    }
+  });
+
+  it("no pide más filas de las que la ruta puede dar", () => {
+    hookState.current = { customer: willian, loading: false };
+    render(<ClienteDetallePage />);
+    expect(filtrosPedidos.current[0]!.limite).toBe(200);
   });
 });

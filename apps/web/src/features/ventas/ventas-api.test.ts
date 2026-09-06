@@ -88,6 +88,19 @@ describe("consulta que se le manda a /api/ventas", () => {
   it("desplazamiento 0 sí viaja (es la primera página, no 'sin valor')", () => {
     expect(consultaVentas("listado", { desplazamiento: 0 })).toContain("desplazamiento=0");
   });
+
+  it("🔴 el cliente viaja en la consulta: sin él, la ficha pediría las de TODOS", () => {
+    // La ficha de un cliente pide `?clienteId=…`. Si ese filtro no viajara,
+    // `/api/ventas` devolvería hasta 200 facturas migradas de cualquier
+    // cliente del negocio —con sus nombres— y la ficha las sumaría como
+    // compras suyas. Fuga entre clientes y un total inventado.
+    const q = consultaVentas("listado", { clienteId: "d76d0d15-815e-4f56-a9ae-7fc21bc58af9" });
+    expect(q).toContain("clienteId=d76d0d15-815e-4f56-a9ae-7fc21bc58af9");
+  });
+
+  it("un cliente vacío no viaja: pedir «de nadie» no es pedir «de todos»", () => {
+    expect(consultaVentas("listado", { clienteId: "" })).not.toContain("clienteId");
+  });
 });
 
 describe("texto del desglose por origen", () => {
