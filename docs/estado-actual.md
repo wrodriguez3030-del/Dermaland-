@@ -111,6 +111,39 @@
   las tablas nuevas, la barrera de idempotencia rechaza el duplicado y el
   verificador pasa entero sin dejar una fila. Contra la base REAL no se ha
   ejecutado nada.
+- **Deuda conocida: el porte llegó fiel a junio/julio de agendapp y se saltó
+  lo que evolucionó allá después.** Nada de esto bloquea la fase 2; queda aquí
+  y no sólo en un diario, para que las fases siguientes no lo redescubran:
+  - **`electronic_invoices.reference_e_ncf`** (agendapp
+    `20260710_dgii_invoice_note_reference.sql`). La fase 1 ya trajo
+    `core/note-reference.ts` y `core/nota-que-modifica.ts`, los dos construidos
+    sobre esa columna. `note-reference.ts:34-41` detecta su ausencia y degrada
+    con un WARNING en vez de reventar, pero las notas 33/34 quedan **sin enlace
+    persistido** al comprobante que modifican y **sin el tope** que impide que
+    una nota de crédito supere el total del original.
+  - **Dos disparadores de auditoría de PII sin portar:**
+    `audit_dgii_pii_change()` + `trg_dgii_cert_pii_audit` +
+    `trg_dgii_settings_pii_audit` (agendapp
+    `20260609_dgii_phase2_core_tables.sql:337-380`, corregido en
+    `20260701_fix_dgii_pii_audit_trigger_entity_id_uuid.sql`). Activar o
+    revocar un certificado, y cambiar `rnc_emisor` / `ambiente` /
+    `dgii_enabled_real_send`, dejan de dejar rastro a nivel de base.
+  - **`dgii_settings.b2b_receive_token_hash`** y su índice único parcial
+    (agendapp `20260707_dgii_b2b_received_ecf.sql:83-86`). Importa porque
+    `received_ecf` **sí** se portó, y ese hash es lo que autentica su endpoint
+    público. Fase 7.
+  - **`dgii_certification_datasets`:** se portó el índice único **superado**
+    (por `dataset_sha256`), no el que agendapp lo reemplazó incluyendo
+    `purpose` (`20260722_dgii_certification_dataset_purpose.sql`). Se reimporta
+    una colisión ya arreglada allá. Faltan también la columna `purpose` en las
+    dos tablas de certificación y el valor `'acecf'` en el CHECK de `kind`
+    (`20260721_dgii_certification_kind_acecf.sql:19-24`).
+- **Deuda del repositorio de secuencias:** `dgii-sequences.ts` no sigue el
+  patrón de la casa (`RepoContext` + `getClient`, `SupabaseRepositoryError`) y
+  recibe un `SupabaseClient` sin tipar. No bloquea esta fase porque nadie lo
+  llama; **átalo a la fase 3, antes de que haya llamadores**, junto con la
+  regeneración de `database.types.ts` (que hoy describe el esquema viejo y no
+  conoce las cinco RPC nuevas).
 - **Pendiente (lo hace el dueño, no esta tarea):** aplicar las tres
   migraciones con `scripts/db/apply-migration.mjs --apply`, correr
   `scripts/db/verificar-dgii-fase2.mjs` y `scripts/audit-migrations.mjs`, y
