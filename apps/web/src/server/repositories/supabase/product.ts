@@ -4,6 +4,7 @@ import type {
   ProductRepository,
   RepoContext,
 } from "../types";
+import { TOPE_LOTES_PRODUCTO, TOPE_LOTES_TODOS } from "../types";
 import {
   SupabaseRepositoryError,
   UserFacingRepositoryError,
@@ -265,23 +266,6 @@ export const productRepository: ProductRepository = {
   },
 };
 
-/**
- * Tope duro de `productLot.list`: por más que pida el caller en `opts.limit`,
- * nunca se devuelven más filas que esto.
- *
- * Medido el 06/09/2026: DermaLand tiene 1 957 lotes. `useAllLots()` (la
- * fuente de `/api/lots` sin `productId`) alimenta el cálculo de stock en el
- * navegador de CASI TODO: el POS, `/inventario`, `/productos`, conteo
- * físico, bajo-stock, vencimientos, cuarentena/bloqueados y los reportes de
- * inventario/productos (ver `inventory-stock-engine.ts`). Un tope por debajo
- * del total real REPITE el bug ya documentado arriba (PostgREST cortando en
- * 1000 → "Stock actual" mostraba 0 en productos cuyo lote quedaba fuera de
- * la 1ª página) — eso significa vender con stock fantasma o no poder vender
- * lo que sí hay. Por eso 20 000: igual orden de magnitud que los otros topes
- * de este arreglo, con ~10x de margen sobre el conteo de hoy.
- */
-const TOPE_LOTES = 20_000;
-
 export const productLotRepository: ProductLotRepository = {
   async list(ctx: RepoContext, opts) {
     const sb = await getClient("productLot.list");
@@ -299,10 +283,19 @@ export const productLotRepository: ProductLotRepository = {
     // (trae TODOS los lotes, con el tope de seguridad interno — 50 páginas —
     // de `fetchAllPages`). Cuando el caller SÍ lo pide —hoy, solo
     // `/api/lots`— se acota cuántas páginas se piden como máximo y, al
-    // final, se recorta el arreglo al límite exacto: jamás se supera
-    // TOPE_LOTES sin importar lo que pida `opts.limit`.
+    // final, se recorta el arreglo al límite exacto: jamás se supera el
+    // tope del ESCENARIO sin importar lo que pida `opts.limit`.
+    //
+    // El tope depende de si se pide UN producto o el inventario completo
+    // (hallazgo de revisión, tarea 7): antes este método usaba el mismo
+    // TOPE_LOTES=20 000 para los dos casos, así que un caller que pasara
+    // `productId` + `limit` grande directamente al repositorio —sin pasar
+    // por `/api/lots`, que sí distingue— podía recibir hasta 40 veces el
+    // techo que el propio proyecto documenta como razonable para un solo
+    // producto.
+    const topeEscenario = opts?.productId ? TOPE_LOTES_PRODUCTO : TOPE_LOTES_TODOS;
     const limiteEfectivo =
-      opts?.limit != null ? Math.min(opts.limit, TOPE_LOTES) : null;
+      opts?.limit != null ? Math.min(opts.limit, topeEscenario) : null;
     const tamañoPagina = limiteEfectivo != null ? Math.min(limiteEfectivo, 1000) : 1000;
     const maxPaginas =
       limiteEfectivo != null ? Math.ceil(limiteEfectivo / tamañoPagina) : undefined;

@@ -227,6 +227,28 @@ export interface ProductRepository {
   softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
+/**
+ * Topes de filas de `productLot.list` según el escenario — ÚNICO sitio
+ * donde viven estos dos números. La ruta (`app/api/lots/route.ts`) y el
+ * repositorio Supabase (`./supabase/product.ts`) importan de aquí y nunca
+ * definen su propia copia: antes cada capa tenía la suya, y el repositorio
+ * aplicaba un único tope de 20 000 también para "un solo producto" —
+ * hallazgo de revisión de la tarea 7, cerrado uniendo la fuente aquí.
+ *
+ *  - `TOPE_LOTES_PRODUCTO`: con `productId`, los lotes de UN solo producto
+ *    (ficha de producto, recepción). Ningún producto real acumula cientos
+ *    de lotes vigentes; 500 sobra con margen amplio.
+ *  - `TOPE_LOTES_TODOS`: sin `productId`, el inventario completo — alimenta
+ *    el cálculo de stock en el navegador de casi toda la app
+ *    (`useAllLots()`: POS, `/inventario`, conteo físico, reportes). Medido
+ *    el 06/09/2026: 1 957 lotes hoy. Un tope por debajo del conteo real
+ *    repite el bug ya conocido de PostgREST cortando en 1000 filas ("Stock
+ *    actual" mostraba 0 en productos cuyo lote quedaba fuera de la 1ª
+ *    página) — por eso este techo es mucho más generoso.
+ */
+export const TOPE_LOTES_PRODUCTO = 500;
+export const TOPE_LOTES_TODOS = 20_000;
+
 export interface ProductLotRepository {
   list(ctx: RepoContext, opts?: {
     productId?: ID;
@@ -238,7 +260,8 @@ export interface ProductLotRepository {
      * Tope de filas a devolver (opcional). Sin él, se preserva el
      * comportamiento actual (trae todo, paginando el corte de 1000 de
      * PostgREST). Lo usa `/api/lots` para no servir la tabla entera al
-     * navegador — ver `TOPE_LOTES_*` en `./supabase/product.ts`.
+     * navegador — el techo real depende del escenario: ver
+     * `TOPE_LOTES_PRODUCTO`/`TOPE_LOTES_TODOS` arriba en este archivo.
      */
     limit?: number;
   }): Promise<ProductLot[]>;

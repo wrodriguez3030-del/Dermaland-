@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
+import { TOPE_LOTES_PRODUCTO, TOPE_LOTES_TODOS } from "@/server/repositories/types";
 import { getRepoContext, getSession } from "@/server/auth/context";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { receptionShelfLifeCheck } from "@/features/inventory/reception-shelf-life";
@@ -9,23 +10,22 @@ import { canReceiveBelowShelfLife } from "@/features/tenancy/permissions";
 export const dynamic = "force-dynamic";
 
 /**
- * Topes de filas que esta ruta puede devolver — ver el porqué de los números
- * junto a `TOPE_LOTES` en `server/repositories/supabase/product.ts` (esa es
- * la fuente real: aquí solo se decide el "pedido" por defecto según el caso
- * y se clampa lo que venga por `?limit=`). Son DOS escenarios distintos:
+ * Topes de filas que esta ruta puede devolver — ÚNICA fuente en
+ * `server/repositories/types.ts` (`TOPE_LOTES_PRODUCTO`/`TOPE_LOTES_TODOS`,
+ * junto a `ProductLotRepository`): el repositorio Supabase
+ * (`supabase/product.ts`) importa los mismos valores y los aplica como
+ * tope duro real contra Postgres, así los dos lados nunca se desincronizan
+ * (antes cada uno tenía su propia copia y el repositorio no distinguía los
+ * dos escenarios — hallazgo de revisión, tarea 7). Aquí solo se decide el
+ * "pedido" por defecto según el caso y se clampa lo que venga por
+ * `?limit=`; el porqué de cada número está documentado junto a las
+ * constantes. Son DOS escenarios distintos:
  *
  *  - CON `productId`: `useProductLots(productId)` pide los lotes de UN
- *    producto (ficha de producto, recepción). Ningún producto real acumula
- *    cientos de lotes vigentes; 500 sobra con margen amplio.
+ *    producto (ficha de producto, recepción).
  *  - SIN `productId`: `useAllLots()` pide TODO el inventario para calcular
- *    stock en el navegador (POS, `/inventario`, conteo físico, reportes) —
- *    hoy son 1 957 lotes. Bajar esto por debajo del conteo real repite el
- *    bug ya conocido de PostgREST cortando en 1000 ("Stock actual" mostraba
- *    0 en productos cuyo lote caía fuera de la 1ª página) — por eso el tope
- *    aquí es mucho más generoso.
+ *    stock en el navegador (POS, `/inventario`, conteo físico, reportes).
  */
-const TOPE_LOTES_PRODUCTO = 500;
-const TOPE_LOTES_TODOS = 20_000;
 
 function notSupabase() {
   return NextResponse.json(
