@@ -234,6 +234,13 @@ export interface ProductLotRepository {
     expiringWithinDays?: number;
     /** Solo lotes YA vencidos (expires_at < hoy). Excluyente con expiringWithinDays. */
     expiredOnly?: boolean;
+    /**
+     * Tope de filas a devolver (opcional). Sin él, se preserva el
+     * comportamiento actual (trae todo, paginando el corte de 1000 de
+     * PostgREST). Lo usa `/api/lots` para no servir la tabla entera al
+     * navegador — ver `TOPE_LOTES_*` en `./supabase/product.ts`.
+     */
+    limit?: number;
   }): Promise<ProductLot[]>;
   byId(ctx: RepoContext, id: ID): Promise<ProductLot | null>;
   /** FEFO: lote más próximo a vencer disponible para el producto. */
@@ -349,7 +356,12 @@ export interface InventoryCountRepository {
 // ─── Customers ──────────────────────────────────────────────────────────────
 
 export interface CustomerRepository {
-  list(ctx: RepoContext, opts?: { search?: string; tag?: string }): Promise<Customer[]>;
+  /**
+   * `limit` es opcional: sin él, se preserva el comportamiento actual (trae
+   * todos los que haga falta). Lo usa `/api/customers` para no servir la
+   * tabla entera al navegador — ver `TOPE_CLIENTES` en `./supabase/customer.ts`.
+   */
+  list(ctx: RepoContext, opts?: { search?: string; tag?: string; limit?: number }): Promise<Customer[]>;
   byId(ctx: RepoContext, id: ID): Promise<Customer | null>;
   notes(ctx: RepoContext, customerId: ID): Promise<CustomerNote[]>;
   create(ctx: RepoContext, customer: Omit<Customer, "id" | "createdAt" | "updatedAt">): Promise<Customer>;
@@ -411,7 +423,12 @@ export interface ExpenseCategoryRepository {
 // ─── POS / Sales ────────────────────────────────────────────────────────────
 
 export interface ProformaRepository {
-  list(ctx: RepoContext): Promise<Proforma[]>;
+  /**
+   * `opts.limit` es opcional: sin él, se preserva el comportamiento actual
+   * (trae todas). Lo usa `/api/proformas` para no servir la tabla entera al
+   * navegador — ver `TOPE_PROFORMAS` en `./supabase/sales.ts`.
+   */
+  list(ctx: RepoContext, opts?: { limit?: number }): Promise<Proforma[]>;
   byId(ctx: RepoContext, id: ID): Promise<Proforma | null>;
   /**
    * Ventas de UN cliente (perfil): filtra en SERVIDOR por customer_id, con

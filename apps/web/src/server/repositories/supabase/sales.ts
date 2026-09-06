@@ -172,14 +172,43 @@ async function fetchPaymentsForProformas(
   return out;
 }
 
+/**
+ * Tope duro de `proforma.list`: por más que pida el caller en `opts.limit`,
+ * nunca se devuelven más filas que esto.
+ *
+ * Medido el 06/09/2026: `proformas` tiene 0 filas (el histórico de ventas
+ * vive en `alegra_invoices`; DermaLand recién empieza a facturar por su
+ * propio POS). Pero MUCHAS pantallas —panel, `/ventas`, cierre de caja,
+ * `/proformas`, y los reportes de ventas/comisión/productos/DGII/pagos—
+ * usan `useProformas()` para traer TODO y filtrar/agrupar en el navegador
+ * (por fecha, sucursal, vendedor…). No hay forma de poner un tope "seguro
+ * para siempre" para una tabla transaccional que crece a diario sin,
+ * eventualmente, necesitar paginación real server-side (la farmacia cobra
+ * a diario). 20 000 da años de margen al ritmo actual y, como el orden es
+ * `created_at DESC`, si algún día se alcanza, lo que se corta primero es
+ * el historial más viejo — nunca las ventas recientes que necesita el
+ * cierre de caja de hoy. Ver el informe de la tarea 7 para el detalle de
+ * qué pantalla necesitaría paginación propia antes de llegar ahí.
+ */
+const TOPE_PROFORMAS = 20_000;
+
 export const proformaRepository: ProformaRepository = {
-  async list(ctx: RepoContext) {
+  async list(ctx: RepoContext, opts) {
     const sb = await getClient("proforma.list");
-    const { data, error } = await sb
+    let q = sb
       .from("proformas")
       .select("*")
       .eq("business_id", ctx.businessId)
       .order("created_at", { ascending: false });
+    // `opts.limit` es opcional: sin él, se preserva el comportamiento previo
+    // (sin tope explícito aquí). Cuando el caller SÍ lo pide —hoy, solo
+    // `/api/proformas`— se acota con `.range()` y jamás se supera
+    // TOPE_PROFORMAS, sin importar lo que pida `opts.limit`.
+    if (opts?.limit != null) {
+      const limit = Math.min(opts.limit, TOPE_PROFORMAS);
+      q = q.range(0, limit - 1);
+    }
+    const { data, error } = await q;
     if (error) throw new SupabaseRepositoryError("proforma.list", error);
     const rows = data ?? [];
     const ids = rows.map((r: { id: string }) => r.id);

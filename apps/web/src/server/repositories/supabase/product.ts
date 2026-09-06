@@ -265,6 +265,23 @@ export const productRepository: ProductRepository = {
   },
 };
 
+/**
+ * Tope duro de `productLot.list`: por más que pida el caller en `opts.limit`,
+ * nunca se devuelven más filas que esto.
+ *
+ * Medido el 06/09/2026: DermaLand tiene 1 957 lotes. `useAllLots()` (la
+ * fuente de `/api/lots` sin `productId`) alimenta el cálculo de stock en el
+ * navegador de CASI TODO: el POS, `/inventario`, `/productos`, conteo
+ * físico, bajo-stock, vencimientos, cuarentena/bloqueados y los reportes de
+ * inventario/productos (ver `inventory-stock-engine.ts`). Un tope por debajo
+ * del total real REPITE el bug ya documentado arriba (PostgREST cortando en
+ * 1000 → "Stock actual" mostraba 0 en productos cuyo lote quedaba fuera de
+ * la 1ª página) — eso significa vender con stock fantasma o no poder vender
+ * lo que sí hay. Por eso 20 000: igual orden de magnitud que los otros topes
+ * de este arreglo, con ~10x de margen sobre el conteo de hoy.
+ */
+const TOPE_LOTES = 20_000;
+
 export const productLotRepository: ProductLotRepository = {
   async list(ctx: RepoContext, opts) {
     const sb = await getClient("productLot.list");
@@ -278,7 +295,19 @@ export const productLotRepository: ProductLotRepository = {
       expiringCutoff = cutoff.toISOString().slice(0, 10);
     }
 
-    // Trae TODOS los lotes paginando: sin `.range()`, PostgREST corta en 1000 y
+    // `opts.limit` es opcional: sin él, se preserva el comportamiento previo
+    // (trae TODOS los lotes, con el tope de seguridad interno — 50 páginas —
+    // de `fetchAllPages`). Cuando el caller SÍ lo pide —hoy, solo
+    // `/api/lots`— se acota cuántas páginas se piden como máximo y, al
+    // final, se recorta el arreglo al límite exacto: jamás se supera
+    // TOPE_LOTES sin importar lo que pida `opts.limit`.
+    const limiteEfectivo =
+      opts?.limit != null ? Math.min(opts.limit, TOPE_LOTES) : null;
+    const tamañoPagina = limiteEfectivo != null ? Math.min(limiteEfectivo, 1000) : 1000;
+    const maxPaginas =
+      limiteEfectivo != null ? Math.ceil(limiteEfectivo / tamañoPagina) : undefined;
+
+    // Trae los lotes paginando: sin `.range()`, PostgREST corta en 1000 y
     // con >1000 lotes (hoy ~1370) el stock salía incompleto — Stock actual
     // mostraba 0 en los productos cuyos lotes caían fuera de la 1ª página. El
     // orden total (expires_at, id) hace que los rangos no solapen ni dejen huecos.
@@ -303,9 +332,10 @@ export const productLotRepository: ProductLotRepository = {
         .range(from, to);
       if (error) throw new SupabaseRepositoryError("productLot.list", error);
       return data ?? [];
-    });
+    }, tamañoPagina, maxPaginas);
 
-    return rows.map(productLotRowToTs);
+    const acotados = limiteEfectivo != null ? rows.slice(0, limiteEfectivo) : rows;
+    return acotados.map(productLotRowToTs);
   },
 
   async byId(ctx: RepoContext, id: string) {

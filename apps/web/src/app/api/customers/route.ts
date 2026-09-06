@@ -27,6 +27,16 @@ const createCustomerSchema = z
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * Tope de filas que esta ruta puede devolver — ver el porqué del número
+ * junto a `TOPE_CLIENTES` en `server/repositories/supabase/customer.ts`
+ * (esa es la fuente real: aquí solo se decide el "pedido" por defecto y se
+ * clampa lo que venga por `?limit=`). Sin este tope, `useCustomers()`
+ * descargaba los 6 525 clientes en CADA carga del panel, del POS y de la
+ * ficha de cliente.
+ */
+const TOPE_CLIENTES = 10_000;
+
 function notSupabase() {
   return NextResponse.json(
     {
@@ -40,9 +50,17 @@ function notSupabase() {
 export async function GET(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
-    const search = req.nextUrl.searchParams.get("search") ?? undefined;
+    const sp = req.nextUrl.searchParams;
+    const search = sp.get("search") ?? undefined;
+    // `Math.min(pedido, TOPE)`: el caller puede pedir MENOS (paginación
+    // propia futura) pero nunca más que el tope duro.
+    const pedido = Number(sp.get("limit"));
+    const limit = Math.min(
+      Number.isFinite(pedido) && pedido > 0 ? pedido : TOPE_CLIENTES,
+      TOPE_CLIENTES,
+    );
     const ctx = await getRepoContext();
-    const customers = await getRepositories().customer.list(ctx, { search });
+    const customers = await getRepositories().customer.list(ctx, { search, limit });
     return NextResponse.json(
       { customers },
       { headers: { "Cache-Control": "no-store" } },

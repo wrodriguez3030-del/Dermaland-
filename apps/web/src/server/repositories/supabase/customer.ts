@@ -32,6 +32,23 @@ function telefonoUniforme(valor: string | null | undefined): string | null {
   return formateado || bruto;
 }
 
+/**
+ * Tope duro de `customer.list`: por más que pida el caller en `opts.limit`,
+ * nunca se devuelven más filas que esto.
+ *
+ * Medido el 06/09/2026: DermaLand tiene 6 525 clientes. `/api/customers` es
+ * la fuente de `useCustomers()`, y de ahí salen dos pantallas que buscan
+ * sobre la lista COMPLETA en el navegador (no tienen búsqueda propia contra
+ * el servidor): el selector de cliente del POS (`CustomerSearchSelect`, vía
+ * `pos-terminal.tsx`) y la ficha de edición de cliente (`useCustomer(id)`
+ * busca por id dentro de la misma lista). Si el tope queda por debajo del
+ * padrón real, el cajero deja de encontrar clientes que sí existen — peor
+ * que la lentitud que se está arreglando. 10 000 da ~53% de margen sobre el
+ * conteo de hoy (similar orden de magnitud al tope de 25k ya usado en
+ * `/api/customers/check-duplicate` para un barrido completo del negocio).
+ */
+const TOPE_CLIENTES = 10_000;
+
 export const customerRepository: CustomerRepository = {
   async list(ctx: RepoContext, opts) {
     const sb = await getClient("customer.list");
@@ -67,6 +84,14 @@ export const customerRepository: CustomerRepository = {
     }
 
     q = q.order("first_name", { ascending: true });
+    // `opts.limit` es opcional: sin él, se preserva el comportamiento previo
+    // (sin tope explícito aquí). Cuando el caller SÍ lo pide —hoy, solo
+    // `/api/customers`— se acota con `.range()` y jamás se supera TOPE_CLIENTES,
+    // sin importar lo que pida `opts.limit`.
+    if (opts?.limit != null) {
+      const limit = Math.min(opts.limit, TOPE_CLIENTES);
+      q = q.range(0, limit - 1);
+    }
     const { data, error } = await q;
     if (error) throw new SupabaseRepositoryError("customer.list", error);
     return (data ?? []).map(clientRowToTs);

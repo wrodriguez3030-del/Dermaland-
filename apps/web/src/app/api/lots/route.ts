@@ -8,6 +8,25 @@ import { canReceiveBelowShelfLife } from "@/features/tenancy/permissions";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Topes de filas que esta ruta puede devolver — ver el porqué de los números
+ * junto a `TOPE_LOTES` en `server/repositories/supabase/product.ts` (esa es
+ * la fuente real: aquí solo se decide el "pedido" por defecto según el caso
+ * y se clampa lo que venga por `?limit=`). Son DOS escenarios distintos:
+ *
+ *  - CON `productId`: `useProductLots(productId)` pide los lotes de UN
+ *    producto (ficha de producto, recepción). Ningún producto real acumula
+ *    cientos de lotes vigentes; 500 sobra con margen amplio.
+ *  - SIN `productId`: `useAllLots()` pide TODO el inventario para calcular
+ *    stock en el navegador (POS, `/inventario`, conteo físico, reportes) —
+ *    hoy son 1 957 lotes. Bajar esto por debajo del conteo real repite el
+ *    bug ya conocido de PostgREST cortando en 1000 ("Stock actual" mostraba
+ *    0 en productos cuyo lote caía fuera de la 1ª página) — por eso el tope
+ *    aquí es mucho más generoso.
+ */
+const TOPE_LOTES_PRODUCTO = 500;
+const TOPE_LOTES_TODOS = 20_000;
+
 function notSupabase() {
   return NextResponse.json(
     {
@@ -22,11 +41,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
     const sp = req.nextUrl.searchParams;
+    const productId = sp.get("productId") ?? undefined;
+    const tope = productId ? TOPE_LOTES_PRODUCTO : TOPE_LOTES_TODOS;
+    // `Math.min(pedido, TOPE)`: el caller puede pedir MENOS (paginación
+    // propia futura) pero nunca más que el tope duro de este escenario.
+    const pedido = Number(sp.get("limit"));
+    const limit = Math.min(Number.isFinite(pedido) && pedido > 0 ? pedido : tope, tope);
     const ctx = await getRepoContext();
     const repos = getRepositories();
-    const lots = await repos.productLot.list(ctx, {
-      productId: sp.get("productId") ?? undefined,
-    });
+    const lots = await repos.productLot.list(ctx, { productId, limit });
     return NextResponse.json({ lots }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return NextResponse.json(
