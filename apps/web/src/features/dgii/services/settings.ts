@@ -1,4 +1,5 @@
 import type { DgiiAmbienteTarget } from "@/features/dgii/core/killswitches";
+import { ambienteTargetOf } from "@/features/dgii/core/killswitches";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { crearRepositorioConfiguracion } from "@/server/repositories/supabase/dgii-settings";
 
@@ -37,19 +38,20 @@ export function estaConfigurado(config: ConfiguracionFiscal): boolean {
  *
  * **CRÍTICO: el ambiente por defecto es SIEMPRE `testecf` (pruebas), NUNCA el real.**
  *
+ * Delega a `ambienteTargetOf` del núcleo (la versión de producción en agendapp).
+ * Una única implementación evita la divergencia: si la regla de ambiente se ajusta,
+ * el cambio no se puede olvidar en dos lugares.
+ *
  * Un default que devuelva `"ecf"` o `"certecf"` ante un valor desconocido
  * convierte un descuido de configuración en un comprobante fiscal REAL ante
- * el Estado, y eso no se deshace. Por eso este guard es incondicional:
- * solo `"ecf"` o `"certecf"` con valorexacto salen como escritos; cualquier
+ * el Estado, y eso no se deshace. Por eso el guard es incondicional:
+ * solo `"ecf"` o `"certecf"` con valor exacto salen como escritos; cualquier
  * otra cosa —`null`, `undefined`, cadena vacía, valor desconocido— cae a `testecf`.
  */
 export function modoFiscal(
   config: ConfiguracionFiscal,
 ): "testecf" | "certecf" | "ecf" {
-  const a = config.ambiente;
-  if (a === "certecf") return "certecf";
-  if (a === "ecf") return "ecf";
-  return "testecf";
+  return ambienteTargetOf(config.ambiente);
 }
 
 /**

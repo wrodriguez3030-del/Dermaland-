@@ -31,7 +31,12 @@ describe("configuración fiscal", () => {
 
   it("el ambiente por defecto es el de pruebas, nunca el real", () => {
     // Un default que emita de verdad convierte un descuido en un comprobante fiscal.
+    // El valor viene de una fila de la base; la BD y su CHECK pueden cambiar sin tocar este fichero.
     expect(modoFiscal({ ...base, ambiente: null as never })).toBe("testecf");
+    expect(modoFiscal({ ...base, ambiente: undefined as never })).toBe("testecf");
+    expect(modoFiscal({ ...base, ambiente: "produccion" as never })).toBe("testecf");
+    expect(modoFiscal({ ...base, ambiente: " ecf " as never })).toBe("testecf");
+    expect(modoFiscal({ ...base, ambiente: "ECF" as never })).toBe("testecf");
   });
 
   it("el ambiente real solo sale si está escrito explícitamente", () => {
