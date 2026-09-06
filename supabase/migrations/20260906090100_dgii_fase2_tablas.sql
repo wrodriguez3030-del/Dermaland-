@@ -51,6 +51,25 @@
 --   conservan el valor `'agendapp-system'` tal cual viene de la fuente: no es
 --   ninguna de las seis sustituciones, así que no se ha tocado.
 
+-- ── 0) Guarda de orden: la parte 1 tiene que estar aplicada ──────────────────
+-- I2 de la revisión final. Ocho de estos nombres los ocupa el módulo viejo y es
+-- la parte 1 la que los libera. Como aquí se crea todo con `create table if not
+-- exists`, sin esta guarda la migración NO crearía esas ocho tablas y
+-- REPORTARÍA ÉXITO: tres migraciones en verde sobre una base donde
+-- `reserve_next_encf` revienta en ejecución al leer `expires_at`, porque la
+-- `ecf_sequences` vieja tiene `fecha_vencimiento date not null`
+-- (`0003_dgii_pos.sql:131`) y no `expires_at`.
+--
+-- La cabecera decía «Requiere la parte 1 aplicada» y el plan decía «en orden y
+-- una a una». Las dos cosas son instrucciones para un humano; esto es lo que lo
+-- obliga.
+do $$
+begin
+  if to_regclass('public.electronic_invoices_legacy_20260906') is null then
+    raise exception 'DGII fase 2: falta aplicar la parte 1 (retirada). Aplícala antes que esta.';
+  end if;
+end $$;
+
 -- ── 1) dgii_settings ─────────────────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:41-55 (1:1 con
 -- business; la PK es el propio business_id).
@@ -73,8 +92,8 @@ create table if not exists public.dgii_settings (
 alter table public.dgii_settings enable row level security;
 drop policy if exists dgii_settings_all on public.dgii_settings;
 create policy dgii_settings_all on public.dgii_settings for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 2) dgii_certificates ─────────────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:58-76 (tabla) y
@@ -109,8 +128,8 @@ create unique index if not exists uniq_dgii_cert_active_per_business
 alter table public.dgii_certificates enable row level security;
 drop policy if exists dgii_certificates_all on public.dgii_certificates;
 create policy dgii_certificates_all on public.dgii_certificates for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 3) ecf_sequences ─────────────────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:79-96 (tabla) y
@@ -142,8 +161,8 @@ create index if not exists idx_ecf_sequences_lookup
 alter table public.ecf_sequences enable row level security;
 drop policy if exists ecf_sequences_all on public.ecf_sequences;
 create policy ecf_sequences_all on public.ecf_sequences for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 4) electronic_invoices ───────────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:99-129 (tabla) y
@@ -193,8 +212,8 @@ create index if not exists idx_einv_business_encf     on public.electronic_invoi
 alter table public.electronic_invoices enable row level security;
 drop policy if exists electronic_invoices_all on public.electronic_invoices;
 create policy electronic_invoices_all on public.electronic_invoices for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 4-bis) Reincorporación de 0045_ecf_idempotency_and_events ────────────────
 --
@@ -276,8 +295,8 @@ create index if not exists idx_einv_items_business on public.electronic_invoice_
 alter table public.electronic_invoice_items enable row level security;
 drop policy if exists electronic_invoice_items_all on public.electronic_invoice_items;
 create policy electronic_invoice_items_all on public.electronic_invoice_items for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 6) dgii_submissions ──────────────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:146-162 (tabla) y
@@ -307,8 +326,8 @@ create index if not exists idx_dgii_sub_track_id
 alter table public.dgii_submissions enable row level security;
 drop policy if exists dgii_submissions_all on public.dgii_submissions;
 create policy dgii_submissions_all on public.dgii_submissions for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 7) dgii_status_logs ──────────────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:165-174 (tabla) y
@@ -331,8 +350,8 @@ create index if not exists idx_dgii_status_invoice
 alter table public.dgii_status_logs enable row level security;
 drop policy if exists dgii_status_logs_all on public.dgii_status_logs;
 create policy dgii_status_logs_all on public.dgii_status_logs for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 8) dgii_enablement_progress ──────────────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:177-185 (1:1 con
@@ -350,8 +369,8 @@ create table if not exists public.dgii_enablement_progress (
 alter table public.dgii_enablement_progress enable row level security;
 drop policy if exists dgii_enablement_progress_all on public.dgii_enablement_progress;
 create policy dgii_enablement_progress_all on public.dgii_enablement_progress for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 9) dgii_representative_attestations ──────────────────────────────────────
 -- Portada de agendapp: 20260609_dgii_phase2_core_tables.sql:188-198 (tabla) y
@@ -373,8 +392,8 @@ create index if not exists idx_dgii_attest_business
 alter table public.dgii_representative_attestations enable row level security;
 drop policy if exists dgii_representative_attestations_all on public.dgii_representative_attestations;
 create policy dgii_representative_attestations_all on public.dgii_representative_attestations for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 10) received_ecf ─────────────────────────────────────────────────────────
 -- Portada de agendapp: 20260707_dgii_b2b_received_ecf.sql:26-59 (tabla) y
@@ -424,8 +443,8 @@ create index if not exists received_ecf_business_received_at_idx
 alter table public.received_ecf enable row level security;
 drop policy if exists received_ecf_all on public.received_ecf;
 create policy received_ecf_all on public.received_ecf for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 11) received_commercial_approvals ────────────────────────────────────────
 -- Portada de agendapp: 20260709_dgii_received_commercial_approvals.sql:29-54
@@ -469,8 +488,8 @@ create index if not exists received_ca_invoice_idx
 alter table public.received_commercial_approvals enable row level security;
 drop policy if exists received_commercial_approvals_all on public.received_commercial_approvals;
 create policy received_commercial_approvals_all on public.received_commercial_approvals for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 12) dgii_certification_datasets ──────────────────────────────────────────
 -- Portada de agendapp: 20260716_dgii_certification_dataset.sql:31-49 (tabla) y
@@ -503,8 +522,8 @@ create index if not exists dgii_certification_datasets_biz_env_idx
 alter table public.dgii_certification_datasets enable row level security;
 drop policy if exists dgii_certification_datasets_all on public.dgii_certification_datasets;
 create policy dgii_certification_datasets_all on public.dgii_certification_datasets for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 13) dgii_certification_cases ─────────────────────────────────────────────
 -- Portada de agendapp: 20260716_dgii_certification_dataset.sql:65-89 (tabla) y
@@ -546,8 +565,8 @@ create index if not exists dgii_certification_cases_biz_status_idx
 alter table public.dgii_certification_cases enable row level security;
 drop policy if exists dgii_certification_cases_all on public.dgii_certification_cases;
 create policy dgii_certification_cases_all on public.dgii_certification_cases for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 14) dgii_simulation_ranges ───────────────────────────────────────────────
 -- Portada de agendapp: 20260723_dgii_simulation_ranges.sql:30-63 (tabla) y
@@ -594,8 +613,8 @@ create index if not exists dgii_simulation_ranges_biz_estado_idx
 alter table public.dgii_simulation_ranges enable row level security;
 drop policy if exists dgii_simulation_ranges_all on public.dgii_simulation_ranges;
 create policy dgii_simulation_ranges_all on public.dgii_simulation_ranges for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 15) dgii_certification_applications ──────────────────────────────────────
 -- Portada de agendapp: 20260727_dgii_certification_workflow.sql:36-61 (tabla) y
@@ -638,8 +657,8 @@ create index if not exists dgii_cert_app_business_idx
 alter table public.dgii_certification_applications enable row level security;
 drop policy if exists dgii_certification_applications_all on public.dgii_certification_applications;
 create policy dgii_certification_applications_all on public.dgii_certification_applications for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 16) dgii_certification_events ────────────────────────────────────────────
 -- Portada de agendapp: 20260727_dgii_certification_workflow.sql:79-98 (tabla) y
@@ -675,8 +694,8 @@ create index if not exists dgii_cert_event_step_idx
 alter table public.dgii_certification_events enable row level security;
 drop policy if exists dgii_certification_events_all on public.dgii_certification_events;
 create policy dgii_certification_events_all on public.dgii_certification_events for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- ── 17) dgii_certification_evidence ──────────────────────────────────────────
 -- Portada de agendapp: 20260727_dgii_certification_workflow.sql:118-133 (tabla),
@@ -705,8 +724,8 @@ create index if not exists dgii_cert_evidence_app_idx
 alter table public.dgii_certification_evidence enable row level security;
 drop policy if exists dgii_certification_evidence_all on public.dgii_certification_evidence;
 create policy dgii_certification_evidence_all on public.dgii_certification_evidence for all
-  using (business_id = auth_business_id())
-  with check (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()))
+  with check (business_id = (select public.auth_business_id()));
 
 -- FK diferida de evento -> evidencia (dgii_certification_evidence se define
 -- después de dgii_certification_events; ver nota arriba).
@@ -806,4 +825,9 @@ drop policy if exists ecf_document_events_select on public.ecf_document_events;
 -- tiene por qué poder escribir en el historial fiscal. Sin políticas de
 -- INSERT/UPDATE/DELETE, la RLS los deniega por defecto.
 create policy ecf_document_events_select on public.ecf_document_events for select
-  using (business_id = auth_business_id());
+  using (business_id = (select public.auth_business_id()));
+
+-- Convención de la casa: 33 de las 65 migraciones lo llevan, y TODAS las que
+-- crean RPC o renombran tablas expuestas. Supabase Cloud suele recargar solo,
+-- pero aquí se declara. M4 de la revisión final.
+notify pgrst, 'reload schema';

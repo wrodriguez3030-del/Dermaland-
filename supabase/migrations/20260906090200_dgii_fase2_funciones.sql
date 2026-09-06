@@ -12,6 +12,50 @@
 -- consumir un número fiscal no es una acción de cajero, y un `authenticated`
 -- llamando a la RPC en bucle agotaría el rango autorizado por la DGII. El
 -- business_id entra como parámetro y lo pone el servidor, nunca el navegador.
+--
+-- ALCANCE REAL DE ESE REVOKE, para que nadie lea de más: protege el cruce ENTRE
+-- empresas. Dentro de una, no protege nada — cualquier usuario autenticado de
+-- esa misma empresa puede hacer `PATCH /rest/v1/ecf_sequences` y retroceder
+-- `next_number` sin tocar ninguna función, porque la política de `ecf_sequences`
+-- es `for all using (business_id = auth_business_id())`. No es una regresión de
+-- esta rama (`0003_dgii_pos.sql:150` ya la tenía, y agendapp también), pero el
+-- patrón de la casa para un contador que solo debe tocar el servidor es el
+-- contrario: `proforma_counters` tiene RLS y CERO políticas
+-- (`20260810040000_proforma_number_server_side.sql:24-28`). Queda escrito para
+-- la fase 4, que va a construir encima. I6 de la revisión final.
+--
+-- Y CADA REVOKE LLEVA SU GRANT A `service_role`. Estas migraciones revocan
+-- también de `public`, a diferencia del precedente de la casa
+-- (`0038_web_orders.sql:120`, que revoca solo de anon y authenticated). Si
+-- `service_role` tuviera EXECUTE únicamente heredado de PUBLIC, el revoke se lo
+-- quitaría y la fase 3 se estrellaría con «permission denied for function» sin
+-- aviso previo. Comprobado contra un Postgres 16 efímero: sin el grant,
+-- `has_function_privilege('service_role', …, 'execute')` da FALSE en las cinco.
+-- En Supabase normalmente lo salvan los default privileges del proyecto, pero
+-- eso es una suposición sobre la base, no algo que este fichero garantice.
+-- Concederlo explícitamente no afloja nada: `service_role` es la clave del
+-- servidor, que ya se salta la RLS entera.
+
+-- ── 0) Guarda de orden: partes 1 y 2 aplicadas ───────────────────────────────
+-- I2 de la revisión final. `create or replace function` NO valida las
+-- referencias a columnas del cuerpo plpgsql, así que esta migración se aplica
+-- «con éxito» sobre cualquier esquema. Sin la guarda: si falta la parte 1, las
+-- dos claves foráneas del final se enganchan a la `electronic_invoices` VIEJA
+-- sin que nadie se entere; si falta la parte 2, `reserve_next_encf` revienta en
+-- ejecución al leer `expires_at`, que la `ecf_sequences` vieja no tiene
+-- (`0003_dgii_pos.sql:131` la llama `fecha_vencimiento`).
+do $$
+begin
+  if to_regclass('public.electronic_invoices_legacy_20260906') is null then
+    raise exception 'DGII fase 2: falta aplicar la parte 1 (retirada). Aplícala antes que esta.';
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'ecf_sequences' and column_name = 'expires_at'
+  ) then
+    raise exception 'DGII fase 2: falta aplicar la parte 2 (tablas). Aplícala antes que esta.';
+  end if;
+end $$;
 
 create or replace function reserve_next_encf(
   p_business_id uuid,
@@ -76,6 +120,7 @@ end;
 $$;
 
 revoke execute on function reserve_next_encf(uuid, text, text) from public, anon, authenticated;
+grant execute on function reserve_next_encf(uuid, text, text) to service_role;
 
 -- ── peek_next_encf: qué número tocaría, sin consumir ni bloquear ─────────────
 -- La aplicación firma el XML con este número. Si entre el peek y el prepare
@@ -116,6 +161,7 @@ end;
 $$;
 
 revoke execute on function public.peek_next_encf(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.peek_next_encf(uuid, text, text) to service_role;
 
 -- ── prepare_ecf_invoice: consume el número e inserta la factura, atómico ─────
 -- p_factura: {tipo_ecf, ambiente, proforma_id, customer_id, customer_rnc,
@@ -246,6 +292,7 @@ end;
 $$;
 
 revoke execute on function public.prepare_ecf_invoice(uuid, text, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.prepare_ecf_invoice(uuid, text, jsonb, jsonb) to service_role;
 
 -- ── finalize_ecf_invoice: la firma ya está hecha y subida ────────────────────
 -- p_datos: {xml_signed_path, xml_sha256, security_code}
@@ -281,6 +328,7 @@ end;
 $$;
 
 revoke execute on function public.finalize_ecf_invoice(uuid, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.finalize_ecf_invoice(uuid, uuid, jsonb) to service_role;
 
 -- ── fail_ecf_invoice: falló después de consumir el número ────────────────────
 -- El número queda gastado, pero con nombre y motivo. Un número gastado que nadie
@@ -322,6 +370,7 @@ end;
 $$;
 
 revoke execute on function public.fail_ecf_invoice(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.fail_ecf_invoice(uuid, uuid, text) to service_role;
 
 -- ── Las dos claves foráneas, ahora apuntando a la tabla nueva ────────────────
 do $$
@@ -339,3 +388,6 @@ begin
       on delete set null deferrable initially deferred;
   end if;
 end $$;
+
+-- Cinco RPC nuevas: PostgREST tiene que enterarse. M4 de la revisión final.
+notify pgrst, 'reload schema';

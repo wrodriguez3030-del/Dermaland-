@@ -81,6 +81,24 @@ describe("fase 2 — migración de retirada", () => {
     }
   });
 
+  it("la marcha atrás documentada incluye las dos claves foráneas, no solo el renombrado", () => {
+    // I3 de la revisión final. La cabecera decía «volver atrás sea renombrar de
+    // vuelta» y omitía las dos FK. Quien hiciera la reversa obvia dejaría
+    // `proformas` y `cash_closing_sales` sin clave foránea para siempre y en
+    // silencio. Se comprueba sobre el SQL CON comentarios: la reversa es
+    // documentación, no código.
+    expect(sql).toMatch(/MARCHA ATRÁS COMPLETA/);
+    expect(sql).toMatch(/drop constraint if exists proformas_electronic_invoice_fk/);
+    expect(sql).toMatch(/drop constraint if exists cash_closing_sales_electronic_invoice_fk/);
+    expect(sql).toMatch(/add constraint proformas_electronic_invoice_fk/);
+    expect(sql).toMatch(/add constraint cash_closing_sales_electronic_invoice_fk/);
+    expect(sql).toMatch(/on delete set null deferrable initially deferred/);
+  });
+
+  it("avisa a PostgREST: trece tablas expuestas cambian de nombre", () => {
+    expect(codigo).toMatch(/notify pgrst, 'reload schema'/i);
+  });
+
   it("es idempotente: correrla dos veces no puede reventar", () => {
     // Cada renombrado va dentro de un `do $$ ... if exists ... end $$`.
     const renombrados = codigo.match(/rename to/gi) ?? [];
@@ -121,12 +139,25 @@ describe("fase 2 — migración de tablas", () => {
     }
   });
 
-  it("las políticas filtran por business_id con el ayudante de DermaLand", () => {
+  it("las políticas filtran por business_id con el ayudante de DermaLand, envuelto en (select …)", () => {
     const politicas = codigo.match(/create policy[\s\S]*?;/gi) ?? [];
     expect(politicas.length).toBeGreaterThanOrEqual(TABLAS_NUEVAS.length);
     for (const p of politicas) {
-      expect(p, `política sin business_id: ${p.slice(0, 70)}`).toMatch(/business_id\s*=\s*auth_business_id\(\)/i);
+      // I5 de la revisión final: `(select public.auth_business_id())` es la
+      // forma exacta que `0009_rls_initplan_remaining.sql:75-82` dejó
+      // autorizada el 2026-05-29. Sin el `(select …)`, la función STABLE se
+      // evalúa UNA VEZ POR FILA en vez de una por consulta y el advisor de
+      // Supabase vuelve a marcar las 18. Sobre `electronic_invoices`, que va a
+      // guardar todos los comprobantes de la farmacia, eso es una llamada a
+      // función por fila en cada SELECT.
+      expect(p, `política sin business_id: ${p.slice(0, 70)}`)
+        .toMatch(/business_id\s*=\s*\(select public\.auth_business_id\(\)\)/i);
     }
+    // La cara negativa, y hace falta: una política con el `using` desnudo y el
+    // `with check` envuelto pasaba la comprobación de arriba, porque a `toMatch`
+    // le basta UNA ocurrencia. Comprobado desenvolviendo una a mano.
+    expect(codigo, "queda una llamada a auth_business_id() sin envolver en (select …)")
+      .not.toMatch(/=\s*auth_business_id\(\)/i);
     // agendapp usa otro ayudante; si se cuela, la política no filtra nada aquí.
     expect(codigo).not.toMatch(/current_user_business_id/i);
   });
@@ -235,6 +266,22 @@ describe("fase 2 — migración de tablas", () => {
     // `dgii_status_logs` sí cascadean a propósito, y deben seguir haciéndolo.
     const suyo = bloqueDeTabla("ecf_document_events");
     expect(suyo).not.toMatch(/on delete cascade/i);
+  });
+
+  it("se niega a correr si la parte 1 no está aplicada", () => {
+    // I2 de la revisión final. Aquí todo se crea con `create table if not
+    // exists`: sin esta guarda, con la parte 1 sin aplicar la migración NO
+    // crearía las ocho tablas cuyo nombre ocupa el módulo viejo y REPORTARÍA
+    // ÉXITO. Tres migraciones en verde sobre una base rota.
+    expect(codigo).toMatch(/to_regclass\('public\.electronic_invoices_legacy_20260906'\) is null/i);
+    expect(codigo).toMatch(/raise exception 'DGII fase 2: falta aplicar la parte 1/i);
+    // Y va ANTES de crear nada.
+    expect(codigo.search(/raise exception 'DGII fase 2: falta aplicar la parte 1/i))
+      .toBeLessThan(codigo.search(/create table if not exists/i));
+  });
+
+  it("avisa a PostgREST: sin el notify, el esquema nuevo no existe para la API", () => {
+    expect(codigo).toMatch(/notify pgrst, 'reload schema'/i);
   });
 
   it("no crea nada con el nombre de una tabla intocable", () => {
@@ -372,6 +419,53 @@ describe("fase 2 — preparar sin quemar números", () => {
         new RegExp(`revoke execute on function public\\.${f.replace(/[()]/g, "\\$&")} from public, anon, authenticated`, "i"),
       );
     }
+  });
+
+  it("pero el servidor SÍ: cada revoke lleva su grant a service_role", () => {
+    // I6 de la revisión final. Estas migraciones revocan también de `public`, a
+    // diferencia del precedente de la casa (0038_web_orders.sql:120, que revoca
+    // solo de anon y authenticated). Si `service_role` tuviera EXECUTE sólo
+    // heredado de PUBLIC, el revoke se lo quitaría y la fase 3 se estrellaría
+    // con «permission denied for function». Comprobado contra un Postgres 16
+    // efímero: sin el grant, has_function_privilege('service_role', …) da
+    // FALSE en las cinco. Concederlo no afloja nada: service_role es la clave
+    // del servidor, que ya se salta la RLS entera.
+    const firmas = [
+      "reserve_next_encf(uuid, text, text)",
+      "public.peek_next_encf(uuid, text, text)",
+      "public.prepare_ecf_invoice(uuid, text, jsonb, jsonb)",
+      "public.finalize_ecf_invoice(uuid, uuid, jsonb)",
+      "public.fail_ecf_invoice(uuid, uuid, text)",
+    ];
+    for (const f of firmas) {
+      const esc = f.replace(/[().]/g, "\\$&");
+      expect(codigo, `falta el grant a service_role de ${f}`).toMatch(
+        new RegExp(`grant execute on function ${esc} to service_role`, "i"),
+      );
+      // Y va DESPUÉS del revoke, no antes: al revés no serviría de nada.
+      expect(codigo.search(new RegExp(`revoke execute on function ${esc} from`, "i")))
+        .toBeLessThan(codigo.search(new RegExp(`grant execute on function ${esc} to service_role`, "i")));
+    }
+  });
+
+  it("se niega a correr si faltan las partes 1 o 2", () => {
+    // I2 de la revisión final. `create or replace function` NO valida las
+    // referencias a columnas del cuerpo plpgsql, así que este fichero se aplica
+    // «con éxito» sobre cualquier esquema. Sin la guarda: faltando la parte 1,
+    // las dos FK del final se enganchan a la electronic_invoices VIEJA sin que
+    // nadie se entere.
+    expect(codigo).toMatch(/to_regclass\('public\.electronic_invoices_legacy_20260906'\) is null/i);
+    expect(codigo).toMatch(/raise exception 'DGII fase 2: falta aplicar la parte 1/i);
+    // Y que la parte 2 corrió: la ecf_sequences vieja no tiene `expires_at`,
+    // se llama `fecha_vencimiento` (0003_dgii_pos.sql:131).
+    expect(codigo).toMatch(/table_name = 'ecf_sequences' and column_name = 'expires_at'/i);
+    expect(codigo).toMatch(/raise exception 'DGII fase 2: falta aplicar la parte 2/i);
+    expect(codigo.search(/raise exception 'DGII fase 2: falta aplicar la parte 1/i))
+      .toBeLessThan(codigo.search(/create or replace function/i));
+  });
+
+  it("avisa a PostgREST: cinco RPC nuevas que la API tiene que ver", () => {
+    expect(codigo).toMatch(/notify pgrst, 'reload schema'/i);
   });
 
   it("las dos claves foráneas vuelven, apuntando a la tabla NUEVA", () => {
