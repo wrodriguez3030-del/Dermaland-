@@ -5,6 +5,49 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — La persistencia DGII portada vive en `features/dgii/services/`, no en `server/services/dgii/`
+
+**Archivos:**
+- `apps/web/src/features/dgii/services/certificates.ts` (tarea 2 de la fase 3A)
+- `apps/web/src/features/dgii/services/storage.ts` (tarea 1)
+- `apps/web/src/server/repositories/supabase/dgii-settings.ts`
+
+### Por qué
+
+El diseño aprobado de la fase 3A decía que la capa de persistencia portada de
+agendapp fuera a `apps/web/src/server/services/dgii/`. Ese directorio ya está
+ocupado por el módulo fiscal viejo de DermaLand (`builder.ts`,
+`queue-worker.ts`, `dashboard.ts`, `pdf.ts`, `qr.ts` y otra veintena de
+archivos), que sigue vivo — tiene un cron diario en `vercel.json`
+(`/api/dgii/cola`) — y no se retira hasta la fase 8. Poner ahí el código
+nuevo habría mezclado dos módulos fiscales con esquemas de base
+incompatibles en el mismo directorio.
+
+### Decisión
+
+El código portado de la fase 3A vive en `apps/web/src/features/dgii/services/`,
+junto al núcleo puro que la fase 1 dejó en `apps/web/src/features/dgii/core/`.
+Así todo el módulo nuevo queda bajo `features/dgii/` y el viejo se queda
+intacto en `server/services/dgii/` hasta que le toque su retirada.
+
+Debía haberse anotado aquí desde la tarea 1 (que ya creó
+`features/dgii/services/storage.ts` con este mismo motivo, documentado solo en
+`task-1-report.md`); se deja constancia ahora, con la tarea 2 añadiendo el
+segundo archivo al mismo directorio.
+
+### Consecuencias
+
+- Quien busque "el servicio de certificados/almacenamiento DGII" en
+  `server/services/dgii/` no lo va a encontrar ahí — está en
+  `features/dgii/services/`. Vale la pena repetirlo en el README del módulo
+  cuando se escriba.
+- El repositorio `apps/web/src/server/repositories/supabase/dgii-settings.ts`
+  SÍ se queda en `server/repositories/supabase/`, junto a
+  `dgii-sequences.ts`: esa carpeta no tiene el choque de nombres que sí tiene
+  `server/services/dgii/`, así que no hizo falta desviarse ahí.
+
+---
+
 ## 2026-09-06 — La unicidad del e-NCF pasa a ser TOTAL: un comprobante anulado bloquea su número
 
 **Archivos:**
