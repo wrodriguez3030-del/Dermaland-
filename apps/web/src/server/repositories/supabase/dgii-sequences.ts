@@ -33,6 +33,10 @@ export type ResultadoPreparar =
   | { ok: false; motivo: "ENCF_TOMADO"; e_ncf_actual: string }
   | { ok: false; motivo: "IDEMPOTENT_PROFORMA_YA_FACTURADA"; invoice_id: string };
 
+export type ResultadoFinalizar =
+  | { ok: true; invoice_id: string }
+  | { ok: false; motivo: "NO_ESTABA_EN_DRAFT" };
+
 export type ResultadoMarcarFallo =
   | { ok: true }
   | { ok: false; motivo: "FACTURA_NO_ENCONTRADA" };
@@ -74,7 +78,7 @@ export function crearRepositorioSecuencias(cliente: SupabaseClient, businessId: 
     async finalizarFactura(
       invoiceId: string,
       datos: { xml_signed_path: string },
-    ): Promise<{ ok: boolean; motivo?: string }> {
+    ): Promise<ResultadoFinalizar> {
       return desenvolver(
         await cliente.rpc("finalize_ecf_invoice", {
           p_business_id: businessId,
@@ -82,7 +86,7 @@ export function crearRepositorioSecuencias(cliente: SupabaseClient, businessId: 
           p_datos: datos,
         }),
         "finalize_ecf_invoice",
-      ) as { ok: boolean; motivo?: string };
+      ) as ResultadoFinalizar;
     },
 
     async marcarFallo(
