@@ -190,6 +190,30 @@ describe("evaluarHabilitacion: junta configuración, certificado y secuencias", 
     expect(estado.bloqueos).not.toContain("No hay certificado activo.");
   });
 
+  it("con certificado activo pero TODAVÍA no vigente (valid_from futuro), también bloquea por vigencia", async () => {
+    // Menor (segunda tanda, revisión externa): antes esta regla solo miraba
+    // `valid_to` -mismo criterio que `s3` en agendapp-, mientras
+    // `certificates.ts` ya comprobaba TAMBIÉN `valid_from` al descifrar. Un
+    // certificado subido con antelación pasaba este gate como "activo" sin
+    // bloqueos, y el hueco solo se descubría al intentar firmar de verdad.
+    // Ahora `certificadoVigente` (`certificate-validity.ts`) decide aquí
+    // también.
+    vi.mocked(createServiceRoleClient).mockReturnValue(
+      clienteFalsoMultiTabla({
+        dgii_settings: { data: filaConfiguracion(), error: null },
+        dgii_certificates: {
+          data: filaCertificado({ valid_from: new Date(Date.now() + 864e5).toISOString() }),
+          error: null,
+        },
+        ecf_sequences: { data: [{ ambiente: "testecf" }], error: null },
+      }) as never,
+    );
+    const estado = await evaluarHabilitacion("biz-1");
+    expect(estado.certificadoActivo).toBe(true);
+    expect(estado.bloqueos).toContain("El certificado está vencido.");
+    expect(estado.bloqueos).not.toContain("No hay certificado activo.");
+  });
+
   it("sin secuencias activas, bloquea aunque haya conteo de producción", async () => {
     vi.mocked(createServiceRoleClient).mockReturnValue(
       clienteFalsoMultiTabla({

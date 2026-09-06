@@ -50,6 +50,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { crearRepositorioConfiguracion } from "@/server/repositories/supabase/dgii-settings";
 import { estaConfigurado, obtenerConfiguracion } from "./settings";
+import { certificadoVigente } from "./certificate-validity";
 
 /**
  * Estado de habilitación fiscal del negocio.
@@ -106,11 +107,16 @@ export async function evaluarHabilitacion(businessId: string): Promise<EstadoHab
   const configurado = config !== null && estaConfigurado(config);
   const certificadoActivo = certificado !== null;
   const certificadoVence = certificado?.valid_to ?? null;
-  // Mismo criterio que `s3` en agendapp: solo se mira `valid_to`. Un
-  // certificado activo sin fecha de vencimiento registrada no se declara
-  // vencido (no hay con qué compararlo).
-  const certificadoVencido =
-    certificadoActivo && certificadoVence !== null && new Date(certificadoVence) < new Date();
+  // Menor (segunda tanda, revisión externa): antes esta línea replicaba a
+  // mano el criterio de `s3` en agendapp -solo `valid_to`-, mientras
+  // `certificates.ts` ya comprobaba TAMBIÉN `valid_from` al descifrar. Dos
+  // reglas de vigencia por separado: un certificado subido con antelación
+  // (`valid_from` en el futuro) pasaba ESTE gate como "activo" sin
+  // bloqueos, y el hueco solo se descubría al intentar firmar de verdad,
+  // con `obtenerCertificadoActivo` lanzando `ErrorCertificado`. Ahora las
+  // dos comprobaciones miran la misma `certificadoVigente`
+  // (`certificate-validity.ts`).
+  const certificadoVencido = certificado !== null && !certificadoVigente(certificado);
 
   const bloqueos: string[] = [];
   if (!configurado) bloqueos.push("Falta la configuración fiscal DGII.");

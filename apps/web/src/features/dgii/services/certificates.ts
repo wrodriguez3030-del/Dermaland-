@@ -64,6 +64,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { crearRepositorioConfiguracion } from "@/server/repositories/supabase/dgii-settings";
 import { auditRepository } from "@/server/repositories/supabase/audit";
+import { certificadoVigente } from "./certificate-validity";
 import * as forge from "node-forge";
 import {
   getDgiiEncryptionKeyFromEnv,
@@ -200,12 +201,11 @@ export async function obtenerCertificadoActivo(
   const fila = await repo.leerCertificadoActivo();
   if (!fila) return null;
 
-  // Atajo barato con la metadata en claro: si ya venció, ni se descifra.
-  const ahora = new Date();
-  if (fila.valid_to && new Date(fila.valid_to) < ahora) {
-    throw new ErrorCertificado("El certificado está fuera de su período de vigencia.", "vencido");
-  }
-  if (fila.valid_from && new Date(fila.valid_from) > ahora) {
+  // Atajo barato con la metadata en claro: si ya venció (o aún no es
+  // vigente), ni se descifra. Menor (segunda tanda, revisión externa): la
+  // regla de vigencia vive en `certificate-validity.ts` — única, y la
+  // reutiliza también `enablement.ts`.
+  if (!certificadoVigente(fila)) {
     throw new ErrorCertificado("El certificado está fuera de su período de vigencia.", "vencido");
   }
 
