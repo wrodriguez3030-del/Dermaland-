@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TABLAS_LEGACY, nombreLegacy } from "./tablas";
+import { TABLAS_NUEVAS } from "./tablas";
 
 const MIGRACIONES = resolve(process.cwd(), "..", "..", "supabase", "migrations");
 const leer = (f: string) => readFileSync(resolve(MIGRACIONES, f), "utf8");
@@ -84,5 +85,61 @@ describe("fase 2 — migración de retirada", () => {
     const renombrados = codigo.match(/rename to/gi) ?? [];
     const guardas = codigo.match(/to_regclass/gi) ?? [];
     expect(guardas.length, "cada renombrado necesita su guarda to_regclass").toBeGreaterThanOrEqual(renombrados.length);
+  });
+});
+
+describe("fase 2 — migración de tablas", () => {
+  const sql = leer("20260906090100_dgii_fase2_tablas.sql");
+  const codigo = sql.replace(/--.*$/gm, "");
+
+  it("crea las 17 tablas", () => {
+    for (const t of TABLAS_NUEVAS) {
+      expect(codigo, `falta ${t}`).toMatch(
+        new RegExp(`create table if not exists public\\.${t}\\s*\\(`, "i"),
+      );
+    }
+  });
+
+  it("TODAS llevan RLS: una tabla fiscal sin RLS es una fuga entre empresas", () => {
+    for (const t of TABLAS_NUEVAS) {
+      expect(codigo, `${t} sin enable row level security`).toMatch(
+        new RegExp(`alter table public\\.${t} enable row level security`, "i"),
+      );
+      expect(codigo, `${t} sin política`).toMatch(
+        new RegExp(`create policy \\w+ on public\\.${t}`, "i"),
+      );
+    }
+  });
+
+  it("las políticas filtran por business_id con el ayudante de DermaLand", () => {
+    const politicas = codigo.match(/create policy[\s\S]*?;/gi) ?? [];
+    expect(politicas.length).toBeGreaterThanOrEqual(TABLAS_NUEVAS.length);
+    for (const p of politicas) {
+      expect(p, `política sin business_id: ${p.slice(0, 70)}`).toMatch(/business_id\s*=\s*auth_business_id\(\)/i);
+    }
+    // agendapp usa otro ayudante; si se cuela, la política no filtra nada aquí.
+    expect(codigo).not.toMatch(/current_user_business_id/i);
+  });
+
+  it("el e-NCF lleva su forma en la base, no solo en el código", () => {
+    expect(codigo).toMatch(/e_ncf\s+varchar\(13\)\s+not null\s+check\s*\(e_ncf ~ '\^\[A-Z\]\[0-9\]\{12\}\$'\)/i);
+    expect(codigo).toMatch(/constraint electronic_invoices_encf_uniq unique \(business_id, ambiente, e_ncf\)/i);
+  });
+
+  it("el ambiente entra en la llave única: probar un e-NCF no puede impedir emitirlo", () => {
+    // Sin `ambiente` en el UNIQUE, emitir E320000000001 en testecf bloquearía
+    // emitirlo de verdad en ecf. Es el error que agendapp documentó.
+    const uniq = codigo.match(/unique \(business_id, ambiente, e_ncf\)/i);
+    expect(uniq, "la llave única de e_ncf debe incluir el ambiente").not.toBeNull();
+  });
+
+  it("los 11 tipos de e-CF son los mismos que conoce el constructor portado", () => {
+    expect(codigo).toMatch(/tipo_ecf in \('31','32','33','34','41','42','43','44','45','46','47'\)/i);
+  });
+
+  it("no crea nada con el nombre de una tabla intocable", () => {
+    for (const t of ["invoice_numberings", "proformas", "cash_closing_sales"]) {
+      expect(codigo).not.toMatch(new RegExp(`create table if not exists public\\.${t}\\b`, "i"));
+    }
   });
 });

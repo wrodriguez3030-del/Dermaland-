@@ -5,6 +5,48 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-05 — `ecf_sequences` lleva un CHECK de rango que agendapp no tiene
+
+**Archivos:**
+- `supabase/migrations/20260906090100_dgii_fase2_tablas.sql` (constraint
+  `ecf_sequences_next_dentro_del_rango`)
+
+### Por qué
+
+DGII fase 2 porta las 17 tablas fiscales de agendapp casi literalmente (seis
+sustituciones mecánicas: el ayudante de RLS, `sales`→`proformas`, esquema
+cualificado, `search_path`, minúsculas y comentarios reescritos — ninguna
+más). `ecf_sequences.next_number` es distinto de las demás columnas portadas:
+es el **puntero que se mueve en cada cobro** dentro del rango autorizado por
+la DGII para un tipo de e-CF y ambiente. En agendapp ese avance lo controla
+enteramente la función `reserve_next_encf` (aplicación); la tabla en sí no
+tenía un CHECK que impidiera que `next_number` saliera del rango si alguna
+otra vía (una migración futura, un `UPDATE` manual de soporte, un bug en una
+función nueva) lo empujara fuera de `[range_start, range_end + 1]`.
+
+### Decisión
+
+Añadir `constraint ecf_sequences_next_dentro_del_rango check (next_number >=
+range_start and next_number <= range_end + 1)` a la tabla portada, además del
+CHECK de rango (`range_start <= range_end`) y el UNIQUE
+(`business_id, tipo_ecf, ambiente, range_start`) que sí trae agendapp y que se
+conservan tal cual. Es la única adición sobre el DDL de origen en las 17
+tablas; todo lo demás es copia fiel con las seis sustituciones. Con esta
+constraint, un número fiscal fuera de lo autorizado no es un bug que se
+descubre en producción: es un `INSERT`/`UPDATE` que la base rechaza.
+
+### Consecuencias
+
+- Cualquier función que toque `ecf_sequences.next_number` (la futura
+  `reserve_next_encf` de la fase 4, o soporte manual) tiene que respetar el
+  rango o la base la rechaza con un error de constraint, no con datos
+  corruptos silenciosos.
+- No cambia el comportamiento observable de la aplicación: hoy nada escribe
+  en `ecf_sequences` (fase 2 solo crea la tabla), así que la constraint no
+  tiene filas que validar todavía.
+
+---
+
 ## 2026-08-19 — El enlace de Azul es POR PEDIDO, no un enlace fijo del comercio
 
 **Archivos:**
