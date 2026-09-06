@@ -121,16 +121,20 @@ describe("repositorio de secuencias fiscales", () => {
     });
   });
 
-  it("marcarFallo devuelve {ok: true} si el marcado fue exitoso", async () => {
-    const c = clienteFalso({ ok: true });
+  it("marcarFallo devuelve {ok: true, invoice_id} — lo que el SQL emite de verdad", async () => {
+    // Antes se simulaba `{ ok: true }` a secas, una respuesta que
+    // `fail_ecf_invoice` NUNCA emite: devuelve `jsonb_build_object('ok', true,
+    // 'invoice_id', p_invoice_id)`. La prueba cimentaba la ficción. M2 de la
+    // revisión final.
+    const c = clienteFalso({ ok: true, invoice_id: "inv-123" });
     const repo = crearRepositorioSecuencias(c as never, "biz-1");
     const r = await repo.marcarFallo("inv-123", "TEST_MOTIVO");
-    expect(r).toEqual({ ok: true });
+    expect(r).toEqual({ ok: true, invoice_id: "inv-123" });
   });
 
   it("marcarFallo pasa los argumentos correctos cuando éxito", async () => {
     // Vigila que todos los parámetros se pasen con los nombres correctos.
-    const c = clienteFalso({ ok: true });
+    const c = clienteFalso({ ok: true, invoice_id: "inv-666" });
     const repo = crearRepositorioSecuencias(c as never, "biz-1");
     await repo.marcarFallo("inv-666", "CONEXION_PERDIDA");
     // ! Garantiza al menos una llamada

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { TABLAS_LEGACY, nombreLegacy } from "./tablas";
 import { TABLAS_NUEVAS } from "./tablas";
 import { INVOICE_STATUSES } from "../core/submission-state-types";
+import { ECF_TIPOS_BUILDER } from "../core/builder-types";
 
 const MIGRACIONES = resolve(process.cwd(), "..", "..", "supabase", "migrations");
 const leer = (f: string) => readFileSync(resolve(MIGRACIONES, f), "utf8");
@@ -174,8 +175,22 @@ describe("fase 2 — migración de tablas", () => {
     expect(uniq, "la llave única de e_ncf debe incluir el ambiente").not.toBeNull();
   });
 
-  it("los 11 tipos de e-CF son los mismos que conoce el constructor portado", () => {
+  it("los 11 tipos de e-CF son los 10 del constructor MÁS el 42, que es fidelidad a agendapp", () => {
+    // M1 de la revisión final. El título anterior decía «los mismos que conoce
+    // el constructor portado» y afirmaba una paridad que NO existe:
+    // `ECF_TIPOS_BUILDER` y `ECF_TIPOS_OBJETIVO` conocen 10, sin el 42; la
+    // `ecf_sequences` vieja tampoco lo tenía (0003_dgii_pos.sql:127); y dentro
+    // de esta misma migración `dgii_certification_cases` lo EXCLUYE con el
+    // comentario «fail-closed: 42 no es un e-CF válido».
+    //
+    // El 42 se queda porque es fiel a agendapp, que lleva meses certificado y
+    // en producción con esa lista: quitarlo a ciegas rompería el porte. Lo que
+    // se corrige es la afirmación. Que un tipo esté en el CHECK no lo hace
+    // emisible: sin builder y sin rango autorizado, nadie puede emitir un 42.
     expect(codigo).toMatch(/tipo_ecf in \('31','32','33','34','41','42','43','44','45','46','47'\)/i);
+    const enSql = ["31","32","33","34","41","42","43","44","45","46","47"];
+    expect([...enSql].filter((t) => !(ECF_TIPOS_BUILDER as readonly string[]).includes(t))).toEqual(["42"]);
+    expect(ECF_TIPOS_BUILDER).toHaveLength(10);
   });
 
   it("el CHECK de `status` es exactamente INVOICE_STATUSES, sin que falte `prepared`", () => {

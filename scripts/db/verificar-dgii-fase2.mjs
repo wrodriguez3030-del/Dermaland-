@@ -81,6 +81,84 @@ async function main() {
     ? ok("las 13 viejas están retiradas, no borradas")
     : mal(`se esperaban 13 tablas *_legacy_20260906 y hay ${legacy.rows[0].n}`);
 
+  // ── ACL de las cinco funciones (I6 de la revisión final) ──────────────────
+  // El verificador conecta como dueño de la base y ejecuta las funciones
+  // directamente, así que ejercitarlas NO prueba nada sobre quién puede
+  // llamarlas. Estas migraciones revocan también de `public`, a diferencia del
+  // precedente de la casa (0038_web_orders.sql:120), y por eso cada `revoke`
+  // lleva su `grant execute … to service_role`. La segunda aserción es la que
+  // de verdad importa: sin ella, la fase 3 se estrellaría con «permission
+  // denied for function» sin aviso previo.
+  const FUNCS = [
+    "public.reserve_next_encf(uuid,text,text)",
+    "public.peek_next_encf(uuid,text,text)",
+    "public.prepare_ecf_invoice(uuid,text,jsonb,jsonb)",
+    "public.finalize_ecf_invoice(uuid,uuid,jsonb)",
+    "public.fail_ecf_invoice(uuid,uuid,text)",
+  ];
+  for (const f of FUNCS) {
+    const r = await cliente.query(
+      `select has_function_privilege('authenticated', $1, 'execute') as auth,
+              has_function_privilege('anon',          $1, 'execute') as anon,
+              has_function_privilege('service_role',  $1, 'execute') as srv`,
+      [f],
+    );
+    const { auth, anon, srv } = r.rows[0];
+    !auth && !anon
+      ? ok(`${f}: authenticated y anon NO pueden`)
+      : mal(`${f}: llamable desde el navegador (auth=${auth} anon=${anon})`);
+    srv
+      ? ok(`${f}: service_role SÍ puede`)
+      : mal(`${f}: service_role NO puede — la fase 3 no podrá llamarla`);
+  }
+
+  // ── Las dos claves foráneas recreadas (M3) ────────────────────────────────
+  // La parte 1 las suelta y la parte 3 las vuelve a crear apuntando a la tabla
+  // NUEVA. Si la parte 3 no corrió, `proformas` y `cash_closing_sales` se
+  // quedan sin enganche, en silencio.
+  const fks = await cliente.query(
+    `select conname from pg_constraint
+     where conname in ('proformas_electronic_invoice_fk','cash_closing_sales_electronic_invoice_fk')
+       and confrelid = 'public.electronic_invoices'::regclass`,
+  );
+  fks.rows.length === 2
+    ? ok("las dos claves foráneas apuntan a la electronic_invoices NUEVA")
+    : mal(`FK hacia la tabla nueva: ${fks.rows.length} de 2`);
+
+  // ── Lo que 0045 puso y agendapp nunca tuvo (C2) ───────────────────────────
+  // Los índices llevan nombres NUEVOS a propósito: `alter table … rename to` no
+  // renombra los índices, así que la tabla retirada conserva los de 0045 y
+  // `create index if not exists` con esos nombres se saltaría en silencio,
+  // dejando la tabla nueva sin barrera de idempotencia.
+  const cols0045 = await cliente.query(
+    `select column_name from information_schema.columns
+     where table_schema = 'public' and table_name = 'electronic_invoices'
+       and column_name = any($1)`,
+    [["idempotency_key","retry_count","next_retry_at","last_error_class",
+      "last_error_message","hash_sha256","rejected_at","cancelled_at"]],
+  );
+  cols0045.rows.length === 8
+    ? ok("las ocho columnas de 0045 están en la electronic_invoices nueva")
+    : mal(`columnas de 0045 presentes: ${cols0045.rows.length} de 8`);
+
+  const idx = await cliente.query(
+    `select indexname from pg_indexes
+     where schemaname = 'public' and tablename = 'electronic_invoices'
+       and indexname in ('idx_einv_idempotency_key','idx_einv_pendientes')`,
+  );
+  idx.rows.length === 2
+    ? ok("la barrera de idempotencia cayó sobre la tabla NUEVA, no sobre la retirada")
+    : mal(`índices de idempotencia sobre la tabla nueva: ${idx.rows.length} de 2`);
+
+  const prepared = await cliente.query(
+    `select 1 from pg_constraint
+     where conrelid = 'public.electronic_invoices'::regclass and contype = 'c'
+       and pg_get_constraintdef(oid) like '%prepared%'`,
+  );
+  prepared.rows.length === 1
+    ? ok("el CHECK de status acepta 'prepared'")
+    : mal("el CHECK de status NO acepta 'prepared': la fase 3 dejará facturas clavadas en 'signed'");
+
   console.log("\n2) Comportamiento (todo dentro de una transacción que se deshace)\n");
 
   // Verificar que existe al menos un plan antes de intentar crear un negocio de prueba
@@ -144,6 +222,15 @@ async function main() {
       ? ok("prepare con el número correcto crea la factura y sus líneas")
       : mal(`prepare falló: ${JSON.stringify(bien.rows[0].r)}`);
 
+    // `antes` se leía y no se usaba: era la sombra de esta aserción. Que el
+    // contador avance EXACTAMENTE uno es justo lo que nadie había visto correr.
+    const despues = await cliente.query(
+      "select next_number from public.ecf_sequences where business_id = $1", [biz]);
+    const avance = Number(despues.rows[0].next_number) - Number(antes.rows[0].next_number);
+    avance === 1
+      ? ok("prepare avanzó next_number exactamente 1")
+      : mal(`next_number avanzó ${avance} (de ${antes.rows[0].next_number} a ${despues.rows[0].next_number}), se esperaba 1`);
+
     const agotada = await cliente.query(
       "select status from public.ecf_sequences where business_id = $1", [biz]);
     agotada.rows[0].status === "exhausted"
@@ -153,6 +240,47 @@ async function main() {
     const items = await cliente.query(
       "select count(*)::int as n from public.electronic_invoice_items where business_id = $1", [biz]);
     items.rows[0].n === 1 ? ok("la línea se guardó") : mal(`líneas guardadas: ${items.rows[0].n}`);
+
+    // finalize y fail no se ejercitaban nunca (M3 de la revisión final).
+    const inv = bien.rows[0].r.invoice_id;
+    const fin1 = await cliente.query(
+      "select public.finalize_ecf_invoice($1,$2,jsonb_build_object('xml_signed_path','x/y.xml')) as r", [biz, inv]);
+    fin1.rows[0].r.ok === true
+      ? ok("finalize pasa la factura de draft a signed")
+      : mal(`finalize falló: ${JSON.stringify(fin1.rows[0].r)}`);
+
+    const fin2 = await cliente.query(
+      "select public.finalize_ecf_invoice($1,$2,jsonb_build_object('xml_signed_path','x/y.xml')) as r", [biz, inv]);
+    fin2.rows[0].r.motivo === "NO_ESTABA_EN_DRAFT"
+      ? ok("finalize repetido dice que no, en vez de volver a firmar lo ya firmado")
+      : mal(`finalize repetido devolvió ${JSON.stringify(fin2.rows[0].r)}`);
+
+    const failAjena = await cliente.query(
+      "select public.fail_ecf_invoice($1,'00000000-0000-0000-0000-000000000000'::uuid,'ajena') as r", [biz]);
+    failAjena.rows[0].r.motivo === "FACTURA_NO_ENCONTRADA"
+      ? ok("fail con un invoice_id que no existe NO devuelve éxito")
+      : mal(`fail con invoice_id inexistente devolvió ${JSON.stringify(failAjena.rows[0].r)}`);
+
+    const failOk = await cliente.query(
+      "select public.fail_ecf_invoice($1,$2,'motivo del verificador') as r", [biz, inv]);
+    failOk.rows[0].r.ok === true
+      ? ok("fail deja el motivo escrito sobre la factura real")
+      : mal(`fail falló: ${JSON.stringify(failOk.rows[0].r)}`);
+
+    // C1: sin 'prepared' en el CHECK, la fase 3 no puede mover la factura.
+    // Va dentro de un SAVEPOINT porque un 23514 aborta la transacción entera y
+    // se llevaría por delante las comprobaciones que vienen detrás.
+    await cliente.query("savepoint probar_prepared");
+    const conPrepared = await cliente
+      .query("update public.electronic_invoices set status = 'prepared' where id = $1", [inv])
+      .catch((e) => e);
+    if (conPrepared instanceof Error) {
+      await cliente.query("rollback to savepoint probar_prepared");
+      mal(`la base rechaza status='prepared': ${conPrepared.message}`);
+    } else {
+      await cliente.query("release savepoint probar_prepared");
+      ok("la base acepta status='prepared', que es el único camino que sale de 'signed'");
+    }
 
     const vacia = await cliente.query(
       `select public.reserve_next_encf($1,'32','testecf') as e`, [biz]).catch((e) => e);
@@ -169,4 +297,7 @@ async function main() {
   process.exit(fallos.length === 0 ? 0 : 1);
 }
 
-main().catch((e) => { console.error("\n✗ Error:", e); process.exit(1); });
+// Solo el mensaje, nunca el objeto entero: un error de `pg` arrastra la
+// configuración de conexión, y este guion lo corre el dueño contra producción.
+// `apply-migration.mjs:72` ya hacía lo correcto.
+main().catch((e) => { console.error("\n✗ Error:", e.message); process.exit(1); });

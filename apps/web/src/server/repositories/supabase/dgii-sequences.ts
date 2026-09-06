@@ -22,9 +22,20 @@ export interface FacturaAPreparar {
 export interface LineaAPreparar {
   line_no: number;
   name_item: string;
+  /** `numeric(12,3)` en la base. */
   quantity: number;
+  /** `numeric(14,2)` en la base. */
   unit_price: number;
+  /**
+   * FRACCIÓN, no porcentaje: el 18 % del ITBIS se escribe `0.18`, no `18`.
+   *
+   * La columna es `numeric(5,4)` (`20260906090100_dgii_fase2_tablas.sql:188`),
+   * así que el máximo es 9.9999: un `18` heredado de la tabla vieja —que era
+   * `numeric(5,2)` y sí guardaba porcentajes— DESBORDA. La convención no
+   * estaba escrita en ningún sitio. M7 de la revisión final.
+   */
   itbis_rate: number;
+  /** `numeric(14,2)` en la base. */
   monto_item: number;
 }
 
@@ -37,8 +48,17 @@ export type ResultadoFinalizar =
   | { ok: true; invoice_id: string }
   | { ok: false; motivo: "NO_ESTABA_EN_DRAFT" };
 
+/**
+ * `fail_ecf_invoice` devuelve `jsonb_build_object('ok', true, 'invoice_id',
+ * p_invoice_id)` (`20260906090200_dgii_fase2_funciones.sql:320`), igual que
+ * `finalize_ecf_invoice`. El tipo declaraba solo `{ ok: true }` y una prueba
+ * simulaba una respuesta que la función NUNCA emite. No rompía nada
+ * —TypeScript no se queja de campos de más y `desenvolver` castea—, pero la
+ * fase 3 no habría podido leer `invoice_id` sin castear. M2 de la revisión
+ * final.
+ */
 export type ResultadoMarcarFallo =
-  | { ok: true }
+  | { ok: true; invoice_id: string }
   | { ok: false; motivo: "FACTURA_NO_ENCONTRADA" };
 
 function desenvolver<T>(r: { data: T; error: { message: string } | null }, que: string): T {
