@@ -143,3 +143,38 @@ describe("fase 2 — migración de tablas", () => {
     }
   });
 });
+
+describe("fase 2 — reserve_next_encf", () => {
+  const sql = leer("20260906090200_dgii_fase2_funciones.sql");
+  const codigo = sql.replace(/--.*$/gm, "");
+
+  it("bloquea la fila antes de tocarla: sin FOR UPDATE dos cajas sacan el mismo número", () => {
+    const fn = codigo.slice(codigo.indexOf("function reserve_next_encf"));
+    expect(fn.slice(0, fn.indexOf("$$;"))).toMatch(/for update/i);
+  });
+
+  it("valida ambiente y tipo antes de mirar la secuencia", () => {
+    expect(codigo).toMatch(/p_ambiente not in \('testecf','certecf','ecf'\)/i);
+    expect(codigo).toMatch(/p_tipo_ecf not in \('31','32'/i);
+  });
+
+  it("da error distinto para cada motivo: sin secuencia, vencida y agotada", () => {
+    expect(codigo).toMatch(/errcode = 'P0002'/);  // no hay secuencia activa
+    expect(codigo).toMatch(/errcode = 'P0003'/);  // vencida
+    expect(codigo).toMatch(/errcode = 'P0004'/);  // rango agotado
+  });
+
+  it("marca la secuencia vencida o agotada en vez de dejarla activa mintiendo", () => {
+    expect(codigo).toMatch(/set status = 'expired'/i);
+    expect(codigo).toMatch(/status\s*=\s*'exhausted'/i);
+  });
+
+  it("arma el e-NCF con el formato que valida el XSD: E + tipo + 10 dígitos", () => {
+    expect(codigo).toMatch(/'E' \|\| p_tipo_ecf \|\| lpad\(v_next::text, 10, '0'\)/);
+  });
+
+  it("no la puede llamar un usuario del navegador: quemar números sería un ataque trivial", () => {
+    expect(codigo).toMatch(/security definer/i);
+    expect(codigo).toMatch(/revoke execute on function reserve_next_encf\(uuid, text, text\) from public, anon, authenticated/i);
+  });
+});
