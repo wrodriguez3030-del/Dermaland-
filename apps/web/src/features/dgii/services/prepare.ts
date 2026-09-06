@@ -34,7 +34,7 @@ import "server-only";
  * después. Los XSD oficiales exigen `<Signature>` como `xs:any minOccurs="1"`
  * al final de `<ECF>` (ver `core/xsd/e-CF-32-v1.0.xsd:424`): un XML SIN firma
  * falla la validación SIEMPRE, por diseño — lo prueba el propio
- * `core/builder.test.ts` ("el XML SIN firma falla el XSD solo por el
+ * `core/validator.test.ts:120` ("el XML SIN firma falla el XSD solo por el
  * <Signature> requerido"). Validar antes de firmar habría hecho que TODO
  * comprobante fallara la validación. agendapp valida el firmado
  * (`invoice-prepare.ts:428-433`); aquí se hace exactamente igual.
@@ -43,6 +43,21 @@ import "server-only";
  * número (son, en la práctica, dos gates más: un certificado que no
  * descifra o una configuración incompleta impiden emitir tanto como un
  * bloqueo de `evaluarHabilitacion`).
+ *
+ * RONDA DE CORRECCIÓN 1 (revisión externa): cuatro hallazgos Importantes,
+ * todos con prueba propia en `prepare.test.ts`:
+ *   - La compensación (`compensarFallo`) ahora comprueba el `.ok` de
+ *     `marcarFallo` y pliega su fallo en el `motivo` devuelto — antes lo
+ *     descartaba, justo el aviso que `fail_ecf_invoice` existe para dar
+ *     (ver su comentario en `20260906090200_dgii_fase2_funciones.sql`).
+ *   - El XML de un intento perdido (`ENCF_TOMADO`) se borra ANTES de
+ *     reintentar y también al agotar los 3 intentos: sin esto quedaba
+ *     evidencia fiscal firmada, huérfana, indefinidamente en el bucket.
+ *   - Un motivo de `prepare_ecf_invoice` que no sea `ENCF_TOMADO` ni
+ *     `IDEMPOTENT_PROFORMA_YA_FACTURADA` sale como "motivo desconocido",
+ *     no se re-etiqueta en silencio como `ENCF_TOMADO`.
+ *   - El mensaje de un XSD inválido se trunca antes de entrar en `motivo`
+ *     (un municipio inválido produce una enumeración de ~700 códigos).
  */
 import { randomUUID, createHash } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -82,6 +97,17 @@ import { parsePkcs12Certificate } from "../core/certificate-parser";
 
 /** Máximo de reintentos ante `ENCF_TOMADO`: se reintenta, no se rinde a la primera ni entra en bucle. */
 const MAX_INTENTOS = 3;
+
+/**
+ * Tope de caracteres del detalle de un error (XSD, excepción) antes de
+ * entrar en `motivo`. Sin esto, un solo campo inválido —p. ej. un código de
+ * municipio— puede traer la enumeración COMPLETA del XSD (~700 códigos,
+ * unos 4 KB) más el valor ofensor, que en un fallo real puede ser el RNC o
+ * el nombre del cliente. `motivo` es para decir QUÉ pasó, no para cargar
+ * el mensaje crudo de xmllint. Mismo orden de magnitud que agendapp
+ * (`invoice-prepare.ts`, `.slice(0, 240)` en sus propios errores de XSD).
+ */
+const MAX_DETALLE = 240;
 
 // ── Contrato público ─────────────────────────────────────────────────────
 
@@ -213,11 +239,37 @@ async function certificadoPorDefecto(businessId: string): Promise<CertificadoPar
   return { certificatePem: parsed.certificatePem, privateKeyPem: parsed.privateKeyPem };
 }
 
+/** Borra un objeto del bucket, de mejor esfuerzo: si falla, no hay nada más que hacer con ese fallo. */
+async function borrarDeMejorEsfuerzo(
+  almacenamiento: Pick<AlmacenamientoParaPreparar, "borrarXml">,
+  rutaXml: string,
+): Promise<void> {
+  try {
+    await almacenamiento.borrarXml(rutaXml);
+  } catch {
+    // Mejor esfuerzo: `storage.ts` ya no lanza en su implementación real;
+    // esto cubre una sustitución en pruebas que sí lo haga.
+  }
+}
+
 /**
  * Compensación cuando algo falla DESPUÉS de consumir el número (paso 7 del
- * baile): marca el motivo y borra el objeto subido. Las dos operaciones son
- * de mejor esfuerzo — un fallo de limpieza no debe tapar el error original,
- * que ya se conoce y ya se va a devolver.
+ * baile): marca el motivo y borra el objeto subido.
+ *
+ * `marcarFallo` (→ `fail_ecf_invoice`) puede devolver `{ok:false,
+ * motivo:"FACTURA_NO_ENCONTRADA"}` — la fase 2 lo hizo A PROPÓSITO: su
+ * propio comentario en `20260906090200_dgii_fase2_funciones.sql` dice que
+ * un `ok:true` falso ahí era justo el escenario que quería impedir (un
+ * e-NCF consumido, en `draft`, sin motivo escrito y sin nadie que lo sepa).
+ * RONDA DE CORRECCIÓN 1: esa señal se comprobaba y se tiraba. Ahora se
+ * comprueba y, si falla, se pliega en el `motivo` que esta función
+ * devuelve — quien reciba el resultado final tiene que poder verlo. Lo
+ * mismo si `marcarFallo` LANZA (red, timeout): no hay `.ok` que leer, pero
+ * el motivo de esa excepción también se pliega, en vez de taparse en
+ * silencio.
+ *
+ * `borrarXml` se queda de mejor esfuerzo puro (así lo implementa
+ * `storage.ts`: nunca lanza, y no devuelve un `.ok` que perder).
  */
 async function compensarFallo(
   secuencias: Pick<RepositorioSecuencias, "marcarFallo">,
@@ -225,17 +277,18 @@ async function compensarFallo(
   invoiceId: string,
   rutaXml: string,
   motivo: string,
-): Promise<void> {
+): Promise<string> {
+  let motivoFinal = motivo;
   try {
-    await secuencias.marcarFallo(invoiceId, motivo);
-  } catch {
-    // Best-effort: ver comentario de la función.
+    const marcado = await secuencias.marcarFallo(invoiceId, motivo);
+    if (!marcado.ok) {
+      motivoFinal = `${motivo} Además, no se pudo registrar el fallo (${marcado.motivo}): el comprobante puede haber quedado sin motivo escrito.`;
+    }
+  } catch (e) {
+    motivoFinal = `${motivo} Además, marcar el fallo dio error (${mensajeDeError(e)}): el comprobante puede haber quedado sin motivo escrito.`;
   }
-  try {
-    await almacenamiento.borrarXml(rutaXml);
-  } catch {
-    // Idem.
-  }
+  await borrarDeMejorEsfuerzo(almacenamiento, rutaXml);
+  return motivoFinal;
 }
 
 /**
@@ -360,7 +413,11 @@ export async function prepararComprobante(
 
         const validado = await validar({ xml: signedXml, xsd, schemaName: `e-CF-${entrada.tipoEcf}` });
         if (!validado.ok) {
-          const detalle = validado.errors[0]?.message ?? "no cumple el XSD oficial.";
+          // Truncado (MAX_DETALLE): el mensaje crudo de xmllint puede traer
+          // la enumeración COMPLETA del XSD (p. ej. ~700 códigos de
+          // municipio) además del valor ofensor, que en un fallo real puede
+          // ser el RNC o el nombre del cliente.
+          const detalle = (validado.errors[0]?.message ?? "no cumple el XSD oficial.").slice(0, MAX_DETALLE);
           return { ok: false, motivo: `El comprobante firmado no validó contra el XSD: ${detalle}` };
         }
       } catch (e) {
@@ -411,8 +468,13 @@ export async function prepararComprobante(
         // variante `ok: true` no tiene `motivo`).
         if (resultado.motivo === "IDEMPOTENT_PROFORMA_YA_FACTURADA") {
           // La proforma ya tenía comprobante: se devuelve ÉSE. No se llega a
-          // `finalizarFactura` porque no se preparó ninguno nuevo.
+          // `finalizarFactura` porque no se preparó ninguno nuevo. El XML
+          // que SÍ se subió en este intento no queda referenciado por
+          // ninguna fila — se borra (I4 de la ronda de corrección 1): sin
+          // esto sería la misma evidencia fiscal huérfana que un
+          // `ENCF_TOMADO` sin limpiar.
           const resumen = await leerResumenDeMejorEsfuerzo(opciones.facturas, ctx.businessId, resultado.invoice_id);
+          await borrarDeMejorEsfuerzo(almacenamiento, rutaXml);
           return {
             ok: true,
             invoiceId: resultado.invoice_id,
@@ -421,40 +483,72 @@ export async function prepararComprobante(
           };
         }
 
-        // Solo queda ENCF_TOMADO: otro cobro se adelantó. No se consumió
-        // nada — se reintenta con el número real, no se abandona ni se
-        // queda en bucle (máximo `MAX_INTENTOS`).
-        if (intento >= MAX_INTENTOS) {
-          return { ok: false, motivo: "ENCF_TOMADO" };
+        // El XML de ESTE intento ya no sirve para nada —ni para reintentar
+        // (el siguiente se firma con OTRO e-NCF), ni para nada más— así que
+        // se borra siempre, antes de decidir qué se devuelve. Sin esto,
+        // una carrera perdida deja un comprobante con firma REAL sobre un
+        // número que ya es de otra factura, guardado indefinidamente y sin
+        // ninguna fila que lo apunte (I4 de la ronda de corrección 1).
+        await borrarDeMejorEsfuerzo(almacenamiento, rutaXml);
+
+        if (resultado.motivo === "ENCF_TOMADO") {
+          // Otro cobro se adelantó. No se consumió nada — se reintenta con
+          // el número real, no se abandona ni se queda en bucle (máximo
+          // `MAX_INTENTOS`).
+          if (intento >= MAX_INTENTOS) {
+            return { ok: false, motivo: "ENCF_TOMADO" };
+          }
+          candidato = resultado.e_ncf_actual;
+          continue;
         }
-        candidato = resultado.e_ncf_actual;
-        continue;
+
+        // Defensivo (Menor de la ronda de corrección 1): HOY `ResultadoPreparar`
+        // (dgii-sequences.ts) solo declara los dos motivos de arriba, así que
+        // TypeScript cree —correctamente, según ESE tipo— que aquí `resultado`
+        // es `never`. Pero el tipo es una garantía de COMPILACIÓN, no de
+        // tiempo de ejecución: un tercer motivo real de una fase 2 futura (o
+        // un doble mal armado en una prueba) no debe re-etiquetarse en
+        // silencio como `ENCF_TOMADO` y consumir los 3 intentos por error.
+        // El cast es deliberado, para leer el valor real que SÍ puede llegar
+        // aquí en tiempo de ejecución aunque el tipo diga que no.
+        const motivoDesconocido = (resultado as { motivo?: unknown }).motivo;
+        return {
+          ok: false,
+          motivo: `Motivo desconocido al preparar la factura: ${String(motivoDesconocido)}`,
+        };
       }
 
       // 6) De `draft` a `signed`, con la ruta ya subida. El sha256 lo calcula
       // ESTE módulo (no `storage.ts`, decidido en la ronda 3 de la tarea 1):
       // se envía junto a la ruta aunque `finalize_ecf_invoice` (fase 2)
-      // todavía no lo persista (su comentario ya documenta `xml_sha256` en
-      // `p_datos` — ver docs/decisiones.md). Cuando la columna exista, no
-      // hace falta tocar este módulo.
+      // todavía no lo persista bajo ese nombre (ver docs/riesgos.md, la
+      // entrada del hueco de fase 2, para los nombres exactos y qué falta
+      // para cerrarlo). El tipo de `finalizarFactura` en `dgii-sequences.ts`
+      // ya declara `xml_sha256` como campo opcional (ronda de corrección 1):
+      // una errata en el nombre la cacha el compilador, no en producción.
       const invoiceId = resultado.invoice_id;
       const eNcfFinal = resultado.e_ncf;
       const xmlSha256 = createHash("sha256").update(signedXml, "utf8").digest("hex");
-      const datosFinalizar: { xml_signed_path: string; xml_sha256: string } = {
-        xml_signed_path: rutaXml,
-        xml_sha256: xmlSha256,
-      };
 
       try {
-        const finalizado = await secuencias.finalizarFactura(invoiceId, datosFinalizar);
+        const finalizado = await secuencias.finalizarFactura(invoiceId, {
+          xml_signed_path: rutaXml,
+          xml_sha256: xmlSha256,
+        });
         if (!finalizado.ok) {
-          await compensarFallo(secuencias, almacenamiento, invoiceId, rutaXml, `No se pudo finalizar: ${finalizado.motivo}.`);
-          return { ok: false, motivo: finalizado.motivo };
+          const motivoFinal = await compensarFallo(
+            secuencias,
+            almacenamiento,
+            invoiceId,
+            rutaXml,
+            `No se pudo finalizar: ${finalizado.motivo}.`,
+          );
+          return { ok: false, motivo: motivoFinal };
         }
       } catch (e) {
         // 7) Falló después de consumir: motivo escrito + limpieza del bucket.
-        await compensarFallo(secuencias, almacenamiento, invoiceId, rutaXml, mensajeDeError(e));
-        return { ok: false, motivo: mensajeDeError(e) };
+        const motivoFinal = await compensarFallo(secuencias, almacenamiento, invoiceId, rutaXml, mensajeDeError(e));
+        return { ok: false, motivo: motivoFinal };
       }
 
       return { ok: true, invoiceId, eNcf: eNcfFinal, rutaXml };

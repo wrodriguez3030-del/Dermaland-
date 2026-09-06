@@ -57,6 +57,118 @@ columnas que la tabla nueva no tiene: `pkcs12_storage_bucket`,
 
 ---
 
+## R-FIS-04 · `finalize_ecf_invoice` no persiste el hash del XML firmado, y `security_code` no existe donde su comentario promete
+
+**Fecha:** 2026-09-06
+**Severidad:** Media — no bloquea emitir ni compromete ningún e-NCF; deja
+sin registrar un dato que se necesitará (integridad del XML persistido y,
+más adelante, el resumen RFCE).
+**Dueño:** quien prepare la migración de la fase 3B que toque
+`finalize_ecf_invoice`.
+**Archivos:** `supabase/migrations/20260906090200_dgii_fase2_funciones.sql`
+(comentario en la línea 298), `supabase/migrations/20260906090100_dgii_fase2_tablas.sql`
+(línea 243, columna `hash_sha256`; línea 548, columna `security_code`).
+
+Encontrado al implementar `apps/web/src/features/dgii/services/prepare.ts`
+(fase 3A, tarea 5), corregido con precisión en su ronda de corrección 1:
+
+- El comentario de `finalize_ecf_invoice`
+  (`20260906090200_dgii_fase2_funciones.sql:298`) dice
+  `p_datos: {xml_signed_path, xml_sha256, security_code}`. El CUERPO de la
+  función (ya aplicada en producción) solo lee `xml_signed_path` — nunca
+  toca `xml_sha256` ni `security_code`.
+- La columna que existe de verdad para el hash se llama
+  **`electronic_invoices.hash_sha256`** (`20260906090100_dgii_fase2_tablas.sql:243`,
+  reincorporada de `0045_ecf_idempotency_and_events.sql`) — un nombre
+  DISTINTO al que promete el comentario (`xml_sha256`).
+- **`security_code` no existe en `electronic_invoices` en absoluto.** La
+  única columna con ese nombre en toda la migración de fase 2 es
+  `dgii_certification_cases.security_code`
+  (`20260906090100_dgii_fase2_tablas.sql:548`) — una tabla del flujo de
+  CERTIFICACIÓN (datasets/casos de prueba contra DGII), no la tabla de
+  facturación real. No hay ninguna columna a la que escribir el código de
+  seguridad de un comprobante emitido normalmente.
+
+**Consecuencia real, hoy:** `prepararComprobante` (tarea 5) calcula el
+sha256 del XML firmado y lo envía en `p_datos.xml_sha256` en cada llamada a
+`finalizarFactura` — pero como el cuerpo de `finalize_ecf_invoice` lo
+ignora, **todo comprobante firmado con este flujo queda con
+`hash_sha256` NULO** en la base. No es un fallo silencioso del código nuevo:
+es la función de fase 2, ya aplicada, la que no lo persiste.
+
+Esto **no puede arreglarse en la fase 3A**: `finalize_ecf_invoice` ya está
+aplicada en producción, y tocar su cuerpo es una migración
+(`create or replace function`), fuera del alcance de una tarea que no
+aplica migraciones ni escribe en la base.
+
+### Mitigación / plan de salida
+
+1. Decidir el nombre de columna definitivo para el hash del XML firmado:
+   ¿se corrige el comentario de `finalize_ecf_invoice` para decir
+   `hash_sha256` (el que ya existe), o se añade una columna `xml_sha256`
+   nueva? Recomendado: corregir el comentario y usar la columna que ya
+   existe — añadir una segunda columna para lo mismo sería la "lógica
+   paralela" que este proyecto evita.
+2. Escribir la migración que actualiza `finalize_ecf_invoice` para hacer
+   `set hash_sha256 = nullif(p_datos->>'xml_sha256','')` junto al resto del
+   `update`.
+3. Para `security_code`: decidir si un comprobante normal (no de
+   certificación) necesita guardarlo. Si la fase 3B trae el resumen RFCE
+   (que sí lo necesita, según `agendapp` — el código de seguridad son los
+   6 primeros caracteres del `SignatureValue`, vía
+   `core/print-representation.ts`), esa fase tendrá que decidir en qué
+   columna de qué tabla vive — HOY no hay ninguna en `electronic_invoices`.
+4. Mientras tanto, `prepare.ts` ya envía `xml_sha256` en cada llamada
+   (código listo, cero coste); cuando la migración exista, no hace falta
+   tocar `prepare.ts` de nuevo.
+
+---
+
+## R-FIS-05 · El tipo 31 (crédito fiscal) no puede emitirse hasta que exista una lectura de `ecf_sequences.expires_at`
+
+**Fecha:** 2026-09-06
+**Severidad:** Alta para la fase 4 — es lo PRIMERO que va a fallar, porque
+es el tipo que el POS elige para TODO cliente de crédito fiscal.
+**Dueño:** quien cablee el punto de venta contra DGII en la fase 4.
+**Archivos:** `apps/web/src/features/dgii/core/builder.ts` (`requiereVencimiento`),
+`apps/web/src/features/dgii/services/prepare.ts`,
+`apps/web/src/features/sales/document-resolver.ts`.
+
+Los tipos 31, 33, 41, 43, 44, 45, 46 y 47 exigen `FechaVencimientoSecuencia`
+en el XSD oficial (`requiereVencimiento` en `core/builder.ts`). Ese dato es
+la fecha de vencimiento del RANGO AUTORIZADO por la DGII —vive en
+`ecf_sequences.expires_at`— y ningún repositorio de la fase 2 ni de la
+tarea 5 expone hoy una lectura de esa columna. Comprobado con una sonda
+directa contra `prepararComprobante`: para un tipo 31, la única llamada que
+llega a hacerse es `peekNextEncf`; `buildEcfXml` rechaza el comprobante
+antes de firmar, con el motivo exacto ("FechaVencimientoSecuencia requerida
+y válida (XSD)"). **No se quema ningún e-NCF** — falla limpio, como debe
+ser (la lección de agendapp v525: "un comprobante con una fecha fiscal
+inventada es peor que uno que falta").
+
+**Por qué esto importa para la fase 4 en particular:** las reglas ya
+acordadas y documentadas de DermaLand
+(`document-resolver.ts`, `resolveDocumentToIssue`, ver también R-FIS-01)
+dicen que `credito_fiscal` + CUALQUIER método de pago produce **Factura
+e-CF 31**. El día que el punto de venta llame a `prepararComprobante` de
+verdad, el PRIMER cliente que pida crédito fiscal va a fallar — no por un
+bug de esa fase, sino porque la lectura que hace falta nunca se construyó.
+
+### Mitigación / plan de salida
+
+1. Antes de cablear el POS a `prepararComprobante` en la fase 4: añadir una
+   lectura de `ecf_sequences.expires_at` (candidato natural:
+   `dgii-invoices.ts` o `dgii-sequences.ts`, a decidir según encaje) y
+   pasarla a `buildEcfXml` como `fechaVencimientoSecuencia`.
+2. Igual que agendapp: si la secuencia activa no tiene `expires_at`
+   cargado, BLOQUEAR con el motivo exacto — nunca inventar una fecha
+   (`hoy + 365 días` fue el error real de agendapp antes de v525).
+3. No se resuelve en la fase 3A a propósito: el pliego de la tarea 5 no lo
+   pedía, y las pruebas de esa tarea usan tipo 32 (que no exige el campo).
+   Queda anotado aquí para que no sea una sorpresa al cablear el POS.
+
+---
+
 ## R-SEC-02 · Cuenta de prueba con rol admin efectivo en producción
 
 **Fecha:** 2026-08-06

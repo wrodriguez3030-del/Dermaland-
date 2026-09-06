@@ -97,7 +97,15 @@ export function crearRepositorioSecuencias(cliente: SupabaseClient, businessId: 
 
     async finalizarFactura(
       invoiceId: string,
-      datos: { xml_signed_path: string },
+      // `xml_sha256` es aditivo y OPCIONAL (ronda de corrección 1, tarea 5):
+      // el comentario de `finalize_ecf_invoice` en
+      // `20260906090200_dgii_fase2_funciones.sql:298` ya documenta ese campo
+      // en `p_datos`, aunque el cuerpo de la función todavía no lo persiste
+      // (ver docs/riesgos.md). Ensanchar el tipo aquí, en vez de dejar que
+      // quien llama lo cuele con una variable typada (truco de "excess
+      // properties" de TypeScript), hace que una errata en el nombre del
+      // campo la cace el compilador.
+      datos: { xml_signed_path: string; xml_sha256?: string },
     ): Promise<ResultadoFinalizar> {
       return desenvolver(
         await cliente.rpc("finalize_ecf_invoice", {

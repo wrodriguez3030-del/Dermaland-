@@ -15,10 +15,12 @@ El resumen de una frase del pliego describía el paso 3 como "`buildEcfXml` →
 `validateEcfXml` contra el XSD → `signEcfXml`". Implementado literalmente, la
 validación SIEMPRE falla: los XSD oficiales exigen `<Signature>` como
 `xs:any minOccurs="1"` al final de `<ECF>`
-(`core/xsd/e-CF-32-v1.0.xsd:424`), y el propio `core/builder.test.ts` ya lo
-prueba y lo documenta — "el XML SIN firma falla el XSD solo por el
+(`core/xsd/e-CF-32-v1.0.xsd:424`), y el propio `core/validator.test.ts:120` ya
+lo prueba y lo documenta — "el XML SIN firma falla el XSD solo por el
 `<Signature>` requerido (Fase 6)". Validar el XML sin firmar habría hecho que
 CUALQUIER comprobante, sin excepción, se reportara como XSD inválido.
+(Corregido en la ronda de corrección 1: la primera versión de esta entrada
+citaba `core/builder.test.ts`, que no es donde vive esa prueba.)
 
 agendapp (`invoice-prepare.ts:428-433`, SOLO LECTURA) confirma cuál es el
 orden que de verdad funciona: construye, firma, verifica la firma y **luego**
@@ -125,19 +127,24 @@ en `storage.ts` ni en la fase 2 lo exige.
 
 ### Consecuencias
 
-- Un reintento por `ENCF_TOMADO` dejaría el objeto de un intento anterior
-  huérfano en el bucket (nunca referenciado por ninguna fila). No es un
-  riesgo fiscal —no se consumió ningún número por ese intento— así que el
-  pliego no pide limpiarlo (su compensación, paso 7, es solo para fallos
-  DESPUÉS de consumir), y esta tarea no la añade para no alterar el baile
-  documentado. Queda anotado por si una fase futura quiere un barrido de
-  higiene del bucket.
+- Un reintento por `ENCF_TOMADO` deja el objeto de un intento anterior sin
+  ninguna fila que lo referencie. **Corregido en la ronda de corrección 1
+  (I4):** la primera versión de esta entrada decía que no se limpiaba
+  ("no es un riesgo fiscal... esta tarea no la añade"). Una revisión externa
+  lo marcó bien: aunque no quema número, es un comprobante con FIRMA REAL
+  guardado indefinidamente sin ninguna fila que lo apunte — evidencia
+  fiscal, no un fichero temporal. `prepararComprobante` ahora borra el XML
+  del intento perdido tanto al reintentar como al agotar los 3 intentos
+  (y también en el caso `IDEMPOTENT_PROFORMA_YA_FACTURADA`, por el mismo
+  motivo), con pruebas dedicadas en `prepare.test.ts`.
 
 ---
 
-## 2026-09-06 — Tarea 5: el sha256 llega a `finalizarFactura` sin tocar `dgii-sequences.ts`, y el hueco que deja fase 2 al descubierto
+## 2026-09-06 — Tarea 5: el sha256 llega a `finalizarFactura` ensanchando su tipo, no con un truco de TypeScript
 
-**Archivos:** `apps/web/src/features/dgii/services/prepare.ts`
+**Archivos:**
+- `apps/web/src/features/dgii/services/prepare.ts`
+- `apps/web/src/server/repositories/supabase/dgii-sequences.ts`
 
 ### Por qué
 
@@ -146,42 +153,53 @@ módulo, no el de almacenamiento: se decidió así en la ronda 3 de la tarea 1"
 (confirmado en `task-1-report.md`: se borró un `calcularSha256()` que nadie
 llamaba, con el comentario "el SHA256 del XML lo calcula el preparador, no
 este módulo"). Pero `finalizarFactura(invoiceId, datos)` en
-`dgii-sequences.ts` tipa `datos` como `{ xml_signed_path: string }` — sin
+`dgii-sequences.ts` tipaba `datos` como `{ xml_signed_path: string }` — sin
 sitio para el hash.
 
-Al buscar dónde debía ir, aparece el hueco real de fase 2: el comentario de
-`finalize_ecf_invoice` en `20260906090200_dgii_fase2_funciones.sql:298` dice
-`p_datos: {xml_signed_path, xml_sha256, security_code}`, pero el CUERPO de
-la función solo lee `xml_signed_path` — `xml_sha256` y `security_code` se
-documentan y nunca se usan. Y la columna que sí existe en la tabla
-(`electronic_invoices.hash_sha256`, reincorporada de `0045` en
-`20260906090100_dgii_fase2_tablas.sql:228`) tiene OTRO nombre que el que
-promete ese comentario. Ninguna migración de esta tarea puede tocar eso
-(fuera de alcance: "no apliques migraciones, no escribas en la base").
+Al buscar dónde debía ir, apareció un hueco real de fase 2, más grande de
+lo que la primera versión de esta entrada decía (corregido en la ronda de
+corrección 1 — I1; el detalle completo, con los nombres exactos y qué hay
+que hacer para cerrarlo, vive en `docs/riesgos.md`, entrada `R-FIS-04`, no
+aquí):
+- El comentario de `finalize_ecf_invoice`
+  (`20260906090200_dgii_fase2_funciones.sql:298`) dice
+  `p_datos: {xml_signed_path, xml_sha256, security_code}`, pero el CUERPO
+  de la función solo lee `xml_signed_path`.
+- La columna real para el hash existe, pero se llama
+  `electronic_invoices.hash_sha256`
+  (`20260906090100_dgii_fase2_tablas.sql:243`), no `xml_sha256` como dice
+  el comentario.
+- `security_code` **no existe en `electronic_invoices` en absoluto** —la
+  primera versión de esta entrada decía solo que estaba "sin usar", que es
+  impreciso. La única columna con ese nombre en toda la migración es
+  `dgii_certification_cases.security_code`
+  (`20260906090100_dgii_fase2_tablas.sql:548`), una tabla de certificación,
+  no de facturación.
+- Ninguna migración de esta tarea puede tocar eso (fuera de alcance: "no
+  apliques migraciones, no escribas en la base").
 
 ### Decisión
 
-`prepare.ts` calcula `xmlSha256` con `createHash("sha256")` sobre el XML
-firmado y lo envía en `datos` de todos modos, vía una variable intermedia
-tipada (`const datosFinalizar: {xml_signed_path: string; xml_sha256: string}`)
-en vez de un objeto literal en la llamada: TypeScript permite pasar una
-variable con MÁS propiedades que las que pide el parámetro (no aplica el
-chequeo de "excess properties", que solo mira literales), así que
-`dgii-sequences.ts` queda intacto — cero modificación a un archivo ya
-cerrado en una tarea anterior. Hoy ese campo de más lo ignora
-`finalize_ecf_invoice` (jsonb no valida forma), así que no persiste en la
-base; el día que una migración futura lo lea (con el nombre de columna que
-sea), este módulo no necesita cambiar.
+Se descartó el enfoque original de esta entrada (una variable intermedia
+tipada para colar el campo sin que TypeScript lo viera, aprovechando que el
+chequeo de "excess properties" solo mira objetos literales). Una revisión
+externa lo marcó: una errata en el nombre del campo pasaría inadvertida
+hasta producción. En su lugar, `finalizarFactura` en `dgii-sequences.ts`
+ensancha su tipo de forma aditiva:
+`datos: { xml_signed_path: string; xml_sha256?: string }` — un campo
+opcional, una línea, sin tocar la lógica de la función (sigue reenviando
+`datos` tal cual a `p_datos`). Una errata en el nombre la cacha el
+compilador, no un `grep` en producción.
 
 ### Consecuencias
 
 - El cálculo del hash tiene un destino real (no queda como código muerto
   esperando a que alguien lo use, que es justo el patrón que la ronda 3 de
-  la tarea 1 corrigió).
-- Queda documentado para quien cierre ese hueco de fase 2: hace falta
-  decidir el nombre de columna definitivo (`hash_sha256` ya existe;
-  `xml_sha256` es solo el nombre del comentario) y escribir el `update` de
-  `finalize_ecf_invoice` que hoy falta. No se resuelve aquí.
+  la tarea 1 corrigió), y su nombre de campo está protegido por el tipo.
+- **Hoy sigue sin persistir de verdad**: `finalize_ecf_invoice` no escribe
+  `hash_sha256` (ni ningún otro campo del hash). Todo comprobante firmado
+  hasta que se cierre ese hueco queda con `hash_sha256` NULO. Riesgo
+  abierto y plan de cierre en `docs/riesgos.md`, entrada `R-FIS-04`.
 
 ---
 
@@ -225,7 +243,11 @@ e-NCF — falla seguro, no falla en silencio ni inventa la fecha. Con las
 pruebas de esta tarea (tipo 32, que no exige vencimiento) esto no se
 ejercita; queda para quien construya el flujo de tipo 31 (crédito fiscal),
 que si necesita añadir esa lectura, probablemente vaya en `dgii-invoices.ts`
-o en `dgii-sequences.ts`.
+o en `dgii-sequences.ts`. **Riesgo abierto con severidad y plan de cierre:**
+`docs/riesgos.md`, entrada `R-FIS-05` (ronda de corrección 1 — confirmado
+con sonda que falla limpio, sin gastar número; es lo primero que va a
+tropezar quien cablee el POS en la fase 4, porque el tipo 31 es el que
+`document-resolver.ts` elige para todo cliente de crédito fiscal).
 
 ---
 

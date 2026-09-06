@@ -9,12 +9,20 @@
 // regla global de la fase: "Ningún certificado real entra al repositorio. Las
 // pruebas generan uno autofirmado en memoria con `core/__port__/dgii-test-cert.ts`."
 // Ver docs/decisiones.md, entrada de esta tarea.
+//
+// RONDA DE CORRECCIÓN 1 (revisión externa): se añadieron las pruebas de I2
+// (compensarFallo pliega el fallo de marcarFallo en el motivo), I3
+// (finalizarFactura RECHAZANDO, no solo devolviendo ok:false), I4 (una
+// carrera perdida borra su XML antes de reintentar y al rendirse) y los dos
+// hallazgos Menores (mensaje de XSD truncado; motivo desconocido no se
+// re-etiqueta como ENCF_TOMADO). Las 8 pruebas originales no se tocaron.
 import { describe, it, expect, vi } from "vitest";
 import { prepararComprobante } from "./prepare";
 import { getDummyCert } from "../core/__port__/dgii-test-cert";
 import type {
   ResultadoPreparar as ResultadoPrepararFactura,
   ResultadoFinalizar,
+  ResultadoMarcarFallo,
 } from "@/server/repositories/supabase/dgii-sequences";
 
 /** Dobles: ni base, ni bucket, ni red. Solo el baile. */
@@ -59,7 +67,10 @@ function dobles(over: Partial<Record<string, unknown>> = {}) {
         llamadas.push("finalize");
         return { ok: true, invoice_id: "f-1" };
       }),
-      marcarFallo: vi.fn(async () => { llamadas.push("fail"); return { ok: true, invoice_id: "f-1" }; }),
+      marcarFallo: vi.fn(async (): Promise<ResultadoMarcarFallo> => {
+        llamadas.push("fail");
+        return { ok: true, invoice_id: "f-1" };
+      }),
     },
     almacenamiento: {
       guardarXmlFirmado: vi.fn(async () => { llamadas.push("subir"); return "dgii/b1/invoices/f-1/signed.xml"; }),
@@ -107,6 +118,50 @@ describe("preparar un comprobante", () => {
     const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
     expect(r.ok).toBe(false);
     expect(d.secuencias.prepararFactura).toHaveBeenCalledTimes(3);
+    // I4 (ronda de corrección 1): los 3 intentos firmaron y subieron un XML
+    // cada uno; ninguno llegó a consumir número, pero los 3 quedarían como
+    // evidencia fiscal huérfana en el bucket si no se borran también al
+    // agotar los intentos, no solo al reintentar.
+    expect(d.almacenamiento.borrarXml).toHaveBeenCalledTimes(3);
+  });
+
+  it("una carrera perdida borra el XML antes de reintentar: no deja evidencia fiscal huérfana", async () => {
+    // I4 (ronda de corrección 1): el XML del intento que perdió la carrera
+    // está firmado de verdad, con un e-NCF que resultó ser de otra
+    // factura. Sin borrarlo, queda guardado indefinidamente en el bucket
+    // sin que ninguna fila lo apunte — el mismo precedente que cita el
+    // pliego (`transfer-payments.ts`): borrar el objeto si lo que viene
+    // después falla.
+    const d = dobles();
+    let n = 0;
+    d.secuencias.prepararFactura = vi.fn(async (): Promise<ResultadoPrepararFactura> => {
+      n++;
+      return n === 1
+        ? { ok: false, motivo: "ENCF_TOMADO", e_ncf_actual: "E320000000008" }
+        : { ok: true, invoice_id: "f-1", e_ncf: "E320000000008" };
+    });
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r).toMatchObject({ ok: true });
+    expect(d.almacenamiento.borrarXml).toHaveBeenCalledTimes(1);
+    // El borrado ocurre ANTES del segundo "subir" (el reintento), no después.
+    const iBorrar = d.llamadas.indexOf("borrar");
+    const iSegundoSubir = d.llamadas.indexOf("subir", d.llamadas.indexOf("subir") + 1);
+    expect(iBorrar).toBeLessThan(iSegundoSubir);
+  });
+
+  it("un motivo desconocido de prepare_ecf_invoice no se reetiqueta como ENCF_TOMADO", async () => {
+    // Menor (ronda de corrección 1): hoy la fase 2 solo emite ENCF_TOMADO o
+    // IDEMPOTENT_PROFORMA_YA_FACTURADA, pero eso es un hecho de HOY, no una
+    // garantía del compilador. Un tercer motivo no debe consumir los 3
+    // intentos en silencio disfrazado de carrera.
+    const d = dobles();
+    d.secuencias.prepararFactura = vi.fn(
+      async () => ({ ok: false, motivo: "OTRO_MOTIVO_NO_CONTEMPLADO" }) as never,
+    );
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo).toContain("OTRO_MOTIVO_NO_CONTEMPLADO");
+    expect(d.secuencias.prepararFactura).toHaveBeenCalledTimes(1);
   });
 
   it("si la proforma ya tenía comprobante, devuelve ése y no emite otro", async () => {
@@ -126,6 +181,53 @@ describe("preparar un comprobante", () => {
     expect(r.ok).toBe(false);
     expect(d.secuencias.marcarFallo).toHaveBeenCalled();
     expect(d.almacenamiento.borrarXml).toHaveBeenCalled();
+  });
+
+  it("si finalizar RECHAZA (no solo devuelve ok:false), también se marca el fallo y se borra el XML", async () => {
+    // I3 (ronda de corrección 1): el fallo más probable en producción es un
+    // throw (timeout de PostgREST, 5xx de Supabase), no un ok:false
+    // estructurado. Sin esta prueba, quitar `compensarFallo` del `catch (e)`
+    // deja las demás pruebas en verde igualmente.
+    const d = dobles();
+    d.secuencias.finalizarFactura = vi.fn(async (): Promise<ResultadoFinalizar> => {
+      throw new Error("timeout de PostgREST");
+    });
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r.ok).toBe(false);
+    expect(d.secuencias.marcarFallo).toHaveBeenCalled();
+    expect(d.almacenamiento.borrarXml).toHaveBeenCalled();
+  });
+
+  it("si marcarFallo tampoco encuentra la factura, ese aviso se pliega en el motivo devuelto", async () => {
+    // I2 (ronda de corrección 1): fail_ecf_invoice devuelve `ok:false` A
+    // PROPÓSITO cuando no tocó ninguna fila (FACTURA_NO_ENCONTRADA) — su
+    // propio comentario en la migración dice que un `ok:true` falso ahí es
+    // justo el escenario que quiere impedir. Descartar ese valor deja un
+    // e-NCF consumido, en `draft`, sin motivo escrito y sin ningún rastro
+    // de que la propia compensación falló.
+    const d = dobles();
+    d.secuencias.finalizarFactura = vi.fn(async (): Promise<ResultadoFinalizar> => ({ ok: false, motivo: "NO_ESTABA_EN_DRAFT" }));
+    d.secuencias.marcarFallo = vi.fn(async (): Promise<ResultadoMarcarFallo> => ({ ok: false, motivo: "FACTURA_NO_ENCONTRADA" }));
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo).toContain("FACTURA_NO_ENCONTRADA");
+  });
+
+  it("un error de validación XSD larguísimo no se cuela entero en el motivo", async () => {
+    // Menor (ronda de corrección 1): un municipio inválido produce ~4 KB de
+    // enumeración completa; en un fallo real, el valor ofensor puede ser el
+    // RNC o el nombre del cliente. `motivo` no es el sitio para eso.
+    const d = dobles({
+      validar: vi.fn(async () => ({
+        ok: false,
+        errors: [{ line: 1, message: "x".repeat(5000) }],
+        warnings: [],
+        schemaName: "e-CF-32",
+      })),
+    });
+    const r = await prepararComprobante({ businessId: "b1", userId: "u1" }, entradaValida(), d as never);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.motivo.length).toBeLessThan(400);
   });
 
   it("con un gate cerrado no se mira ni el primer número", async () => {
