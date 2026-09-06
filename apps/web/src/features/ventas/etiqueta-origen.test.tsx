@@ -24,3 +24,13 @@ describe("etiqueta de origen de una venta", () => {
     expect(screen.getByTitle(/migrad/i)).toBeTruthy();
   });
 });
+
+describe("la etiqueta falla cerrada", () => {
+  it("🔴 sin origen conocido NO se marca como migrada", () => {
+    // Una respuesta vieja en caché o un JSON incompleto puede llegar sin
+    // `origen`. Marcar una venta del sistema como migrada de Alegra convierte
+    // la etiqueta en ruido y, peor, sugiere que no se puede tocar algo que sí.
+    const { container } = render(<EtiquetaOrigen origen={undefined as never} />);
+    expect(container.textContent?.trim()).toBe("");
+  });
+});

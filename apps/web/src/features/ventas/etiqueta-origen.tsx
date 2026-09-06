@@ -15,7 +15,11 @@ import type { OrigenVenta } from "./venta-unificada";
  * sistema: en tabletas no hay hover, así que el title no se ve.
  */
 export function EtiquetaOrigen({ origen }: { origen: OrigenVenta }) {
-  if (origen === "sistema") {
+  // 🔴 Falla CERRADA: solo se marca lo que se sabe migrado. Preguntar por
+  // `!== "sistema"` hacía que un `origen` ausente —una respuesta vieja en
+  // caché, un JSON incompleto— pintara «Migrada de Alegra» sobre una venta del
+  // sistema, y entonces la etiqueta deja de avisar de nada.
+  if (origen !== "alegra") {
     return null;
   }
 

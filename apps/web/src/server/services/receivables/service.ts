@@ -3,6 +3,7 @@ import type { RepoContext } from "@/server/repositories/types";
 import { SupabaseRepositoryError, UserFacingRepositoryError, getClient } from "@/server/repositories/supabase/client";
 import { agingBucket, computeAging, overdueDays, todayRD, type AgingBucket, type AgingTotals } from "@/features/receivables/aging";
 import { facturasConSaldo } from "@/server/services/alegra/queries";
+import { cuentaParaTotales } from "@/features/alegra/sales-report";
 import type { OrigenVenta } from "@/features/ventas/venta-unificada";
 
 /**
@@ -63,18 +64,30 @@ async function branchNames(sb: Awaited<ReturnType<typeof getClient>>, businessId
  * excluye las anuladas y usa el índice `alegra_invoices_open_balance`) y se
  * traducen al vuelo.
  *
- * 🔴 Alegra no guarda fecha de vencimiento, así que se usa la fecha de la
- * factura. No es un invento: es el mismo criterio que ya enseña
- * `/cuentas-por-cobrar/alegra`, que mide la antigüedad con los días desde la
- * emisión. La alternativa —dejarla sin fecha— las metía TODAS en «al día», y
- * una factura de 2025 con saldo abierto no está al día.
+ * 🔴 Alegra no guarda columna de vencimiento, así que se usa la fecha de la
+ * factura. No es una aproximación: comprobado contra producción, el
+ * `raw->>'dueDate'` que vino de Alegra está presente en las 14 743 facturas que
+ * cuentan y es IGUAL a `date` en las 14 743, sin una sola excepción. Es además
+ * el criterio que ya enseña `/cuentas-por-cobrar/alegra` (días desde la
+ * emisión). La alternativa —dejarla sin fecha— las metía TODAS en «al día», y
+ * una factura de 2025 con saldo abierto no está al día. No lo "arregles".
+ *
+ * 🔴 Las BORRADORES quedan fuera. `facturasConSaldo` solo descarta las
+ * anuladas, pero el criterio de la casa para «esto cuenta» es
+ * `cuentaParaTotales` (fuera `void` Y `draft`): es el que usa
+ * `/cuentas-por-cobrar/alegra` para su total y el que usa la función SQL del
+ * resumen de ventas. Sin este filtro, un solo borrador con saldo haría que las
+ * dos pantallas del mismo módulo dieran dos cifras distintas de lo que se debe
+ * —una CUARTA definición del saldo— sin ninguna pista de cuál manda. Hoy no hay
+ * ninguno (comprobado: 20 facturas con saldo, las 20 `open`), y por eso hay que
+ * cerrarlo ahora, mientras no duele.
  */
 async function listPendingAlegra(
   ctx: RepoContext,
   branches: Map<string, string>,
   today: string,
 ): Promise<ReceivableRow[]> {
-  const facturas = await facturasConSaldo(ctx);
+  const facturas = (await facturasConSaldo(ctx)).filter(cuentaParaTotales);
   return facturas.map((f) => ({
     id: f.id,
     number: f.ncf ?? "—",

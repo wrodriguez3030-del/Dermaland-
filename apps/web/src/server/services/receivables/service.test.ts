@@ -150,6 +150,32 @@ describe("facturas pendientes: sistema + Alegra", () => {
     expect(filas[0]!.motivoNoCobrable).toBeNull();
   });
 
+  it("🔴 una BORRADOR con saldo NO entra en lo que se debe", async () => {
+    // Si entrara, `/cuentas-por-cobrar` diría «21 facturas migradas» y
+    // `/cuentas-por-cobrar/alegra` diría 20: dos cifras de lo que se debe en el
+    // mismo módulo, sin ninguna pista de cuál manda. Es el criterio de la casa
+    // (`cuentaParaTotales`), el mismo que usan esa pantalla y la función SQL
+    // del resumen de ventas. Hoy no hay ninguna borrador con saldo; por eso se
+    // cierra ahora, mientras no duele.
+    facturasAlegra = [
+      facturaAlegra({ balance: 600 }),
+      facturaAlegra({ id: "33333333-3333-3333-3333-333333333333", balance: 900, status: "draft" }),
+    ];
+    const filas = await listPending(ctx);
+    expect(filas).toHaveLength(1);
+    expect(filas[0]!.balance).toBe(600);
+  });
+
+  it("🔴 y tampoco cuenta en el total del resumen", async () => {
+    facturasAlegra = [
+      facturaAlegra({ balance: 600 }),
+      facturaAlegra({ id: "33333333-3333-3333-3333-333333333333", balance: 900, status: "draft" }),
+    ];
+    const s = await summary(ctx);
+    expect(s.totalPendiente).toBe(600);
+    expect(s.porOrigen.alegra).toEqual({ total: 600, facturas: 1 });
+  });
+
   it("🔴 una factura vieja de Alegra con saldo NO se enseña como «al día»", async () => {
     // Alegra no guarda vencimiento. Dejar la fecha vacía las metía todas en el
     // tramo «al día» y el monto vencido salía en cero teniendo deuda de años.
