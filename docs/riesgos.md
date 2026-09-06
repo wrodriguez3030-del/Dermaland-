@@ -222,6 +222,144 @@ después — antes de esta corrección el archivo entero no tenía un solo
 
 ---
 
+## R-FIS-07 · El cambio de certificado (desactivar + insertar) no es atómico
+
+**Fecha:** 2026-09-06
+**Severidad:** Alta — deja de ser teórico en cuanto la fase 4 cablee el
+punto de venta: un negocio sin certificado activo no puede firmar ni una
+venta.
+**Dueño:** quien implemente la función de base de la fase 4/6 (mismo patrón
+que las de la fase 2).
+**Archivos:** `apps/web/src/features/dgii/services/certificates.ts`
+(`guardarCertificado`, líneas 273-285: `desactivarCertificados()` seguido
+de `insertarCertificado(...)`, dos llamadas PostgREST sueltas, sin
+transacción que las una).
+
+`guardarCertificado` desactiva TODOS los certificados activos del negocio y
+LUEGO inserta el nuevo, en dos round-trips independientes contra
+PostgREST. agendapp (`certificate-storage.ts`, SOLO LECTURA) envuelve el
+mismo cambio en una transacción de Prisma (`prisma.$transaction`); aquí no
+hay transacción posible desde el servidor web porque este proyecto habla
+con la base por PostgREST, no por una conexión directa — el mismo motivo,
+ya documentado en `docs/decisiones.md`, por el que `prepare.ts` firma
+FUERA de una transacción en vez de reservar el e-NCF dentro de una como
+agendapp.
+
+**El escenario:** `desactivarCertificados()` tiene éxito (el certificado
+que funcionaba queda `is_active=false`) y `insertarCertificado(...)` falla
+después — red caída a mitad de camino, o cualquier rechazo de PostgREST
+(timeout, política RLS, un valor límite en `serial_number`) sobre un `.p12`
+que ya pasó `leerOFallar`. El negocio queda con **CERO** certificados
+activos: no puede firmar ni un comprobante hasta que alguien vuelva a subir
+uno, y el que funcionaba minutos antes ya está desactivado — no hay forma
+de "deshacer" desde la pantalla.
+
+### Mitigación / plan de salida
+
+1. Cerrar esto es el mismo patrón que ya usa la fase 2 para las RPC
+   fiscales: una función `SECURITY DEFINER` en la base (p. ej.
+   `set_active_dgii_certificate`) que haga el `UPDATE ... SET
+   is_active=false` y el `INSERT ...` dentro de la MISMA transacción
+   PL/pgSQL, y le devuelva a `certificates.ts` un resultado `{ok:true, id}`
+   o `{ok:false, motivo}` — mismo contrato que `prepare_ecf_invoice` /
+   `finalize_ecf_invoice` / `fail_ecf_invoice`
+   (`20260906090200_dgii_fase2_funciones.sql`).
+2. Mientras no exista esa función, `guardarCertificado` podría al menos
+   detectar el fallo del insert y RE-ACTIVAR el certificado anterior (un
+   tercer round-trip de mejor esfuerzo). No cierra la ventana de carrera
+   entre las dos llamadas, pero acorta el tiempo sin ningún certificado
+   activo de "indefinido" a "hasta que ese tercer round-trip corra". No
+   sustituye al punto 1.
+3. Requiere una migración nueva (la función de base): no se aplica en esta
+   tanda — regla dura de la fase, sin escrituras en la base ni migraciones.
+
+---
+
+## R-FIS-08 · RFCE (resumen) sin ningún llamador: el punto de inserción se cierra en la fase 3B, y su plan no lo menciona
+
+**Fecha:** 2026-09-06
+**Severidad:** Alta para una farmacia — el caso normal, no el raro.
+**Dueño:** quien ejecute la fase 3B. El plan vigente,
+`docs/superpowers/plans/2026-09-06-dgii-fase3b-enviar-y-veredicto.md`, NO
+lo menciona ni una vez (verificado por grep de "rfce"/"resumen"/"250.000"
+antes de escribir esta entrada — el único hit es la coincidencia de
+substring "ResumenPendientes", sin relación).
+**Archivos:** `apps/web/src/features/dgii/core/rfce-routing.ts`
+(`resolveEcfDelivery`/`esResumenRfce`, portados en la fase 1: CERO
+llamadores fuera de sus propias pruebas del núcleo, confirmado por grep en
+todo `apps/web/src`); `apps/web/src/features/dgii/services/prepare.ts`
+(dónde tendría que ir la llamada); `apps/web/src/features/dgii/core/builders/rfce.ts`
+(`buildRfce`, el builder del resumen — tampoco tiene llamadores);
+`apps/web/src/features/dgii/core/seed-signer.ts` (`signDgiiSeedXml`, para
+firmar el resumen — tampoco).
+
+`resolveEcfDelivery` decide si una Factura de Consumo (tipo 32) sale
+ÍNTEGRA a `ecf.dgii.gov.do/recepcion` o como RESUMEN (RFCE) a
+`fc.dgii.gov.do/recepcionfc`, según un tope de RD$250,000
+(`RFCE_MONTO_MAXIMO`, `core/builders/rfce.ts`). El umbral es el caso NORMAL
+en una farmacia: casi cualquier ticket de venta está debajo. Hoy
+`prepararComprobante` no llama a esta función en absoluto: SIEMPRE produce
+el e-CF íntegro, sin importar el monto. El día que la fase 4 conecte el
+POS a esto, cada venta bajo el tope se enviaría al servicio de recepción
+equivocado.
+
+**Por qué esto no es "simplemente añadir la llamada" y hace falta
+nombrarlo ahora:** `resolveEcfDelivery` lanza (`RangeError`) si el total no
+es un número utilizable, A PROPÓSITO — es una función que solo puede
+llamarse ANTES de comprometerse a nada. Su propia prueba guardián
+(`core/rfce-routing-v499.test.ts`, `core/rfce-routing-paridad-v500.test.ts`,
+y el comentario de cabecera del archivo) fija la razón: si la decisión se
+tomara DESPUÉS de reservar el e-NCF y resultara "resumen", el número ya
+estaría quemado por un documento que iba al servicio equivocado — el mismo
+tipo de incidente que ya le costó a agendapp 6-10 números quemados en v550
+(citado en `docs/decisiones.md`, "Firmar antes de reservar el e-NCF...").
+agendapp la llama ANTES de abrir la transacción que reserva
+(`invoice-prepare.ts:256`, muy por delante de `reserve_next_encf` en la
+línea 306).
+
+**El punto de inserción exacto en `prepararComprobante`
+(`services/prepare.ts`):** entre el cálculo de `totalesBuilder` (hoy solo
+disponible como salida de `construir()`, dentro del `for` — ver el
+comentario "Totales que salen del builder" en ese archivo) y la llamada a
+`secuencias.prepararFactura(...)` (paso 5, la que de verdad CONSUME el
+número en esta arquitectura — aquí "reservar" no es `peekNextEncf`, que es
+una lectura sin efecto, sino esa llamada). Como el total no cambia entre
+reintentos de la MISMA venta (solo cambia el candidato de e-NCF), la
+decisión se puede tomar una sola vez, con el `totalesBuilder.total` de la
+PRIMERA vuelta del `for`, y reutilizarse en los reintentos siguientes —
+nunca recalcularse contra un total distinto a mitad de la operación.
+
+**Lo que falta además de la decisión** (para que quede completo, no solo
+la llamada): generar el resumen con `buildRfce` (`core/builders/rfce.ts`),
+firmarlo con `signDgiiSeedXml` (`core/seed-signer.ts`, NO con
+`signEcfXml` — es una firma de semilla distinta), y guardarlo con
+`guardarXmlFirmado`/`storage.ts` — que YA tiene el tipo `"rfce_xml"`
+listo (`TipoAlmacenamientoDgii`), sin que nada lo use todavía.
+`AlmacenamientoParaPreparar` (`prepare.ts`) tampoco tiene un método
+separado para el resumen — solo `guardarXmlFirmado` genérico sin
+parámetro `tipo` —, habría que decidir si basta pasarle un `tipo` o si
+hace falta una función dedicada, igual que agendapp tiene `saveSignedXml`
+y `saveRfceXml` por separado (`invoice-prepare.ts:559` y `:582`).
+
+### Mitigación / plan de salida
+
+1. Antes de que la fase 3B dé por cerrado el circuito de envío, añadir
+   explícitamente a su plan (hoy no lo menciona) la llamada a
+   `resolveEcfDelivery` en el punto descrito arriba, más la generación,
+   firma y persistencia del resumen cuando `delivery.kind === "rfce"`.
+2. El envío real (fase 3B) tiene que saber a qué `endpoint_url` mandar cada
+   comprobante — agendapp lo resuelve guardando `delivery.channel` en
+   `request_body_path`/`endpoint_url` (`invoice-prepare.ts:602-615`);
+   DermaLand no tiene todavía ese registro de envío, así que esta decisión
+   y la del canal de envío probablemente se cierran juntas.
+3. Hasta que esto se resuelva, **ninguna venta real debe pasar por
+   `prepararComprobante` en producción**: hoy produce siempre el e-CF
+   íntegro, que para el caso normal de una farmacia (bajo RD$250,000) es
+   el documento equivocado según la propia regla de DGII que este mismo
+   repositorio ya tiene portada y probada.
+
+---
+
 ## R-SEC-02 · Cuenta de prueba con rol admin efectivo en producción
 
 **Fecha:** 2026-08-06
