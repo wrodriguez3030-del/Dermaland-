@@ -90,6 +90,13 @@ import {
 } from "@/features/sales/sales-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 import type { SalesReportMeta } from "@/features/sales/sales-report-export";
+import {
+  CasillaIncluirAlegra,
+  LeyendaHistorico,
+  TablaHistoricoAlegra,
+  filtrosSinHistorico,
+  useHistoricoAlegra,
+} from "./historico-alegra";
 
 // ─── Ordenamiento (comparadores sobre el documento de venta) ─────────────────
 
@@ -154,6 +161,10 @@ export default function ReporteVentasPage() {
 
   const [filters, setFilters] = React.useState<SalesReportFilters>(EMPTY_FILTERS);
   const [paymentsFor, setPaymentsFor] = React.useState<Proforma | null>(null);
+  // Marcada por defecto: el histórico migrado ES la mayor parte de las ventas
+  // del negocio (14 965 facturas frente a 0 proformas hoy). Quien quiera ver
+  // solo lo del sistema la desmarca.
+  const [incluirAlegra, setIncluirAlegra] = React.useState(true);
   const canEdit = canEditSales(currentUser.role);
 
   const branchNames = React.useMemo(
@@ -241,6 +252,14 @@ export default function ReporteVentasPage() {
     // Incluirlas es el default (pre-Fase G todo es proforma): lo que se avisa
     // es cuando se EXCLUYEN, que es lo que cambia el número.
     if (!filters.includeProformas) parts.push("Solo facturas (sin proformas)");
+    // Las exportaciones se arman con `report`, que solo tiene las ventas del
+    // sistema. Si en pantalla el total ya lleva el histórico y el PDF no, hay
+    // que decirlo DENTRO del PDF: si no, el mismo reporte da dos cifras.
+    parts.push(
+      historico.participa
+        ? "Histórico migrado de Alegra: visible en pantalla, NO incluido en esta exportación"
+        : "Solo ventas del sistema (sin histórico de Alegra)",
+    );
     return {
       businessName: "DermaLand",
       generatedAt: new Date().toISOString(),
@@ -330,30 +349,86 @@ export default function ReporteVentasPage() {
   const k = report.kpis;
   const empty = report.filtered.length === 0;
 
+  // ── Histórico migrado de Alegra ─────────────────────────────────────────
+  // `/api/ventas` solo sabe filtrar por fecha, sucursal y cliente. Cualquier
+  // otro filtro del reporte deja al histórico SIN filtrar, y sumar un total
+  // sin filtrar a otro filtrado da un número que nadie podría cuadrar: en ese
+  // caso el histórico no se suma y la leyenda lo dice.
+  //
+  // `includeProformas` NO entra en esta lista a propósito: excluye documentos
+  // no facturados del sistema, y en Alegra todo lo migrado son facturas — el
+  // filtro no cambia lo que el histórico debería aportar.
+  const filtrosNoAplicables = React.useMemo(
+    () =>
+      filtrosSinHistorico([
+        { etiqueta: "Método de pago", activo: Boolean(filters.method) },
+        { etiqueta: "Tipo de comprobante", activo: Boolean(filters.comprobante) },
+        { etiqueta: "Estado", activo: Boolean(filters.status) },
+        { etiqueta: "Cajero", activo: Boolean(filters.cashierId) },
+        { etiqueta: "Vendedor", activo: Boolean(filters.sellerId) },
+        { etiqueta: "Cliente", activo: Boolean(filters.customerQuery?.trim()) },
+        { etiqueta: "Producto", activo: Boolean(filters.productQuery?.trim()) },
+      ]),
+    [filters],
+  );
+  const historico = useHistoricoAlegra({
+    desde: filters.from || undefined,
+    hasta: filters.to || undefined,
+    sucursalId: filters.branchId || undefined,
+    cantidadSistema: k.transactions,
+    incluir: incluirAlegra,
+    filtrosNoAplicables,
+  });
+  const totalConHistorico = Math.round((k.totalBilled + historico.total) * 100) / 100;
+  const transaccionesConHistorico = k.transactions + historico.cantidad;
+  // El resumen que da la base son DOS números: total y cantidad. Ni ITBIS, ni
+  // ítems, ni costo, ni descuentos — esas columnas no existen en el histórico
+  // migrado con la forma que pide este reporte. Los KPIs que se quedan solo
+  // con el sistema lo dicen, para que nadie cuadre el ITBIS contra un total
+  // que ya lleva Alegra.
+  const soloSistema = historico.participa ? "Solo ventas del sistema" : undefined;
+
   // Marca de tiempo de generación (en efecto para evitar mismatch de hidratación).
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
   }, []);
 
+  // Ticket promedio coherente con los dos KPIs de arriba: si el total y las
+  // transacciones ya llevan el histórico, dividir el total del sistema entre
+  // las transacciones de las dos fuentes daría un ticket que no es de nadie.
+  const ticketPromedio = transaccionesConHistorico
+    ? Math.round((totalConHistorico / transaccionesConHistorico) * 100) / 100
+    : 0;
+
   const kpiItems: ReportKpi[] = [
-    { label: "Total facturado", value: formatCurrency(k.totalBilled), tone: "primary" },
-    { label: "ITBIS recaudado", value: formatCurrency(k.itbis) },
-    { label: "Transacciones", value: k.transactions },
-    { label: "Items vendidos", value: k.items },
-    { label: "Ticket promedio", value: formatCurrency(k.avgTicket) },
-    { label: "Clientes distintos", value: k.distinctCustomers },
-    { label: "Descuentos", value: formatCurrency(k.discounts) },
+    {
+      label: "Total facturado",
+      // Mientras el histórico está en camino no hay total fiable que enseñar:
+      // un RD$0.00 provisional es justo lo que hizo creer que no se migró nada.
+      value: historico.cargando ? "Cargando…" : formatCurrency(totalConHistorico),
+      tone: "primary",
+    },
+    { label: "ITBIS recaudado", value: formatCurrency(k.itbis), hint: soloSistema },
+    { label: "Transacciones", value: historico.cargando ? "…" : transaccionesConHistorico },
+    { label: "Items vendidos", value: k.items, hint: soloSistema },
+    {
+      label: "Ticket promedio",
+      value: historico.cargando ? "Cargando…" : formatCurrency(ticketPromedio),
+    },
+    { label: "Clientes distintos", value: k.distinctCustomers, hint: soloSistema },
+    { label: "Descuentos", value: formatCurrency(k.discounts), hint: soloSistema },
     {
       label: "Devoluciones",
       value: formatCurrency(k.refunds),
       tone: k.refunds > 0 ? "warning" : "default",
+      hint: soloSistema,
     },
-    { label: "Neto", value: formatCurrency(k.net), tone: "success" },
+    { label: "Neto", value: formatCurrency(k.net), tone: "success", hint: soloSistema },
     {
       label: "Margen estimado",
       value: k.marginEstimate != null ? formatCurrency(k.marginEstimate) : "N/D",
-      hint: k.marginEstimate == null ? "Sin costo disponible" : undefined,
+      hint: k.marginEstimate == null ? "Sin costo disponible" : soloSistema,
     },
   ];
 
@@ -394,6 +469,14 @@ export default function ReporteVentasPage() {
     filterChips.push({ label: "Producto", value: filters.productQuery });
   if (!filters.includeProformas)
     filterChips.push({ label: "Proformas", value: "Excluidas" });
+  filterChips.push({
+    label: "Histórico Alegra",
+    value: historico.participa
+      ? "Incluido en total y transacciones"
+      : incluirAlegra
+        ? "No incluido"
+        : "Excluido",
+  });
 
   return (
     <>
@@ -595,6 +678,9 @@ export default function ReporteVentasPage() {
                 Incluir proformas
               </label>
             </div>
+            <div className="flex items-end">
+              <CasillaIncluirAlegra checked={incluirAlegra} onChange={setIncluirAlegra} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -602,6 +688,9 @@ export default function ReporteVentasPage() {
       {/* ── KPIs ── */}
       <div className="mb-6">
         <ReportSummaryCards items={kpiItems} columns={5} />
+        {/* De dónde sale el total: cuánto pone el sistema y cuánto el histórico
+            migrado. Un total que mezcla dos fuentes sin decirlo no se audita. */}
+        <LeyendaHistorico leyenda={historico.leyenda} />
       </div>
 
       {/* ── Gráficas / resúmenes ── */}
@@ -949,6 +1038,16 @@ export default function ReporteVentasPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Histórico migrado de Alegra (solo lectura) ── */}
+      <div className="mt-6">
+        <TablaHistoricoAlegra
+          desde={filters.from || undefined}
+          hasta={filters.to || undefined}
+          sucursalId={filters.branchId || undefined}
+          activo={incluirAlegra && filtrosNoAplicables.length === 0}
+        />
+      </div>
 
       {/* ── Detalle COMPLETO solo para impresión / PDF (todos los filtrados) ── */}
       <div className="print-only">
