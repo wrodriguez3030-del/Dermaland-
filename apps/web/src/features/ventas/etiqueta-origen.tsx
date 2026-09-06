@@ -10,6 +10,9 @@ import type { OrigenVenta } from "./venta-unificada";
  *
  * La etiqueta se usa en cuatro sitios: panel, reportes, ficha del cliente
  * y cuentas por cobrar, para que el dueño sepa de dónde viene cada venta.
+ *
+ * El texto visible debe comunicar que es histórico, no solo el nombre del
+ * sistema: en tabletas no hay hover, así que el title no se ve.
  */
 export function EtiquetaOrigen({ origen }: { origen: OrigenVenta }) {
   if (origen === "sistema") {
@@ -22,7 +25,7 @@ export function EtiquetaOrigen({ origen }: { origen: OrigenVenta }) {
       title="Venta migrada del sistema anterior (Alegra). No se puede editar."
     >
       <Archive className="h-3 w-3" aria-hidden />
-      Alegra
+      Migrada de Alegra
     </Badge>
   );
 }
