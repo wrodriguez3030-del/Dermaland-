@@ -8,11 +8,39 @@ propias tablas y aparezcan donde el dueño las busca — el panel, los reportes 
 ficha del cliente y las cuentas por cobrar — marcadas como **migradas de Alegra**, sin copiar
 ni duplicar una sola fila.
 
-**Arquitectura:** una capa de lectura que une las dos fuentes (`proformas` y `alegra_invoices`)
-en un mismo modelo con un campo `origen`. Nadie copia datos: las facturas se quedan donde
-están, tal como vinieron. Las pantallas piden «ventas» y reciben las dos cosas.
+**Arquitectura:** **se cuenta en la base, no en el navegador.** Una capa de lectura que une las
+dos fuentes (`proformas` y `alegra_invoices`) devolviendo *totales ya calculados* para el panel
+y *páginas* para los listados. Nadie copia datos: las facturas se quedan donde están. Y de paso
+se arregla lo que ya hacía lento el sistema antes de Alegra.
 
 **Stack:** Next 15.5 (App Router), TypeScript estricto, Supabase por PostgREST, vitest.
+
+## El rendimiento no es un extra de este plan: es la mitad del trabajo
+
+Medido hoy contra la base de producción. **Al abrir el panel, el navegador se descarga y
+procesa ~3 MB en 12 358 filas**:
+
+| Tabla | Filas | Peso |
+|---|---:|---:|
+| `clients` | 6 525 | 1 334 KB |
+| `inventory_movements` | 2 363 | 666 KB |
+| `products` | 1 513 | 603 KB |
+| `product_lots` | 1 957 | 357 KB |
+| **Total** | **12 358** | **~2 961 KB** |
+
+Tres de las cuatro rutas que sirven eso (`/api/proformas`, `/api/lots`, `/api/customers`) **no
+tienen ningún límite**. El panel necesita cuatro números y una lista corta, y se está trayendo
+la base entera para contar.
+
+**Por eso el sistema se siente lento, y es anterior a Alegra.** Añadir las facturas en crudo
+serían **+25 MB y +14 965 filas**: pasaría de lento a inusable.
+
+La misma cuenta, resuelta en la base: **84 ms y ~40 bytes**. Los índices necesarios ya existen
+desde la migración de Alegra (`alegra_invoices_business_date`, `_business_client`,
+`_open_balance`).
+
+**Regla de este plan:** ninguna pantalla recibe filas para contarlas. Si necesita un total, el
+total llega hecho. Si necesita una lista, llega paginada.
 
 ## Restricciones globales
 
@@ -28,6 +56,9 @@ están, tal como vinieron. Las pantallas piden «ventas» y reciben las dos cosa
 - **`business_id` en toda consulta**, y RLS respetado: las tablas ya lo tienen.
 - **El punto de venta no se toca.** Ni `proforma-store`, ni el POS, ni `emit_sale_atomic`.
 - `noUncheckedIndexedAccess: true`: aserciones `!` justificadas, nunca relajar el `tsconfig`.
+- 🔴 **Ninguna pantalla descarga filas para contarlas.** Los totales se calculan en la base y
+  viajan hechos. Los listados van paginados, con tope duro en la ruta.
+- 🔴 **Ninguna ruta nueva sin límite.** Y las tres existentes sin él se arreglan aquí.
 - Comentarios en español.
 
 ---
@@ -319,15 +350,20 @@ git commit -m "ventas: agregados sobre el modelo unificado"
 - Crear: `apps/web/src/app/api/ventas/route.ts`
 
 **Interfaces:**
-- Produce: `listarVentasUnificadas(ctx, filtros): Promise<VentaUnificada[]>` con
-  `filtros: { desde?: string; hasta?: string; clienteId?: string; sucursalId?: string; incluirAlegra?: boolean }`.
+- Produce **dos** funciones, y la distinción es el corazón del plan:
+  - `resumenVentas(ctx, filtros): Promise<ResumenVentas>` — **totales calculados en la base**,
+    con `{ total, cantidad, porOrigen: { sistema: {...}, alegra: {...} } }`. Es lo que usa el
+    panel. Devuelve decenas de bytes, no megas.
+  - `listarVentasUnificadas(ctx, filtros): Promise<{ ventas: VentaUnificada[]; hayMas: boolean }>`
+    — **paginada**, con `limite` (tope duro 200) y `desplazamiento`. Es lo que usan los listados.
+- `filtros: { desde?, hasta?, clienteId?, sucursalId?, incluirAlegra?, limite?, desplazamiento? }`.
 
 - [ ] **Paso 1: escribir la prueba que falla**
 
 ```ts
 // apps/web/src/server/repositories/supabase/ventas-unificadas.test.ts
 import { describe, it, expect, vi } from "vitest";
-import { listarVentasUnificadas } from "./ventas-unificadas";
+import { listarVentasUnificadas, resumenVentas } from "./ventas-unificadas";
 
 function clienteFalso(proformas: unknown[], alegra: unknown[]) {
   const consultadas: string[] = [];
@@ -367,6 +403,22 @@ describe("ventas unificadas", () => {
     expect(r).toHaveLength(1);
   });
 
+  it("el resumen NO descarga filas: cuenta en la base", async () => {
+    // Es la regla del plan. Traer 14 965 facturas para sumarlas son 25 MB por
+    // cada vez que alguien abre el panel.
+    const c = clienteFalso([], []);
+    const r = await resumenVentas({ businessId: "b1", cliente: c } as never, {});
+    expect(r.total).toBeTypeOf("number");
+    // La consulta pide cabecera de conteo, no el cuerpo.
+    expect(JSON.stringify(c.consultadas)).not.toMatch(/select=\*/);
+  });
+
+  it("el listado tiene tope duro aunque pidan más", async () => {
+    const c = clienteFalso([], []);
+    await listarVentasUnificadas({ businessId: "b1", cliente: c } as never, { limite: 100000 });
+    // El tope lo pone el servidor, no quien llama.
+  });
+
   it("pagina las dos fuentes: PostgREST corta en 1000 filas EN SILENCIO", async () => {
     // Sin paginar, un negocio con 14 965 facturas vería 1 000 y creería que
     // son todas. Ya nos pasó al verificar la migración.
@@ -388,17 +440,22 @@ Esperado: FAIL — `Cannot find module './ventas-unificadas'`.
 
 - [ ] **Paso 3: escribir el repositorio y la ruta**
 
-El repositorio consulta las dos tablas **paginando de 1000 en 1000** —PostgREST corta ahí en
-silencio, y ya nos mordió al verificar la migración— y mapea cada fila con los mapeadores de la
-tarea 1. La ruta `/api/ventas` la expone con los filtros, respetando el rol como hacen las otras
-rutas del proyecto.
+**`resumenVentas` no trae filas.** Usa `count` y `sum` de PostgREST (`select=...` con
+`head=true` y `Prefer: count=exact`, o una función en la base si sale más limpio) sobre las dos
+tablas, y suma los dos resúmenes. Medido: 84 ms y ~40 bytes contra los 25 MB de traerlo todo.
+
+**`listarVentasUnificadas` sí trae filas, pero acotadas.** Tope duro de 200 en la ruta, aunque
+quien llame pida más: un cliente que pide 100 000 no puede tumbar el servidor. Ordena por fecha
+descendente en la base, no en memoria.
+
+La ruta `/api/ventas` expone las dos, respetando el rol como las demás rutas del proyecto.
 
 - [ ] **Paso 4: correrla y ver que pasa**
 
 ```bash
 cd apps/web && npx vitest run src/server/repositories/supabase/ventas-unificadas.test.ts
 ```
-Esperado: PASS, 4 pruebas.
+Esperado: PASS, 6 pruebas.
 
 - [ ] **Paso 5: commit**
 
@@ -493,9 +550,10 @@ fuentes.
 
 - [ ] **Paso 2: añadir la segunda fuente**
 
-Un `useEffect` que pida `/api/ventas` con los mismos filtros, y que las métricas de ventas
-sumen `proformas` + Alegra. Mientras carga, el panel enseña lo que ya tenía: **nunca un cero
-que parezca un dato**.
+Un `useEffect` que pida **`/api/ventas?resumen=1`** con los mismos filtros. Llega el total ya
+calculado, no las filas. Mientras carga, el panel enseña un indicador de carga: **nunca un cero
+que parezca un dato** — un RD$0.00 mientras carga es exactamente lo que hizo pensar que los
+datos no se habían migrado.
 
 - [ ] **Paso 3: enseñar el desglose**
 
@@ -561,7 +619,86 @@ git commit -m "reportes, ficha de cliente y cuentas por cobrar: incluyen el hist
 
 ---
 
-## Tarea 7: cierre
+## Tarea 7: las tres rutas sin límite
+
+Esto no es de Alegra: es lo que ya hacía lento el sistema. Se arregla aquí porque medirlo fue
+parte de este trabajo y dejarlo sería saber dónde está el problema y no tocarlo.
+
+**Ficheros:**
+- Modificar: `apps/web/src/app/api/proformas/route.ts`
+- Modificar: `apps/web/src/app/api/lots/route.ts`
+- Modificar: `apps/web/src/app/api/customers/route.ts`
+- Crear: `apps/web/src/app/api/rutas-con-limite.test.ts`
+
+**El riesgo:** estas tres rutas alimentan el punto de venta y el inventario. Poner un límite
+demasiado bajo rompe pantallas que hoy funcionan. **Antes de tocar nada, mira quién consume cada
+una y con qué espera encontrarse.**
+
+- [ ] **Paso 1: escribir la guarda que falla**
+
+```ts
+// apps/web/src/app/api/rutas-con-limite.test.ts
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const lee = (r: string) => readFileSync(resolve(process.cwd(), "src/app/api", r), "utf8");
+
+describe("ninguna ruta de listado devuelve la tabla entera", () => {
+  // Medido el 06/09/2026: el panel descargaba ~3 MB en 12 358 filas porque
+  // estas tres rutas no acotaban nada. El navegador contaba lo que la base
+  // podía contar en milisegundos.
+  const rutas = ["proformas/route.ts", "lots/route.ts", "customers/route.ts"];
+
+  it.each(rutas)("%s acota el número de filas", (r) => {
+    const src = lee(r).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+    expect(src, `${r} no limita nada`).toMatch(/\.limit\(|\.range\(/);
+  });
+
+  it.each(rutas)("%s tiene un tope que quien llama no puede superar", (r) => {
+    const src = lee(r).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+    expect(src, `${r} deja que el cliente pida lo que quiera`).toMatch(/Math\.min|MAX_|TOPE_/);
+  });
+});
+```
+
+- [ ] **Paso 2: correrla y ver que falla**
+
+```bash
+cd apps/web && npx vitest run src/app/api/rutas-con-limite.test.ts
+```
+Esperado: FAIL — las tres rutas sin límite.
+
+- [ ] **Paso 3: ver quién las consume antes de tocarlas**
+
+```bash
+cd apps/web && grep -rn "/api/proformas\|/api/lots\|/api/customers" src --include=*.ts --include=*.tsx | grep -v "app/api"
+```
+Anota qué pantalla espera qué. Si alguna necesita el listado completo para funcionar, **dilo en
+el informe en vez de romperla**: puede que necesite paginación propia, y eso es otro trabajo.
+
+- [ ] **Paso 4: poner los límites**
+
+Un tope por defecto razonable para lo que cada pantalla usa de verdad, y un tope duro que quien
+llama no pueda superar (`Math.min(pedido, TOPE)`). Cada uno con un comentario que diga por qué
+ese número y qué pantalla lo justifica.
+
+- [ ] **Paso 5: comprobarlo con los ojos**
+
+Con `pnpm --filter web dev`: que el punto de venta siga cobrando, que el inventario siga
+listando lotes, y que el buscador de clientes siga encontrando. **Si alguna pantalla se queda
+corta, el límite está mal puesto, no la pantalla.**
+
+- [ ] **Paso 6: commit**
+
+```bash
+git add apps/web/src/app/api
+git commit -m "api: acotar las tres rutas de listado que devolvían la tabla entera"
+```
+
+---
+
+## Tarea 8: cierre
 
 - [ ] **Paso 1: todo en verde**
 
@@ -603,9 +740,10 @@ git push gitea main
 
 ## Verificación
 
-- `npx vitest run` — todo en verde, incluidas las 18 nuevas.
+- `npx vitest run` — todo en verde, incluidas las 24 nuevas.
 - `npx tsc --noEmit -p tsconfig.json` — sin errores.
 - `pnpm --filter web build` — compila.
+- **El panel abre sin descargar la base**: el resumen llega calculado, no en filas.
 - El panel muestra **14 743 ventas y RD$48 454 899,08**, y cuadra con la consulta de arriba.
 - Los filtros de sucursal, mes y año siguen funcionando.
 - El punto de venta sigue cobrando, y `proformas` sigue con las filas que tenía.
