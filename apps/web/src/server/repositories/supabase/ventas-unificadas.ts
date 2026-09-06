@@ -34,6 +34,9 @@ import type { DesgloseOrigen } from "@/features/ventas/agregados";
 import {
   desdeFacturaAlegra,
   desdeProforma,
+  DIMENSIONES_DESGLOSE,
+  type DimensionDesglose,
+  type FilaDesglose,
   type FilaFacturaAlegra,
   type OrigenVenta,
   type VentaUnificada,
@@ -60,26 +63,13 @@ export interface ResumenVentas {
   porOrigen: Record<OrigenVenta, DesgloseOrigen>;
 }
 
-/** Las tres formas de agrupar que sabe `desglose_ventas_unificadas`. */
-export const DIMENSIONES_DESGLOSE = ["vendedor", "forma_pago", "producto"] as const;
-export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
-
 /**
- * Una línea del desglose: un grupo (un vendedor, una forma de pago, un
- * producto) de UNA de las dos fuentes. El mismo vendedor puede aparecer dos
- * veces —una por origen— y es lo que se quiere: así se ve cuánto puso cada
- * sistema sin tener que adivinarlo.
+ * El contrato del desglose se define en `features/ventas/venta-unificada.ts`
+ * —el modelo compartido— porque el cliente de la API lo necesita y no puede
+ * importar este archivo (lleva `server-only`). Se reexporta para que quien
+ * llame al repositorio no tenga que saberlo.
  */
-export interface FilaDesglose {
-  /** Clave de agrupación. Cadena vacía cuando el dato no venía (sin vendedor, sin forma de pago…). */
-  clave: string;
-  /** Texto para la pantalla. Nunca vacío: la base ya resolvió el «sin dato». */
-  etiqueta: string;
-  origen: OrigenVenta;
-  /** Ventas del grupo. En la dimensión `producto` son RENGLONES de factura, no unidades. */
-  cantidad: number;
-  total: number;
-}
+export { DIMENSIONES_DESGLOSE, type DimensionDesglose, type FilaDesglose };
 
 export interface ListaVentasUnificadas {
   ventas: VentaUnificada[];

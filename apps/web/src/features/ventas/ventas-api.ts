@@ -3,7 +3,12 @@
 import * as React from "react";
 import { formatNumber } from "@/lib/utils/format";
 import type { DesgloseOrigen } from "./agregados";
-import type { OrigenVenta, VentaUnificada } from "./venta-unificada";
+import type {
+  DimensionDesglose,
+  FilaDesglose,
+  OrigenVenta,
+  VentaUnificada,
+} from "./venta-unificada";
 
 /**
  * Cliente de `GET /api/ventas` (ventas unificadas: proformas del sistema +
@@ -22,6 +27,10 @@ import type { OrigenVenta, VentaUnificada } from "./venta-unificada";
  *  - `useResumenVentas` → `?vista=resumen`: totales YA CALCULADOS en la base,
  *    decenas de bytes. Es lo que se usa para un KPI. Ninguna pantalla
  *    descarga filas para contarlas.
+ *  - `useDesgloseVentas` → `?vista=desglose&dimension=…`: los mismos totales
+ *    AGRUPADOS en la base (vendedor, forma de pago, producto), con el origen
+ *    de cada grupo y tope de 200 grupos. Es lo que se usa para una tabla de
+ *    resumen. Tampoco viaja una fila de venta.
  *  - `useListadoVentas` → `?vista=listado`: una página de filas, con tope duro
  *    de 200 puesto por el SERVIDOR. Es lo que se usa para una tabla.
  *
@@ -42,6 +51,8 @@ export interface ListadoVentasApi {
 }
 
 export interface FiltrosVentasApi {
+  /** Solo para `?vista=desglose`. Sin ella la ruta responde 400, no un desglose vacío. */
+  dimension?: DimensionDesglose | undefined;
   /** `YYYY-MM-DD`, inclusive. */
   desde?: string | undefined;
   /** `YYYY-MM-DD`, inclusive. */
@@ -137,6 +148,36 @@ function comoVenta(v: unknown): VentaUnificada | null {
   };
 }
 
+/**
+ * Interpreta el JSON de `GET /api/ventas?vista=desglose`.
+ *
+ * 🔴 Una fila con un `origen` que no reconocemos se DESCARTA, no cae en
+ * «sistema». «sistema» es el origen que `EtiquetaOrigen` pinta SIN etiqueta:
+ * un fallo abierto aquí enseñaría dinero migrado como venta propia y nadie lo
+ * vería. Misma regla que en el repositorio, repetida porque este lado también
+ * lee de la red.
+ */
+export function comoDesgloseVentas(json: unknown): FilaDesglose[] {
+  const crudas = objeto(json).desglose;
+  const filas: FilaDesglose[] = [];
+  for (const cruda of Array.isArray(crudas) ? crudas : []) {
+    const o = objeto(cruda);
+    if (o.origen !== "sistema" && o.origen !== "alegra") continue;
+    const etiqueta = textoOpcional(o.etiqueta);
+    // Sin etiqueta no hay nada que pintar: una fila en blanco con un importe al
+    // lado es peor que una fila menos.
+    if (!etiqueta) continue;
+    filas.push({
+      clave: typeof o.clave === "string" ? o.clave : "",
+      etiqueta,
+      origen: o.origen,
+      cantidad: Math.trunc(numeroSeguro(o.cantidad)),
+      total: numeroSeguro(o.total),
+    });
+  }
+  return filas;
+}
+
 /** Interpreta el JSON de `GET /api/ventas?vista=listado`. */
 export function comoListadoVentas(json: unknown): ListadoVentasApi {
   const o = objeto(json);
@@ -156,12 +197,13 @@ export function comoMensajeError(json: unknown): string | null {
 
 // ── Petición ────────────────────────────────────────────────────────────────
 
+/** Las tres vistas de `/api/ventas`. */
+export type VistaVentas = "resumen" | "listado" | "desglose";
+
 /** Cadena de consulta de `/api/ventas` para una vista y unos filtros. */
-export function consultaVentas(
-  vista: "resumen" | "listado",
-  filtros: FiltrosVentasApi,
-): string {
+export function consultaVentas(vista: VistaVentas, filtros: FiltrosVentasApi): string {
   const p = new URLSearchParams({ vista });
+  if (filtros.dimension) p.set("dimension", filtros.dimension);
   if (filtros.desde) p.set("desde", filtros.desde);
   if (filtros.hasta) p.set("hasta", filtros.hasta);
   if (filtros.clienteId) p.set("clienteId", filtros.clienteId);
@@ -181,7 +223,7 @@ export function consultaVentas(
  * una petición por render.
  */
 function useVentasApi<T>(
-  vista: "resumen" | "listado",
+  vista: VistaVentas,
   filtros: FiltrosVentasApi,
   activo: boolean,
   interpretar: (json: unknown) => T,
@@ -266,6 +308,22 @@ export function useResumenVentas(
   activo = true,
 ): EstadoVentas<ResumenVentasApi> {
   return useVentasApi("resumen", filtros, activo, comoResumenVentas);
+}
+
+/**
+ * Desglose ya agrupado en la base, con el origen de cada grupo. Para las
+ * tarjetas de resumen del reporte: ninguna pantalla agrupa filas a mano.
+ *
+ * `activo` en `false` NO deja el estado en «listo con cero filas»: se queda en
+ * «cargando» y no se dispara petición. Quien llame decide qué enseñar en ese
+ * caso — igual que hace `resolverHistorico` con el resumen.
+ */
+export function useDesgloseVentas(
+  dimension: DimensionDesglose,
+  filtros: FiltrosVentasApi,
+  activo = true,
+): EstadoVentas<FilaDesglose[]> {
+  return useVentasApi("desglose", { ...filtros, dimension }, activo, comoDesgloseVentas);
 }
 
 /** Una página de ventas unificadas. Para tablas, nunca para sumar un total. */

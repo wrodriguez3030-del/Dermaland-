@@ -685,7 +685,13 @@ export default function ReporteVentasPage() {
       </div>
 
       {/* ── Gráficas y resúmenes (ventas del sistema) ── */}
-      <ResumenesVentas report={report} soloSistema={historico.participa} />
+      <ResumenesVentas
+        report={report}
+        historicoParticipa={historico.participa}
+        desde={filters.from || undefined}
+        hasta={filters.to || undefined}
+        sucursalId={filters.branchId || undefined}
+      />
 
       {/* ── Tabla detallada (interactiva, solo pantalla) ── */}
       <Card className="screen-only">

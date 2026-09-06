@@ -13,7 +13,7 @@ import {
   TD,
 } from "@/components/ui";
 import { BarChart } from "@/components/ui/bar-chart";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDate, formatNumber } from "@/lib/utils/format";
 import {
   comprobanteLabel,
   saleMethodSummary,
@@ -22,29 +22,14 @@ import {
   SALE_STATUS_LABEL,
   type SalesReport,
 } from "@/features/sales/sales-report";
+import { useDesgloseVentas } from "@/features/ventas/ventas-api";
+import {
+  AvisoSoloSistema,
+  combinarDesglose,
+  TarjetaDesglose,
+  type FilaTarjeta,
+} from "./desglose-tarjetas";
 import type { Proforma } from "@/types";
-
-/**
- * 🔴 Aviso obligatorio de estas tarjetas: son SOLO del sistema.
- *
- * El resumen que da la base son dos números —total y cantidad—; no sabe
- * desglosar el histórico migrado por vendedor, producto, forma de pago ni
- * comprobante. Sin este aviso, el dueño lee arriba «Total facturado
- * RD$48 454 899,08 · 14 743 transacciones» y cuatro tarjetas más abajo
- * «Ventas por vendedor: sin ventas con vendedor», cuando `seller_name` tiene
- * DESTENY REYNOSO con 5 513 facturas y LAURA MEJIA con 1 027. Dos cifras que
- * no cuadran y nada que explique por qué es exactamente el desconcierto que
- * este plan vino a cerrar.
- */
-function AvisoSoloSistema({ mostrar }: { mostrar: boolean }) {
-  if (!mostrar) return null;
-  return (
-    <p className="mt-1 text-[11px] font-medium text-amber-700">
-      Solo ventas del sistema — el histórico migrado de Alegra no se desglosa
-      así todavía; su total está arriba y sus facturas, más abajo.
-    </p>
-  );
-}
 
 /**
  * Bloques de PRESENTACIÓN del reporte de ventas: las gráficas, los resúmenes
@@ -56,20 +41,91 @@ function AvisoSoloSistema({ mostrar }: { mostrar: boolean }) {
  * mismas tarjetas, con las mismas cifras, movidas tal cual. Todo lo que
  * necesitan llega por props; no piden datos ni guardan estado.
  *
- * Ojo: estos bloques son SOLO del sistema. El histórico migrado de Alegra se
- * enseña aparte (`historico-alegra.tsx`) porque la base da su total y sus
- * facturas, no su desglose por producto ni por comprobante.
+ * Ojo: TRES de estas tarjetas —vendedor, forma de pago y producto— sí llevan
+ * el histórico migrado, porque la base sabe agruparlo (migración
+ * `20260906140000_desglose_ventas_unificadas.sql`) y cada fila enseña su
+ * origen. Las demás siguen siendo solo del sistema y lo dicen: la base no sabe
+ * desglosar el histórico por sucursal, cajero, cliente ni comprobante.
  */
 
-/** Gráficas y tablas de resumen del reporte (todas sobre `report`). */
+/** Gráficas y tablas de resumen del reporte. */
 export function ResumenesVentas({
   report,
-  soloSistema,
+  historicoParticipa,
+  desde,
+  hasta,
+  sucursalId,
 }: {
   report: SalesReport;
-  /** `true` cuando el histórico SÍ entra en los KPIs de arriba y estas tarjetas no. */
-  soloSistema: boolean;
+  /**
+   * `true` cuando el histórico migrado SÍ entra en los KPIs de arriba — es
+   * decir, cuando la casilla está marcada y no hay ningún filtro que el
+   * histórico no sepa aplicar. Es lo que decide si estas tarjetas lo piden y
+   * si las que no saben desglosarlo tienen que avisar de que se quedan cortas.
+   */
+  historicoParticipa: boolean;
+  /** Los tres filtros que el histórico sabe aplicar. `YYYY-MM-DD` los dos primeros. */
+  desde?: string | undefined;
+  hasta?: string | undefined;
+  sucursalId?: string | undefined;
 }) {
+  // Un desglose por tarjeta: tres consultas de agregado, decenas de bytes cada
+  // una. Ninguna descarga filas para contarlas.
+  const filtros = { desde, hasta, sucursalId };
+  const desgloseVendedor = useDesgloseVentas("vendedor", filtros, historicoParticipa);
+  const desglosePago = useDesgloseVentas("forma_pago", filtros, historicoParticipa);
+  const desgloseProducto = useDesgloseVentas("producto", filtros, historicoParticipa);
+
+  // La mitad del sistema sale del reporte ya filtrado (ver el porqué en
+  // `desglose-tarjetas.tsx`), no de la base.
+  const vendedoresSistema: FilaTarjeta[] = report.sellers.map((s) => ({
+    clave: s.id,
+    etiqueta: s.name,
+    origen: "sistema",
+    cantidad: s.transactions,
+    total: s.total,
+  }));
+  const pagosSistema: FilaTarjeta[] = report.methods.map((m) => ({
+    clave: m.key,
+    etiqueta: m.label,
+    origen: "sistema",
+    // `sales` (ventas distintas), no `count` (líneas de pago): una venta con
+    // pago mixto tiene dos líneas y sigue siendo UNA venta, que es lo que
+    // cuenta la columna de al lado en las filas migradas.
+    cantidad: m.sales,
+    total: m.amount,
+  }));
+  const productosSistema: FilaTarjeta[] = report.products.map((p) => ({
+    clave: p.productId,
+    etiqueta: p.name,
+    origen: "sistema",
+    cantidad: p.quantity,
+    total: p.total,
+  }));
+
+  const tarjetaVendedor = combinarDesglose({
+    sistema: vendedoresSistema,
+    historicoParticipa,
+    estado: desgloseVendedor,
+  });
+  const tarjetaPago = combinarDesglose({
+    sistema: pagosSistema,
+    historicoParticipa,
+    estado: desglosePago,
+  });
+  const tarjetaProducto = combinarDesglose({
+    sistema: productosSistema,
+    historicoParticipa,
+    estado: desgloseProducto,
+  });
+
+  // 🔴 El dato migrado, sin maquillar: Alegra no registró la forma de pago en
+  // 12 672 de las 14 743 facturas que cuentan. «Sin forma de pago» va a
+  // dominar el desglose y eso NO es un fallo; decirlo evita que parezca uno.
+  const sinFormaDePago = tarjetaPago.filas.find(
+    (f) => f.origen === "alegra" && f.clave === "",
+  );
+
   return (
     <>
     {/* ── Gráficas / resúmenes ── */}
@@ -77,7 +133,7 @@ export function ResumenesVentas({
       <Card>
         <CardHeader>
           <CardTitle>Tendencia de ventas</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
+          <AvisoSoloSistema mostrar={historicoParticipa} />
         </CardHeader>
         <CardContent>
           {report.trend.length ? (
@@ -87,22 +143,27 @@ export function ResumenesVentas({
           )}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Medios de pago</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
-        </CardHeader>
-        <CardContent>
-          <BarChart
-            data={report.methods.map((m) => ({ label: m.label, value: m.amount }))}
-            formatter={formatCurrency}
-          />
-        </CardContent>
-      </Card>
+      {/* Era una gráfica de barras. Pasa a tabla porque una barra no puede
+          llevar la etiqueta de origen de su fila, y sin ella el histórico
+          migrado y las ventas del sistema se confundirían en el mismo dibujo. */}
+      <TarjetaDesglose
+        titulo="Medios de pago"
+        estado={tarjetaPago}
+        encabezadoClave="Forma de pago"
+        encabezadoCantidad="Ventas"
+        vacio="Sin pagos registrados."
+        nota={
+          sinFormaDePago
+            ? `Alegra no registró la forma de pago en ${formatNumber(sinFormaDePago.cantidad)} de las ` +
+              "facturas migradas: por eso «Sin forma de pago» encabeza la lista. Es el dato tal como " +
+              "vino de la migración, no un fallo."
+            : undefined
+        }
+      />
       <Card>
         <CardHeader>
           <CardTitle>Ventas por sucursal</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
+          <AvisoSoloSistema mostrar={historicoParticipa} />
         </CardHeader>
         <CardContent>
           {report.branches.length ? (
@@ -118,7 +179,7 @@ export function ResumenesVentas({
       <Card>
         <CardHeader>
           <CardTitle>Top cajeros / vendedores</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
+          <AvisoSoloSistema mostrar={historicoParticipa} />
         </CardHeader>
         <CardContent>
           {report.cashiers.length ? (
@@ -135,87 +196,35 @@ export function ResumenesVentas({
 
     {/* ── Ventas por vendedor (base de incentivos) ── */}
     <div className="mb-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Ventas por vendedor</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <THead>
-              <TR>
-                <TH>Vendedor</TH>
-                <TH className="text-right">Ventas</TH>
-                <TH className="text-right">Total vendido</TH>
-                <TH className="text-right">Ticket promedio</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {report.sellers.map((s) => (
-                <TR key={s.id}>
-                  <TD className="text-sm">{s.name}</TD>
-                  <TD className="text-right tabular-nums">{s.transactions}</TD>
-                  <TD className="text-right tabular-nums font-medium">
-                    {formatCurrency(s.total)}
-                  </TD>
-                  <TD className="text-right tabular-nums">
-                    {formatCurrency(
-                      s.transactions ? s.total / s.transactions : 0,
-                    )}
-                  </TD>
-                </TR>
-              ))}
-              {!report.sellers.length && (
-                <TR>
-                  <TD colSpan={4} className="py-6 text-center text-sm opacity-60">
-                    Sin ventas con vendedor.
-                  </TD>
-                </TR>
-              )}
-            </TBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <TarjetaDesglose
+        titulo="Ventas por vendedor"
+        estado={tarjetaVendedor}
+        encabezadoClave="Vendedor"
+        encabezadoCantidad="Ventas"
+        vacio="Sin ventas con vendedor."
+        mostrarPromedio
+      />
     </div>
 
     <div className="mb-6 grid gap-6 lg:grid-cols-3">
-      <Card>
-        <CardHeader>
-          <CardTitle>Productos más vendidos</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <THead>
-              <TR>
-                <TH>Producto</TH>
-                <TH className="text-right">Cant.</TH>
-                <TH className="text-right">Monto</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {report.products.slice(0, 10).map((p) => (
-                <TR key={p.productId}>
-                  <TD className="text-sm">{p.name}</TD>
-                  <TD className="text-right tabular-nums">{p.quantity}</TD>
-                  <TD className="text-right tabular-nums">{formatCurrency(p.total)}</TD>
-                </TR>
-              ))}
-              {!report.products.length && (
-                <TR>
-                  <TD colSpan={3} className="py-6 text-center text-sm opacity-60">
-                    Sin productos.
-                  </TD>
-                </TR>
-              )}
-            </TBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <TarjetaDesglose
+        titulo="Productos más vendidos"
+        estado={tarjetaProducto}
+        encabezadoClave="Producto"
+        encabezadoCantidad="Cant."
+        vacio="Sin productos."
+        tope={10}
+        nota={
+          tarjetaProducto.filas.some((f) => f.origen === "alegra")
+            ? "«Cant.» son unidades en las ventas del sistema y renglones de factura en las migradas: " +
+              "el histórico de Alegra no trae la unidad con la precisión que hace falta para sumarla."
+            : undefined
+        }
+      />
       <Card>
         <CardHeader>
           <CardTitle>Clientes principales</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
+          <AvisoSoloSistema mostrar={historicoParticipa} />
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -248,7 +257,7 @@ export function ResumenesVentas({
       <Card>
         <CardHeader>
           <CardTitle>Comprobantes</CardTitle>
-          <AvisoSoloSistema mostrar={soloSistema} />
+          <AvisoSoloSistema mostrar={historicoParticipa} />
         </CardHeader>
         <CardContent className="p-0">
           <Table>

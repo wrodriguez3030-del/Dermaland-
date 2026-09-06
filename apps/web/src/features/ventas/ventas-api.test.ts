@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  comoDesgloseVentas,
   comoListadoVentas,
   comoMensajeError,
   comoResumenVentas,
@@ -133,5 +134,60 @@ describe("mensaje de error de la respuesta", () => {
   it("da null cuando no hay mensaje utilizable", () => {
     expect(comoMensajeError({ error: 42 })).toBeNull();
     expect(comoMensajeError(null)).toBeNull();
+  });
+});
+
+describe("lectura del desglose de /api/ventas", () => {
+  it("lee las filas con su origen y sus importes en texto", () => {
+    const filas = comoDesgloseVentas({
+      desglose: [
+        { clave: "DESTENY REYNOSO", etiqueta: "DESTENY REYNOSO", origen: "alegra", cantidad: "5513", total: "20000.00" },
+      ],
+    });
+    expect(filas).toHaveLength(1);
+    expect(filas[0]!.origen).toBe("alegra");
+    expect(filas[0]!.cantidad).toBe(5513);
+    expect(filas[0]!.total).toBeCloseTo(20000, 2);
+  });
+
+  it("🔴 una fila con origen desconocido se DESCARTA, no se cuela como «sistema»", () => {
+    // «sistema» es el origen que `EtiquetaOrigen` pinta SIN etiqueta. Si un
+    // origen raro cayera ahí por defecto, dinero migrado aparecería como venta
+    // propia y nadie lo vería.
+    const filas = comoDesgloseVentas({
+      desglose: [
+        { etiqueta: "Raro", origen: "vete-a-saber", cantidad: 1, total: 1 },
+        { etiqueta: "Sin origen", cantidad: 1, total: 1 },
+        { etiqueta: "Buena", origen: "sistema", cantidad: 1, total: 1 },
+      ],
+    });
+    expect(filas.map((f) => f.etiqueta)).toEqual(["Buena"]);
+  });
+
+  it("descarta filas sin etiqueta en vez de pintar un importe sin nombre", () => {
+    const filas = comoDesgloseVentas({
+      desglose: [{ origen: "alegra", cantidad: 1, total: 999 }, null, "no soy un objeto"],
+    });
+    expect(filas).toEqual([]);
+  });
+
+  it("una respuesta sin `desglose` da lista vacía, no revienta", () => {
+    expect(comoDesgloseVentas(null)).toEqual([]);
+    expect(comoDesgloseVentas({})).toEqual([]);
+    expect(comoDesgloseVentas({ desglose: "nope" })).toEqual([]);
+  });
+});
+
+describe("consulta del desglose", () => {
+  it("🔴 manda la dimensión: sin ella la ruta responde 400, no un desglose vacío", () => {
+    const q = consultaVentas("desglose", { dimension: "forma_pago", desde: "2026-01-01" });
+    expect(q).toContain("vista=desglose");
+    expect(q).toContain("dimension=forma_pago");
+    expect(q).toContain("desde=2026-01-01");
+  });
+
+  it("las otras dos vistas no arrastran una dimensión que no les toca", () => {
+    expect(consultaVentas("resumen", {})).not.toContain("dimension");
+    expect(consultaVentas("listado", {})).not.toContain("dimension");
   });
 });

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { useResumenVentas } from "./ventas-api";
+import { useDesgloseVentas, useResumenVentas } from "./ventas-api";
 
 /**
  * Los tres estados de la carga de `/api/ventas` y —lo que de verdad importa—
@@ -216,5 +216,65 @@ describe("carga del resumen de ventas", () => {
     await dejarCorrer();
 
     expect(result.current.tipo).toBe("cargando");
+  });
+});
+
+describe("carga del desglose de ventas", () => {
+  it("pide la URL con la dimensión que le dieron", async () => {
+    // El parámetro va DECLARADO aunque el falso no lo use: sin él
+    // `mock.calls[0]` es la tupla vacía y no se puede leer la URL pedida.
+    const fetchFalso = vi.fn((_url: string | URL) => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchFalso);
+    renderHook(() => useDesgloseVentas("producto", { desde: "2026-01-01" }));
+    const url = String(fetchFalso.mock.calls[0]![0]);
+    expect(url).toContain("vista=desglose");
+    expect(url).toContain("dimension=producto");
+  });
+
+  it("🔴 con `activo` en falso NO pide nada, y se queda en «cargando», no en «listo con cero»", () => {
+    // La pantalla lo apaga cuando hay un filtro que el histórico no sabe
+    // aplicar. Si el estado cayera en «listo» con la lista vacía, la tarjeta
+    // enseñaría «sin datos» sobre un histórico de RD$48 millones.
+    const fetchFalso = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchFalso);
+    const { result } = renderHook(() => useDesgloseVentas("vendedor", {}, false));
+    expect(fetchFalso).not.toHaveBeenCalled();
+    expect(result.current.tipo).toBe("cargando");
+  });
+
+  it("con la respuesta buena pasa a listo con las filas migradas", async () => {
+    const { res, resolver } = respuestaConCuerpoAbierto();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(res)));
+    const { result } = renderHook(() => useDesgloseVentas("vendedor", {}));
+    await act(async () => {
+      resolver({
+        desglose: [
+          { clave: "DESTENY REYNOSO", etiqueta: "DESTENY REYNOSO", origen: "alegra", cantidad: 5513, total: 1 },
+        ],
+      });
+      await Promise.resolve();
+    });
+    await dejarCorrer();
+    expect(result.current.tipo).toBe("listo");
+    if (result.current.tipo === "listo") {
+      expect(result.current.datos[0]!.etiqueta).toBe("DESTENY REYNOSO");
+    }
+  });
+
+  it("🔴 un 400 va a error con su mensaje, nunca a una tabla vacía", async () => {
+    // Es el camino REAL hasta que se aplique la migración del desglose: la
+    // ruta responde 400 («función inexistente») y eso hay que ENSEÑARLO.
+    const { res, resolver } = respuestaConCuerpoAbierto(false, 400);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(res)));
+    const { result } = renderHook(() => useDesgloseVentas("vendedor", {}));
+    await act(async () => {
+      resolver({ error: "No se pudieron cargar las ventas." });
+      await Promise.resolve();
+    });
+    await dejarCorrer();
+    expect(result.current.tipo).toBe("error");
+    if (result.current.tipo === "error") {
+      expect(result.current.mensaje).toBe("No se pudieron cargar las ventas.");
+    }
   });
 });

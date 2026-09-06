@@ -128,3 +128,34 @@ export function desdeFacturaAlegra(f: FilaFacturaAlegra): VentaUnificada {
     editable: false,
   };
 }
+
+/**
+ * Las tres formas de agrupar que sabe la función SQL
+ * `desglose_ventas_unificadas` (ver la migración
+ * `supabase/migrations/20260906140000_desglose_ventas_unificadas.sql`).
+ *
+ * Vive aquí, en el modelo compartido, y no en el repositorio de Supabase,
+ * porque el cliente de la API (`ventas-api.ts`, "use client") también la
+ * necesita y ese repositorio lleva `import "server-only"`: importarlo desde el
+ * navegador reventaría el build. Una sola definición, no dos listas que se
+ * separen.
+ */
+export const DIMENSIONES_DESGLOSE = ["vendedor", "forma_pago", "producto"] as const;
+export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
+
+/**
+ * Una línea del desglose: un grupo (un vendedor, una forma de pago, un
+ * producto) de UNA de las dos fuentes. El mismo vendedor puede aparecer dos
+ * veces —una por origen— y es lo que se quiere: así se ve cuánto puso cada
+ * sistema sin tener que adivinarlo.
+ */
+export interface FilaDesglose {
+  /** Clave de agrupación. Cadena vacía cuando el dato no venía (sin vendedor, sin forma de pago…). */
+  clave: string;
+  /** Texto para la pantalla. Nunca vacío: la base ya resolvió el «sin dato». */
+  etiqueta: string;
+  origen: OrigenVenta;
+  /** Ventas del grupo. En la dimensión `producto` son RENGLONES de factura, no unidades. */
+  cantidad: number;
+  total: number;
+}
