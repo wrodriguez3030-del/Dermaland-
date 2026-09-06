@@ -139,10 +139,16 @@ create table if not exists public.electronic_invoices (
                         check (tipo_ecf in ('31','32','33','34','41','42','43','44','45','46','47')),
   e_ncf               varchar(13) not null check (e_ncf ~ '^[A-Z][0-9]{12}$'),
   secuencia_id        uuid references public.ecf_sequences(id) on delete set null,
+  -- Los 12 estados de la máquina de la fase 1, en su orden
+  -- (`features/dgii/core/submission-state-types.ts`). `prepared` NO viene de
+  -- agendapp: lo añadió la fase 1 y dejó el recado por escrito para esta. Es el
+  -- único camino no terminal que sale de `signed`
+  -- (`submission-state-machine.ts:17-18`), así que sin él una factura firmada
+  -- se queda clavada con su e-NCF ya consumido.
   status              text not null default 'draft'
-                        check (status in ('draft','generated','validated','signed','submitted',
-                               'in_process','accepted','accepted_conditional','rejected',
-                               'cancelled','error')),
+                        check (status in ('draft','generated','validated','signed','prepared',
+                               'submitted','in_process','accepted','accepted_conditional',
+                               'rejected','cancelled','error')),
   ambiente            text not null check (ambiente in ('testecf','certecf','ecf')),
   customer_id         uuid references public.clients(id) on delete set null,
   customer_rnc        varchar(11),

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { TABLAS_LEGACY, nombreLegacy } from "./tablas";
 import { TABLAS_NUEVAS } from "./tablas";
+import { INVOICE_STATUSES } from "../core/submission-state-types";
 
 const MIGRACIONES = resolve(process.cwd(), "..", "..", "supabase", "migrations");
 const leer = (f: string) => readFileSync(resolve(MIGRACIONES, f), "utf8");
@@ -92,6 +93,15 @@ describe("fase 2 — migración de tablas", () => {
   const sql = leer("20260906090100_dgii_fase2_tablas.sql");
   const codigo = sql.replace(/--.*$/gm, "");
 
+  /** El `create table` de una tabla concreta, hasta su `);` de cierre. */
+  const bloqueDeTabla = (t: string) => {
+    const i = codigo.search(new RegExp(`create table if not exists public\\.${t}\\s*\\(`, "i"));
+    expect(i, `no encontró el create table de ${t}`).toBeGreaterThan(-1);
+    const resto = codigo.slice(i);
+    const fin = resto.indexOf("\n);");
+    return fin === -1 ? resto : resto.slice(0, fin);
+  };
+
   it("crea las 17 tablas", () => {
     for (const t of TABLAS_NUEVAS) {
       expect(codigo, `falta ${t}`).toMatch(
@@ -135,6 +145,22 @@ describe("fase 2 — migración de tablas", () => {
 
   it("los 11 tipos de e-CF son los mismos que conoce el constructor portado", () => {
     expect(codigo).toMatch(/tipo_ecf in \('31','32','33','34','41','42','43','44','45','46','47'\)/i);
+  });
+
+  it("el CHECK de `status` es exactamente INVOICE_STATUSES, sin que falte `prepared`", () => {
+    // C1 de la revisión final. La máquina de estados de la fase 1 tiene 12
+    // estados y `prepared` es el único camino no terminal que sale de `signed`
+    // (`submission-state-machine.ts:17-18`). El CHECK traía 11: sin `prepared`,
+    // el primer `update ... set status='prepared'` de la fase 3 recibe un 23514
+    // y la factura se queda en `signed` con su e-NCF ya gastado — el número
+    // quemado sin explicación que esta fase existe para evitar.
+    // Acotado al bloque de `electronic_invoices`: hay otros `check (status in
+    // (...))` antes en el fichero (`ecf_sequences`, entre ellos).
+    const bloque = bloqueDeTabla("electronic_invoices");
+    const m = /check \(status in \(([\s\S]*?)\)\)/i.exec(bloque);
+    expect(m, "no encontró el CHECK de status de electronic_invoices").toBeTruthy();
+    const enSql = [...m![1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]!);
+    expect(enSql).toEqual([...INVOICE_STATUSES]);
   });
 
   it("no crea nada con el nombre de una tabla intocable", () => {

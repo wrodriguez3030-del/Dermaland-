@@ -34,9 +34,18 @@ const EXPECTED_12 = [
   "in_process", "accepted", "accepted_conditional", "rejected", "cancelled", "error",
 ];
 
-// PENDIENTE fase 2 (base de datos): el fichero entero guarda la migración
-// prisma/migrations/applied/20260724_dgii_invoice_prepared_status.sql, que
-// DermaLand traducirá a su propia migración de Supabase.
+// ATENDIDO en la fase 2 (2026-09-06). Este fichero sigue en `skip` porque lee
+// por ruta relativa la migración de agendapp
+// (`prisma/migrations/applied/20260724_dgii_invoice_prepared_status.sql`,
+// `MIGRATION_REL` arriba), que en este repositorio no existe: quitarle el
+// `skip` sólo produciría un fallo por fichero ausente, no cobertura.
+//
+// Lo que sí existe es su equivalente contra la migración de DermaLand:
+// `features/dgii/db/migracion-fase2.test.ts` → «el CHECK de `status` es
+// exactamente INVOICE_STATUSES, sin que falte `prepared`», que compara el
+// CHECK de `20260906090100_dgii_fase2_tablas.sql` contra `INVOICE_STATUSES`
+// valor a valor y en orden. Ahí es donde las dos listas ya no se pueden
+// separar sin que algo se ponga rojo.
 describe.skip("v423 — migración prepared: estructura del CHECK", () => {
   it("#1 el CHECK acepta todos los estados previos (11)", () => {
     const values = forwardCheckValues();
