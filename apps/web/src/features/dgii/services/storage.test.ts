@@ -1,5 +1,14 @@
-import { describe, it, expect } from "vitest";
-import { construirRuta, ErrorAlmacenamientoDgii, BUCKET_DGII, MAX_BYTES } from "./storage";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import {
+  construirRuta,
+  ErrorAlmacenamientoDgii,
+  BUCKET_DGII,
+  MAX_BYTES,
+  guardarXmlFirmado,
+  leerXml,
+  borrarXml,
+} from "./storage";
+import * as supabaseServer from "@/lib/supabase/server";
 
 const ctx = { businessId: "00000000-0000-0000-0000-00000000d001" };
 
@@ -58,5 +67,174 @@ describe("almacenamiento privado de XML fiscales", () => {
       expect(e).toBeInstanceOf(ErrorAlmacenamientoDgii);
       expect((e as ErrorAlmacenamientoDgii).codigo).toBe("path_invalid");
     }
+  });
+
+  it("un espacio en el segmento SÍ pasa (permitido en IDs)", () => {
+    // agendapp acepta espacios. No divergir.
+    const rutaConEspacio = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f 1" });
+    expect(rutaConEspacio).toContain("f 1");
+  });
+});
+
+describe("guardarXmlFirmado: almacenamiento con validación de tamaño", () => {
+  let mockUpload: ReturnType<typeof vi.fn>;
+  let mockClient: any;
+
+  beforeEach(() => {
+    mockUpload = vi.fn().mockResolvedValue({ error: null });
+    mockClient = {
+      storage: {
+        from: vi.fn().mockReturnValue({
+          upload: mockUpload,
+        }),
+      },
+    };
+    vi.spyOn(supabaseServer, "createServiceRoleClient").mockReturnValue(mockClient);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("guarda un XML firmado y devuelve exactamente la ruta de construirRuta", async () => {
+    const xml = "<comprobante>test</comprobante>";
+    const ruta = await guardarXmlFirmado(ctx, { tipo: "signed_xml", invoiceId: "f-1", xml });
+    const rutaEsperada = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
+    expect(ruta).toBe(rutaEsperada);
+  });
+
+  it("llama al upload con el bucket correcto y content-type XML", async () => {
+    const xml = "<comprobante>test</comprobante>";
+    await guardarXmlFirmado(ctx, { tipo: "signed_xml", invoiceId: "f-1", xml });
+    expect(mockUpload).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Buffer),
+      expect.objectContaining({
+        contentType: "application/xml",
+      }),
+    );
+  });
+
+  it("rechaza contenido vacío sin llamar a upload", async () => {
+    await expect(guardarXmlFirmado(ctx, { tipo: "signed_xml", invoiceId: "f-1", xml: "" })).rejects.toThrow(
+      ErrorAlmacenamientoDgii,
+    );
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it("rechaza contenido > 5 MB con codigo too_large sin llamar a upload", async () => {
+    const xmlGrande = "x".repeat(MAX_BYTES + 1);
+    try {
+      await guardarXmlFirmado(ctx, { tipo: "signed_xml", invoiceId: "f-1", xml: xmlGrande });
+      throw new Error("debió lanzar");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ErrorAlmacenamientoDgii);
+      expect((e as ErrorAlmacenamientoDgii).codigo).toBe("too_large");
+      expect(mockUpload).not.toHaveBeenCalled();
+    }
+  });
+
+  it("propaga el error del upload con codigo upload_failed", async () => {
+    mockUpload.mockResolvedValue({ error: { message: "Permission denied" } });
+    try {
+      await guardarXmlFirmado(ctx, { tipo: "signed_xml", invoiceId: "f-1", xml: "<test/>" });
+      throw new Error("debió lanzar");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ErrorAlmacenamientoDgii);
+      expect((e as ErrorAlmacenamientoDgii).codigo).toBe("upload_failed");
+    }
+  });
+});
+
+describe("leerXml: lectura con ownership check", () => {
+  let mockDownload: ReturnType<typeof vi.fn>;
+  let mockClient: any;
+
+  beforeEach(() => {
+    const mockBlob = {
+      text: vi.fn().mockResolvedValue("<comprobante>test</comprobante>"),
+    };
+    mockDownload = vi.fn().mockResolvedValue({ data: mockBlob, error: null });
+    mockClient = {
+      storage: {
+        from: vi.fn().mockReturnValue({
+          download: mockDownload,
+        }),
+      },
+    };
+    vi.spyOn(supabaseServer, "createServiceRoleClient").mockReturnValue(mockClient);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("devuelve el contenido del archivo", async () => {
+    const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
+    const contenido = await leerXml(ctx, ruta);
+    expect(contenido).toBe("<comprobante>test</comprobante>");
+  });
+
+  it("rechaza un path que no pertenece al business actual", async () => {
+    const rutaOtroNegocio = "dgii/otro-business-id/invoices/f-1/signed.xml";
+    try {
+      await leerXml(ctx, rutaOtroNegocio);
+      throw new Error("debió lanzar");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ErrorAlmacenamientoDgii);
+      expect((e as ErrorAlmacenamientoDgii).codigo).toBe("path_invalid");
+      expect(mockDownload).not.toHaveBeenCalled();
+    }
+  });
+
+  it("devuelve not_found cuando el archivo no existe", async () => {
+    mockDownload.mockResolvedValue({ data: null, error: { message: "Not found" } });
+    const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "noexiste" });
+    try {
+      await leerXml(ctx, ruta);
+      throw new Error("debió lanzar");
+    } catch (e) {
+      expect(e).toBeInstanceOf(ErrorAlmacenamientoDgii);
+      expect((e as ErrorAlmacenamientoDgii).codigo).toBe("not_found");
+    }
+  });
+});
+
+describe("borrarXml: limpieza best-effort", () => {
+  let mockRemove: ReturnType<typeof vi.fn>;
+  let mockClient: any;
+
+  beforeEach(() => {
+    mockRemove = vi.fn().mockResolvedValue({ error: null });
+    mockClient = {
+      storage: {
+        from: vi.fn().mockReturnValue({
+          remove: mockRemove,
+        }),
+      },
+    };
+    vi.spyOn(supabaseServer, "createServiceRoleClient").mockReturnValue(mockClient);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("borra el archivo silenciosamente", async () => {
+    const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
+    await expect(borrarXml(ctx, ruta)).resolves.toBeUndefined();
+    expect(mockRemove).toHaveBeenCalledWith([ruta]);
+  });
+
+  it("no lanza aunque el borrado falle (best-effort)", async () => {
+    mockRemove.mockRejectedValue(new Error("Network error"));
+    const ruta = construirRuta(ctx, { tipo: "signed_xml", invoiceId: "f-1" });
+    await expect(borrarXml(ctx, ruta)).resolves.toBeUndefined();
+  });
+
+  it("rechaza paths inválidos silenciosamente (ownership check)", async () => {
+    const rutaOtroNegocio = "dgii/otro-business/invoices/f-1/signed.xml";
+    await expect(borrarXml(ctx, rutaOtroNegocio)).resolves.toBeUndefined();
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 });
