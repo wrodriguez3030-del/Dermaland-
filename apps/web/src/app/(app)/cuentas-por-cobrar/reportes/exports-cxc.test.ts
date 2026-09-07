@@ -56,6 +56,17 @@ const migrada = fila({
   total: 600,
 });
 
+/**
+ * Divide una línea de `csvPendientes` (cada campo entre comillas, dobladas
+ * si el valor las trae) en sus campos, EN EL ORDEN en que aparecen. Es el
+ * mismo escapado que `escapa()` en `exports-cxc.ts`, deshecho.
+ */
+const camposCsv = (linea: string): string[] =>
+  linea
+    .slice(1, -1) // fuera las comillas exteriores del primer y del último campo
+    .split('","')
+    .map((c) => c.replace(/""/g, '"'));
+
 describe("PDF de cuentas por cobrar · «Facturas vencidas»", () => {
   it("🔴 cada fila dice su origen EN EL PAPEL", () => {
     const s = seccionFacturasVencidas([fila({}), migrada]);
@@ -139,5 +150,28 @@ describe("CSV de cuentas por cobrar", () => {
   it("las comillas del nombre de un cliente no rompen el fichero", () => {
     const csv = csvPendientes([fila({ customerName: 'Ana "La Doña"' })]);
     expect(csv).toContain('"Ana ""La Doña"""');
+  });
+
+  it("🔴 el ORDEN de las columnas de la fila coincide con el de la cabecera (N5)", () => {
+    // Las otras tres pruebas de este bloque NO fijan el orden: comprueban que
+    // "Origen" está en algún sitio, que hay el mismo NÚMERO de columnas, y
+    // que las comillas no rompen el fichero. Ninguna nota si `Monto` y
+    // `Saldo` cambian de posición en `CABECERA_CSV` sin que la fila cambie
+    // con ellos — que es justo el fallo que el comentario de la prueba
+    // anterior ("el saldo aparecería bajo «Monto»") dice que hay que evitar.
+    // Esta empareja cada valor con el NOMBRE de su columna, no con su índice.
+    const csv = csvPendientes([fila({ total: 1000, balance: 850 })]);
+    const [cabecera, filaCsv] = csv.split("\r\n");
+    const encabezados = cabecera!.split(",");
+    const valores = camposCsv(filaCsv!);
+    expect(valores.length).toBe(encabezados.length);
+    const porNombre = Object.fromEntries(encabezados.map((h, i) => [h, valores[i]]));
+    expect(porNombre["Factura"]).toBe("FAC-1");
+    expect(porNombre["Origen"]).toBe("Sistema");
+    expect(porNombre["Sucursal"]).toBe("Principal");
+    expect(porNombre["DiasVencidos"]).toBe("35");
+    expect(porNombre["Monto"]).toBe("1000");
+    expect(porNombre["Saldo"]).toBe("850");
+    expect(porNombre["Estado"]).toBe("Vencida 31-60");
   });
 });
