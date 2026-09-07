@@ -113,6 +113,18 @@ export interface EstadoHistorico {
   total: number;
   /** Facturas migradas que entran en los KPIs. 0 si el histórico no participa. */
   cantidad: number;
+  /** ITBIS migrado. Mide lo mismo que el del sistema: se puede sumar. */
+  itbis: number;
+  /** Unidades vendidas migradas (cantidades de las líneas). */
+  unidades: number;
+  /** Descuentos migrados, de la cabecera de la factura. */
+  descuento: number;
+  /**
+   * Clientes distintos sobre la UNIÓN de las dos fuentes — NO solo los de
+   * Alegra. Sumarlo a los del sistema contaría dos veces a quien compró en los
+   * dos sitios, así que este número YA es el final y se usa tal cual.
+   */
+  clientesDistintos: number;
   /** `true` si el histórico está sumándose de verdad a los totales. */
   participa: boolean;
   /** Explicación bajo los KPIs. Con `aviso` cuando lo que falta puede engañar. */
@@ -131,7 +143,16 @@ export function resolverHistorico(entrada: {
   estado: EstadoVentas<ResumenVentasApi>;
   cantidadSistema: number;
 }): EstadoHistorico {
-  const nada = { cargando: false, total: 0, cantidad: 0, participa: false };
+  const nada = {
+    cargando: false,
+    total: 0,
+    cantidad: 0,
+    itbis: 0,
+    unidades: 0,
+    descuento: 0,
+    clientesDistintos: 0,
+    participa: false,
+  };
 
   if (!entrada.incluir) {
     return {
@@ -174,6 +195,11 @@ export function resolverHistorico(entrada: {
     cargando: false,
     total: alegra.total,
     cantidad: alegra.cantidad,
+    itbis: alegra.itbis,
+    unidades: alegra.unidades,
+    descuento: alegra.descuento,
+    // Ya viene resuelto sobre la unión: no se le suman los del sistema.
+    clientesDistintos: entrada.estado.datos.clientesDistintos,
     participa: true,
     leyenda: {
       aviso: false,

@@ -12,9 +12,11 @@ const resumen = (totalAlegra: number, cantidadAlegra: number): ResumenVentasApi 
   cantidad: cantidadAlegra,
   itbis: 0,
   unidades: 0,
+  descuento: 0,
+  clientesDistintos: 0,
   porOrigen: {
-    sistema: { total: 0, cantidad: 0, itbis: 0, unidades: 0 },
-    alegra: { total: totalAlegra, cantidad: cantidadAlegra, itbis: 0, unidades: 0 },
+    sistema: { total: 0, cantidad: 0, itbis: 0, unidades: 0, descuento: 0 },
+    alegra: { total: totalAlegra, cantidad: cantidadAlegra, itbis: 0, unidades: 0, descuento: 0 },
   },
 });
 

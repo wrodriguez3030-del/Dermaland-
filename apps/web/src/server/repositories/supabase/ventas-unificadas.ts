@@ -68,6 +68,10 @@ export interface ResumenVentas {
   itbis: number;
   /** Unidades vendidas (cantidades de las líneas), no ventas. */
   unidades: number;
+  /** Descuentos concedidos, de la cabecera de la venta. */
+  descuento: number;
+  /** Clientes distintos sobre la UNIÓN de las dos fuentes, no la suma. */
+  clientesDistintos: number;
   porOrigen: Record<OrigenVenta, DesgloseOrigen>;
 }
 
@@ -273,6 +277,11 @@ interface FilaResumenRpc {
   sistema_unidades: number | string | null;
   alegra_itbis: number | string | null;
   alegra_unidades: number | string | null;
+  // Añadidas por `20260907180000_resumen_ventas_descuento_clientes.sql`.
+  sistema_descuento: number | string | null;
+  alegra_descuento: number | string | null;
+  /** Distintos sobre la UNIÓN: NO se suma por origen (contaría dos veces). */
+  clientes_distintos: number | string | null;
 }
 
 /**
@@ -309,6 +318,7 @@ export async function resumenVentas(
     cantidad: Math.trunc(numero(fila?.sistema_cantidad)),
     itbis: numero(fila?.sistema_itbis),
     unidades: numero(fila?.sistema_unidades),
+    descuento: numero(fila?.sistema_descuento),
   };
   const alegra: DesgloseOrigen = incluirAlegra
     ? {
@@ -316,14 +326,23 @@ export async function resumenVentas(
         cantidad: Math.trunc(numero(fila?.alegra_cantidad)),
         itbis: numero(fila?.alegra_itbis),
         unidades: numero(fila?.alegra_unidades),
+        descuento: numero(fila?.alegra_descuento),
       }
-    : { total: 0, cantidad: 0, itbis: 0, unidades: 0 };
+    : { total: 0, cantidad: 0, itbis: 0, unidades: 0, descuento: 0 };
 
   return {
     total: redondearDinero(sistema.total + alegra.total),
     cantidad: sistema.cantidad + alegra.cantidad,
     itbis: redondearDinero(sistema.itbis + alegra.itbis),
     unidades: sistema.unidades + alegra.unidades,
+    descuento: redondearDinero(sistema.descuento + alegra.descuento),
+    // 🔴 De la fila, NO de la suma de los dos orígenes: quien compró en los dos
+    // sitios contaría dos veces. La base lo resuelve sobre la unión.
+    clientesDistintos: incluirAlegra
+      ? Math.trunc(numero(fila?.clientes_distintos))
+      : sistema.cantidad > 0
+        ? Math.trunc(numero(fila?.clientes_distintos))
+        : 0,
     porOrigen: { sistema, alegra },
   };
 }

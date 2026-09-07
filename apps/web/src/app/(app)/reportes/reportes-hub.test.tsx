@@ -30,9 +30,11 @@ const HISTORICO: ResumenVentasApi = {
   cantidad: 14743,
   itbis: 6087880.21,
   unidades: 38358,
+  descuento: 0,
+  clientesDistintos: 0,
   porOrigen: {
-    sistema: { total: 0, cantidad: 0, itbis: 0, unidades: 0 },
-    alegra: { total: 48454899.08, cantidad: 14743, itbis: 6087880.21, unidades: 38358 },
+    sistema: { total: 0, cantidad: 0, itbis: 0, unidades: 0, descuento: 0 },
+    alegra: { total: 48454899.08, cantidad: 14743, itbis: 6087880.21, unidades: 38358, descuento: 0 },
   },
 };
 

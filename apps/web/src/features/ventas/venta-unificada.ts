@@ -231,6 +231,8 @@ export interface DesgloseOrigen {
    * cajas cuenta 3, no 1 — no confundir con `cantidad`, que son ventas.
    */
   unidades: number;
+  /** Descuentos concedidos, de la cabecera de la venta. */
+  descuento: number;
 }
 
 /**

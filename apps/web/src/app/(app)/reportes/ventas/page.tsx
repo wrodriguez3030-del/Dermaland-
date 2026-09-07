@@ -372,12 +372,22 @@ export default function ReporteVentasPage() {
   });
   const totalConHistorico = Math.round((k.totalBilled + historico.total) * 100) / 100;
   const transaccionesConHistorico = k.transactions + historico.cantidad;
-  // El resumen que da la base son DOS números: total y cantidad. Ni ITBIS, ni
-  // ítems, ni costo, ni descuentos — esas columnas no existen en el histórico
-  // migrado con la forma que pide este reporte. Los KPIs que se quedan solo
-  // con el sistema lo dicen, para que nadie cuadre el ITBIS contra un total
-  // que ya lleva Alegra.
+  // Desde `20260907180000` la base devuelve además ITBIS, unidades, descuentos y
+  // clientes distintos, así que SIETE de los diez KPIs cuentan el histórico.
+  // Los tres que no, y por qué —se dice en cada uno, no en un pie de página—:
+  //   · Devoluciones: Alegra no migró notas de crédito.
+  //   · Margen estimado: `alegra_invoice_items` no trae el costo, solo el precio.
+  //   · Neto: es Total menos Devoluciones, así que hereda lo anterior.
   const soloSistema = historico.participa ? "Solo ventas del sistema" : undefined;
+  const itbisConHistorico = Math.round((k.itbis + historico.itbis) * 100) / 100;
+  const itemsConHistorico = k.items + historico.unidades;
+  const descuentosConHistorico = Math.round((k.discounts + historico.descuento) * 100) / 100;
+  // 🔴 Clientes distintos NO se suma: la base lo resuelve sobre la unión de las
+  // dos fuentes. Sumar «distintos del sistema» + «distintos de Alegra» contaría
+  // dos veces a quien compró en los dos sitios.
+  const clientesConHistorico = historico.participa
+    ? historico.clientesDistintos
+    : k.distinctCustomers;
 
   // Marca de tiempo de generación (en efecto para evitar mismatch de hidratación).
   const [generatedAt, setGeneratedAt] = React.useState("");
@@ -400,22 +410,37 @@ export default function ReporteVentasPage() {
       value: historico.cargando ? "Cargando…" : formatCurrency(totalConHistorico),
       tone: "primary",
     },
-    { label: "ITBIS recaudado", value: formatCurrency(k.itbis), hint: soloSistema },
+    {
+      label: "ITBIS recaudado",
+      value: historico.cargando ? "Cargando…" : formatCurrency(itbisConHistorico),
+    },
     { label: "Transacciones", value: historico.cargando ? "…" : transaccionesConHistorico },
-    { label: "Items vendidos", value: k.items, hint: soloSistema },
+    { label: "Items vendidos", value: historico.cargando ? "…" : itemsConHistorico },
     {
       label: "Ticket promedio",
       value: historico.cargando ? "Cargando…" : formatCurrency(ticketPromedio),
     },
-    { label: "Clientes distintos", value: k.distinctCustomers, hint: soloSistema },
-    { label: "Descuentos", value: formatCurrency(k.discounts), hint: soloSistema },
+    { label: "Clientes distintos", value: historico.cargando ? "…" : clientesConHistorico },
+    {
+      label: "Descuentos",
+      value: historico.cargando ? "Cargando…" : formatCurrency(descuentosConHistorico),
+    },
     {
       label: "Devoluciones",
       value: formatCurrency(k.refunds),
       tone: k.refunds > 0 ? "warning" : "default",
       hint: soloSistema,
     },
-    { label: "Neto", value: formatCurrency(k.net), tone: "success", hint: soloSistema },
+    {
+      // Neto = Total (que ya lleva el histórico) menos Devoluciones (que no lo
+      // lleva, porque Alegra no migró notas de crédito). Se dice en el hint.
+      label: "Neto",
+      value: historico.cargando
+        ? "Cargando…"
+        : formatCurrency(Math.round((totalConHistorico - k.refunds) * 100) / 100),
+      tone: "success",
+      hint: historico.participa ? "Devoluciones solo del sistema" : undefined,
+    },
     {
       label: "Margen estimado",
       value: k.marginEstimate != null ? formatCurrency(k.marginEstimate) : "N/D",

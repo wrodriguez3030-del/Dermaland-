@@ -49,6 +49,10 @@ export interface ResumenVentasApi {
   itbis: number;
   /** Unidades vendidas (cantidades de las líneas), no ventas. */
   unidades: number;
+  /** Descuentos concedidos. */
+  descuento: number;
+  /** Clientes distintos sobre la UNIÓN de las dos fuentes, no la suma. */
+  clientesDistintos: number;
   porOrigen: Record<OrigenVenta, DesgloseOrigen>;
 }
 
@@ -129,6 +133,7 @@ function comoDesglose(v: unknown): DesgloseOrigen {
     // inventada, y el aviso de la tarjeta ya cubre el caso de que falle entera.
     itbis: numeroSeguro(o.itbis),
     unidades: numeroSeguro(o.unidades),
+    descuento: numeroSeguro(o.descuento),
   };
 }
 
@@ -147,6 +152,10 @@ export function comoResumenVentas(json: unknown): ResumenVentasApi {
     // Mismo criterio: del desglose, no de campos sueltos.
     itbis: Math.round((sistema.itbis + alegra.itbis) * 100) / 100,
     unidades: sistema.unidades + alegra.unidades,
+    descuento: Math.round((sistema.descuento + alegra.descuento) * 100) / 100,
+    // 🔴 NO se suma por origen: quien compró en los dos sitios contaría dos
+    // veces. Viene resuelto de la base sobre la unión.
+    clientesDistintos: numeroSeguro(r.clientesDistintos),
     porOrigen: { sistema, alegra },
   };
 }
