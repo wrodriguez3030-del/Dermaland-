@@ -9,6 +9,12 @@ import { FileDown } from "lucide-react";
 import { AGING_LABEL, AGING_ORDER } from "@/features/receivables/aging";
 import { METHOD_LABEL, usePendingReceivables } from "@/features/receivables/components";
 import { arApi, money, type ArSummary, type CollectionHistoryRow } from "@/features/receivables/receivables-client";
+import {
+  csvPendientes,
+  etiquetaFiltrosCxc,
+  seccionFacturasVencidas,
+  tablaPendientesExcel,
+} from "./exports-cxc";
 import type { WorkbookSpec } from "@/lib/reports/excel/types";
 import type { ReportPdfSpec } from "@/lib/reports/pdf/types";
 
@@ -36,7 +42,11 @@ export default function ReportesCxcPage() {
     subtitle: "Cartera, antigüedad, morosidad y cobranza",
     rangeLabel: "A la fecha",
     branchLabel: "Todas las sucursales",
-    filtersLabel: "Sin filtros adicionales",
+    // 🔴 El aviso del histórico migrado va aquí porque es el ÚNICO hueco del
+    // Excel que se pinta de verdad: ni `TableSpec` ni `ReportMeta` tienen una
+    // clave de nota. Sale en la cabecera de las 8 hojas, también en las
+    // agregadas, que mezclan las dos fuentes sin poder llevar columna.
+    filtersLabel: etiquetaFiltrosCxc(pending),
     generatedBy: "Sistema DermaLand",
     generatedAtLabel: nowLabel,
   };
@@ -80,39 +90,7 @@ export default function ReportesCxcPage() {
                 { label: "Cobrado este mes", value: summary.cobradoMes, format: "currency" },
               ]
             : undefined,
-          tables: [
-            {
-              title: "Facturas con saldo pendiente",
-              autoFilter: true,
-              columns: [
-                { header: "Factura", key: "number" },
-                { header: "e-CF", key: "ecf" },
-                { header: "Cliente", key: "customer", width: 28 },
-                { header: "Sucursal", key: "branch" },
-                { header: "Vendedor", key: "seller" },
-                { header: "Emisión", key: "issued", format: "date" },
-                { header: "Vence", key: "due", format: "date" },
-                { header: "Días vencidos", key: "overdue", format: "int" },
-                { header: "Monto", key: "total", format: "currency" },
-                { header: "Saldo", key: "balance", format: "currency" },
-                { header: "Estado", key: "estado" },
-              ],
-              rows: pending.map((r) => ({
-                number: r.number,
-                ecf: r.ecfNumber ?? "",
-                customer: r.customerName,
-                branch: r.branchName,
-                seller: r.sellerName ?? r.cashierName,
-                issued: r.issuedAt,
-                due: r.dueDate ?? "",
-                overdue: r.overdueDays,
-                total: r.total,
-                balance: r.balance,
-                estado: AGING_LABEL[r.bucket],
-              })),
-              totals: { customer: "TOTAL", balance: pending.reduce((s, r) => s + r.balance, 0) },
-            },
-          ],
+          tables: [tablaPendientesExcel(pending)],
         },
         {
           name: "Antigüedad",
@@ -246,7 +224,7 @@ export default function ReportesCxcPage() {
       periodLabel: "A LA FECHA",
       branchLabel: "TODAS LAS SUCURSALES",
       businessName: "DERMALAND",
-      filtersLabel: "Sin filtros adicionales",
+      filtersLabel: etiquetaFiltrosCxc(pending),
       generatedBy: "Sistema DermaLand",
       generatedAtLabel: nowLabel,
       reportKind: "Reporte de cuentas por cobrar",
@@ -261,27 +239,7 @@ export default function ReportesCxcPage() {
         ]
       : undefined,
     sections: [
-      {
-        title: "Facturas vencidas",
-        table: {
-          columns: [
-            { header: "Factura", key: "number" },
-            { header: "Cliente", key: "cliente", weight: 2 },
-            { header: "Vence", key: "due", format: "date" },
-            { header: "Días", key: "dias", format: "int", align: "right" },
-            { header: "Saldo", key: "balance", format: "currency", align: "right" },
-          ],
-          rows: overdue.map((r) => ({
-            number: r.number,
-            cliente: r.customerName,
-            due: r.dueDate,
-            dias: r.overdueDays,
-            balance: r.balance,
-          })),
-          totals: { cliente: "TOTAL", balance: overdue.reduce((s, r) => s + r.balance, 0) },
-          emptyMessage: "Sin facturas vencidas.",
-        },
-      },
+      seccionFacturasVencidas(overdue),
       {
         title: "Antigüedad de saldos",
         table: {
@@ -301,14 +259,7 @@ export default function ReportesCxcPage() {
   });
 
   function downloadCsv() {
-    const head = "Factura,e-CF,Cliente,Sucursal,Vendedor,Emision,Vence,DiasVencidos,Monto,Saldo,Estado";
-    const esc = (v: string | number | null) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = pending.map((r) =>
-      [r.number, r.ecfNumber ?? "", r.customerName, r.branchName, r.sellerName ?? r.cashierName, r.issuedAt, r.dueDate ?? "", r.overdueDays, r.total, r.balance, AGING_LABEL[r.bucket]]
-        .map(esc)
-        .join(","),
-    );
-    const blob = new Blob(["﻿" + [head, ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["﻿" + csvPendientes(pending)], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `Cuentas_Por_Cobrar_${new Date().toISOString().slice(0, 10)}.csv`;
