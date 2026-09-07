@@ -30,7 +30,10 @@ import type {
  *  - `useDesgloseVentas` → `?vista=desglose&dimension=…`: los mismos totales
  *    AGRUPADOS en la base (vendedor, forma de pago, producto), con el origen
  *    de cada grupo y tope de 200 grupos. Es lo que se usa para una tabla de
- *    resumen. Tampoco viaja una fila de venta.
+ *    resumen. Tampoco viaja una fila de venta. 🔴 Solo `vendedor` trae LAS DOS
+ *    fuentes; `forma_pago` y `producto` traen solo Alegra, y la respuesta lo
+ *    dice en `fuentes` para que nadie tenga que adivinarlo (ver
+ *    `FUENTES_DESGLOSE` en `venta-unificada.ts`).
  *  - `useListadoVentas` → `?vista=listado`: una página de filas, con tope duro
  *    de 200 puesto por el SERVIDOR. Es lo que se usa para una tabla.
  *
@@ -42,6 +45,17 @@ export interface ResumenVentasApi {
   total: number;
   cantidad: number;
   porOrigen: Record<OrigenVenta, DesgloseOrigen>;
+}
+
+/**
+ * Lo que devuelve `?vista=desglose`: las filas Y de qué fuentes salen. Las dos
+ * cosas juntas a propósito — un desglose que solo trae Alegra y no lo dice es
+ * indistinguible de uno completo mientras `proformas` esté vacía.
+ */
+export interface DesgloseVentasApi {
+  filas: FilaDesglose[];
+  /** Orígenes que este desglose incluye de verdad. */
+  fuentes: OrigenVenta[];
 }
 
 export interface ListadoVentasApi {
@@ -157,8 +171,9 @@ function comoVenta(v: unknown): VentaUnificada | null {
  * vería. Misma regla que en el repositorio, repetida porque este lado también
  * lee de la red.
  */
-export function comoDesgloseVentas(json: unknown): FilaDesglose[] {
-  const crudas = objeto(json).desglose;
+export function comoDesgloseVentas(json: unknown): DesgloseVentasApi {
+  const cuerpo = objeto(json);
+  const crudas = cuerpo.desglose;
   const filas: FilaDesglose[] = [];
   for (const cruda of Array.isArray(crudas) ? crudas : []) {
     const o = objeto(cruda);
@@ -175,7 +190,13 @@ export function comoDesgloseVentas(json: unknown): FilaDesglose[] {
       total: numeroSeguro(o.total),
     });
   }
-  return filas;
+  // Las fuentes se leen igual de defensivamente que todo lo demás: un valor que
+  // no sea un origen conocido no se cuela.
+  const crudasFuentes = cuerpo.fuentes;
+  const fuentes: OrigenVenta[] = (Array.isArray(crudasFuentes) ? crudasFuentes : []).filter(
+    (f): f is OrigenVenta => f === "sistema" || f === "alegra",
+  );
+  return { filas, fuentes };
 }
 
 /** Interpreta el JSON de `GET /api/ventas?vista=listado`. */
@@ -322,7 +343,7 @@ export function useDesgloseVentas(
   dimension: DimensionDesglose,
   filtros: FiltrosVentasApi,
   activo = true,
-): EstadoVentas<FilaDesglose[]> {
+): EstadoVentas<DesgloseVentasApi> {
   return useVentasApi("desglose", { ...filtros, dimension }, activo, comoDesgloseVentas);
 }
 

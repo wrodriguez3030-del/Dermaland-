@@ -12,6 +12,7 @@ import {
   resumenVentas,
   type FiltrosVentas,
 } from "@/server/repositories/supabase/ventas-unificadas";
+import { FUENTES_DESGLOSE, type DimensionDesglose } from "@/features/ventas/venta-unificada";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,12 @@ type Vista = (typeof VISTAS)[number];
  * (`listarVentasUnificadas`, lo que usan los listados). Nunca dos en la
  * misma respuesta: son costos muy distintos y cada pantalla pide solo el
  * que necesita.
+ *
+ * 🔴 La respuesta del desglose lleva `fuentes` porque NO todas las dimensiones
+ * traen las dos: `vendedor` sí, `forma_pago` y `producto` solo Alegra. Hoy
+ * `proformas` está vacía y por eso cualquiera de las tres parece completa; el
+ * día que el punto de venta facture, sin ese campo la media verdad no se
+ * distinguiría de la entera.
  */
 const querySchema = z.object({
   vista: z.enum(VISTAS).default("listado"),
@@ -76,7 +83,7 @@ function respuestaVacia(vista: Vista): NextResponse {
           },
         }
       : vista === "desglose"
-        ? { desglose: [] }
+        ? { desglose: [], fuentes: [] }
         : { ventas: [], hayMas: false };
   return NextResponse.json(cuerpo, { headers: { "Cache-Control": "no-store" } });
 }
@@ -131,8 +138,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (vista === "desglose") {
       // `dimension` está garantizada por la guarda de arriba; el `!` es lo que
       // pide `noUncheckedIndexedAccess` para no repetir la comprobación.
-      const desglose = await desgloseVentas(ctx, filtrosVentas, dimension!);
-      return NextResponse.json({ desglose }, { headers: { "Cache-Control": "no-store" } });
+      const dim: DimensionDesglose = dimension!;
+      const desglose = await desgloseVentas(ctx, filtrosVentas, dim);
+      // Qué fuentes trae ESTE desglose. Con `incluirAlegra=false` el histórico
+      // se queda fuera, así que tampoco puede anunciarse.
+      const fuentes = FUENTES_DESGLOSE[dim].filter(
+        (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
+      );
+      return NextResponse.json(
+        { desglose, fuentes },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     }
     const { ventas, hayMas } = await listarVentasUnificadas(ctx, filtrosVentas);
     return NextResponse.json({ ventas, hayMas }, { headers: { "Cache-Control": "no-store" } });

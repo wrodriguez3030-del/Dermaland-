@@ -15,7 +15,7 @@ import {
 import { AlertTriangle } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils/format";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
-import type { EstadoVentas } from "@/features/ventas/ventas-api";
+import type { DesgloseVentasApi, EstadoVentas } from "@/features/ventas/ventas-api";
 import type { FilaDesglose, OrigenVenta } from "@/features/ventas/venta-unificada";
 
 /**
@@ -76,7 +76,7 @@ export function combinarDesglose(entrada: {
   /** `true` cuando el histórico participa en los KPIs (y por tanto puede participar aquí). */
   historicoParticipa: boolean;
   /** Estado de la petición del desglose. */
-  estado: EstadoVentas<FilaDesglose[]>;
+  estado: EstadoVentas<DesgloseVentasApi>;
   /**
    * Cómo se escribe la etiqueta de una fila migrada. Existe para la forma de
    * pago: Alegra guarda `cash`/`credit-card` y la pantalla dice «Efectivo» /
@@ -105,7 +105,7 @@ export function combinarDesglose(entrada: {
     return { filas: sistema, cargando: false, error: estado.mensaje, soloSistema: true };
   }
 
-  const migradas: FilaTarjeta[] = estado.datos
+  const migradas: FilaTarjeta[] = estado.datos.filas
     .filter((f) => f.origen === "alegra")
     .map((f) => (etiquetaMigrada ? { ...f, etiqueta: etiquetaMigrada(f) } : f));
   return {

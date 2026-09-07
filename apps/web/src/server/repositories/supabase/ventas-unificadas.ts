@@ -13,7 +13,11 @@
  *  - `desgloseVentas`: los mismos totales AGRUPADOS en la base (por vendedor,
  *    forma de pago o producto), con el origen de cada grupo. Es lo que usan
  *    las tarjetas de resumen del reporte de ventas. Tampoco viaja una fila de
- *    venta: viaja el desglose ya hecho, con tope de 200 grupos.
+ *    venta: viaja el desglose ya hecho, con tope de 200 grupos. 🔴 Solo la
+ *    dimensión `vendedor` trae LAS DOS fuentes; `forma_pago` y `producto`
+ *    traen solo Alegra — ver `FUENTES_DESGLOSE` en
+ *    `features/ventas/venta-unificada.ts`, que es de donde sale el campo
+ *    `fuentes` de la respuesta HTTP.
  *  - `listarVentasUnificadas`: filas, pero paginadas con tope duro de 200.
  *    Es lo que usan los listados (reportes, ficha del cliente, CxC).
  *
@@ -316,10 +320,17 @@ interface FilaDesgloseRpc {
 }
 
 /**
- * Desglose de ventas —sistema + Alegra— agrupado EN LA BASE por vendedor,
- * forma de pago o producto. Hermano de `resumenVentas`, y por el mismo
- * motivo: agrupar 14 965 facturas y 31 213 renglones en Node significaría
- * descargarlos, que es justo lo que este plan corrige.
+ * Desglose de ventas agrupado EN LA BASE por vendedor, forma de pago o
+ * producto. Hermano de `resumenVentas`, y por el mismo motivo: agrupar 14 965
+ * facturas y 31 213 renglones en Node significaría descargarlos, que es justo
+ * lo que este plan corrige.
+ *
+ * 🔴 NO todas las dimensiones traen las dos fuentes. `vendedor` sí; en
+ * `forma_pago` y `producto` cada fila es de Alegra, porque del sistema ya
+ * existen `byPaymentMethod` y `topProducts` sobre datos que la base no puede
+ * reproducir sin inventar otro criterio. El detalle y el porqué, en
+ * `FUENTES_DESGLOSE` (`features/ventas/venta-unificada.ts`); quien llame por
+ * HTTP lo recibe en el campo `fuentes` y no tiene que adivinarlo.
  *
  * Único acceso a la base: una llamada RPC a `desglose_ventas_unificadas`. Ni
  * un `.from()`. `business_id` sale del JWT verificado (`ctx.businessId`),

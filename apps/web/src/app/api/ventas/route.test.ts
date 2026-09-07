@@ -140,11 +140,40 @@ describe("GET /api/ventas?vista=desglose", () => {
     expect(desgloseVentas).not.toHaveBeenCalled();
   });
 
+  it("🔴 la respuesta dice QUÉ FUENTES trae: no todas las dimensiones traen las dos", () => {
+    // `vendedor` trae proformas + Alegra; `forma_pago` y `producto`, solo
+    // Alegra. Hoy `proformas` está vacía y por eso cualquiera de las tres
+    // parece completa: quien la consuma aprendería que cuadra, y el día que el
+    // POS facture recibiría media verdad sin nada que la marque.
+    return Promise.all([
+      pedir("vista=desglose&dimension=vendedor").then((r) => r.json()),
+      pedir("vista=desglose&dimension=forma_pago").then((r) => r.json()),
+      pedir("vista=desglose&dimension=producto").then((r) => r.json()),
+    ]).then(([vendedor, pago, producto]) => {
+      expect((vendedor as { fuentes: string[] }).fuentes).toEqual(["sistema", "alegra"]);
+      expect((pago as { fuentes: string[] }).fuentes).toEqual(["alegra"]);
+      expect((producto as { fuentes: string[] }).fuentes).toEqual(["alegra"]);
+    });
+  });
+
+  it("🔴 con `incluirAlegra=false` el histórico ya no se anuncia como fuente", async () => {
+    // Anunciar una fuente que se acaba de excluir es peor que no anunciar
+    // ninguna: el consumidor sumaría creyendo que el histórico está dentro.
+    const vendedor = (await (
+      await pedir("vista=desglose&dimension=vendedor&incluirAlegra=false")
+    ).json()) as { fuentes: string[] };
+    expect(vendedor.fuentes).toEqual(["sistema"]);
+    const pago = (await (
+      await pedir("vista=desglose&dimension=forma_pago&incluirAlegra=false")
+    ).json()) as { fuentes: string[] };
+    expect(pago.fuentes).toEqual([]);
+  });
+
   it("sin Supabase devuelve un desglose vacío con la forma que espera quien llama", async () => {
     env.DATA_SOURCE = "mock";
     const res = await pedir("vista=desglose&dimension=vendedor");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ desglose: [] });
+    expect(await res.json()).toEqual({ desglose: [], fuentes: [] });
     // Y ni siquiera pregunta por el rol: no hay nada que proteger.
     expect(authorizeRole).not.toHaveBeenCalled();
   });

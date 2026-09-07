@@ -144,6 +144,30 @@ export const DIMENSIONES_DESGLOSE = ["vendedor", "forma_pago", "producto"] as co
 export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
 
 /**
+ * 🔴 Qué fuentes trae DE VERDAD cada dimensión. No las tres traen las dos.
+ *
+ *  - `vendedor`: proformas + alegra_invoices.
+ *  - `forma_pago`: SOLO Alegra. En el sistema la forma de pago no vive en
+ *    `proformas` sino en `proforma_payments`, con reparto por método y el
+ *    concepto «mixto» (`saleMethodSummary`); reimplementarlo en SQL sería
+ *    inventar otro criterio distinto del que ya calcula `byPaymentMethod`.
+ *  - `producto`: SOLO Alegra. El sistema ya tiene `topProducts` sobre
+ *    `proforma_items`.
+ *
+ * Esto NO es documentación: viaja en la respuesta de
+ * `GET /api/ventas?vista=desglose` (campo `fuentes`). Hoy `proformas` está
+ * vacía, así que un desglose de forma de pago o de producto ES el total y
+ * quien lo consuma aprenderá que cuadra; el día que el punto de venta empiece
+ * a facturar, la misma llamada devolverá solo la mitad migrada. Sin este
+ * campo, esa media verdad no se distingue de la entera.
+ */
+export const FUENTES_DESGLOSE: Record<DimensionDesglose, readonly OrigenVenta[]> = {
+  vendedor: ["sistema", "alegra"],
+  forma_pago: ["alegra"],
+  producto: ["alegra"],
+};
+
+/**
  * Una línea del desglose: un grupo (un vendedor, una forma de pago, un
  * producto) de UNA de las dos fuentes. El mismo vendedor puede aparecer dos
  * veces —una por origen— y es lo que se quiere: así se ve cuánto puso cada

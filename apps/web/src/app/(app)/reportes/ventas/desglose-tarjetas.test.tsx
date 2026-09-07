@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import { combinarDesglose, TarjetaDesglose, type FilaTarjeta } from "./desglose-tarjetas";
-import type { EstadoVentas } from "@/features/ventas/ventas-api";
+import type { DesgloseVentasApi, EstadoVentas } from "@/features/ventas/ventas-api";
 import type { FilaDesglose } from "@/features/ventas/venta-unificada";
 
 /**
@@ -24,7 +24,10 @@ const alegra: FilaDesglose[] = [
   { clave: "", etiqueta: "Oficina", origen: "alegra", cantidad: 8197, total: 10_000 },
 ];
 
-const listo = (datos: FilaDesglose[]): EstadoVentas<FilaDesglose[]> => ({ tipo: "listo", datos });
+const listo = (filas: FilaDesglose[]): EstadoVentas<DesgloseVentasApi> => ({
+  tipo: "listo",
+  datos: { filas, fuentes: ["alegra"] },
+});
 
 afterEach(cleanup);
 

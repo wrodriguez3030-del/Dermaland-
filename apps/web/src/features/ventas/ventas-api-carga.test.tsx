@@ -251,13 +251,15 @@ describe("carga del desglose de ventas", () => {
         desglose: [
           { clave: "DESTENY REYNOSO", etiqueta: "DESTENY REYNOSO", origen: "alegra", cantidad: 5513, total: 1 },
         ],
+        fuentes: ["sistema", "alegra"],
       });
       await Promise.resolve();
     });
     await dejarCorrer();
     expect(result.current.tipo).toBe("listo");
     if (result.current.tipo === "listo") {
-      expect(result.current.datos[0]!.etiqueta).toBe("DESTENY REYNOSO");
+      expect(result.current.datos.filas[0]!.etiqueta).toBe("DESTENY REYNOSO");
+      expect(result.current.datos.fuentes).toEqual(["sistema", "alegra"]);
     }
   });
 

@@ -139,7 +139,7 @@ describe("mensaje de error de la respuesta", () => {
 
 describe("lectura del desglose de /api/ventas", () => {
   it("lee las filas con su origen y sus importes en texto", () => {
-    const filas = comoDesgloseVentas({
+    const { filas } = comoDesgloseVentas({
       desglose: [
         { clave: "DESTENY REYNOSO", etiqueta: "DESTENY REYNOSO", origen: "alegra", cantidad: "5513", total: "20000.00" },
       ],
@@ -150,11 +150,26 @@ describe("lectura del desglose de /api/ventas", () => {
     expect(filas[0]!.total).toBeCloseTo(20000, 2);
   });
 
+  it("🔴 lee QUÉ FUENTES trae el desglose, que no siempre son las dos", () => {
+    // `forma_pago` y `producto` solo traen Alegra. Hoy `proformas` está vacía y
+    // por eso cualquiera de las tres parece completa; sin este campo, el día
+    // que el POS facture la media verdad no se distinguiría de la entera.
+    expect(comoDesgloseVentas({ desglose: [], fuentes: ["alegra"] }).fuentes).toEqual(["alegra"]);
+    expect(comoDesgloseVentas({ desglose: [], fuentes: ["sistema", "alegra"] }).fuentes)
+      .toEqual(["sistema", "alegra"]);
+  });
+
+  it("una fuente que no reconocemos no se cuela", () => {
+    expect(comoDesgloseVentas({ desglose: [], fuentes: ["alegra", "vete-a-saber", 7] }).fuentes)
+      .toEqual(["alegra"]);
+    expect(comoDesgloseVentas({ desglose: [], fuentes: "nope" }).fuentes).toEqual([]);
+  });
+
   it("🔴 una fila con origen desconocido se DESCARTA, no se cuela como «sistema»", () => {
     // «sistema» es el origen que `EtiquetaOrigen` pinta SIN etiqueta. Si un
     // origen raro cayera ahí por defecto, dinero migrado aparecería como venta
     // propia y nadie lo vería.
-    const filas = comoDesgloseVentas({
+    const { filas } = comoDesgloseVentas({
       desglose: [
         { etiqueta: "Raro", origen: "vete-a-saber", cantidad: 1, total: 1 },
         { etiqueta: "Sin origen", cantidad: 1, total: 1 },
@@ -165,16 +180,16 @@ describe("lectura del desglose de /api/ventas", () => {
   });
 
   it("descarta filas sin etiqueta en vez de pintar un importe sin nombre", () => {
-    const filas = comoDesgloseVentas({
+    const { filas } = comoDesgloseVentas({
       desglose: [{ origen: "alegra", cantidad: 1, total: 999 }, null, "no soy un objeto"],
     });
     expect(filas).toEqual([]);
   });
 
   it("una respuesta sin `desglose` da lista vacía, no revienta", () => {
-    expect(comoDesgloseVentas(null)).toEqual([]);
-    expect(comoDesgloseVentas({})).toEqual([]);
-    expect(comoDesgloseVentas({ desglose: "nope" })).toEqual([]);
+    expect(comoDesgloseVentas(null)).toEqual({ filas: [], fuentes: [] });
+    expect(comoDesgloseVentas({})).toEqual({ filas: [], fuentes: [] });
+    expect(comoDesgloseVentas({ desglose: "nope" })).toEqual({ filas: [], fuentes: [] });
   });
 });
 

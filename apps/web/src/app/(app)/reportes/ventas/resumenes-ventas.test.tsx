@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { buildSalesReport, EMPTY_FILTERS } from "@/features/sales/sales-report";
-import type { EstadoVentas } from "@/features/ventas/ventas-api";
+import type { DesgloseVentasApi, EstadoVentas } from "@/features/ventas/ventas-api";
 import type { DimensionDesglose, FilaDesglose } from "@/features/ventas/venta-unificada";
 
 /**
@@ -22,7 +22,7 @@ import type { DimensionDesglose, FilaDesglose } from "@/features/ventas/venta-un
  */
 
 /** Estado que devolverá `useDesgloseVentas` en la prueba en curso. */
-let estadoDesglose: EstadoVentas<FilaDesglose[]> = { tipo: "cargando" };
+let estadoDesglose: EstadoVentas<DesgloseVentasApi> = { tipo: "cargando" };
 const pedidas: DimensionDesglose[] = [];
 /** `false` cuando la pantalla NO debe pedir el desglose. */
 let activoVisto: boolean[] = [];
@@ -57,7 +57,7 @@ const migradas: FilaDesglose[] = [
 ];
 
 beforeEach(() => {
-  estadoDesglose = { tipo: "listo", datos: migradas };
+  estadoDesglose = { tipo: "listo", datos: { filas: migradas, fuentes: ["alegra"] } };
   pedidas.length = 0;
   activoVisto = [];
 });
