@@ -193,3 +193,60 @@ export function computeCustomersReportKpis(
     vipCustomers: vip,
   };
 }
+
+/**
+ * Métricas de UN cliente en el histórico migrado de Alegra, tal como las
+ * agrega la base (`metricas_clientes_alegra`).
+ */
+export interface MetricasClienteAlegra {
+  clienteId: string;
+  total: number;
+  compras: number;
+  /** Fecha de la última factura, `YYYY-MM-DD`. */
+  ultimaFecha: string;
+}
+
+/**
+ * Suma el histórico migrado a las métricas del sistema, cliente por cliente.
+ *
+ * 🔴 Por qué esta función existe en vez de calcularlo todo en SQL: la mitad del
+ * sistema la calcula `computeCustomerPurchaseStats`, que sabe cosas que el SQL
+ * no —conversiones de proforma a factura, para no contar la venta dos veces, y
+ * proformas pendientes—. Duplicar esa lógica en SQL sería una segunda
+ * definición de «lo comprado». Aquí se suman dos cifras ya calculadas, cada una
+ * por quien sabe calcularla.
+ *
+ * `avgTicket` se RECALCULA sobre el total combinado: arrastrar el del sistema
+ * daría un promedio que no corresponde a ninguna de las dos mitades.
+ */
+export function fusionarMetricasAlegra(
+  filas: CustomerMetricsRow[],
+  alegra: MetricasClienteAlegra[],
+): CustomerMetricsRow[] {
+  if (alegra.length === 0) return filas;
+  const porCliente = new Map(alegra.map((m) => [m.clienteId, m]));
+  return filas.map((fila) => {
+    const m = porCliente.get(fila.customer.id);
+    if (!m) return fila;
+    const totalSpent = fila.stats.totalSpent + m.total;
+    const purchases = fila.stats.purchases + m.compras;
+    // La última visita es la MÁS RECIENTE de las dos fuentes. Se comparan como
+    // texto ISO a propósito: `YYYY-MM-DD` y `YYYY-MM-DDTHH:mm` ordenan igual, y
+    // así una factura migrada del día no pisa una venta del sistema de esa
+    // misma fecha por tener menos precisión.
+    const lastVisitAt =
+      !fila.stats.lastVisitAt || m.ultimaFecha > fila.stats.lastVisitAt
+        ? m.ultimaFecha
+        : fila.stats.lastVisitAt;
+    return {
+      ...fila,
+      stats: {
+        ...fila.stats,
+        totalSpent,
+        purchases,
+        avgTicket: purchases > 0 ? totalSpent / purchases : 0,
+        lastVisitAt,
+      },
+    };
+  });
+}

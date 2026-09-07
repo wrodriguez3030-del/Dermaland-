@@ -3,7 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext } from "@/server/auth/context";
-import { computeCustomersReport } from "@/features/customers/customer-metrics";
+import {
+  computeCustomersReport,
+  fusionarMetricasAlegra,
+  type MetricasClienteAlegra,
+} from "@/features/customers/customer-metrics";
+import { metricasClientesAlegra } from "@/server/repositories/supabase/ventas-unificadas";
 
 /**
  * GET /api/customers/metrics — métricas agregadas por cliente para el
@@ -35,15 +40,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const to = req.nextUrl.searchParams.get("to") ?? undefined;
     const ctx = await getRepoContext();
     const repos = getRepositories();
-    const [customers, headers] = await Promise.all([
+    // 🔴 La tercera consulta es el histórico migrado de Alegra, agregado POR
+    // CLIENTE en la base. Sin ella, los 6 524 clientes salían con RD$0.00 y sin
+    // última visita teniendo 14 749 facturas suyas: un cliente que gastó
+    // RD$398 710 aparecía como si nunca hubiera comprado.
+    //
+    // Si esa consulta falla NO se tumba el reporte: se devuelven las métricas
+    // del sistema y se dice que el histórico no entró. Media verdad avisada es
+    // mejor que una pantalla de error, y muy mejor que media verdad callada.
+    const [customers, headers, alegra] = await Promise.all([
       repos.customer.list(ctx),
       repos.proforma.listHeaders(ctx, { branchId, from, to }),
+      metricasClientesAlegra(ctx, { desde: from, hasta: to, sucursalId: branchId }).catch(
+        (): { filas: MetricasClienteAlegra[]; aviso: string } => ({
+          filas: [],
+          aviso:
+            "No se pudo cargar el histórico migrado de Alegra. Las cifras cuentan solo las ventas del sistema.",
+        }),
+      ),
     ]);
     // El período/sucursal ya viene filtrado del repo; la función pura agrupa
     // y calcula con las mismas reglas del perfil.
-    const rows = computeCustomersReport(customers, headers);
+    const rows = fusionarMetricasAlegra(
+      computeCustomersReport(customers, headers),
+      alegra.filas,
+    );
     return NextResponse.json(
-      { rows },
+      { rows, ...(alegra.aviso ? { aviso: alegra.aviso } : {}) },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

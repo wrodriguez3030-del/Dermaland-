@@ -44,6 +44,7 @@ import {
   type OrigenVenta,
   type VentaUnificada,
 } from "@/features/ventas/venta-unificada";
+import type { MetricasClienteAlegra } from "@/features/customers/customer-metrics";
 
 export interface FiltrosVentas {
   /** Fecha ISO `YYYY-MM-DD`, inclusive. */
@@ -395,4 +396,55 @@ export async function desgloseVentas(
     });
   }
   return filas.slice(0, TOPE_DESGLOSE);
+}
+
+/**
+ * Gasto, compras y última visita POR CLIENTE del histórico migrado de Alegra.
+ *
+ * Una llamada RPC a `metricas_clientes_alegra`, que agrupa en la base y
+ * devuelve una fila por cliente CON COMPRAS —hoy unas 5 995, no las 14 749
+ * facturas—. Sin esto habría que traerse todas las cabeceras en cada petición
+ * para agruparlas aquí.
+ *
+ * Devuelve SOLO la mitad de Alegra: la del sistema la calcula
+ * `computeCustomerPurchaseStats`, que es la misma que usa el perfil del cliente
+ * y sabe de conversiones y proformas pendientes. Las dos se suman en
+ * `fusionarMetricasAlegra`, cada una calculada por quien sabe hacerlo.
+ */
+export async function metricasClientesAlegra(
+  ctx: CtxVentasUnificadas,
+  filtros: Pick<FiltrosVentas, "desde" | "hasta" | "sucursalId"> = {},
+): Promise<{ filas: MetricasClienteAlegra[]; aviso?: string }> {
+  const sb = await clienteDe(ctx, "ventasUnificadas.metricasClientes");
+  const { data, error } = await sb.rpc("metricas_clientes_alegra", {
+    p_business_id: ctx.businessId,
+    p_desde: filtros.desde ?? null,
+    p_hasta: filtros.hasta ?? null,
+    p_sucursal_id: filtros.sucursalId ?? null,
+  });
+  if (error) failRepo("ventasUnificadas.metricasClientes", error);
+
+  const filas = (data as FilaMetricaClienteRpc[] | null) ?? [];
+  return {
+    filas: filas
+      // Sin id de cliente no hay a quién sumárselo: la base ya las excluye,
+      // esto es la segunda barrera por si la función cambia.
+      .filter((f): f is FilaMetricaClienteRpc & { cliente_id: string } =>
+        typeof f.cliente_id === "string" && f.cliente_id !== "",
+      )
+      .map((f) => ({
+        clienteId: f.cliente_id,
+        total: numero(f.total),
+        compras: Math.trunc(numero(f.compras)),
+        ultimaFecha: typeof f.ultima_fecha === "string" ? f.ultima_fecha : "",
+      })),
+  };
+}
+
+/** Fila que devuelve `metricas_clientes_alegra` (ver la migración). */
+interface FilaMetricaClienteRpc {
+  cliente_id: string | null;
+  total: number | string | null;
+  compras: number | string | null;
+  ultima_fecha: string | null;
 }
