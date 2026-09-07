@@ -33,10 +33,69 @@ import {
 import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
 import { useCurrentUser } from "@/features/auth/current-user";
+import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
+import { useListadoVentas } from "@/features/ventas/ventas-api";
+import {
+  ETIQUETA_ESTADO_VENTA,
+  type EstadoVenta,
+  type VentaUnificada,
+} from "@/features/ventas/venta-unificada";
+import {
+  filtrosSinHistorico,
+  LeyendaHistorico,
+  useHistoricoAlegra,
+} from "@/app/(app)/reportes/ventas/historico-alegra";
 import type { Proforma } from "@/types";
-import { formatCurrency, formatDateTime, isToday } from "@/lib/utils/format";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatNumber,
+  isToday,
+} from "@/lib/utils/format";
 
 const NO_SELLER = "__none__";
+
+/**
+ * Hoy en `YYYY-MM-DD`, con la MISMA noción de «hoy» que `isToday` (hora local
+ * del navegador). Es lo que se le manda a `/api/ventas` cuando el periodo es
+ * «hoy»: si una mitad contara el día en hora local y la otra en otra zona, el
+ * KPI y la tabla dejarían de cuadrar justo a medianoche.
+ */
+function hoyLocal(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/**
+ * Una fila de la tabla. O es una venta del sistema —y entonces lleva su
+ * proforma completa, que es la que permite editar, imprimir y enviar— o es una
+ * factura migrada de Alegra, que se ve y no se toca (Alegra manda, DermaLand
+ * solo lee). Mismo reparto que la ficha del cliente.
+ */
+type FilaVenta =
+  | { origen: "sistema"; id: string; fecha: string; proforma: Proforma }
+  | { origen: "alegra"; id: string; fecha: string; venta: VentaUnificada };
+
+/**
+ * Tono del badge de estado de una venta MIGRADA. Las PALABRAS salen de
+ * `ETIQUETA_ESTADO_VENTA` (fuente única del modelo unificado): aquí solo se
+ * elige el color. `vigente` se pinta «Histórico» en neutro —la fila ya dice su
+ * origen en la columna de al lado— y el rojo se reserva para lo que de verdad
+ * está anulado en Alegra. Mismo criterio que la ficha del cliente.
+ *
+ * 🔴 No se pinta por `anulada`: ese campo significa «no cuenta para los
+ * totales» y también es `true` para un BORRADOR. Llamar «Anulada» a un
+ * borrador es afirmar algo falso sobre un documento fiscal de otro sistema.
+ */
+const TONO_ESTADO_MIGRADA: Record<EstadoVenta, "neutral" | "warning" | "danger"> = {
+  vigente: "neutral",
+  anulada: "danger",
+  borrador: "warning",
+  vencida: "warning",
+};
 
 function VentasContent() {
   const currentUser = useCurrentUser();
@@ -82,25 +141,97 @@ function VentasContent() {
     return scopedSales.filter((s) => s.sellerId === sellerFilter);
   }, [scopedSales, sellerFilter]);
 
-  const pag = usePagination(sales, { resetKey: `${period}|${sellerFilter}` });
   const canEdit = canEditSales(currentUser.role);
 
   const [sendDoc, setSendDoc] = React.useState<{
     doc: Proforma;
     tab: "whatsapp" | "email";
   } | null>(null);
-  const total = sales.reduce((s, p) => s + p.total, 0);
+
+  // ── Histórico migrado de Alegra ─────────────────────────────────────────
+  // El panel invita a esta pantalla con «Ver ventas» y su tarjeta ya cuenta
+  // los RD$48,4 millones migrados; aterrizar aquí en RD$0.00 —ni siquiera con
+  // `?period=all`— era el mismo silencio que motivó el plan, a un clic de la
+  // tarjeta que el plan arregló.
+  //
+  // Se reutiliza TAL CUAL lo que ya usa el reporte de ventas: el total lo
+  // calcula la base (`?vista=resumen`) y aquí no se suma una sola fila; la
+  // tabla pide UNA página de `?vista=listado` (tope de 200 del servidor).
+  const rango: { desde?: string; hasta?: string } =
+    period === "today" ? { desde: hoyLocal(), hasta: hoyLocal() } : {};
+  // `/api/ventas` sabe filtrar por fecha, sucursal y cliente — por vendedor NO.
+  // Sumar el histórico SIN filtrar a un total del sistema que sí está filtrado
+  // por vendedora daría un número que nadie podría cuadrar: con ese filtro
+  // puesto el histórico se queda fuera y la leyenda lo dice.
+  const filtrosNoAplicables = filtrosSinHistorico([
+    { etiqueta: "Vendedor", activo: sellerFilter !== "all" },
+  ]);
+  const historicoParticipa = filtrosNoAplicables.length === 0;
+  const historico = useHistoricoAlegra({
+    desde: rango.desde,
+    hasta: rango.hasta,
+    cantidadSistema: sales.length,
+    incluir: true,
+    filtrosNoAplicables,
+  });
+  const listado = useListadoVentas({ ...rango, limite: 200 }, historicoParticipa);
+  const ventasAlegra =
+    listado.tipo === "listo"
+      ? listado.datos.ventas.filter((v) => v.origen === "alegra")
+      : [];
+  const hayMasAlegra = listado.tipo === "listo" && listado.datos.hayMas;
+
+  const filas = React.useMemo<FilaVenta[]>(() => {
+    const delSistema: FilaVenta[] = sales.map((p) => ({
+      origen: "sistema",
+      id: p.id,
+      fecha: p.createdAt,
+      proforma: p,
+    }));
+    const migradas: FilaVenta[] = ventasAlegra.map((v) => ({
+      origen: "alegra",
+      id: v.id,
+      fecha: v.fecha,
+      venta: v,
+    }));
+    return [...delSistema, ...migradas].sort((a, b) =>
+      a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0,
+    );
+    // `ventasAlegra` se recalcula en cada render a partir del estado del hook:
+    // su identidad no vale como dependencia, la del estado sí.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sales, listado]);
+
+  const pag = usePagination(filas, {
+    resetKey: `${period}|${sellerFilter}|${historicoParticipa}`,
+  });
+
+  // Qué le falta a la TABLA (los KPIs los explica `LeyendaHistorico`): una
+  // página no da para 14 743 facturas, y si la petición falla abajo solo queda
+  // el sistema. En los dos casos se dice; callarlo dejaría al usuario sumando
+  // filas incompletas.
+  const avisoTabla: string | null = !historicoParticipa
+    ? null
+    : listado.tipo === "error"
+      ? "No se pudieron cargar las ventas migradas de Alegra: abajo solo están las del sistema."
+      : hayMasAlegra
+        ? "La tabla enseña solo las ventas más recientes: el histórico migrado no cabe entero en una página. Los totales de arriba sí lo cuentan completo."
+        : null;
+
+  const totalSistema = sales.reduce((s, p) => s + p.total, 0);
   const itbis = sales.reduce((s, p) => s + p.itbis, 0);
   const items = sales.reduce(
     (s, p) => s + p.items.reduce((q, i) => q + i.quantity, 0),
     0,
   );
+  const total = totalSistema + historico.total;
+  const transacciones = sales.length + historico.cantidad;
 
   return (
     <>
       <PageHeader
         title="Ventas / Facturas"
-        description="Facturas emitidas (NCF B02/B01 y e-CF E32/E31). Las proformas pendientes están en la pantalla Proformas."
+        description="Facturas emitidas (NCF B02/B01 y e-CF E32/E31) y el histórico migrado de Alegra. Las proformas pendientes están en la pantalla Proformas."
         breadcrumbs={[{ label: "Ventas" }]}
         actions={
           <Link href="/pos" aria-label="Ir a POS / Nueva venta">
@@ -131,16 +262,42 @@ function VentasContent() {
         )}
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Mientras el histórico está en camino NO hay número fiable que enseñar:
+          hoy `proformas` está vacía y ese RD$0.00 provisional es exactamente lo
+          que hizo creer que los datos no se habían migrado. Mismo criterio que
+          el panel y que el reporte de ventas. */}
+      <div className="mb-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label={period === "today" ? "Ventas hoy" : "Ventas totales"}
-          value={formatCurrency(total)}
+          value={historico.cargando ? "Cargando…" : formatCurrency(total)}
           icon={Coins}
           tone="primary"
         />
-        <StatCard label="ITBIS recaudado" value={formatCurrency(itbis)} icon={TrendingUp} />
-        <StatCard label="Transacciones" value={sales.length} icon={Receipt} />
-        <StatCard label="Items vendidos" value={items} icon={ShoppingCart} />
+        {/* El resumen de la base da total y cantidad, no ITBIS ni unidades: no
+            existe forma de traer esas dos del histórico sin descargar las
+            14 965 facturas. Así que dicen qué cuentan, en la etiqueta. */}
+        <StatCard
+          label="ITBIS recaudado (sistema)"
+          value={formatCurrency(itbis)}
+          hint="sin el histórico migrado"
+          icon={TrendingUp}
+        />
+        <StatCard
+          label="Transacciones"
+          value={historico.cargando ? "Cargando…" : formatNumber(transacciones)}
+          icon={Receipt}
+        />
+        <StatCard
+          label="Items vendidos (sistema)"
+          value={formatNumber(items)}
+          hint="sin el histórico migrado"
+          icon={ShoppingCart}
+        />
+      </div>
+      {/* De dónde sale el total: cuánto pone el sistema y cuánto el histórico.
+          Un total que mezcla dos fuentes sin decirlo no se puede auditar. */}
+      <div className="mb-6">
+        <LeyendaHistorico leyenda={historico.leyenda} />
       </div>
 
       <FilterBar className="mb-4">
@@ -161,6 +318,19 @@ function VentasContent() {
         </Select>
       </FilterBar>
 
+      {avisoTabla && (
+        <p className="mb-3 flex items-start gap-1.5 text-xs font-medium text-amber-700">
+          <span aria-hidden>⚠</span>
+          <span>
+            {avisoTabla}{" "}
+            <Link href="/reportes/ventas" className="underline">
+              Ver el histórico completo en Reportes → Ventas
+            </Link>
+            .
+          </span>
+        </p>
+      )}
+
       <Card>
         <CardContent className="p-0">
           {/* Móvil: tarjetas */}
@@ -168,34 +338,78 @@ function VentasContent() {
             {pag.pageItems.length === 0 && (
               <div className="px-4 py-10 text-center text-sm opacity-60">Sin ventas.</div>
             )}
-            {pag.pageItems.map((p) => (
-              <Link
-                key={p.id}
-                href={`/ventas/${p.id}`}
-                className="block px-4 py-3 active:bg-black/[0.03]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-mono text-sm">{p.ecfNumber ?? p.number}</div>
-                    <div className="mt-0.5 truncate text-xs opacity-70">{p.customerName}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      <Badge tone={saleDocumentTone(p)}>{saleDocumentLabel(p)}</Badge>
-                      <Badge
-                        tone={p.status === "paid" ? "success" : p.status === "partially_paid" ? "warning" : "info"}
-                      >
-                        {p.status}
-                      </Badge>
+            {pag.pageItems.map((fila) =>
+              fila.origen === "sistema" ? (
+                <Link
+                  key={fila.id}
+                  href={`/ventas/${fila.proforma.id}`}
+                  className="block px-4 py-3 active:bg-black/[0.03]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-mono text-sm">
+                        {fila.proforma.ecfNumber ?? fila.proforma.number}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs opacity-70">
+                        {fila.proforma.customerName}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <Badge tone={saleDocumentTone(fila.proforma)}>
+                          {saleDocumentLabel(fila.proforma)}
+                        </Badge>
+                        <Badge
+                          tone={
+                            fila.proforma.status === "paid"
+                              ? "success"
+                              : fila.proforma.status === "partially_paid"
+                                ? "warning"
+                                : "info"
+                          }
+                        >
+                          {fila.proforma.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-bold tabular-nums text-[color:var(--brand-accent)]">
+                        {formatCurrency(fila.proforma.total)}
+                      </div>
+                      <div className="text-[10px] opacity-50">
+                        {formatDateTime(fila.proforma.createdAt)}
+                      </div>
                     </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-bold tabular-nums text-[color:var(--brand-accent)]">
-                      {formatCurrency(p.total)}
+                </Link>
+              ) : (
+                /* Migrada de Alegra: sin enlace, porque no hay detalle que
+                   abrir en DermaLand. Lleva su etiqueta de origen. */
+                <div key={fila.id} className="block px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-mono text-sm">{fila.venta.numero}</div>
+                      <div className="mt-0.5 truncate text-xs opacity-70">
+                        {fila.venta.clienteNombre ?? "—"}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <EtiquetaOrigen origen={fila.venta.origen} />
+                      </div>
                     </div>
-                    <div className="text-[10px] opacity-50">{formatDateTime(p.createdAt)}</div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-bold tabular-nums text-[color:var(--brand-accent)]">
+                        {fila.venta.anulada ? (
+                          <span className="line-through opacity-60">
+                            {formatCurrency(fila.venta.total)}
+                          </span>
+                        ) : (
+                          formatCurrency(fila.venta.total)
+                        )}
+                      </div>
+                      <div className="text-[10px] opacity-50">{formatDate(fila.venta.fecha)}</div>
+                    </div>
                   </div>
                 </div>
-              </Link>
-            ))}
+              ),
+            )}
           </div>
 
           {/* Desktop: tabla */}
@@ -215,82 +429,141 @@ function VentasContent() {
               </TR>
             </THead>
             <TBody>
-              {pag.pageItems.map((p) => (
-                <TR key={p.id}>
-                  <TD className="text-xs">{formatDateTime(p.createdAt)}</TD>
-                  <TD>
-                    <Link href={`/ventas/${p.id}`} className="font-mono text-xs hover:text-[color:var(--brand-accent)]">
-                      {p.ecfNumber ?? p.number}
-                    </Link>
-                  </TD>
-                  <TD>
-                    <Badge tone={saleDocumentTone(p)}>{saleDocumentLabel(p)}</Badge>
-                  </TD>
-                  <TD className="text-sm">{p.customerName}</TD>
-                  <TD className="text-sm opacity-70">{p.cashierName}</TD>
-                  <TD className="text-sm">
-                    {p.sellerName ?? (
-                      <span className="opacity-40">No asignado</span>
-                    )}
-                  </TD>
-                  <TD className="text-right tabular-nums font-medium">
-                    {formatCurrency(p.total)}
-                  </TD>
-                  <TD>
-                    <Badge tone={p.status === "paid" ? "success" : p.status === "partially_paid" ? "warning" : "info"}>
-                      {p.status}
-                    </Badge>
-                  </TD>
-                  <TD className="pr-4">
-                    <RowActions
-                      viewHref={`/ventas/${p.id}`}
-                      canEdit={false}
-                      canDelete={false}
-                      customActions={[
-                        {
-                          label: "Editar factura",
-                          icon: Pencil,
-                          ...(canEdit && documentEditability(p).editable
-                            ? { href: `/ventas/${p.id}/editar` }
-                            : {
-                                disabled: true,
-                                disabledReason: !canEdit
-                                  ? "No tienes permiso para editar facturas."
-                                  : documentEditability(p).reason ??
-                                    "Este documento no se puede editar.",
-                              }),
-                        },
-                        {
-                          label: "Imprimir",
-                          icon: Printer,
-                          href: `/ventas/${p.id}/print`,
-                        },
-                        {
-                          label: "Enviar WhatsApp",
-                          icon: Send,
-                          onClick: () => setSendDoc({ doc: p, tab: "whatsapp" }),
-                        },
-                        {
-                          label: "Enviar por correo",
-                          icon: Mail,
-                          onClick: () => setSendDoc({ doc: p, tab: "email" }),
-                        },
-                        {
-                          label: "Eliminar",
-                          icon: Trash2,
-                          disabled: true,
-                          disabledReason:
-                            "No se puede eliminar una venta emitida. Usa anular si aplica.",
-                        },
-                      ]}
-                    />
-                  </TD>
-                </TR>
-              ))}
+              {pag.pageItems.map((fila) =>
+                fila.origen === "sistema" ? (
+                  <TR key={fila.id}>
+                    <TD className="text-xs">{formatDateTime(fila.proforma.createdAt)}</TD>
+                    <TD>
+                      <Link
+                        href={`/ventas/${fila.proforma.id}`}
+                        className="font-mono text-xs hover:text-[color:var(--brand-accent)]"
+                      >
+                        {fila.proforma.ecfNumber ?? fila.proforma.number}
+                      </Link>
+                    </TD>
+                    <TD>
+                      <Badge tone={saleDocumentTone(fila.proforma)}>
+                        {saleDocumentLabel(fila.proforma)}
+                      </Badge>
+                    </TD>
+                    <TD className="text-sm">{fila.proforma.customerName}</TD>
+                    <TD className="text-sm opacity-70">{fila.proforma.cashierName}</TD>
+                    <TD className="text-sm">
+                      {fila.proforma.sellerName ?? (
+                        <span className="opacity-40">No asignado</span>
+                      )}
+                    </TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      {formatCurrency(fila.proforma.total)}
+                    </TD>
+                    <TD>
+                      <Badge
+                        tone={
+                          fila.proforma.status === "paid"
+                            ? "success"
+                            : fila.proforma.status === "partially_paid"
+                              ? "warning"
+                              : "info"
+                        }
+                      >
+                        {fila.proforma.status}
+                      </Badge>
+                    </TD>
+                    <TD className="pr-4">
+                      <RowActions
+                        viewHref={`/ventas/${fila.proforma.id}`}
+                        canEdit={false}
+                        canDelete={false}
+                        customActions={[
+                          {
+                            label: "Editar factura",
+                            icon: Pencil,
+                            ...(canEdit && documentEditability(fila.proforma).editable
+                              ? { href: `/ventas/${fila.proforma.id}/editar` }
+                              : {
+                                  disabled: true,
+                                  disabledReason: !canEdit
+                                    ? "No tienes permiso para editar facturas."
+                                    : documentEditability(fila.proforma).reason ??
+                                      "Este documento no se puede editar.",
+                                }),
+                          },
+                          {
+                            label: "Imprimir",
+                            icon: Printer,
+                            href: `/ventas/${fila.proforma.id}/print`,
+                          },
+                          {
+                            label: "Enviar WhatsApp",
+                            icon: Send,
+                            onClick: () => setSendDoc({ doc: fila.proforma, tab: "whatsapp" }),
+                          },
+                          {
+                            label: "Enviar por correo",
+                            icon: Mail,
+                            onClick: () => setSendDoc({ doc: fila.proforma, tab: "email" }),
+                          },
+                          {
+                            label: "Eliminar",
+                            icon: Trash2,
+                            disabled: true,
+                            disabledReason:
+                              "No se puede eliminar una venta emitida. Usa anular si aplica.",
+                          },
+                        ]}
+                      />
+                    </TD>
+                  </TR>
+                ) : (
+                  /* Factura migrada de Alegra: historial de otro sistema. Se
+                     ve, no se toca — ni editar, ni anular, ni enviar. */
+                  <TR key={fila.id}>
+                    <TD className="text-xs">{formatDate(fila.venta.fecha)}</TD>
+                    <TD className="font-mono text-xs">{fila.venta.numero}</TD>
+                    <TD>
+                      <EtiquetaOrigen origen={fila.venta.origen} />
+                    </TD>
+                    <TD className="text-sm">{fila.venta.clienteNombre ?? "—"}</TD>
+                    <TD className="text-sm opacity-40">—</TD>
+                    <TD className="text-sm">
+                      {fila.venta.vendedor ?? <span className="opacity-40">No asignado</span>}
+                    </TD>
+                    <TD className="text-right tabular-nums font-medium">
+                      {fila.venta.anulada ? (
+                        <span className="line-through opacity-60">
+                          {formatCurrency(fila.venta.total)}
+                        </span>
+                      ) : (
+                        formatCurrency(fila.venta.total)
+                      )}
+                    </TD>
+                    <TD>
+                      <Badge
+                        tone={TONO_ESTADO_MIGRADA[fila.venta.estado]}
+                        title={
+                          fila.venta.anulada
+                            ? "Excluida de los totales. El estado fiscal lo manda Alegra."
+                            : "Factura migrada del sistema anterior (Alegra)."
+                        }
+                      >
+                        {fila.venta.estado === "vigente"
+                          ? "Histórico"
+                          : ETIQUETA_ESTADO_VENTA[fila.venta.estado]}
+                      </Badge>
+                    </TD>
+                    <TD
+                      className="pr-4 text-right text-xs opacity-60"
+                      title="Factura migrada de Alegra: se puede ver, no editar ni enviar desde DermaLand. Alegra manda y DermaLand solo lee."
+                    >
+                      Solo lectura
+                    </TD>
+                  </TR>
+                ),
+              )}
             </TBody>
           </Table>
           </div>
-          {sales.length > 0 && (
+          {filas.length > 0 && (
             <DataPagination
               page={pag.page}
               pageSize={pag.pageSize}
