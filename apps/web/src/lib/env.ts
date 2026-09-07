@@ -36,6 +36,13 @@ const schema = z.object({
   DGII_CERTIFICATE_PATH: z.string().optional(),
   DGII_CERTIFICATE_PASSWORD: z.string().optional(),
   DGII_CERT_ENCRYPTION_KEY: z.string().optional(),
+  /**
+   * Llave de la bóveda de claves de acceso (32 bytes en base64). Solo servidor.
+   * Sin ella, el panel no puede asignar ni enseñar claves — y falla diciéndolo,
+   * nunca guardando la clave en claro. Aparte de las otras dos llaves del
+   * sistema a propósito: que se filtre una no debe abrir las tres.
+   */
+  USER_PASSWORD_VAULT_KEY: z.string().optional(),
   // URL base por ambiente. Si no se proveen, el cliente usa los defaults
   // hardcoded: `https://ecf.dgii.gov.do/{testecf|certecf|ecf}`.
   DGII_BASE_URL_TESTECF: z.string().url().optional(),
