@@ -5,6 +5,30 @@
 
 **Última actualización:** 2026-09-06
 
+## 2026-09-06 · Las ventas de Alegra, integradas al sistema (v0.146.0)
+
+- **El problema.** El panel decía RD$0.00 teniendo RD$48 millones migrados. Las 14 965
+  facturas de Alegra viven en sus propias tablas —decisión consciente de la migración,
+  para no mezclar el historial fiscal de un sistema con las ventas del otro— y las
+  pantallas principales solo miraban `proformas`, que está vacía porque DermaLand
+  todavía no ha cobrado nada por su propio punto de venta.
+- **Qué se hizo.** Se corrige el efecto, no la decisión: **los datos siguen separados en
+  la base y se unen al leerlos.** No se copió ni se modificó una sola factura, y no se
+  insertó nada en `proformas`.
+- **Dónde se ven ya.** Panel, reportes de ventas (con desglose por vendedor, forma de
+  pago y producto), ficha del cliente y cuentas por cobrar. Cada fila lleva su etiqueta
+  **«Migrada de Alegra»**, y lo migrado se ve pero no se toca: no se edita ni se cobra.
+- **Rendimiento.** El panel descargaba 12 358 filas y ~3 MB para enseñar cuatro números.
+  Ahora los totales se calculan en la base y viajan hechos. Las tres rutas de listado que
+  no tenían tope ya lo tienen, aplicado en el repositorio y no solo en la ruta.
+- **Vendedores del histórico.** Desteny Reynoso 5 513 · Laura Mejía 1 027 · Darío 6 ·
+  Oficina 8 197 (las de mostrador sin vendedor). Oficina no es una persona y no cobra
+  comisiones.
+- **Cuadre verificado contra producción:** 14 743 ventas · RD$48 454 899,08, al céntimo.
+- **Pendiente del dueño:** aplicar las tres migraciones en orden y correr el relleno de
+  vendedores. Hasta entonces, las tarjetas del histórico enseñan un aviso ámbar visible,
+  nunca un cero disfrazado.
+
 ## 2026-09-06 · DermaLand prepara y firma un comprobante fiscal (v0.145.0, fase 3A)
 
 - **Qué hace ya.** Construye un e-CF con los datos del negocio, lo valida contra el
