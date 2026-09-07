@@ -48,6 +48,8 @@ import { insigniaCliente } from "@/features/customers/customer-flags";
 import { purchasesByMonth } from "@/features/customers/customer-purchases";
 import { AlegraPurchasesTab } from "@/features/alegra/client-purchases-tab";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
+import { CeldaItemsMigrados } from "@/features/ventas/celda-items-migrados";
+import { useRenglonesAlegra } from "@/features/ventas/use-renglones-alegra";
 import { pinturaEstadoVenta } from "@/features/ventas/venta-unificada";
 import { useListadoVentas } from "@/features/ventas/ventas-api";
 import {
@@ -64,8 +66,6 @@ import {
 import { documentRouteBase } from "@/features/sales/document-label";
 import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import { RowActions } from "@/components/ui/row-actions";
-import { DetalleCompraMigrada } from "@/features/ventas/detalle-compra-migrada";
-import type { VentaUnificada } from "@/features/ventas/venta-unificada";
 import { mockRecommendations } from "@/lib/mock-data/dermatology";
 import type { Proforma } from "@/types";
 import {
@@ -158,8 +158,14 @@ export default function ClienteDetallePage() {
   // la tabla. Antes eran dos y se contradecían en pantalla: «Total gastado
   // RD$0.00 · Compras 0» encima de «Compras (172) · RD$X comprados».
   const metricas = React.useMemo(() => metricasComprasCliente(compras), [compras]);
-  // Qué compra migrada está abierta en el detalle. `null` = ninguna.
-  const [detalle, setDetalle] = React.useState<VentaUnificada | null>(null);
+  // Los renglones de las compras migradas QUE ESTÁN EN PANTALLA: la columna
+  // «Ítems» decía «—» y para saber qué se llevó el cliente había que abrir un
+  // modal aparte. Se piden en una sola consulta, no una por fila.
+  const idsMigradas = React.useMemo(
+    () => compras.filter((c) => !c.proforma).map((c) => c.venta.id),
+    [compras],
+  );
+  const renglones = useRenglonesAlegra(idsMigradas);
   const hayMasCompras = historicoCliente.tipo === "listo" && historicoCliente.datos.hayMas;
   // Qué se está mirando y de dónde sale: un listado que mezcla dos fuentes sin
   // decir cuánto pone cada una no se puede cuadrar con nada.
@@ -391,12 +397,6 @@ export default function ClienteDetallePage() {
                   <p className="mt-3 text-[11px] opacity-50">
                     Gasto por mes (últimos 6 meses).
                   </p>
-                  {metricas.cantidadAlegra > 0 && (
-                    <p className="mt-1 text-[11px] font-medium text-amber-700">
-                      Solo ventas del sistema — las compras migradas de Alegra no entran
-                      en esta gráfica.
-                    </p>
-                  )}
                 </>
               );
             })()}
@@ -500,11 +500,11 @@ export default function ClienteDetallePage() {
                         <TD className="text-xs">
                           <EtiquetaOrigen origen={venta.origen} />
                         </TD>
-                        <TD
-                          className="text-right tabular-nums opacity-60"
-                          title="El histórico migrado no trae el detalle de líneas en esta vista."
-                        >
-                          —
+                        <TD className="text-right">
+                          <CeldaItemsMigrados
+                            lineas={renglones.porFactura.get(venta.id) ?? []}
+                            cargando={renglones.cargando}
+                          />
                         </TD>
                         <TD className="text-right tabular-nums font-medium">
                           {/* 🔴 Solo la ANULADA se tacha. Un borrador tachado se
@@ -536,12 +536,21 @@ export default function ClienteDetallePage() {
                               es que sobre una factura migrada no existen. Alegra
                               manda y DermaLand solo lee. */}
                           <RowActions
-                            onView={() => setDetalle(venta)}
-                            onPrint={() => window.print()}
+                            viewHref={`/ventas/alegra/${venta.id}`}
                             canEdit={false}
                             canDelete={false}
                             canSend={false}
                             itemLabel={`la compra ${venta.numero}`}
+                            customActions={[
+                              {
+                                label: "Imprimir",
+                                icon: Printer,
+                                // 🔴 La página de impresión, no `window.print()`:
+                                // eso imprimía la ficha ENTERA. El CSS de
+                                // impresión solo deja pasar el ticket 80mm.
+                                href: `/ventas/alegra/${venta.id}/print?auto=1`,
+                              },
+                            ]}
                           />
                         </TD>
                       </TR>
@@ -551,7 +560,6 @@ export default function ClienteDetallePage() {
               </Table>
             </CardContent>
           </Card>
-          <DetalleCompraMigrada venta={detalle} onClose={() => setDetalle(null)} />
           <SendInvoiceModal
             proforma={sendModal.proforma}
             open={sendModal.proforma !== null}

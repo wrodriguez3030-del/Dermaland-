@@ -30,7 +30,7 @@ export default async function FacturaAlegraPage({
   const { factura, proforma, sucursal } = cargada;
   // La cabecera migrada no siempre cuadra al centavo (arrastre de Alegra):
   // se enseña la nota en vez de esconder la diferencia, mismo criterio que
-  // `detalle-compra-migrada.tsx`. Ver `descuadre-alegra.ts` para por qué la
+  // el modal que esta pantalla sustituye. Ver `descuadre-alegra.ts` para por qué la
   // fórmula resta el `discount`.
   const descuadre = hayDescuadreAlegra(factura);
 

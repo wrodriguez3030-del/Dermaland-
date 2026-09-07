@@ -2,8 +2,8 @@ import type { FacturaAlegraCompleta } from "@/server/services/alegra/factura-com
 
 /**
  * `true` si la cabecera de la factura migrada no cuadra al centavo: mismo
- * criterio que `detalle-compra-migrada.tsx`, pero a nivel de cabecera en vez
- * de líneas.
+ * criterio que tenía el modal que esta pantalla sustituye, pero a nivel de
+ * cabecera en vez de líneas.
  *
  * 🔴 La fórmula lleva el `discount` de la cabecera (`subtotal - discount +
  * itbis`), NO `subtotal + itbis` a secas: `subtotal` en `alegra_invoices` es

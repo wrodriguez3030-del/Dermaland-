@@ -9,7 +9,31 @@ import { lineasDeFacturas } from "@/server/services/alegra/queries";
 
 export const dynamic = "force-dynamic";
 
-const querySchema = z.object({ invoiceId: z.string().uuid() });
+/**
+ * Tope de facturas por petición. La ficha del cliente pide los ítems de las
+ * compras que tiene EN PANTALLA (una página del listado), nunca del histórico
+ * entero: 50 le sobran. Sin tope, un `in` con cientos de ids revienta la URL
+ * — el mismo motivo por el que `lineasDeFacturas` pide por tandas de 200.
+ */
+const TOPE_FACTURAS = 50;
+
+/**
+ * Se acepta `invoiceId` (una) o `invoiceIds` (varias, separadas por coma). La
+ * primera se conserva porque ya hay quien la usa; la segunda existe para pintar
+ * una tabla entera sin una petición por fila.
+ */
+const querySchema = z
+  .object({
+    invoiceId: z.string().uuid().optional(),
+    invoiceIds: z
+      .string()
+      .transform((v) => v.split(",").map((x) => x.trim()).filter(Boolean))
+      .pipe(z.array(z.string().uuid()).min(1).max(TOPE_FACTURAS))
+      .optional(),
+  })
+  .refine((q) => q.invoiceId !== undefined || q.invoiceIds !== undefined, {
+    message: "Falta la factura.",
+  });
 
 /**
  * Qué llevaba una factura migrada de Alegra.
@@ -29,18 +53,28 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await authorizeRole(ALEGRA_READ_ROLES);
   if (!auth.ok) return auth.res;
 
+  const uno = req.nextUrl.searchParams.get("invoiceId");
+  const varias = req.nextUrl.searchParams.get("invoiceIds");
   const parsed = querySchema.safeParse({
-    invoiceId: req.nextUrl.searchParams.get("invoiceId"),
+    ...(uno !== null && { invoiceId: uno }),
+    ...(varias !== null && { invoiceIds: varias }),
   });
   if (!parsed.success) {
-    return NextResponse.json({ error: "Falta la factura o no es válida." }, { status: 400 });
+    // 🔴 Un 400, nunca una lista vacía: en pantalla, «esta factura no llevaba
+    // nada» y «la petición estaba mal» se ven igual, y una de las dos es un
+    // fallo que hay que arreglar.
+    return NextResponse.json(
+      { error: `Falta la factura o no es válida (máximo ${TOPE_FACTURAS} por consulta).` },
+      { status: 400 },
+    );
   }
+  const ids = parsed.data.invoiceIds ?? [parsed.data.invoiceId as string];
 
   try {
     const ctx = await getRepoContext();
     // `lineasDeFacturas` filtra por `business_id` del contexto —del JWT, no de
     // quien llama—, así que pedir la factura de otro negocio no devuelve nada.
-    const items = await lineasDeFacturas(ctx, [parsed.data.invoiceId]);
+    const items = await lineasDeFacturas(ctx, ids);
     return NextResponse.json({ items }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return NextResponse.json(
