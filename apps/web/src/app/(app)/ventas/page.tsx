@@ -178,6 +178,18 @@ function VentasContent() {
     filtrosNoAplicables,
   });
   const listado = useListadoVentas({ ...rango, limite: 200 }, historicoParticipa);
+
+  /**
+   * 🔴 Qué decir cuando no hay ni una fila. Esta pantalla arranca en HOY, y el
+   * histórico migrado termina donde terminó la migración: un lunes sin ventas
+   * propias todavía enseñaba una tabla con cabeceras y nada debajo, que se lee
+   * como «el sistema no tiene mis datos» cuando lo que pasa es que hoy no se ha
+   * vendido. Decirlo, y ofrecer el histórico, cuesta dos líneas.
+   */
+  const vacioTexto =
+    period === "today"
+      ? "No hay ventas registradas hoy."
+      : "No hay ventas en el período seleccionado.";
   const ventasAlegra =
     listado.tipo === "listo"
       ? listado.datos.ventas.filter((v) => v.origen === "alegra")
@@ -342,7 +354,17 @@ function VentasContent() {
           {/* Móvil: tarjetas */}
           <div className="divide-y divide-slate-100 md:hidden">
             {pag.pageItems.length === 0 && (
-              <div className="px-4 py-10 text-center text-sm opacity-60">Sin ventas.</div>
+              <div className="px-4 py-10 text-center text-sm">
+                <p className="opacity-60">{vacioTexto}</p>
+                {period === "today" && (
+                  <Link
+                    href="/ventas?period=all"
+                    className="mt-2 inline-block font-medium text-[color:var(--brand-accent)] hover:underline"
+                  >
+                    Ver todo el histórico →
+                  </Link>
+                )}
+              </div>
             )}
             {pag.pageItems.map((fila) =>
               fila.origen === "sistema" ? (
@@ -443,6 +465,22 @@ function VentasContent() {
               </TR>
             </THead>
             <TBody>
+              {/* Antes no había nada: la tabla enseñaba las cabeceras y un hueco. */}
+              {pag.pageItems.length === 0 && (
+                <TR>
+                  <TD colSpan={9} className="py-10 text-center text-sm">
+                    <span className="opacity-60">{vacioTexto}</span>
+                    {period === "today" && (
+                      <Link
+                        href="/ventas?period=all"
+                        className="ml-2 font-medium text-[color:var(--brand-accent)] hover:underline"
+                      >
+                        Ver todo el histórico →
+                      </Link>
+                    )}
+                  </TD>
+                </TR>
+              )}
               {pag.pageItems.map((fila) =>
                 fila.origen === "sistema" ? (
                   <TR key={fila.id}>

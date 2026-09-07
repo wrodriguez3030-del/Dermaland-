@@ -16,6 +16,7 @@ import {
   type ReportKpi,
 } from "@/components/reporting/report-layout";
 import { useProformas } from "@/features/sales/proforma-store";
+import { useDesgloseVentas } from "@/features/ventas/ventas-api";
 import { isInvoiceDocument } from "@/features/sales/document-label";
 import { useProducts } from "@/features/products/product-store";
 import {
@@ -44,8 +45,27 @@ export default function ReporteProductosPage() {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
   }, []);
 
+  // 🔴 El histórico migrado de Alegra: `proformas` tiene 0 filas, así que sin
+  // esto TODO este reporte salía vacío —y peor, «Baja rotación» listaba los
+  // 1 513 productos como si ninguno se hubiera vendido nunca, teniendo 1 248
+  // con ventas reales—. El desglose llega calculado de la base, sin traer una
+  // sola fila para sumarla, y trae los 200 productos más vendidos.
+  const desgloseProducto = useDesgloseVentas("producto", {});
+  const migrados = React.useMemo(
+    () =>
+      desgloseProducto.tipo === "listo"
+        ? desgloseProducto.datos.filas
+            .filter((f) => f.origen === "alegra")
+            .map((f) => ({ productId: f.clave, name: f.etiqueta, qty: f.cantidad, revenue: f.total }))
+        : [],
+    [desgloseProducto],
+  );
+  const historicoIncompleto = desgloseProducto.tipo === "listo" && migrados.length > 0;
+  const historicoCargando = desgloseProducto.tipo === "cargando";
+  const historicoFallo = desgloseProducto.tipo === "error" ? desgloseProducto.mensaje : null;
+
   // Ventas por producto (solo facturas, no proformas).
-  const top = React.useMemo(() => {
+  const topSistema = React.useMemo(() => {
     const map = new Map<string, { name: string; qty: number; revenue: number }>();
     for (const p of allDocs) {
       if (!isInvoiceDocument(p) || p.status === "cancelled") continue;
@@ -60,6 +80,15 @@ export default function ReporteProductosPage() {
       .map(([productId, v]) => ({ productId, ...v }))
       .sort((a, b) => b.revenue - a.revenue);
   }, [allDocs]);
+
+  // Las dos mitades, ordenadas juntas. No se funden por producto: hoy
+  // `proformas` está vacía y no hay solape; el día que lo haya, sumarlas aquí
+  // exigiría decidir si «cantidad» son unidades (sistema) o renglones (Alegra),
+  // que NO miden lo mismo. Se deja anotado en vez de inventar la suma.
+  const top = React.useMemo(
+    () => [...topSistema, ...migrados].sort((a, b) => b.revenue - a.revenue),
+    [topSistema, migrados],
+  );
 
   // Stock vendible por producto.
   const stockByProduct = React.useMemo(() => {
@@ -194,6 +223,14 @@ export default function ReporteProductosPage() {
         )}
 
         <ReportSection title="Detalle de ventas por producto" flush>
+          {historicoCargando && (
+            <p className="px-4 py-3 text-sm opacity-60">Cargando el histórico migrado…</p>
+          )}
+          {historicoFallo && (
+            <p className="mx-4 my-3 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {historicoFallo} Se enseñan solo las ventas del sistema.
+            </p>
+          )}
           {top.length === 0 ? (
             <ReportEmptyState message="Sin ventas de productos en el período." />
           ) : (
@@ -267,6 +304,17 @@ export default function ReporteProductosPage() {
         </ReportSection>
 
         <ReportSection title="Baja rotación (sin ventas)" tone="warning">
+          {/* 🔴 El histórico migrado entra por el desglose, que devuelve los 200
+              productos MÁS vendidos, no los 1 248 que tuvieron ventas. Un
+              producto que vendió poco en Alegra cae fuera de esa lista y
+              aparece aquí como si no hubiera vendido nunca. Decirlo evita que
+              esta tabla se lea como una sentencia. */}
+          {historicoIncompleto && (
+            <p className="mb-3 rounded-lg border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Se compara contra los 200 productos más vendidos del histórico migrado. Un producto
+              con pocas ventas en Alegra puede aparecer aquí sin serlo.
+            </p>
+          )}
           {lowRotation.length === 0 ? (
             <ReportEmptyState message="Todos los productos en stock registran ventas." />
           ) : (
