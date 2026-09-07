@@ -155,3 +155,82 @@ describe("summarizeLabSales", () => {
     expect(sum.top3.length).toBe(2); // sólo 2 con ventas
   });
 });
+
+/**
+ * 🔴 El ranking tiene que contar TAMBIÉN el histórico migrado de Alegra.
+ *
+ * La pantalla «Productos → Laboratorios» salía entera en cero —RD$0.00, 0
+ * unidades, «— Sin ventas», 80 barras planas— porque solo miraba `proformas`,
+ * y `proformas` tiene CERO filas: el punto de venta propio no ha cobrado nada
+ * y los RD$48,4 millones del negocio están en `alegra_invoices`.
+ *
+ * Los importes de estas pruebas son los REALES medidos en producción el
+ * 07/09/2026, para que se note si alguien cambia el criterio de suma.
+ */
+describe("computeLabSales con el histórico de Alegra", () => {
+  const labA = { id: "lab-a", name: "La Roche-Posay" } as Laboratory;
+  const labB = { id: "lab-b", name: "Eucerin" } as Laboratory;
+
+  it("🔴 suma las ventas de Alegra aunque no haya ni una proforma", () => {
+    const rows = computeLabSales([labA, labB], [], [], {}, [
+      { laboratorioId: "lab-a", total: 4_990_824.43, unidades: 2119, facturas: 1827, productos: 40 },
+      { laboratorioId: "lab-b", total: 4_293_999.98, unidades: 2885, facturas: 2388, productos: 55 },
+    ]);
+    expect(rows[0]?.lab.id).toBe("lab-a");
+    expect(rows[0]?.totalMoney).toBeCloseTo(4_990_824.43, 2);
+    expect(rows[0]?.units).toBe(2119);
+    expect(rows[0]?.transactions).toBe(1827);
+    expect(rows[0]?.productsSold).toBe(40);
+    expect(rows[1]?.lab.id).toBe("lab-b");
+    // El ranking se recalcula con las dos mitades juntas, no con la del sistema.
+    expect(rows[0]?.rank).toBe(1);
+    expect(rows[1]?.percentOfLeader).toBe(86);
+  });
+
+  it("🔴 los RD$9,5 millones sin laboratorio NO se pierden: van a «Sin laboratorio»", () => {
+    // Es el 20% del histórico. Descartarlos haría que el ranking no cuadrara
+    // con el total del negocio, que es el descuadre mudo que hay que evitar.
+    const rows = computeLabSales([labA], [], [], { includeUnassigned: true }, [
+      { laboratorioId: "lab-a", total: 4_990_824.43, unidades: 2119, facturas: 1827, productos: 40 },
+      { laboratorioId: "", total: 9_500_943.07, unidades: 13887, facturas: 6373, productos: 300 },
+    ]);
+    const sin = rows.find((r) => r.isUnassigned);
+    expect(sin, "falta la fila «Sin laboratorio»").toBeDefined();
+    expect(sin?.totalMoney).toBeCloseTo(9_500_943.07, 2);
+    expect(sin?.units).toBe(13887);
+    // Y sigue sin contar como laboratorio del ranking.
+    expect(sin?.rank).toBe(0);
+  });
+
+  it("🔴 un laboratorio que ya no existe no se cuela ni se pierde", () => {
+    // Una fila de Alegra con un `laboratorioId` que no está en el catálogo
+    // (borrado, o de otro negocio) cae en «Sin laboratorio», nunca inventa una
+    // fila nueva ni desaparece del total.
+    const rows = computeLabSales([labA], [], [], { includeUnassigned: true }, [
+      { laboratorioId: "lab-fantasma", total: 1000, unidades: 3, facturas: 2, productos: 1 },
+    ]);
+    expect(rows.filter((r) => !r.isUnassigned)).toHaveLength(1);
+    expect(rows.find((r) => r.isUnassigned)?.totalMoney).toBe(1000);
+  });
+
+  it("suma las dos mitades cuando hay proformas Y Alegra", () => {
+    const producto = { id: "p1", laboratoryId: "lab-a" } as Product;
+    const proforma = {
+      id: "pf1", status: "paid", branchId: "b1", createdAt: "2026-06-01T12:00:00Z",
+      items: [{ productId: "p1", quantity: 2, total: 500 }],
+    } as unknown as Proforma;
+    const rows = computeLabSales([labA], [producto], [proforma], {}, [
+      { laboratorioId: "lab-a", total: 1500, unidades: 5, facturas: 3, productos: 1 },
+    ]);
+    expect(rows[0]?.totalMoney).toBe(2000);
+    expect(rows[0]?.units).toBe(7);
+    // Una venta del sistema + tres facturas de Alegra.
+    expect(rows[0]?.transactions).toBe(4);
+  });
+
+  it("sin datos de Alegra se comporta exactamente como antes", () => {
+    const sinParametro = computeLabSales([labA, labB], [], [], {});
+    const conVacio = computeLabSales([labA, labB], [], [], {}, []);
+    expect(conVacio).toEqual(sinParametro);
+  });
+});

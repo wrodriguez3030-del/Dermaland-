@@ -40,6 +40,25 @@ export interface LabSalesRow {
   isUnassigned?: boolean;
 }
 
+/**
+ * Una fila del histórico migrado de Alegra, ya sumada por la función SQL
+ * `ventas_por_laboratorio` (los agregados de PostgREST están apagados en este
+ * proyecto, así que la suma se hace en la base, no en el navegador).
+ *
+ * `laboratorioId` vacío —o de un laboratorio que ya no está en el catálogo—
+ * cae en «Sin laboratorio»: son RD$9,5 millones del histórico y descartarlos
+ * dejaría el ranking sin cuadrar con el total del negocio.
+ */
+export interface LabAlegraRow {
+  laboratorioId: string;
+  total: number;
+  unidades: number;
+  /** Facturas DISTINTAS: una factura con dos productos del mismo lab es UNA venta. */
+  facturas: number;
+  /** Productos distintos vendidos de ese laboratorio. */
+  productos: number;
+}
+
 export interface LabSalesFilters {
   branchId?: string;
   /** ISO date (inclusive). */
@@ -55,6 +74,12 @@ export function computeLabSales(
   products: Product[],
   proformas: Proforma[],
   filters: LabSalesFilters = {},
+  /**
+   * Mitad del histórico migrado (ya filtrada por fecha y sucursal en la base:
+   * los filtros de `filters` NO se le vuelven a aplicar aquí, porque estas
+   * filas llegan sumadas y sin fecha).
+   */
+  alegra: LabAlegraRow[] = [],
 ): LabSalesRow[] {
   const validLabIds = new Set(laboratories.map((l) => l.id));
   const productLab = new Map<string, string>();
@@ -66,6 +91,10 @@ export function computeLabSales(
   const units = new Map<string, number>();
   const sales = new Map<string, Set<string>>();
   const prods = new Map<string, Set<string>>();
+  // Alegra llega ya contado por la base: son números, no conjuntos. Se suman
+  // aparte y se añaden al final, porque no se pueden meter en un `Set`.
+  const ventasAlegra = new Map<string, number>();
+  const productosAlegra = new Map<string, number>();
   const ensure = (id: string) => {
     if (!money.has(id)) {
       money.set(id, 0);
@@ -95,13 +124,29 @@ export function computeLabSales(
     }
   }
 
+  // ── mitad del histórico migrado ─────────────────────────────────────────
+  // Un `laboratorioId` vacío, o que no está en el catálogo (borrado, o de otro
+  // negocio), va a «Sin laboratorio»: mismo criterio que arriba con los
+  // productos del sistema. Ni se inventa una fila ni se pierde el dinero.
+  for (const fila of alegra) {
+    const labId =
+      fila.laboratorioId && validLabIds.has(fila.laboratorioId)
+        ? fila.laboratorioId
+        : UNASSIGNED;
+    ensure(labId);
+    money.set(labId, (money.get(labId) ?? 0) + (fila.total || 0));
+    units.set(labId, (units.get(labId) ?? 0) + (fila.unidades || 0));
+    ventasAlegra.set(labId, (ventasAlegra.get(labId) ?? 0) + (fila.facturas || 0));
+    productosAlegra.set(labId, (productosAlegra.get(labId) ?? 0) + (fila.productos || 0));
+  }
+
   const realRows: LabSalesRow[] = laboratories
     .map((lab) => ({
       lab,
       totalMoney: money.get(lab.id) ?? 0,
       units: units.get(lab.id) ?? 0,
-      transactions: sales.get(lab.id)?.size ?? 0,
-      productsSold: prods.get(lab.id)?.size ?? 0,
+      transactions: (sales.get(lab.id)?.size ?? 0) + (ventasAlegra.get(lab.id) ?? 0),
+      productsSold: (prods.get(lab.id)?.size ?? 0) + (productosAlegra.get(lab.id) ?? 0),
       rank: 0,
       percentOfLeader: 0,
     }))
@@ -132,8 +177,10 @@ export function computeLabSales(
       } as Laboratory,
       totalMoney: noneMoney,
       units: noneUnits,
-      transactions: sales.get(UNASSIGNED)?.size ?? 0,
-      productsSold: prods.get(UNASSIGNED)?.size ?? 0,
+      transactions:
+        (sales.get(UNASSIGNED)?.size ?? 0) + (ventasAlegra.get(UNASSIGNED) ?? 0),
+      productsSold:
+        (prods.get(UNASSIGNED)?.size ?? 0) + (productosAlegra.get(UNASSIGNED) ?? 0),
       rank: 0,
       percentOfLeader: leader > 0 ? Math.round((noneMoney / leader) * 100) : 0,
       isUnassigned: true,
