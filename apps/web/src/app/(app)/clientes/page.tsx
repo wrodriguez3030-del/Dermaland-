@@ -31,6 +31,7 @@ import { useCustomersReport } from "@/features/customers/customer-profile-hooks"
 import { coincideCliente, FUENTES } from "@/features/customers/customer-search";
 import { insigniaCliente } from "@/features/customers/customer-flags";
 import { puedeAccionDeRiesgo } from "@/features/auth/riesgo-operativo";
+import { SelectorTipoPiel } from "@/features/customers/selector-tipo-piel";
 import { useCurrentRole } from "@/features/auth/current-user";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
 import { skinTypeLabel } from "@/features/customers/billing";
@@ -239,6 +240,9 @@ function ClientesContent() {
                     <div className="text-[10px] opacity-50">
                       {stats.purchases} pedidos · solo sistema
                     </div>
+                    {/* En móvil se queda como insignia: la tarjeta entera es
+                        un enlace y meter un desplegable dentro pelea con el
+                        toque. Se edita desde la ficha o desde la tabla. */}
                     <Badge tone="primary" outlined>
                       {skinTypeLabel(c.skinType)}
                     </Badge>
@@ -343,10 +347,18 @@ function ClientesContent() {
                       <div className="text-xs opacity-60">{c.email}</div>
                     )}
                   </TD>
-                  <TD>
-                    <Badge tone="primary" outlined>
-                      {skinTypeLabel(c.skinType)}
-                    </Badge>
+                  <TD onClick={(e) => e.stopPropagation()}>
+                    {/* Editable en el sitio: entrar a la ficha, pulsar
+                        «Editar», guardar y volver eran cuatro pasos para anotar
+                        un dato de una palabra, y con 6 525 fichas casi todas
+                        «No especificado» ese roce es la diferencia entre que se
+                        llene y que no se llene nunca. */}
+                    <SelectorTipoPiel
+                      clienteId={c.id}
+                      valor={c.skinType}
+                      onGuardado={() => toast.success("Tipo de piel guardado.")}
+                      onError={(m) => toast.error(m)}
+                    />
                   </TD>
                   <TD className="text-right tabular-nums">{stats.purchases}</TD>
                   <TD className="text-right tabular-nums font-medium">
