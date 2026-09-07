@@ -18,6 +18,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { consultaVinculacion } from "../lib/vincular-vendedores-consulta.mjs";
 
 const RAIZ = path.resolve(import.meta.dirname, "..", "..");
 const require = createRequire(path.join(RAIZ, "apps/web/package.json"));
@@ -86,22 +87,26 @@ try {
     }
 
     // ── las facturas ──
-    const filtro = v.alegra === null
-      ? "and (seller_name is null or trim(seller_name) = '')"
-      : "and upper(trim(seller_name)) = upper($3)";
-    const args = v.alegra === null ? [BUSINESS, id] : [BUSINESS, id, v.alegra];
+    // 🔴 El mismo predicado para contar y para escribir, y con `id` nulo (el
+    // ensayo, antes de crear a nadie) SIN el `seller_id is distinct from`: con
+    // NULL ese predicado es falso para toda fila sin vendedor y el ensayo
+    // informaba 0 facturas justo para los tres vendedores que después ataba.
+    const { where, args, paramSeller } = consultaVinculacion({
+      businessId: BUSINESS,
+      nombreAlegra: v.alegra,
+      sellerId: id,
+    });
 
     const cuenta = await c.query(
-      `select count(*)::int n from public.alegra_invoices
-       where business_id = $1 and seller_id is distinct from $2 ${filtro}`,
+      `select count(*)::int n from public.alegra_invoices where ${where}`,
       args,
     );
     const n = cuenta.rows[0].n;
 
-    if (APPLY && id && n > 0) {
+    if (APPLY && id && paramSeller && n > 0) {
       await c.query(
-        `update public.alegra_invoices set seller_id = $2, updated_at = now()
-         where business_id = $1 and seller_id is distinct from $2 ${filtro}`,
+        `update public.alegra_invoices set seller_id = ${paramSeller}, updated_at = now()
+         where ${where}`,
         args,
       );
     }
@@ -118,7 +123,11 @@ try {
      group by 1 order by n desc`,
     [BUSINESS],
   );
-  console.log("  ── reparto resultante (facturas no anuladas) ──");
+  console.log(
+    APPLY
+      ? "  ── reparto resultante (facturas no anuladas) ──"
+      : "  ── reparto ACTUAL, ANTES de aplicar (facturas no anuladas) ──",
+  );
   for (const r of v.rows) {
     console.log("  " + String(r.vendedor).padEnd(22) + String(r.n).padStart(6) + "  RD$" + Number(r.m).toLocaleString("es-DO"));
   }
