@@ -248,3 +248,40 @@ describe("lots/route.ts → productLot.list: el techo efectivo de filas por esce
     expect(filas).toHaveLength(7);
   });
 });
+
+/**
+ * `/api/ventas?vista=desglose` — añadida a la guarda global en la ronda de
+ * arreglos de la tarea 6B (menor M4 de `review-tarea6b-informe.md`).
+ *
+ * No entra en las dos listas de arriba porque no encaja en su forma: la ruta
+ * no clampa nada (`Math.min`/`TOPE_` no aparecen en su `route.ts`) y quien
+ * acota no es un método de un `xRepository` sino una función suelta,
+ * `desgloseVentas`. El tope vive en DOS sitios a propósito —`limit 200` en la
+ * función SQL y `.slice(0, TOPE_DESGLOSE)` en el repositorio— porque una
+ * migración se puede reemplazar sin tocar el TypeScript; lo que esta guarda
+ * comprueba es el segundo, que es el que corre en Node.
+ *
+ * Sin él, la dimensión `producto` puede devolver una fila por cada uno de los
+ * 1 248 productos del catálogo migrado.
+ */
+describe("/api/ventas?vista=desglose tampoco devuelve la tabla entera", () => {
+  const cuerpo = extraerMetodo(
+    "src/server/repositories/supabase/ventas-unificadas.ts",
+    "export async function desgloseVentas",
+    "export async function desgloseVentas",
+  );
+
+  it("el repositorio corta las filas del desglose con su tope", () => {
+    expect(sinComentarios(cuerpo), "desgloseVentas dejó de acotar las filas").toMatch(
+      /\.slice\(0,\s*TOPE_DESGLOSE\)/,
+    );
+  });
+
+  it("y el tope es una constante del SERVIDOR, no algo que mande quien llama", () => {
+    const modulo = sinComentarios(lee("src/server/repositories/supabase/ventas-unificadas.ts"));
+    expect(modulo).toMatch(/const TOPE_DESGLOSE = \d+;/);
+    // Ni `limite` ni `desplazamiento` de los filtros tocan el desglose: es un
+    // agregado, no una página.
+    expect(sinComentarios(cuerpo)).not.toMatch(/filtros\.limite/);
+  });
+});
