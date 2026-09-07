@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { desdeProforma, desdeFacturaAlegra, pinturaEstadoVenta } from "./venta-unificada";
 
@@ -203,24 +203,96 @@ describe("🔴 cómo se pinta un estado: una sola decisión", () => {
     expect(pinturaEstadoVenta("borrador").tono).not.toBe("danger");
   });
 
-  it("🔴 ninguna de las dos pantallas decide qué pintar mirando `anulada`", () => {
-    // Es la mutación que ninguna prueba de datos podía cazar: los dos sitios
-    // que pintan el estado estaban escritos con `anulada ?`, y `anulada`
-    // significa «no cuenta para los totales», no «anulada fiscalmente». Se
-    // lee el fuente porque el fallo vive en el JSX, no en una función.
-    const raiz = resolve(process.cwd(), "src", "app", "(app)");
-    const pantallas = [
-      resolve(raiz, "clientes", "[id]", "page.tsx"),
-      resolve(raiz, "reportes", "ventas", "historico-alegra.tsx"),
-    ];
-    for (const f of pantallas) {
-      const codigo = readFileSync(f, "utf8");
-      const lineas = codigo
-        .split("\n")
-        .filter((l) => !l.trimStart().startsWith("*") && !l.trimStart().startsWith("//"));
-      expect(lineas.join("\n"), `${f} vuelve a pintar mirando \`anulada\``)
-        .not.toMatch(/\.anulada\s*\?/);
-      expect(codigo, `${f} ya no usa la decisión compartida`).toContain("pinturaEstadoVenta");
+  /**
+   * 🔴 Este guardián DESCUBRE las pantallas, no las enumera.
+   *
+   * La versión anterior listaba dos rutas a mano y su título decía «las dos
+   * pantallas». Cuando apareció una TERCERA (`/ventas`), volvió a pintar con
+   * `anulada ?` y el guardián no la vio: daba confianza falsa, que es peor que
+   * no tener guardián. Una lista escrita a mano solo cubre lo que ya sabías.
+   *
+   * Se lee el fuente porque el fallo vive en el JSX, no en una función, y
+   * ninguna prueba de datos ni `typecheck` pueden cazarlo.
+   */
+  const SRC = resolve(process.cwd(), "src");
+
+  /** Todos los fuentes de la app, sin las pruebas (que sí nombran `anulada ?`). */
+  function fuentesDeLaApp(dir: string): string[] {
+    const salida: string[] = [];
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const ruta = resolve(dir, e.name);
+      if (e.isDirectory()) {
+        if (e.name === "node_modules" || e.name === ".next") continue;
+        salida.push(...fuentesDeLaApp(ruta));
+      } else if (/\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
+        salida.push(ruta);
+      }
+    }
+    return salida;
+  }
+
+  /** El fuente sin comentarios: un comentario no es código y no puede valer como uso. */
+  function sinComentarios(codigo: string): string {
+    return codigo
+      .split("\n")
+      .filter((l) => {
+        const t = l.trimStart();
+        return !t.startsWith("*") && !t.startsWith("//") && !t.startsWith("/*") && !t.startsWith("{/*");
+      })
+      .join("\n");
+  }
+
+  /** Qué símbolos importa un fuente del modelo unificado. */
+  function importaDelModelo(codigo: string): Set<string> {
+    const simbolos = new Set<string>();
+    const re = /import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*["'][^"']*venta-unificada["']/g;
+    for (const m of codigo.matchAll(re)) {
+      for (const bruto of (m[1] ?? "").split(",")) {
+        const nombre = bruto.replace(/\btype\b/, "").trim().split(/\s+as\s+/)[0]?.trim();
+        if (nombre) simbolos.add(nombre);
+      }
+    }
+    return simbolos;
+  }
+
+  it("🔴 NINGÚN fuente decide qué pintar mirando `anulada` (barrido, no lista)", () => {
+    const fuentes = fuentesDeLaApp(SRC);
+    // Sin este suelo, un fallo del barrido dejaría la prueba verde sin haber
+    // mirado un solo fichero — la tautología de manual.
+    expect(fuentes.length, "el barrido no encontró fuentes").toBeGreaterThan(100);
+
+    const culpables: string[] = [];
+    const pintan: string[] = [];
+    for (const f of fuentes) {
+      const codigo = sinComentarios(readFileSync(f, "utf8"));
+      // `anulada` significa «no cuenta para los totales», no «anulada
+      // fiscalmente»: un ternario sobre ella ES una decisión de pintura.
+      if (/\.anulada\s*\?/.test(codigo)) culpables.push(f);
+      if (/\bpinturaEstadoVenta\s*\(/.test(codigo)) pintan.push(f);
+
+      // Quien PINTA con el vocabulario de estado y no usa la decisión
+      // compartida se está escribiendo su propia regla. Así se coló `/ventas`,
+      // con su propio mapa de tonos y su propio tachado.
+      //
+      // Solo `.tsx`: pintar es JSX. `ventas-api.ts` importa `EstadoVenta` para
+      // TRANSPORTARLO por la red (`comoEstado`), que es otra cosa y es
+      // legítima; obligarla a llamar a una función de pintura sería obligarla
+      // a mentir sobre lo que hace.
+      const simbolos = f.endsWith(".tsx") ? importaDelModelo(codigo) : new Set<string>();
+      const tocaEstado =
+        simbolos.has("EstadoVenta") || simbolos.has("ETIQUETA_ESTADO_VENTA") || simbolos.has("PinturaVenta");
+      if (tocaEstado && !/\bpinturaEstadoVenta\s*\(/.test(codigo)) {
+        culpables.push(`${f} (usa el vocabulario de estado sin \`pinturaEstadoVenta\`)`);
+      }
+    }
+
+    expect(culpables, "vuelven a pintar sin la decisión compartida").toEqual([]);
+    // Segundo suelo: si nadie llamara a la función compartida, el barrido de
+    // arriba estaría verde por vacío. Hoy son tres pantallas.
+    expect(pintan.length, "nadie usa `pinturaEstadoVenta`").toBeGreaterThanOrEqual(3);
+    const nombres = pintan.map((f) => f.slice(SRC.length));
+    for (const esperada of ["ventas/page.tsx", "clientes/[id]/page.tsx", "historico-alegra.tsx"]) {
+      expect(nombres.some((n) => n.endsWith(esperada)), `${esperada} no pinta con la compartida`).toBe(true);
     }
   });
 });

@@ -36,8 +36,7 @@ import { useCurrentUser } from "@/features/auth/current-user";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { useListadoVentas } from "@/features/ventas/ventas-api";
 import {
-  ETIQUETA_ESTADO_VENTA,
-  type EstadoVenta,
+  pinturaEstadoVenta,
   type VentaUnificada,
 } from "@/features/ventas/venta-unificada";
 import {
@@ -79,23 +78,6 @@ type FilaVenta =
   | { origen: "sistema"; id: string; fecha: string; proforma: Proforma }
   | { origen: "alegra"; id: string; fecha: string; venta: VentaUnificada };
 
-/**
- * Tono del badge de estado de una venta MIGRADA. Las PALABRAS salen de
- * `ETIQUETA_ESTADO_VENTA` (fuente única del modelo unificado): aquí solo se
- * elige el color. `vigente` se pinta «Histórico» en neutro —la fila ya dice su
- * origen en la columna de al lado— y el rojo se reserva para lo que de verdad
- * está anulado en Alegra. Mismo criterio que la ficha del cliente.
- *
- * 🔴 No se pinta por `anulada`: ese campo significa «no cuenta para los
- * totales» y también es `true` para un BORRADOR. Llamar «Anulada» a un
- * borrador es afirmar algo falso sobre un documento fiscal de otro sistema.
- */
-const TONO_ESTADO_MIGRADA: Record<EstadoVenta, "neutral" | "warning" | "danger"> = {
-  vigente: "neutral",
-  anulada: "danger",
-  borrador: "warning",
-  vencida: "warning",
-};
 
 function VentasContent() {
   const currentUser = useCurrentUser();
@@ -392,14 +374,22 @@ function VentasContent() {
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-1">
                         <EtiquetaOrigen origen={fila.venta.origen} />
+                        {/* 🔴 En móvil no hay columna de Estado: sin este badge
+                            lo único que se veía de un borrador era un importe
+                            tachado, o sea una afirmación falsa y sola. */}
+                        <Badge tone={pinturaEstadoVenta(fila.venta.estado).tono}>
+                          {pinturaEstadoVenta(fila.venta.estado).etiqueta ?? "Histórico"}
+                        </Badge>
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="font-bold tabular-nums text-[color:var(--brand-accent)]">
-                        {fila.venta.anulada ? (
+                        {pinturaEstadoVenta(fila.venta.estado).tachada ? (
                           <span className="line-through opacity-60">
                             {formatCurrency(fila.venta.total)}
                           </span>
+                        ) : pinturaEstadoVenta(fila.venta.estado).atenuada ? (
+                          <span className="opacity-60">{formatCurrency(fila.venta.total)}</span>
                         ) : (
                           formatCurrency(fila.venta.total)
                         )}
@@ -528,27 +518,26 @@ function VentasContent() {
                     <TD className="text-sm">
                       {fila.venta.vendedor ?? <span className="opacity-40">No asignado</span>}
                     </TD>
+                    {/* 🔴 Tachar el importe ES decir «anulada». La decisión la
+                        toma `pinturaEstadoVenta`, nunca `anulada` —que también
+                        es `true` para un BORRADOR—: así el badge y el importe
+                        no pueden contradecirse en la misma fila. */}
                     <TD className="text-right tabular-nums font-medium">
-                      {fila.venta.anulada ? (
+                      {pinturaEstadoVenta(fila.venta.estado).tachada ? (
                         <span className="line-through opacity-60">
                           {formatCurrency(fila.venta.total)}
                         </span>
+                      ) : pinturaEstadoVenta(fila.venta.estado).atenuada ? (
+                        <span className="opacity-60">{formatCurrency(fila.venta.total)}</span>
                       ) : (
                         formatCurrency(fila.venta.total)
                       )}
                     </TD>
                     <TD>
-                      <Badge
-                        tone={TONO_ESTADO_MIGRADA[fila.venta.estado]}
-                        title={
-                          fila.venta.anulada
-                            ? "Excluida de los totales. El estado fiscal lo manda Alegra."
-                            : "Factura migrada del sistema anterior (Alegra)."
-                        }
-                      >
-                        {fila.venta.estado === "vigente"
-                          ? "Histórico"
-                          : ETIQUETA_ESTADO_VENTA[fila.venta.estado]}
+                      <Badge tone={pinturaEstadoVenta(fila.venta.estado).tono}>
+                        {/* «Histórico» es lo que dice una migrada vigente: su
+                            origen ya está en la columna de al lado. */}
+                        {pinturaEstadoVenta(fila.venta.estado).etiqueta ?? "Histórico"}
                       </Badge>
                     </TD>
                     <TD

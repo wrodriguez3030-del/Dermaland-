@@ -54,13 +54,30 @@ const FACTURA_MIGRADA = {
   editable: false,
 };
 
+/**
+ * 🔴 Un BORRADOR de Alegra. `anulada` es `true` —no cuenta para los totales—
+ * pero NO está anulada fiscalmente. El sincronizador diario puede traer una
+ * (el CHECK de `alegra_invoices.status` lo permite) y esta pantalla es donde
+ * aterriza quien pulsa la tarjeta del panel.
+ */
+const FACTURA_BORRADOR = {
+  ...FACTURA_MIGRADA,
+  id: "a2",
+  numero: "B0100000124",
+  clienteNombre: "JUAN GOMEZ",
+  total: 750,
+  fecha: "2026-08-18T00:00:00Z",
+  anulada: true,
+  estado: "borrador",
+};
+
 /** `/api/ventas` respondiendo bien a sus dos vistas. */
 function fetchOk() {
   return vi.fn(async (url: string) => {
     const u = String(url);
     const cuerpo = u.includes("vista=resumen")
       ? RESUMEN
-      : { ventas: [FACTURA_MIGRADA], hayMas: false };
+      : { ventas: [FACTURA_MIGRADA, FACTURA_BORRADOR], hayMas: false };
     return { ok: true, status: 200, json: async () => cuerpo };
   });
 }
@@ -98,6 +115,27 @@ describe("Ventas / Facturas — el histórico migrado de Alegra", () => {
     );
     // Historial de otro sistema: se ve, no se toca.
     expect(screen.getAllByText("Solo lectura").length).toBeGreaterThan(0);
+  });
+
+  it("🔴 un borrador migrado NO se pinta como anulada (ni en móvil, que no tiene columna de estado)", async () => {
+    // Tachar un importe ES decir «anulada». `anulada` significa «no cuenta
+    // para los totales» y también es `true` para un borrador: decidir la
+    // pintura con ese campo afirma algo falso sobre un documento fiscal de
+    // OTRO sistema. En la tarjeta móvil, además, no hay badge que matice: lo
+    // único que vería el usuario sería el tachado, solo.
+    vi.stubGlobal("fetch", fetchOk());
+    render(<VentasPage />);
+    await waitFor(() => expect(screen.getAllByText("Borrador").length).toBeGreaterThan(0));
+
+    // Móvil Y escritorio: las dos filas del borrador dicen su palabra.
+    expect(screen.getAllByText("Borrador").length).toBe(2);
+    const importes = screen.getAllByText(formatCurrency(750));
+    expect(importes.length).toBe(2);
+    for (const el of importes) {
+      expect(el.className, "el importe de un borrador sale tachado").not.toContain("line-through");
+    }
+    // Y no hay ninguna anulada en los datos, así que esa palabra no aparece.
+    expect(screen.queryByText("Anulada")).toBeNull();
   });
 
   it("🔴 si el histórico falla, avisa — nunca enseña el cero como si fuera el total", async () => {
