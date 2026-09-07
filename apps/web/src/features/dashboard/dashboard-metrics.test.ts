@@ -5,6 +5,9 @@ import {
   monthlyTrend,
   topProducts,
   buildInsights,
+  claveMes,
+  mesesDeLaTendencia,
+  MONTHS_ES,
 } from "./dashboard-metrics";
 import type { Proforma } from "@/types";
 
@@ -77,5 +80,67 @@ describe("dashboard-metrics", () => {
     expect(ins.some((i) => i.title.includes("Santiago lidera"))).toBe(true);
     expect(ins.some((i) => i.tone === "warn" && i.title.includes("15 días"))).toBe(true);
     expect(ins.some((i) => i.tone === "good" && i.title === "Stock saludable")).toBe(true);
+  });
+});
+
+/**
+ * 🔴 Los cubos de la tendencia son la ÚNICA cosa que hace que la mitad del
+ * sistema y la mitad migrada de Alegra caigan en el mismo mes.
+ *
+ * La gráfica «Tendencia mensual (ventas)» del panel dibuja seis puntos. Los
+ * totales del sistema los pone `monthlyTrend`; los del histórico los pone la
+ * base (`desglose_ventas_unificadas`, dimensión `mes`), que devuelve una clave
+ * `YYYY-MM` por mes. Si las claves de aquí no fueran EXACTAMENTE ésas, el
+ * histórico no encontraría su cubo y la línea seguiría plana en cero — el
+ * fallo que este trabajo vino a cerrar, entrando por la puerta de al lado.
+ */
+describe("cubos de la tendencia mensual", () => {
+  it("claveMes escribe `YYYY-MM` con el mes a dos cifras", () => {
+    // Enero es '01', no '1': ordenado como texto, '2026-1' iría después de
+    // '2026-12' y la serie saldría desordenada.
+    expect(claveMes(new Date(2026, 0, 31))).toBe("2026-01");
+    expect(claveMes(new Date(2026, 8, 1))).toBe("2026-09");
+    expect(claveMes(new Date(2026, 11, 25))).toBe("2026-12");
+  });
+
+  it("las claves ordenan cronológicamente como TEXTO", () => {
+    const claves = mesesDeLaTendencia(6, REF).map((m) => m.clave);
+    expect(claves).toEqual([...claves].sort());
+    expect(claves).toEqual([
+      "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07",
+    ]);
+  });
+
+  it("la etiqueta es el mes en español y su año, del más viejo al más nuevo", () => {
+    expect(mesesDeLaTendencia(3, REF)).toEqual([
+      { clave: "2026-05", etiqueta: "May 2026" },
+      { clave: "2026-06", etiqueta: "Jun 2026" },
+      { clave: "2026-07", etiqueta: "Jul 2026" },
+    ]);
+  });
+
+  it("cruza el año hacia atrás sin inventar meses", () => {
+    // Febrero de 2026 menos tres meses es noviembre de 2025, no el mes -1.
+    expect(mesesDeLaTendencia(4, new Date(2026, 1, 10))).toEqual([
+      { clave: "2025-11", etiqueta: "Nov 2025" },
+      { clave: "2025-12", etiqueta: "Dic 2025" },
+      { clave: "2026-01", etiqueta: "Ene 2026" },
+      { clave: "2026-02", etiqueta: "Feb 2026" },
+    ]);
+  });
+
+  it("🔴 monthlyTrend usa ESOS cubos: cada punto lleva la etiqueta de su clave", () => {
+    // Sin esto, `monthlyTrend` podría etiquetar «Jul 2026» un cubo cuya clave
+    // es otra, y el histórico migrado se sumaría en el punto equivocado.
+    const cubos = mesesDeLaTendencia(3, REF);
+    const serie = monthlyTrend(docs, 3, REF);
+    expect(serie.map((p) => p.label)).toEqual(cubos.map((c) => c.etiqueta));
+  });
+
+  it("MONTHS_ES tiene los doce meses, en orden", () => {
+    expect(MONTHS_ES).toHaveLength(12);
+    expect(MONTHS_ES[0]).toBe("Ene");
+    expect(MONTHS_ES[8]).toBe("Sep");
+    expect(MONTHS_ES[11]).toBe("Dic");
   });
 });

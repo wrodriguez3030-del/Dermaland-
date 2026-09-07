@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { DIMENSIONES_DESGLOSE } from "@/features/ventas/venta-unificada";
 
 /**
  * `GET /api/ventas` ejecutada de verdad, con el portero y el repositorio
@@ -83,7 +84,10 @@ describe("GET /api/ventas?vista=desglose", () => {
     );
   });
 
-  it.each(["vendedor", "forma_pago", "producto"])(
+  // 🔴 La lista se LEE del modelo, no se escribe a mano: una dimensión nueva
+  // que la ruta rechazara con un 400 dejaría su tarjeta en blanco, y una
+  // enumeración copiada aquí no lo notaría nunca.
+  it.each([...DIMENSIONES_DESGLOSE])(
     "acepta la dimensión %s y se la pasa tal cual al repositorio",
     async (dim) => {
       const res = await pedir(`vista=desglose&dimension=${dim}`);
@@ -91,6 +95,20 @@ describe("GET /api/ventas?vista=desglose", () => {
       expect(desgloseVentas.mock.calls[0]![2]).toBe(dim);
     },
   );
+
+  it("🔴 las cinco dimensiones del modelo pasan por aquí, no tres", () => {
+    // Si alguien añade un nombre a `DIMENSIONES_DESGLOSE` sin su rama en el
+    // SQL, la tarjeta enseñaría un desglose VACÍO —indistinguible de «no hubo
+    // ventas»— en vez de un 400. `migracion-desglose.test.ts` ata el otro
+    // extremo: que la migración vigente cubra exactamente estos nombres.
+    expect([...DIMENSIONES_DESGLOSE]).toEqual([
+      "vendedor",
+      "forma_pago",
+      "producto",
+      "sucursal",
+      "mes",
+    ]);
+  });
 
   it("🔴 una dimensión desconocida es un 400, NO un desglose vacío", async () => {
     const res = await pedir("vista=desglose&dimension=nomina");
@@ -103,6 +121,10 @@ describe("GET /api/ventas?vista=desglose", () => {
     expect(res.status).toBe(400);
     const cuerpo = (await res.json()) as { error: string };
     expect(cuerpo.error).toMatch(/dimension/i);
+    // Y el mensaje NOMBRA las dimensiones que sí valen, todas: enumerarlas a
+    // mano dejó el texto diciendo «vendedor, forma_pago o producto» meses
+    // después de que existieran cinco.
+    for (const dim of DIMENSIONES_DESGLOSE) expect(cuerpo.error).toContain(dim);
     expect(desgloseVentas).not.toHaveBeenCalled();
   });
 
@@ -154,6 +176,20 @@ describe("GET /api/ventas?vista=desglose", () => {
       expect((pago as { fuentes: string[] }).fuentes).toEqual(["alegra"]);
       expect((producto as { fuentes: string[] }).fuentes).toEqual(["alegra"]);
     });
+  });
+
+  it("🔴 las dos dimensiones del panel también declaran su fuente", async () => {
+    // `sucursal` y `mes` son SOLO Alegra: la mitad del sistema la calcula el
+    // propio panel con todos sus filtros aplicados. Sin este campo, el día que
+    // el POS facture, media tarjeta pasaría por entera.
+    const sucursal = (await (await pedir("vista=desglose&dimension=sucursal")).json()) as {
+      fuentes: string[];
+    };
+    const mes = (await (await pedir("vista=desglose&dimension=mes")).json()) as {
+      fuentes: string[];
+    };
+    expect(sucursal.fuentes).toEqual(["alegra"]);
+    expect(mes.fuentes).toEqual(["alegra"]);
   });
 
   it("🔴 con `incluirAlegra=false` el histórico ya no se anuncia como fuente", async () => {

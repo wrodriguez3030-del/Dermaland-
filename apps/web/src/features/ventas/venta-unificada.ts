@@ -233,17 +233,33 @@ export interface DesgloseOrigen {
 export const ETIQUETA_SIN_FORMA_PAGO = "Sin forma de pago";
 
 /**
- * Las tres formas de agrupar que sabe la función SQL
- * `desglose_ventas_unificadas` (ver la migración
- * `supabase/migrations/20260906140000_desglose_ventas_unificadas.sql`).
+ * Las formas de agrupar que sabe la función SQL `desglose_ventas_unificadas`.
+ * Las tres primeras nacieron en
+ * `supabase/migrations/20260906140000_desglose_ventas_unificadas.sql`; las dos
+ * últimas —`sucursal` y `mes`— las añade
+ * `supabase/migrations/20260907120000_desglose_ventas_sucursal_mes.sql`, que
+ * reemplaza esa función sobre la misma firma para que el panel deje de enseñar
+ * cuatro tarjetas en blanco.
  *
  * Vive aquí, en el modelo compartido, y no en el repositorio de Supabase,
  * porque el cliente de la API (`ventas-api.ts`, "use client") también la
  * necesita y ese repositorio lleva `import "server-only"`: importarlo desde el
  * navegador reventaría el build. Una sola definición, no dos listas que se
  * separen.
+ *
+ * 🔴 Esta lista es la que valida la ruta HTTP con zod: añadir un nombre aquí
+ * sin su rama en el SQL convertiría un 400 honesto («esa dimensión no
+ * existe») en un desglose VACÍO, que en una tarjeta es indistinguible de «no
+ * hubo ventas». `migracion-desglose.test.ts` comprueba que la migración
+ * vigente cubre exactamente estos cinco nombres.
  */
-export const DIMENSIONES_DESGLOSE = ["vendedor", "forma_pago", "producto"] as const;
+export const DIMENSIONES_DESGLOSE = [
+  "vendedor",
+  "forma_pago",
+  "producto",
+  "sucursal",
+  "mes",
+] as const;
 export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
 
 /**
@@ -256,6 +272,10 @@ export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
  *    inventar otro criterio distinto del que ya calcula `byPaymentMethod`.
  *  - `producto`: SOLO Alegra. El sistema ya tiene `topProducts` sobre
  *    `proforma_items`.
+ *  - `sucursal`: SOLO Alegra. El panel ya calcula su mitad con `salesByBranch`
+ *    sobre las ventas que la pantalla tiene filtradas.
+ *  - `mes`: SOLO Alegra. La mitad del sistema es `monthlyTrend`, que arma los
+ *    mismos cubos de mes en el navegador.
  *
  * Esto NO es documentación: viaja en la respuesta de
  * `GET /api/ventas?vista=desglose` (campo `fuentes`). Hoy `proformas` está
@@ -268,6 +288,8 @@ export const FUENTES_DESGLOSE: Record<DimensionDesglose, readonly OrigenVenta[]>
   vendedor: ["sistema", "alegra"],
   forma_pago: ["alegra"],
   producto: ["alegra"],
+  sucursal: ["alegra"],
+  mes: ["alegra"],
 };
 
 /**

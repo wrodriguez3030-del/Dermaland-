@@ -122,8 +122,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // casos es un 400: pedir un desglose sin decir de qué es un error de la
   // petición, no un desglose vacío.
   if (vista === "desglose" && !dimension) {
+    // La lista se ESCRIBE desde `DIMENSIONES_DESGLOSE`, no a mano: enumerarla
+    // aquí dejaría el mensaje mintiendo el día que se añada una dimensión
+    // (pasó: la tarjeta de sucursal y la de tendencia mensual llegaron
+    // después, y este texto seguía diciendo «vendedor, forma_pago o
+    // producto»).
     return NextResponse.json(
-      { error: "Falta `dimension`: vendedor, forma_pago o producto." },
+      { error: `Falta \`dimension\`: ${DIMENSIONES_DESGLOSE.join(", ")}.` },
       { status: 400 },
     );
   }

@@ -17,6 +17,16 @@ function sameMonth(iso: string, ref: Date): boolean {
   return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
 }
 
+/**
+ * 🔴 Cómo se llama una venta sin sucursal. Está aquí, en una constante, porque
+ * la MISMA tarjeta del panel mezcla estas filas con las del histórico migrado,
+ * que resuelve la base (`desglose_ventas_unificadas`, dimensión `sucursal`).
+ * Si el SQL y este archivo se renombraran por separado, la tarjeta enseñaría
+ * dos filas con el mismo significado y distinto nombre. `migracion-desglose.test.ts`
+ * ata las dos copias.
+ */
+export const ETIQUETA_SIN_SUCURSAL = "Sin sucursal";
+
 /** Ventas del mes agrupadas por sucursal (solo docs del set dado). */
 export function salesByBranch(
   docs: Proforma[],
@@ -29,7 +39,7 @@ export function salesByBranch(
     acc.set(p.branchId, (acc.get(p.branchId) ?? 0) + p.total);
   }
   return [...acc.entries()]
-    .map(([id, value]) => ({ label: branchName(id) || "Sin sucursal", value }))
+    .map(([id, value]) => ({ label: branchName(id) || ETIQUETA_SIN_SUCURSAL, value }))
     .sort((a, b) => b.value - a.value);
 }
 
@@ -59,22 +69,68 @@ export function paymentsByMethod(
     .sort((a, b) => b.value - a.value);
 }
 
+/**
+ * 🔴 Los doce meses en español, abreviados. Exportados porque la BASE escribe
+ * exactamente estos mismos nombres en la dimensión `mes` del desglose
+ * (`20260907120000_desglose_ventas_sucursal_mes.sql`): la serie de tiempo del
+ * panel mezcla los dos orígenes en los MISMOS cubos, y si una mitad dijera
+ * «Sept» y la otra «Sep» habría dos cubos donde hay uno.
+ */
+export const MONTHS_ES = [
+  "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+] as const;
+
+/** Un mes de la serie de tendencia: su clave ordenable y su etiqueta legible. */
+export interface CuboMes {
+  /** `YYYY-MM`. La MISMA clave que devuelve el desglose de la base. */
+  clave: string;
+  /** `Sep 2026`. Lo que se lee bajo el punto de la gráfica. */
+  etiqueta: string;
+}
+
+/**
+ * Clave `YYYY-MM` de una fecha. En hora LOCAL, igual que `sameMonth` y que el
+ * resto de los cubos de esta gráfica: mezclar local y UTC partiría en dos el
+ * mes de las ventas del último día.
+ */
+export function claveMes(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Los últimos `months` meses (incluido el de `ref`), del más viejo al más
+ * nuevo. Es la ÚNICA definición de los cubos de la tendencia: la usan tanto
+ * `monthlyTrend` (la mitad del sistema) como la pantalla que pide la mitad
+ * migrada a la base, para que las dos caigan en los mismos sitios.
+ */
+export function mesesDeLaTendencia(months = 6, ref: Date = new Date()): CuboMes[] {
+  const out: CuboMes[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const m = new Date(ref.getFullYear(), ref.getMonth() - i, 1);
+    // `getMonth()` siempre está entre 0 y 11: el `!` no oculta ningún caso.
+    out.push({ clave: claveMes(m), etiqueta: `${MONTHS_ES[m.getMonth()]!} ${m.getFullYear()}` });
+  }
+  return out;
+}
+
 /** Total vendido por mes en los últimos `months` meses (incluye el actual). */
 export function monthlyTrend(
   docs: Proforma[],
   months = 6,
   ref: Date = new Date(),
 ): LabeledValue[] {
-  const MONTHS_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  const out: LabeledValue[] = [];
-  for (let i = months - 1; i >= 0; i--) {
-    const m = new Date(ref.getFullYear(), ref.getMonth() - i, 1);
-    const total = docs
-      .filter((p) => sameMonth(p.createdAt, m))
-      .reduce((s, p) => s + p.total, 0);
-    out.push({ label: `${MONTHS_ES[m.getMonth()]} ${m.getFullYear()}`, value: total });
+  const acc = new Map<string, number>();
+  for (const p of docs) {
+    // Una fecha corrupta da una clave que no casa con ningún cubo y por tanto
+    // no suma en ninguno — el mismo desenlace que tenía `sameMonth`.
+    const clave = claveMes(new Date(p.createdAt));
+    acc.set(clave, (acc.get(clave) ?? 0) + p.total);
   }
-  return out;
+  return mesesDeLaTendencia(months, ref).map((m) => ({
+    label: m.etiqueta,
+    value: acc.get(m.clave) ?? 0,
+  }));
 }
 
 export interface TopProductRow {
