@@ -220,14 +220,18 @@ describe("«Ventas recientes» en pantalla", () => {
     expect(textos[2]).toContain("B0100000122");
   });
 
-  it("🔴 el enlace de la cabecera lleva a /ventas, que sí cuenta el histórico", () => {
+  it("🔴 el enlace de la cabecera lleva a /ventas?period=all, que sí cuenta el histórico", () => {
     // Decía «Ver proformas →» y llevaba a /proformas, donde el histórico
     // migrado no está: el dueño saldría de una lista con facturas de Alegra y
     // aterrizaría donde no aparecen.
+    //
+    // 🔴 Y el `?period=all` no es adorno: /ventas arranca en HOY, así que sin
+    // él se sale de una lista con facturas migradas a una pantalla vacía casi
+    // todo el día. Es el mismo silencio, un clic más allá.
     vi.stubGlobal("fetch", fetchDelHistorico([]));
     pintar();
     const enlace = screen.getByRole("link", { name: "Ver ventas →" });
-    expect(enlace).toHaveAttribute("href", "/ventas");
+    expect(enlace).toHaveAttribute("href", "/ventas?period=all");
     expect(screen.queryByText("Ver proformas →")).not.toBeInTheDocument();
   });
 
