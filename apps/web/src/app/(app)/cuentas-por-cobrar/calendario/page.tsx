@@ -33,11 +33,18 @@ export default function CalendarioPage() {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const startCol = (first.getUTCDay() + 6) % 7; // lunes = 0
 
-  const byDay = new Map<string, { count: number; amount: number; worst: AgingBucket }>();
+  // `migradas` cuenta las de Alegra del día: un vencimiento que es todo
+  // histórico migrado se cobra en Alegra, y el calendario tiene que decirlo.
+  const byDay = new Map<
+    string,
+    { count: number; migradas: number; amount: number; worst: AgingBucket }
+  >();
   for (const r of rows ?? []) {
     if (!r.dueDate || !r.dueDate.startsWith(ym)) continue;
-    const cur = byDay.get(r.dueDate) ?? { count: 0, amount: 0, worst: "al_dia" as AgingBucket };
+    const cur =
+      byDay.get(r.dueDate) ?? { count: 0, migradas: 0, amount: 0, worst: "al_dia" as AgingBucket };
     cur.count += 1;
+    if (r.origen === "alegra") cur.migradas += 1;
     cur.amount = Math.round((cur.amount + r.balance) * 100) / 100;
     const b = agingBucket(r.dueDate, hoy);
     const order: AgingBucket[] = ["al_dia", "por_vencer", "v1_30", "v31_60", "v60"];
@@ -107,6 +114,16 @@ export default function CalendarioPage() {
                         <span className={`inline-block h-2 w-2 rounded-full ${DOT[info.worst]}`} />
                         <div className="font-medium leading-tight">{info.count} fact.</div>
                         <div className="tabular-nums leading-tight opacity-70">{money(info.amount)}</div>
+                        {info.migradas > 0 && (
+                          <div
+                            className="leading-tight text-[10px] font-medium text-sky-700"
+                            title="Estas facturas vienen del sistema anterior (Alegra): su cobro se registra allá, no en DermaLand."
+                          >
+                            {info.migradas === info.count
+                              ? "migradas de Alegra"
+                              : `${info.migradas} migradas`}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

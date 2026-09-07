@@ -227,6 +227,28 @@ export interface ProductRepository {
   softDelete(ctx: RepoContext, id: ID): Promise<void>;
 }
 
+/**
+ * Topes de filas de `productLot.list` según el escenario — ÚNICO sitio
+ * donde viven estos dos números. La ruta (`app/api/lots/route.ts`) y el
+ * repositorio Supabase (`./supabase/product.ts`) importan de aquí y nunca
+ * definen su propia copia: antes cada capa tenía la suya, y el repositorio
+ * aplicaba un único tope de 20 000 también para "un solo producto" —
+ * hallazgo de revisión de la tarea 7, cerrado uniendo la fuente aquí.
+ *
+ *  - `TOPE_LOTES_PRODUCTO`: con `productId`, los lotes de UN solo producto
+ *    (ficha de producto, recepción). Ningún producto real acumula cientos
+ *    de lotes vigentes; 500 sobra con margen amplio.
+ *  - `TOPE_LOTES_TODOS`: sin `productId`, el inventario completo — alimenta
+ *    el cálculo de stock en el navegador de casi toda la app
+ *    (`useAllLots()`: POS, `/inventario`, conteo físico, reportes). Medido
+ *    el 06/09/2026: 1 957 lotes hoy. Un tope por debajo del conteo real
+ *    repite el bug ya conocido de PostgREST cortando en 1000 filas ("Stock
+ *    actual" mostraba 0 en productos cuyo lote quedaba fuera de la 1ª
+ *    página) — por eso este techo es mucho más generoso.
+ */
+export const TOPE_LOTES_PRODUCTO = 500;
+export const TOPE_LOTES_TODOS = 20_000;
+
 export interface ProductLotRepository {
   list(ctx: RepoContext, opts?: {
     productId?: ID;
@@ -234,6 +256,14 @@ export interface ProductLotRepository {
     expiringWithinDays?: number;
     /** Solo lotes YA vencidos (expires_at < hoy). Excluyente con expiringWithinDays. */
     expiredOnly?: boolean;
+    /**
+     * Tope de filas a devolver (opcional). Sin él, se preserva el
+     * comportamiento actual (trae todo, paginando el corte de 1000 de
+     * PostgREST). Lo usa `/api/lots` para no servir la tabla entera al
+     * navegador — el techo real depende del escenario: ver
+     * `TOPE_LOTES_PRODUCTO`/`TOPE_LOTES_TODOS` arriba en este archivo.
+     */
+    limit?: number;
   }): Promise<ProductLot[]>;
   byId(ctx: RepoContext, id: ID): Promise<ProductLot | null>;
   /** FEFO: lote más próximo a vencer disponible para el producto. */
@@ -349,7 +379,12 @@ export interface InventoryCountRepository {
 // ─── Customers ──────────────────────────────────────────────────────────────
 
 export interface CustomerRepository {
-  list(ctx: RepoContext, opts?: { search?: string; tag?: string }): Promise<Customer[]>;
+  /**
+   * `limit` es opcional: sin él, se preserva el comportamiento actual (trae
+   * todos los que haga falta). Lo usa `/api/customers` para no servir la
+   * tabla entera al navegador — ver `TOPE_CLIENTES` en `./supabase/customer.ts`.
+   */
+  list(ctx: RepoContext, opts?: { search?: string; tag?: string; limit?: number }): Promise<Customer[]>;
   byId(ctx: RepoContext, id: ID): Promise<Customer | null>;
   notes(ctx: RepoContext, customerId: ID): Promise<CustomerNote[]>;
   create(ctx: RepoContext, customer: Omit<Customer, "id" | "createdAt" | "updatedAt">): Promise<Customer>;
@@ -411,7 +446,12 @@ export interface ExpenseCategoryRepository {
 // ─── POS / Sales ────────────────────────────────────────────────────────────
 
 export interface ProformaRepository {
-  list(ctx: RepoContext): Promise<Proforma[]>;
+  /**
+   * `opts.limit` es opcional: sin él, se preserva el comportamiento actual
+   * (trae todas). Lo usa `/api/proformas` para no servir la tabla entera al
+   * navegador — ver `TOPE_PROFORMAS` en `./supabase/sales.ts`.
+   */
+  list(ctx: RepoContext, opts?: { limit?: number }): Promise<Proforma[]>;
   byId(ctx: RepoContext, id: ID): Promise<Proforma | null>;
   /**
    * Ventas de UN cliente (perfil): filtra en SERVIDOR por customer_id, con

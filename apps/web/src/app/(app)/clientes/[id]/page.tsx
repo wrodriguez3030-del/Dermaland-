@@ -47,6 +47,14 @@ import { useCustomerProfile } from "@/features/customers/customer-profile-hooks"
 import { isNewCustomer } from "@/features/customers/customer-flags";
 import { purchasesByMonth } from "@/features/customers/customer-purchases";
 import { AlegraPurchasesTab } from "@/features/alegra/client-purchases-tab";
+import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
+import { pinturaEstadoVenta } from "@/features/ventas/venta-unificada";
+import { useListadoVentas } from "@/features/ventas/ventas-api";
+import {
+  combinarComprasCliente,
+  metricasComprasCliente,
+  textoComprasCliente,
+} from "@/features/ventas/compras-cliente";
 import { BarChart } from "@/components/ui/bar-chart";
 import { getCustomerNotes } from "@/lib/mock-data/customers";
 import {
@@ -110,6 +118,15 @@ export default function ClienteDetallePage() {
     tab: "whatsapp" | "email";
   }>({ proforma: null, tab: "whatsapp" });
 
+  // ── Compras migradas de Alegra ──────────────────────────────────────────
+  // Van en el listado principal, no escondidas en otra pestaña: quien abre la
+  // ficha de alguien que lleva años comprando no puede ver «sin compras».
+  // Se pide UNA página de `/api/ventas` acotada a este cliente (la ruta nunca
+  // da más de 200 filas); de ella solo se toman las de Alegra, porque las del
+  // sistema ya están cargadas como proformas completas y son las que se pueden
+  // abrir, imprimir y enviar.
+  const historicoCliente = useListadoVentas({ clienteId: id, limite: 200 }, Boolean(id));
+
   // Historial de envíos (WhatsApp/correo) para la pestaña Conversaciones.
   const [messages, setMessages] = React.useState<SentMessage[]>([]);
   React.useEffect(() => {
@@ -125,6 +142,40 @@ export default function ClienteDetallePage() {
       alive = false;
     };
   }, [id]);
+
+  const ventasHistorico = historicoCliente.tipo === "listo" ? historicoCliente.datos.ventas : [];
+  const compras = React.useMemo(
+    () => combinarComprasCliente(proformas, ventasHistorico),
+    // `ventasHistorico` se recalcula en cada render a partir del estado del
+    // hook; su identidad no vale como dependencia, la del estado sí.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [proformas, historicoCliente],
+  );
+  // 🔴 UNA sola definición de «comprado» para el KPI de arriba y la leyenda de
+  // la tabla. Antes eran dos y se contradecían en pantalla: «Total gastado
+  // RD$0.00 · Compras 0» encima de «Compras (172) · RD$X comprados».
+  const metricas = React.useMemo(() => metricasComprasCliente(compras), [compras]);
+  const hayMasCompras = historicoCliente.tipo === "listo" && historicoCliente.datos.hayMas;
+  // Qué se está mirando y de dónde sale: un listado que mezcla dos fuentes sin
+  // decir cuánto pone cada una no se puede cuadrar con nada.
+  const leyendaCompras: { aviso: boolean; texto: string } =
+    historicoCliente.tipo === "cargando"
+      ? { aviso: false, texto: "Cargando las compras migradas de Alegra…" }
+      : historicoCliente.tipo === "error"
+        ? {
+            aviso: true,
+            texto:
+              "No se pudieron cargar las compras migradas de Alegra: abajo solo están las del sistema.",
+          }
+        : {
+            aviso: hayMasCompras,
+            texto:
+              textoComprasCliente(metricas) +
+              ` · ${formatCurrency(metricas.totalGastado)} comprados` +
+              (hayMasCompras
+                ? " · este cliente tiene más compras de las que caben en una página, así que este total es parcial; mira la pestaña «Compras en Alegra» para el histórico completo"
+                : ""),
+          };
 
   // ── Cargando: skeleton profesional. NUNCA "no encontrado" durante la carga.
   if (loading) {
@@ -236,14 +287,14 @@ export default function ClienteDetallePage() {
       <div className="mb-6 grid gap-4 lg:grid-cols-4">
         <StatCard
           label="Total gastado"
-          value={formatCurrency(stats.totalSpent)}
+          value={formatCurrency(metricas.totalGastado)}
           icon={CreditCard}
           tone="primary"
         />
-        <StatCard label="Compras" value={stats.purchases} icon={ShoppingCart} />
+        <StatCard label="Compras" value={metricas.compras} icon={ShoppingCart} />
         <StatCard
           label="Última visita"
-          value={stats.lastVisitAt ? relativeTime(stats.lastVisitAt) : "—"}
+          value={metricas.ultimaCompra ? relativeTime(metricas.ultimaCompra) : "—"}
           icon={CalendarRange}
         />
         <StatCard
@@ -325,6 +376,12 @@ export default function ClienteDetallePage() {
                   <p className="mt-3 text-[11px] opacity-50">
                     Gasto por mes (últimos 6 meses).
                   </p>
+                  {metricas.cantidadAlegra > 0 && (
+                    <p className="mt-1 text-[11px] font-medium text-amber-700">
+                      Solo ventas del sistema — las compras migradas de Alegra no entran
+                      en esta gráfica.
+                    </p>
+                  )}
                 </>
               );
             })()}
@@ -335,7 +392,7 @@ export default function ClienteDetallePage() {
       <Tabs defaultValue="purchases">
         <TabsList>
           <TabsTrigger value="purchases">
-            Compras ({proformas.length})
+            Compras ({metricas.listadas})
           </TabsTrigger>
           <TabsTrigger value="alegra">Compras en Alegra</TabsTrigger>
           <TabsTrigger value="recommendations">
@@ -348,6 +405,15 @@ export default function ClienteDetallePage() {
         <TabsContent value="purchases">
           <Card>
             <CardContent className="p-0">
+              <p
+                className={
+                  leyendaCompras.aviso
+                    ? "border-b px-4 py-2 text-xs font-medium text-amber-700"
+                    : "border-b px-4 py-2 text-xs opacity-60"
+                }
+              >
+                {leyendaCompras.texto}
+              </p>
               <Table>
                 <THead>
                   <TR>
@@ -361,55 +427,103 @@ export default function ClienteDetallePage() {
                   </TR>
                 </THead>
                 <TBody>
-                  {proformas.length === 0 && (
+                  {compras.length === 0 && (
                     <TR>
                       <TD colSpan={7} className="py-8 text-center text-sm opacity-60">
                         Este cliente aún no tiene compras registradas.
                       </TD>
                     </TR>
                   )}
-                  {proformas.map((p) => (
-                    <TR key={p.id}>
-                      <TD className="text-xs">{formatDateTime(p.createdAt)}</TD>
-                      <TD className="font-mono text-xs">{p.number}</TD>
-                      <TD className="text-xs">{comprobanteLabel(p)}</TD>
-                      <TD className="text-right tabular-nums">{p.items.length}</TD>
-                      <TD className="text-right tabular-nums font-medium">
-                        {formatCurrency(p.total)}
-                      </TD>
-                      <TD>
-                        <Badge tone={(SALE_STATUS_BADGE[p.status] ?? { tone: "neutral" as const }).tone}>
-                          {(SALE_STATUS_BADGE[p.status] ?? { label: p.status }).label}
-                        </Badge>
-                      </TD>
-                      <TD className="pr-4">
-                        <RowActions
-                          viewHref={`${documentRouteBase(p)}/${p.id}`}
-                          canEdit={false}
-                          canDelete={false}
-                          customActions={[
-                            {
-                              label: "Imprimir",
-                              icon: Printer,
-                              href: `${documentRouteBase(p)}/${p.id}/print`,
-                            },
-                            {
-                              label: "Enviar WhatsApp",
-                              icon: Send,
-                              onClick: () =>
-                                setSendModal({ proforma: p, tab: "whatsapp" }),
-                            },
-                            {
-                              label: "Enviar por correo",
-                              icon: Mail,
-                              onClick: () =>
-                                setSendModal({ proforma: p, tab: "email" }),
-                            },
-                          ]}
-                        />
-                      </TD>
-                    </TR>
-                  ))}
+                  {compras.map(({ venta, proforma: p }) =>
+                    p ? (
+                      <TR key={p.id}>
+                        <TD className="text-xs">{formatDateTime(p.createdAt)}</TD>
+                        <TD className="font-mono text-xs">{p.number}</TD>
+                        <TD className="text-xs">{comprobanteLabel(p)}</TD>
+                        <TD className="text-right tabular-nums">{p.items.length}</TD>
+                        <TD className="text-right tabular-nums font-medium">
+                          {formatCurrency(p.total)}
+                        </TD>
+                        <TD>
+                          <Badge tone={(SALE_STATUS_BADGE[p.status] ?? { tone: "neutral" as const }).tone}>
+                            {(SALE_STATUS_BADGE[p.status] ?? { label: p.status }).label}
+                          </Badge>
+                        </TD>
+                        <TD className="pr-4">
+                          <RowActions
+                            viewHref={`${documentRouteBase(p)}/${p.id}`}
+                            canEdit={false}
+                            canDelete={false}
+                            customActions={[
+                              {
+                                label: "Imprimir",
+                                icon: Printer,
+                                href: `${documentRouteBase(p)}/${p.id}/print`,
+                              },
+                              {
+                                label: "Enviar WhatsApp",
+                                icon: Send,
+                                onClick: () =>
+                                  setSendModal({ proforma: p, tab: "whatsapp" }),
+                              },
+                              {
+                                label: "Enviar por correo",
+                                icon: Mail,
+                                onClick: () =>
+                                  setSendModal({ proforma: p, tab: "email" }),
+                              },
+                            ]}
+                          />
+                        </TD>
+                      </TR>
+                    ) : (
+                      /* Factura migrada de Alegra: historial de otro sistema.
+                         Se ve, no se toca — ni editar, ni anular, ni enviar. */
+                      <TR key={venta.id}>
+                        <TD className="text-xs">{formatDate(venta.fecha)}</TD>
+                        <TD className="font-mono text-xs">{venta.numero}</TD>
+                        <TD className="text-xs">
+                          <EtiquetaOrigen origen={venta.origen} />
+                        </TD>
+                        <TD
+                          className="text-right tabular-nums opacity-60"
+                          title="El histórico migrado no trae el detalle de líneas en esta vista."
+                        >
+                          —
+                        </TD>
+                        <TD className="text-right tabular-nums font-medium">
+                          {/* 🔴 Solo la ANULADA se tacha. Un borrador tachado se
+                              lee como anulado, y no lo está: los dos quedan
+                              fuera de los totales, pero eso es lo que significa
+                              `anulada`, no lo que se le dice al usuario sobre
+                              un documento fiscal de otro sistema. La decisión
+                              la toma `pinturaEstadoVenta`, no `anulada`. */}
+                          {pinturaEstadoVenta(venta.estado).tachada ? (
+                            <span className="line-through opacity-60">
+                              {formatCurrency(venta.total)}
+                            </span>
+                          ) : pinturaEstadoVenta(venta.estado).atenuada ? (
+                            <span className="opacity-60">{formatCurrency(venta.total)}</span>
+                          ) : (
+                            formatCurrency(venta.total)
+                          )}
+                        </TD>
+                        <TD>
+                          <Badge tone={pinturaEstadoVenta(venta.estado).tono}>
+                            {/* «Histórico» es lo que dice una migrada vigente:
+                                su origen ya está en la columna de al lado. */}
+                            {pinturaEstadoVenta(venta.estado).etiqueta ?? "Histórico"}
+                          </Badge>
+                        </TD>
+                        <TD
+                          className="pr-4 text-right text-xs opacity-60"
+                          title="Factura migrada de Alegra: se puede ver, no editar ni enviar desde DermaLand. Alegra manda y DermaLand solo lee."
+                        >
+                          Solo lectura
+                        </TD>
+                      </TR>
+                    ),
+                  )}
                 </TBody>
               </Table>
             </CardContent>

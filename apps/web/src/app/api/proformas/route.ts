@@ -30,6 +30,15 @@ function errorStatus(e: unknown): 400 | 401 {
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * Tope de filas que esta ruta puede devolver — ver el porqué del número
+ * junto a `TOPE_PROFORMAS` en `server/repositories/supabase/sales.ts` (esa
+ * es la fuente real: aquí solo se decide el "pedido" por defecto y se
+ * clampa lo que venga por `?limit=`). Sin este tope, `useProformas()`
+ * —panel, `/ventas`, cierre de caja, reportes— pedía la tabla entera.
+ */
+const TOPE_PROFORMAS = 20_000;
+
 function notSupabase() {
   return NextResponse.json(
     {
@@ -43,8 +52,16 @@ function notSupabase() {
 export async function GET(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
+    const sp = req.nextUrl.searchParams;
+    // `Math.min(pedido, TOPE)`: el caller puede pedir MENOS (paginación
+    // propia futura) pero nunca más que el tope duro.
+    const pedido = Number(sp.get("limit"));
+    const limit = Math.min(
+      Number.isFinite(pedido) && pedido > 0 ? pedido : TOPE_PROFORMAS,
+      TOPE_PROFORMAS,
+    );
     const ctx = await getRepoContext();
-    const proformas = await getRepositories().proforma.list(ctx);
+    const proformas = await getRepositories().proforma.list(ctx, { limit });
     return NextResponse.json(
       { proformas },
       { headers: { "Cache-Control": "no-store" } },

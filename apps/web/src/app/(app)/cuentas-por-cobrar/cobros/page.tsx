@@ -8,6 +8,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { HandCoins, FileText } from "lucide-react";
 import { AgingBadge, CollectModal, usePendingReceivables } from "@/features/receivables/components";
+import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { fecha, money, type ReceivableRow } from "@/features/receivables/receivables-client";
 
 /**
@@ -32,7 +33,9 @@ export default function CobrosPage() {
     return true;
   });
 
-  const chosen: ReceivableRow[] = all.filter((r) => selected.has(r.id));
+  // `cobrable` manda sobre la selección: si una fila deja de serlo entre
+  // cargas, no puede colarse en el cobro por seguir marcada.
+  const chosen: ReceivableRow[] = all.filter((r) => r.cobrable && selected.has(r.id));
   const totalChosen = chosen.reduce((s, r) => s + r.balance, 0);
 
   const toggle = (id: string) =>
@@ -98,17 +101,31 @@ export default function CobrosPage() {
                 </THead>
                 <TBody>
                   {filtered.map((r) => (
-                    <TR key={r.id} className="cursor-pointer" onClick={() => toggle(r.id)}>
+                    <TR
+                      key={r.id}
+                      className={r.cobrable ? "cursor-pointer" : undefined}
+                      onClick={r.cobrable ? () => toggle(r.id) : undefined}
+                    >
                       <TD>
+                        {/* Una factura migrada de Alegra no se selecciona: no
+                            se cobra desde aquí, y el motivo se ve al pasar por
+                            encima y en la etiqueta de origen de la fila. */}
                         <input
                           type="checkbox"
-                          checked={selected.has(r.id)}
+                          checked={r.cobrable && selected.has(r.id)}
+                          disabled={!r.cobrable}
+                          title={r.cobrable ? undefined : (r.motivoNoCobrable ?? undefined)}
                           onChange={() => toggle(r.id)}
                           onClick={(e) => e.stopPropagation()}
                           aria-label={`Seleccionar ${r.number}`}
                         />
                       </TD>
-                      <TD className="font-mono text-xs">{r.number}</TD>
+                      <TD className="font-mono text-xs">
+                        <span className="inline-flex items-center gap-1.5">
+                          {r.number}
+                          <EtiquetaOrigen origen={r.origen} />
+                        </span>
+                      </TD>
                       <TD className="text-sm">{r.customerName}</TD>
                       <TD className="text-xs">{fecha(r.dueDate)}</TD>
                       <TD><AgingBadge bucket={r.bucket} /></TD>

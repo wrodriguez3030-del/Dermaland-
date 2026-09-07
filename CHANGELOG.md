@@ -10,6 +10,69 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.146.0] - 2026-09-06
+
+### Agregado
+
+- **Las 14 965 facturas migradas de Alegra dejan de estar escondidas.** El
+  panel, los reportes de ventas, la ficha del cliente y las cuentas por cobrar
+  ya las cuentan, marcadas como **«Migrada de Alegra»** y sin copiar una sola
+  fila: las dos fuentes se unen **al leerlas**, no en la base.
+- **Modelo unificado de venta** (`features/ventas/`): `VentaUnificada`,
+  agregados que suman en centavos enteros, y la etiqueta de origen en un solo
+  sitio. Las anuladas quedan fuera de todos los totales.
+- **Dos funciones que cuentan en la base y devuelven el resultado hecho**:
+  `resumen_ventas_unificadas` (totales por origen) y
+  `desglose_ventas_unificadas` (por vendedor, forma de pago y producto).
+  El panel pedía 12 358 filas y ~3 MB para enseñar cuatro números; ahora pide
+  el número.
+- **`GET /api/ventas`** con tres vistas —`resumen`, `listado` y `desglose`—,
+  tope duro de filas, y un campo `fuentes` que dice qué orígenes incluye de
+  verdad cada respuesta.
+- **Los vendedores del histórico** (`alegra_invoices.seller_id`): Desteny
+  Reynoso 5 513 facturas, Laura Mejía 1 027, Darío 6, y «Oficina» para las
+  8 197 de mostrador sin vendedor asignado. Oficina no es una persona y no
+  cobra comisiones.
+
+### Cambiado
+
+- **Las tres rutas de listado que devolvían la tabla entera** (`/api/customers`,
+  `/api/proformas`, `/api/lots`) llevan tope, y el tope se aplica en el
+  repositorio, no solo en la ruta. En `/api/lots` el techo depende del
+  escenario: 500 para un producto, 20 000 para el inventario completo.
+- **Una factura de Alegra se ve pero no se cobra desde DermaLand.** El pago se
+  registraría aquí y no allá, y los dos sistemas dejarían de cuadrar. El motivo
+  se ve en pantalla.
+- La deuda migrada lleva su origen **también en el PDF** de estados de cuenta,
+  en mora y en el calendario.
+- `cash` y «Efectivo» dejan de convivir como dos formas de pago distintas.
+
+### Corregido
+
+- **El panel podía enseñar RD$0.00 como si fuera el total.** Al cambiar de
+  periodo con una petición en vuelo, la respuesta cancelada se guardaba como
+  buena y vacía. Ahora una respuesta obsoleta —o un cuerpo que no se puede
+  leer— nunca escribe un importe.
+- La ficha del cliente enseñaba dos definiciones de «comprado» que se
+  contradecían en la misma pantalla.
+
+### Notas
+
+- **Tres migraciones pendientes de aplicar**, en este orden:
+  `20260906120000_alegra_vendedor`, `20260906130000_resumen_ventas_unificadas`
+  y `20260906140000_desglose_ventas_unificadas`. La tercera **se niega** con un
+  mensaje accionable si falta la primera. Hasta aplicarlas, las tarjetas del
+  histórico enseñan un aviso ámbar, nunca un cero disfrazado.
+- Después de aplicarlas: `node scripts/db/verificar-desglose-ventas.mjs`, y el
+  relleno de vendedores con `scripts/alegra/vincular-vendedores.mjs` (sin
+  `--apply` simula).
+- **Cuadre verificado contra producción:** 14 743 ventas · RD$48 454 899,08.
+  Hay **42 céntimos** de diferencia entre la suma de renglones y la de
+  cabeceras, arrastrados de la migración de Alegra: no son de este trabajo.
+- **12 672 de las 14 743 facturas no traen forma de pago** registrada en
+  Alegra. El desglose sale dominado por «Sin forma de pago» porque es lo que
+  hay en el dato, no por un fallo.
+
 ## [0.145.0] - 2026-09-06
 
 ### Agregado

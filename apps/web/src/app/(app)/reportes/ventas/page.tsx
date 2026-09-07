@@ -21,7 +21,6 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { BarChart } from "@/components/ui/bar-chart";
 import {
   SortableTH,
   useTableSort,
@@ -90,6 +89,14 @@ import {
 } from "@/features/sales/sales-report";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 import type { SalesReportMeta } from "@/features/sales/sales-report-export";
+import {
+  CasillaIncluirAlegra,
+  LeyendaHistorico,
+  TablaHistoricoAlegra,
+  filtrosDelReporteSinHistorico,
+  useHistoricoAlegra,
+} from "./historico-alegra";
+import { DetalleImpresionVentas, ResumenesVentas } from "./resumenes-ventas";
 
 // ─── Ordenamiento (comparadores sobre el documento de venta) ─────────────────
 
@@ -154,6 +161,10 @@ export default function ReporteVentasPage() {
 
   const [filters, setFilters] = React.useState<SalesReportFilters>(EMPTY_FILTERS);
   const [paymentsFor, setPaymentsFor] = React.useState<Proforma | null>(null);
+  // Marcada por defecto: el histórico migrado ES la mayor parte de las ventas
+  // del negocio (14 965 facturas frente a 0 proformas hoy). Quien quiera ver
+  // solo lo del sistema la desmarca.
+  const [incluirAlegra, setIncluirAlegra] = React.useState(true);
   const canEdit = canEditSales(currentUser.role);
 
   const branchNames = React.useMemo(
@@ -241,6 +252,14 @@ export default function ReporteVentasPage() {
     // Incluirlas es el default (pre-Fase G todo es proforma): lo que se avisa
     // es cuando se EXCLUYEN, que es lo que cambia el número.
     if (!filters.includeProformas) parts.push("Solo facturas (sin proformas)");
+    // Las exportaciones se arman con `report`, que solo tiene las ventas del
+    // sistema. Si en pantalla el total ya lleva el histórico y el PDF no, hay
+    // que decirlo DENTRO del PDF: si no, el mismo reporte da dos cifras.
+    parts.push(
+      historico.participa
+        ? "Histórico migrado de Alegra: visible en pantalla, NO incluido en esta exportación"
+        : "Solo ventas del sistema (sin histórico de Alegra)",
+    );
     return {
       businessName: "DermaLand",
       generatedAt: new Date().toISOString(),
@@ -330,30 +349,77 @@ export default function ReporteVentasPage() {
   const k = report.kpis;
   const empty = report.filtered.length === 0;
 
+  // ── Histórico migrado de Alegra ─────────────────────────────────────────
+  // `/api/ventas` solo sabe filtrar por fecha, sucursal y cliente. Cualquier
+  // otro filtro del reporte deja al histórico SIN filtrar, y sumar un total
+  // sin filtrar a otro filtrado da un número que nadie podría cuadrar: en ese
+  // caso el histórico no se suma y la leyenda lo dice.
+  //
+  // `includeProformas` NO entra en esta lista a propósito: excluye documentos
+  // no facturados del sistema, y en Alegra todo lo migrado son facturas — el
+  // filtro no cambia lo que el histórico debería aportar.
+  const filtrosNoAplicables = React.useMemo(
+    () => filtrosDelReporteSinHistorico(filters),
+    [filters],
+  );
+  const historico = useHistoricoAlegra({
+    desde: filters.from || undefined,
+    hasta: filters.to || undefined,
+    sucursalId: filters.branchId || undefined,
+    cantidadSistema: k.transactions,
+    incluir: incluirAlegra,
+    filtrosNoAplicables,
+  });
+  const totalConHistorico = Math.round((k.totalBilled + historico.total) * 100) / 100;
+  const transaccionesConHistorico = k.transactions + historico.cantidad;
+  // El resumen que da la base son DOS números: total y cantidad. Ni ITBIS, ni
+  // ítems, ni costo, ni descuentos — esas columnas no existen en el histórico
+  // migrado con la forma que pide este reporte. Los KPIs que se quedan solo
+  // con el sistema lo dicen, para que nadie cuadre el ITBIS contra un total
+  // que ya lleva Alegra.
+  const soloSistema = historico.participa ? "Solo ventas del sistema" : undefined;
+
   // Marca de tiempo de generación (en efecto para evitar mismatch de hidratación).
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
     setGeneratedAt(formatDateTime(new Date().toISOString()));
   }, []);
 
+  // Ticket promedio coherente con los dos KPIs de arriba: si el total y las
+  // transacciones ya llevan el histórico, dividir el total del sistema entre
+  // las transacciones de las dos fuentes daría un ticket que no es de nadie.
+  const ticketPromedio = transaccionesConHistorico
+    ? Math.round((totalConHistorico / transaccionesConHistorico) * 100) / 100
+    : 0;
+
   const kpiItems: ReportKpi[] = [
-    { label: "Total facturado", value: formatCurrency(k.totalBilled), tone: "primary" },
-    { label: "ITBIS recaudado", value: formatCurrency(k.itbis) },
-    { label: "Transacciones", value: k.transactions },
-    { label: "Items vendidos", value: k.items },
-    { label: "Ticket promedio", value: formatCurrency(k.avgTicket) },
-    { label: "Clientes distintos", value: k.distinctCustomers },
-    { label: "Descuentos", value: formatCurrency(k.discounts) },
+    {
+      label: "Total facturado",
+      // Mientras el histórico está en camino no hay total fiable que enseñar:
+      // un RD$0.00 provisional es justo lo que hizo creer que no se migró nada.
+      value: historico.cargando ? "Cargando…" : formatCurrency(totalConHistorico),
+      tone: "primary",
+    },
+    { label: "ITBIS recaudado", value: formatCurrency(k.itbis), hint: soloSistema },
+    { label: "Transacciones", value: historico.cargando ? "…" : transaccionesConHistorico },
+    { label: "Items vendidos", value: k.items, hint: soloSistema },
+    {
+      label: "Ticket promedio",
+      value: historico.cargando ? "Cargando…" : formatCurrency(ticketPromedio),
+    },
+    { label: "Clientes distintos", value: k.distinctCustomers, hint: soloSistema },
+    { label: "Descuentos", value: formatCurrency(k.discounts), hint: soloSistema },
     {
       label: "Devoluciones",
       value: formatCurrency(k.refunds),
       tone: k.refunds > 0 ? "warning" : "default",
+      hint: soloSistema,
     },
-    { label: "Neto", value: formatCurrency(k.net), tone: "success" },
+    { label: "Neto", value: formatCurrency(k.net), tone: "success", hint: soloSistema },
     {
       label: "Margen estimado",
       value: k.marginEstimate != null ? formatCurrency(k.marginEstimate) : "N/D",
-      hint: k.marginEstimate == null ? "Sin costo disponible" : undefined,
+      hint: k.marginEstimate == null ? "Sin costo disponible" : soloSistema,
     },
   ];
 
@@ -394,6 +460,14 @@ export default function ReporteVentasPage() {
     filterChips.push({ label: "Producto", value: filters.productQuery });
   if (!filters.includeProformas)
     filterChips.push({ label: "Proformas", value: "Excluidas" });
+  filterChips.push({
+    label: "Histórico Alegra",
+    value: historico.participa
+      ? "Incluido en total y transacciones"
+      : incluirAlegra
+        ? "No incluido"
+        : "Excluido",
+  });
 
   return (
     <>
@@ -595,6 +669,9 @@ export default function ReporteVentasPage() {
                 Incluir proformas
               </label>
             </div>
+            <div className="flex items-end">
+              <CasillaIncluirAlegra checked={incluirAlegra} onChange={setIncluirAlegra} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -602,207 +679,25 @@ export default function ReporteVentasPage() {
       {/* ── KPIs ── */}
       <div className="mb-6">
         <ReportSummaryCards items={kpiItems} columns={5} />
+        {/* De dónde sale el total: cuánto pone el sistema y cuánto el histórico
+            migrado. Un total que mezcla dos fuentes sin decirlo no se audita. */}
+        <LeyendaHistorico leyenda={historico.leyenda} />
       </div>
 
-      {/* ── Gráficas / resúmenes ── */}
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tendencia de ventas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {report.trend.length ? (
-              <BarChart data={report.trend} formatter={formatCurrency} />
-            ) : (
-              <p className="text-sm opacity-60">Sin datos para el rango.</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Medios de pago</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart
-              data={report.methods.map((m) => ({ label: m.label, value: m.amount }))}
-              formatter={formatCurrency}
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Ventas por sucursal</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {report.branches.length ? (
-              <BarChart
-                data={report.branches.map((b) => ({ label: b.name, value: b.total }))}
-                formatter={formatCurrency}
-              />
-            ) : (
-              <p className="text-sm opacity-60">Sin datos.</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Top cajeros / vendedores</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {report.cashiers.length ? (
-              <BarChart
-                data={report.cashiers.map((c) => ({ label: c.name, value: c.total }))}
-                formatter={formatCurrency}
-              />
-            ) : (
-              <p className="text-sm opacity-60">Sin datos.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Ventas por vendedor (base de incentivos) ── */}
-      <div className="mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ventas por vendedor</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Vendedor</TH>
-                  <TH className="text-right">Ventas</TH>
-                  <TH className="text-right">Total vendido</TH>
-                  <TH className="text-right">Ticket promedio</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {report.sellers.map((s) => (
-                  <TR key={s.id}>
-                    <TD className="text-sm">{s.name}</TD>
-                    <TD className="text-right tabular-nums">{s.transactions}</TD>
-                    <TD className="text-right tabular-nums font-medium">
-                      {formatCurrency(s.total)}
-                    </TD>
-                    <TD className="text-right tabular-nums">
-                      {formatCurrency(
-                        s.transactions ? s.total / s.transactions : 0,
-                      )}
-                    </TD>
-                  </TR>
-                ))}
-                {!report.sellers.length && (
-                  <TR>
-                    <TD colSpan={4} className="py-6 text-center text-sm opacity-60">
-                      Sin ventas con vendedor.
-                    </TD>
-                  </TR>
-                )}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Productos más vendidos</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Producto</TH>
-                  <TH className="text-right">Cant.</TH>
-                  <TH className="text-right">Monto</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {report.products.slice(0, 10).map((p) => (
-                  <TR key={p.productId}>
-                    <TD className="text-sm">{p.name}</TD>
-                    <TD className="text-right tabular-nums">{p.quantity}</TD>
-                    <TD className="text-right tabular-nums">{formatCurrency(p.total)}</TD>
-                  </TR>
-                ))}
-                {!report.products.length && (
-                  <TR>
-                    <TD colSpan={3} className="py-6 text-center text-sm opacity-60">
-                      Sin productos.
-                    </TD>
-                  </TR>
-                )}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Clientes principales</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Cliente</TH>
-                  <TH className="text-right">Compras</TH>
-                  <TH className="text-right">Total</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {report.customers.slice(0, 10).map((c, i) => (
-                  <TR key={`${c.name}-${i}`}>
-                    <TD className="text-sm">{c.name}</TD>
-                    <TD className="text-right tabular-nums">{c.purchases}</TD>
-                    <TD className="text-right tabular-nums">{formatCurrency(c.total)}</TD>
-                  </TR>
-                ))}
-                {!report.customers.length && (
-                  <TR>
-                    <TD colSpan={3} className="py-6 text-center text-sm opacity-60">
-                      Sin clientes.
-                    </TD>
-                  </TR>
-                )}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Comprobantes</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Tipo</TH>
-                  <TH className="text-right">Cant.</TH>
-                  <TH className="text-right">Total</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {report.comprobantes.map((c) => (
-                  <TR key={c.key}>
-                    <TD className="text-sm">{c.label}</TD>
-                    <TD className="text-right tabular-nums">{c.count}</TD>
-                    <TD className="text-right tabular-nums">{formatCurrency(c.total)}</TD>
-                  </TR>
-                ))}
-                {!report.comprobantes.length && (
-                  <TR>
-                    <TD colSpan={3} className="py-6 text-center text-sm opacity-60">
-                      Sin comprobantes.
-                    </TD>
-                  </TR>
-                )}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+      {/* ── Gráficas y resúmenes (ventas del sistema) ── */}
+      {/* Mientras el total del histórico viaja, o cuando no va a participar por
+          algo que hay que explicar (falló, o hay un filtro que no sabe
+          aplicar), las tres tarjetas que sí lo desglosan tienen que decirlo
+          ellas: la leyenda de arriba habla de los KPIs, no de ellas. */}
+      <ResumenesVentas
+        report={report}
+        historicoParticipa={historico.participa}
+        historicoCargando={historico.cargando}
+        historicoAviso={historico.leyenda.aviso ? historico.leyenda.texto : null}
+        desde={filters.from || undefined}
+        hasta={filters.to || undefined}
+        sucursalId={filters.branchId || undefined}
+      />
 
       {/* ── Tabla detallada (interactiva, solo pantalla) ── */}
       <Card className="screen-only">
@@ -950,55 +845,18 @@ export default function ReporteVentasPage() {
         </CardContent>
       </Card>
 
-      {/* ── Detalle COMPLETO solo para impresión / PDF (todos los filtrados) ── */}
-      <div className="print-only">
-        <Card>
-          <CardHeader>
-            <CardTitle>Detalle de ventas ({sorted.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Fecha</TH>
-                  <TH>Sucursal</TH>
-                  <TH>Comprobante</TH>
-                  <TH>Tipo</TH>
-                  <TH>Cliente</TH>
-                  <TH>Cajero</TH>
-                  <TH className="text-right">Items</TH>
-                  <TH>Método</TH>
-                  <TH className="text-right">ITBIS</TH>
-                  <TH className="text-right">Total</TH>
-                  <TH>Estado</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {sorted.map((p) => {
-                  const status = saleStatusKey(p.status);
-                  const method = saleMethodSummary(p);
-                  const items = p.items.reduce((q, it) => q + it.quantity, 0);
-                  return (
-                    <TR key={`print-${p.id}`}>
-                      <TD className="text-xs">{formatDate(p.createdAt)}</TD>
-                      <TD className="text-xs">{branchNames.get(p.branchId) ?? "Sucursal"}</TD>
-                      <TD className="font-mono text-xs">{p.ecfNumber ?? p.number}</TD>
-                      <TD className="text-xs">{comprobanteLabel(p)}</TD>
-                      <TD className="text-xs">{p.customerName || "Consumidor final"}</TD>
-                      <TD className="text-xs">{p.cashierName || "—"}</TD>
-                      <TD className="text-right tabular-nums text-xs">{items}</TD>
-                      <TD className="text-xs">{SALE_METHOD_LABEL[method]}</TD>
-                      <TD className="text-right tabular-nums text-xs">{formatCurrency(p.itbis)}</TD>
-                      <TD className="text-right tabular-nums text-xs font-medium">{formatCurrency(p.total)}</TD>
-                      <TD className="text-xs">{SALE_STATUS_LABEL[status]}</TD>
-                    </TR>
-                  );
-                })}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
+      {/* ── Histórico migrado de Alegra (solo lectura) ── */}
+      <div className="mt-6">
+        <TablaHistoricoAlegra
+          desde={filters.from || undefined}
+          hasta={filters.to || undefined}
+          sucursalId={filters.branchId || undefined}
+          activo={incluirAlegra && filtrosNoAplicables.length === 0}
+        />
       </div>
+
+      {/* ── Detalle COMPLETO solo para impresión / PDF (todos los filtrados) ── */}
+      <DetalleImpresionVentas sorted={sorted} branchNames={branchNames} />
 
       <ReportFooter
         businessName="DermaLand"

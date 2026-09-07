@@ -1,12 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
+import { TOPE_LOTES_PRODUCTO, TOPE_LOTES_TODOS } from "@/server/repositories/types";
 import { getRepoContext, getSession } from "@/server/auth/context";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { receptionShelfLifeCheck } from "@/features/inventory/reception-shelf-life";
 import { canReceiveBelowShelfLife } from "@/features/tenancy/permissions";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Topes de filas que esta ruta puede devolver — ÚNICA fuente en
+ * `server/repositories/types.ts` (`TOPE_LOTES_PRODUCTO`/`TOPE_LOTES_TODOS`,
+ * junto a `ProductLotRepository`): el repositorio Supabase
+ * (`supabase/product.ts`) importa los mismos valores y los aplica como
+ * tope duro real contra Postgres, así los dos lados nunca se desincronizan
+ * (antes cada uno tenía su propia copia y el repositorio no distinguía los
+ * dos escenarios — hallazgo de revisión, tarea 7). Aquí solo se decide el
+ * "pedido" por defecto según el caso y se clampa lo que venga por
+ * `?limit=`; el porqué de cada número está documentado junto a las
+ * constantes. Son DOS escenarios distintos:
+ *
+ *  - CON `productId`: `useProductLots(productId)` pide los lotes de UN
+ *    producto (ficha de producto, recepción).
+ *  - SIN `productId`: `useAllLots()` pide TODO el inventario para calcular
+ *    stock en el navegador (POS, `/inventario`, conteo físico, reportes).
+ */
 
 function notSupabase() {
   return NextResponse.json(
@@ -22,11 +41,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") return notSupabase();
   try {
     const sp = req.nextUrl.searchParams;
+    const productId = sp.get("productId") ?? undefined;
+    const tope = productId ? TOPE_LOTES_PRODUCTO : TOPE_LOTES_TODOS;
+    // `Math.min(pedido, TOPE)`: el caller puede pedir MENOS (paginación
+    // propia futura) pero nunca más que el tope duro de este escenario.
+    const pedido = Number(sp.get("limit"));
+    const limit = Math.min(Number.isFinite(pedido) && pedido > 0 ? pedido : tope, tope);
     const ctx = await getRepoContext();
     const repos = getRepositories();
-    const lots = await repos.productLot.list(ctx, {
-      productId: sp.get("productId") ?? undefined,
-    });
+    const lots = await repos.productLot.list(ctx, { productId, limit });
     return NextResponse.json({ lots }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return NextResponse.json(

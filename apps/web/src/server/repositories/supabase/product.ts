@@ -4,6 +4,7 @@ import type {
   ProductRepository,
   RepoContext,
 } from "../types";
+import { TOPE_LOTES_PRODUCTO, TOPE_LOTES_TODOS } from "../types";
 import {
   SupabaseRepositoryError,
   UserFacingRepositoryError,
@@ -278,7 +279,28 @@ export const productLotRepository: ProductLotRepository = {
       expiringCutoff = cutoff.toISOString().slice(0, 10);
     }
 
-    // Trae TODOS los lotes paginando: sin `.range()`, PostgREST corta en 1000 y
+    // `opts.limit` es opcional: sin él, se preserva el comportamiento previo
+    // (trae TODOS los lotes, con el tope de seguridad interno — 50 páginas —
+    // de `fetchAllPages`). Cuando el caller SÍ lo pide —hoy, solo
+    // `/api/lots`— se acota cuántas páginas se piden como máximo y, al
+    // final, se recorta el arreglo al límite exacto: jamás se supera el
+    // tope del ESCENARIO sin importar lo que pida `opts.limit`.
+    //
+    // El tope depende de si se pide UN producto o el inventario completo
+    // (hallazgo de revisión, tarea 7): antes este método usaba el mismo
+    // TOPE_LOTES=20 000 para los dos casos, así que un caller que pasara
+    // `productId` + `limit` grande directamente al repositorio —sin pasar
+    // por `/api/lots`, que sí distingue— podía recibir hasta 40 veces el
+    // techo que el propio proyecto documenta como razonable para un solo
+    // producto.
+    const topeEscenario = opts?.productId ? TOPE_LOTES_PRODUCTO : TOPE_LOTES_TODOS;
+    const limiteEfectivo =
+      opts?.limit != null ? Math.min(opts.limit, topeEscenario) : null;
+    const tamañoPagina = limiteEfectivo != null ? Math.min(limiteEfectivo, 1000) : 1000;
+    const maxPaginas =
+      limiteEfectivo != null ? Math.ceil(limiteEfectivo / tamañoPagina) : undefined;
+
+    // Trae los lotes paginando: sin `.range()`, PostgREST corta en 1000 y
     // con >1000 lotes (hoy ~1370) el stock salía incompleto — Stock actual
     // mostraba 0 en los productos cuyos lotes caían fuera de la 1ª página. El
     // orden total (expires_at, id) hace que los rangos no solapen ni dejen huecos.
@@ -303,9 +325,10 @@ export const productLotRepository: ProductLotRepository = {
         .range(from, to);
       if (error) throw new SupabaseRepositoryError("productLot.list", error);
       return data ?? [];
-    });
+    }, tamañoPagina, maxPaginas);
 
-    return rows.map(productLotRowToTs);
+    const acotados = limiteEfectivo != null ? rows.slice(0, limiteEfectivo) : rows;
+    return acotados.map(productLotRowToTs);
   },
 
   async byId(ctx: RepoContext, id: string) {

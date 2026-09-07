@@ -35,3 +35,37 @@ export function availableYears(dates: string[]): number[] {
   }
   return [...years].sort((a, b) => b - a);
 }
+
+/**
+ * ¿El combo elegido es «un mes concreto, de cualquier año»? Ese caso NO es un
+ * rango continuo de fechas, así que no se le puede pedir a la base (ver
+ * `rangoDelPeriodo`). Se detecta aparte para avisar en pantalla en vez de
+ * pedir sin querer todo el histórico.
+ */
+export function mesSinAnio(month: MonthFilter, year: YearFilter): boolean {
+  return month !== "all" && year === "all";
+}
+
+/**
+ * Rango `desde`/`hasta` (YYYY-MM-DD, ambos inclusive) equivalente al filtro de
+ * mes/año, para las consultas que solo entienden un rango continuo —como
+ * `resumen_ventas_unificadas`, la función que suma las ventas en la base.
+ *
+ * `null` significa «sin acotar por fecha»: pasa con los dos "Todos" y también
+ * con el único combo que un rango no puede expresar (mes fijo + año "Todos"),
+ * que quien llame debe detectar antes con `mesSinAnio`.
+ */
+export function rangoDelPeriodo(
+  month: MonthFilter,
+  year: YearFilter,
+): { desde: string; hasta: string } | null {
+  if (year === "all") return null;
+  if (month === "all") return { desde: `${year}-01-01`, hasta: `${year}-12-31` };
+  const anio = Number(year);
+  const mes = Number(month);
+  const mm = String(mes).padStart(2, "0");
+  // Día 0 del mes siguiente = último día de este mes, en UTC (sin sorpresas de
+  // febrero ni de zona horaria).
+  const ultimoDia = new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+  return { desde: `${year}-${mm}-01`, hasta: `${year}-${mm}-${String(ultimoDia).padStart(2, "0")}` };
+}

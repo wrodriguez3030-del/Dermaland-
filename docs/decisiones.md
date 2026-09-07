@@ -5,6 +5,53 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-06 — Las ventas de Alegra se unen AL LEERLAS, no copiando filas
+
+**Archivos:** `apps/web/src/features/ventas/`,
+`apps/web/src/server/repositories/supabase/ventas-unificadas.ts`,
+`supabase/migrations/20260906130000_resumen_ventas_unificadas.sql`,
+`supabase/migrations/20260906140000_desglose_ventas_unificadas.sql`
+
+### El problema
+
+Las 14 965 facturas migradas de Alegra viven en `alegra_invoices`, aparte de
+`proformas`. Las pantallas principales solo miraban `proformas` —que tiene 0
+filas— y por eso el panel enseñaba RD$0.00 teniendo RD$48 454 899,08 migrados.
+
+### La opción que se descartó
+
+Copiar las facturas de Alegra a `proformas` habría arreglado las cuatro
+pantallas sin tocar ninguna. Se descartó por dos motivos:
+
+1. **`proformas` es la tabla que usa el punto de venta en vivo.** Una fila de
+   más ahí es una venta fantasma en la caja, y el riesgo no es teórico: el
+   cierre de caja, los reportes y el POS leen esa tabla.
+2. **Las facturas de Alegra son el historial fiscal de OTRO sistema.** Tienen
+   su propio NCF, sus propios pagos y su propio ciclo de vida. Mezclarlas con
+   las ventas vivas borra la frontera entre «lo que emitió DermaLand» y «lo
+   que emitió Alegra», que es justo la frontera que la DGII exige poder trazar.
+
+### La decisión
+
+Los datos **siguen separados en la base**. Se unen en la capa de lectura, con
+un modelo común (`VentaUnificada`) y funciones SQL que devuelven totales y
+desgloses ya calculados. Alegra manda y DermaLand solo lee: nunca se escribe en
+`alegra_invoices` ni se inserta en `proformas`.
+
+### Consecuencias
+
+- Toda venta que se muestra lleva su origen visible. Un número que mezcla dos
+  fuentes sin decirlo es peor que dos números separados.
+- Lo migrado se ve pero no se toca: `editable = false` siempre, y una factura
+  de Alegra **no se cobra desde DermaLand** (el pago se registraría aquí y no
+  allá, y los dos sistemas dejarían de cuadrar).
+- Los totales se calculan en la base. Ninguna pantalla descarga filas para
+  contarlas: el panel pedía 12 358 filas y ~3 MB para enseñar cuatro números.
+- El día que el punto de venta propio empiece a cobrar, las dos fuentes
+  conviven sin migración ninguna: la capa de lectura ya las suma.
+
+---
+
 ## 2026-09-06 — Segunda tanda (revisión externa, I2): `subtotal_gravado` pasa a guardar el subtotal de TODAS las líneas, no solo las gravadas
 
 **Archivos:** `apps/web/src/features/dgii/services/prepare.ts`

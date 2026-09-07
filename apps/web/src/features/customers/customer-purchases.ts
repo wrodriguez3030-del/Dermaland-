@@ -63,6 +63,17 @@ const EXCLUDED_STATUSES = new Set<string>([
 ]);
 
 /**
+ * ¿Este estado hace que la venta NUNCA cuente? (anulada, borrador, vencida,
+ * o su equivalente extendido de la DB `voided`, que no está en el union TS
+ * `ProformaStatus`). Única fuente de verdad: la reutiliza también el modelo
+ * unificado de ventas (`features/ventas/venta-unificada.ts`) para no acabar
+ * con dos listas del mismo criterio.
+ */
+export function isExcludedStatus(status: string): boolean {
+  return EXCLUDED_STATUSES.has(status);
+}
+
+/**
  * IDs de proformas que fueron convertidas en una factura POSTERIOR
  * (registro NUEVO con `sourceProformaId` apuntando a la original).
  * Esas proformas origen NO deben sumar de nuevo en gasto/compras.

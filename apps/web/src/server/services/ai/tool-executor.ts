@@ -2,6 +2,9 @@ import "server-only";
 import { getRepositories } from "@/server/repositories";
 import type { RepoContext } from "@/server/repositories/types";
 import type { AIToolInvocation } from "./providers/types";
+import { esVentaCompletada } from "@/features/sales/venta-completada";
+import { isExcludedStatus } from "@/features/customers/customer-purchases";
+import { ETIQUETA_ESTADO_VENTA, estadoDeProforma } from "@/features/ventas/venta-unificada";
 import { ALLOWED_TOOLS, validateToolSet, type Tool } from "./tools";
 
 /**
@@ -113,8 +116,11 @@ export function makeChatToolExecutor(ctx: RepoContext) {
       case "get_product_lots": {
         const productId = uuid(a.product_id);
         if (!productId) return str(a.product_id) ? BAD_ID : { error: "Falta product_id." };
-        const lots = await repos.productLot.list(ctx, { productId });
-        return lots.slice(0, MAX_ROWS).map((l) => ({
+        // El tope lo pone la CONSULTA, no un `.slice()` posterior: traer todos
+        // los lotes de un producto para tirar los que sobran es descargar filas
+        // para no usarlas. `productLot.list` acepta `limit` desde `db5b03c`.
+        const lots = await repos.productLot.list(ctx, { productId, limit: MAX_ROWS });
+        return lots.map((l) => ({
           lotNumber: l.lotNumber, expiresAt: l.expiresAt,
           currentQuantity: l.currentQuantity, status: l.status,
         }));
@@ -122,6 +128,18 @@ export function makeChatToolExecutor(ctx: RepoContext) {
 
       case "get_expiring_lots": {
         const days = int(a.days, 30, 1, 365);
+        // 🔴 AQUÍ NO VA `limit`, aunque se parezca a `get_product_lots`.
+        //
+        // `vencidosTotal`/`porVencerTotal` se calculan CONTANDO estas filas
+        // (`.filter(withStock).length`), así que con un tope el total dejaría de
+        // ser el total y diría, en silencio, «25 lotes vencidos» habiendo 300.
+        // Un número corto de más es peor que una lectura grande: se repite por
+        // teléfono y nadie lo puede cuadrar.
+        //
+        // El arreglo bueno NO es poner un tope: es pedirle el conteo a la base
+        // (`count: "exact", head: true`) y dejar el tope solo para el detalle.
+        // Eso cambia el repositorio y necesita su propia prueba — está anotado
+        // en `docs/proximos-pasos.md`. Hasta entonces, no le pongas tope.
         const [expired, expiring] = await Promise.all([
           repos.productLot.list(ctx, { expiredOnly: true }),
           repos.productLot.list(ctx, { expiringWithinDays: days }),
@@ -164,17 +182,105 @@ export function makeChatToolExecutor(ctx: RepoContext) {
         // Solo fechas YYYY-MM-DD y branch UUID reales; lo demás se ignora.
         const from = dateStr(a.from);
         const to = dateStr(a.to);
-        const headers = await repos.proforma.listHeaders(ctx, {
-          from, to, branchId: uuid(a.branch_id),
-        });
-        const valid = headers.filter((h) => h.status !== "cancelled");
-        return {
-          ventas: valid.length,
-          totalDOP: Math.round(valid.reduce((s, h) => s + h.total, 0) * 100) / 100,
-          anuladas: headers.length - valid.length,
-          desde: from ?? null, hasta: to ?? null,
+        const branchId = uuid(a.branch_id);
+        const avisosDeFiltro = {
           ...(str(a.from) && !from ? { aviso: "from inválido (usa YYYY-MM-DD); se ignoró" } : {}),
           ...(str(a.to) && !to ? { aviso_to: "to inválido (usa YYYY-MM-DD); se ignoró" } : {}),
+        };
+
+        // ── Mitad del SISTEMA ────────────────────────────────────────────
+        // MISMO criterio que el panel (`esVentaCompletada`): antes esto
+        // contaba «todo lo que no sea cancelled», un cuarto criterio que ni
+        // excluía `voided`/`draft`/`expired` ni coincidía con ninguna
+        // pantalla, y encima llamaba «anuladas» a la diferencia.
+        const headers = await repos.proforma.listHeaders(ctx, { from, to, branchId });
+        const ventasSistema = headers.filter((h) => esVentaCompletada(h.status));
+        const totalSistema =
+          Math.round(ventasSistema.reduce((s, h) => s + h.total, 0) * 100) / 100;
+        // 🔴 N9: un borrador o una vencida NO son lo mismo que una anulada, y
+        // este canal no tiene badge en pantalla que corrija al modelo si lo
+        // dice mal — si el asistente le dice al dueño «N anuladas» contando
+        // borradores, se lo cree. Se desglosa con el MISMO vocabulario que ya
+        // usa el resto de la aplicación (`ETIQUETA_ESTADO_VENTA` +
+        // `estadoDeProforma`, de `features/ventas/venta-unificada.ts`), no uno
+        // inventado aquí.
+        const excluidosSistema = headers.filter((h) => isExcludedStatus(h.status));
+        const estadosExcluidosSistema = excluidosSistema.reduce<Record<string, number>>(
+          (acc, h) => {
+            const etiqueta = ETIQUETA_ESTADO_VENTA[estadoDeProforma(h.status)];
+            acc[etiqueta] = (acc[etiqueta] ?? 0) + 1;
+            return acc;
+          },
+          {},
+        );
+
+        // ── Mitad del HISTÓRICO migrado de Alegra ────────────────────────
+        // El total llega YA SUMADO por la base (`resumen_ventas_unificadas`,
+        // la misma llamada que usa el panel): son 14 965 facturas, aquí no se
+        // descarga ni una. Import dinámico como en `get_receivables`: sin
+        // Supabase este módulo no tiene nada que consultar.
+        let historico: { ventas: number; totalDOP: number } | null = null;
+        let falloHistorico: string | null = null;
+        try {
+          const { resumenVentas } = await import(
+            "@/server/repositories/supabase/ventas-unificadas"
+          );
+          const r = await resumenVentas(ctx, {
+            ...(from ? { desde: from } : {}),
+            ...(to ? { hasta: to } : {}),
+            ...(branchId ? { sucursalId: branchId } : {}),
+          });
+          historico = {
+            ventas: r.porOrigen.alegra.cantidad,
+            totalDOP: r.porOrigen.alegra.total,
+          };
+        } catch (e) {
+          falloHistorico = e instanceof Error ? e.message.slice(0, 200) : "error desconocido";
+        }
+
+        /**
+         * 🔴 Sin el histórico NO se devuelve un total.
+         *
+         * Este canal no tiene aviso ámbar ni etiqueta de origen: lo único que
+         * llega al dueño es la frase del modelo. Si aquí saliera un
+         * `totalDOP` a secas mientras faltan los RD$48,4 millones migrados, el
+         * modelo lo afirmaría como hecho — que es exactamente lo que hacía
+         * antes al contestar «0 ventas · RD$0.00». Así que el importe del
+         * sistema viaja con OTRO nombre y con la instrucción de decirlo.
+         */
+        if (!historico) {
+          return {
+            historicoIncluido: false,
+            ventasSistema: ventasSistema.length,
+            totalSistemaDOP: totalSistema,
+            estadosExcluidosSistema,
+            desde: from ?? null, hasta: to ?? null,
+            aviso_historico:
+              "No se pudo consultar el histórico migrado de Alegra, así que NO hay total del negocio: " +
+              "las cifras de arriba son SOLO del sistema propio y están incompletas. Dilo al responder; " +
+              "no las presentes como el total vendido.",
+            detalle_fallo: falloHistorico,
+            ...avisosDeFiltro,
+          };
+        }
+
+        return {
+          ventas: ventasSistema.length + historico.ventas,
+          totalDOP: Math.round((totalSistema + historico.totalDOP) * 100) / 100,
+          porOrigen: {
+            sistema: { ventas: ventasSistema.length, totalDOP: totalSistema },
+            alegra: { ventas: historico.ventas, totalDOP: historico.totalDOP },
+          },
+          historicoIncluido: true,
+          estadosExcluidosSistema,
+          desde: from ?? null, hasta: to ?? null,
+          nota:
+            "El total suma las ventas del sistema y el histórico migrado de Alegra. " +
+            "Al responder, di cuánto pone cada origen (porOrigen). `estadosExcluidosSistema` " +
+            "desglosa, por estado (Anulada/Borrador/Vencida), los documentos del sistema que " +
+            "NO cuentan en el total; no del histórico. No los llames a todos «anulados»: " +
+            "un borrador o una vencida no son lo mismo que una anulada.",
+          ...avisosDeFiltro,
         };
       }
 
