@@ -44,7 +44,7 @@ import {
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
 import { useCustomerProfile } from "@/features/customers/customer-profile-hooks";
-import { isNewCustomer } from "@/features/customers/customer-flags";
+import { insigniaCliente } from "@/features/customers/customer-flags";
 import { purchasesByMonth } from "@/features/customers/customer-purchases";
 import { AlegraPurchasesTab } from "@/features/alegra/client-purchases-tab";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
@@ -53,6 +53,7 @@ import { useListadoVentas } from "@/features/ventas/ventas-api";
 import {
   combinarComprasCliente,
   metricasComprasCliente,
+  comprasPorMes,
   textoComprasCliente,
 } from "@/features/ventas/compras-cliente";
 import { BarChart } from "@/components/ui/bar-chart";
@@ -256,7 +257,13 @@ export default function ClienteDetallePage() {
 
       <PageHeader
         title={`${c.firstName} ${c.lastName}`}
-        titleBadge={isNewCustomer(c) ? <Badge tone="success">Nuevo</Badge> : null}
+        titleBadge={(() => {
+          // 🔴 «Nuevo» se calcula por antigüedad, y la migración creó los 6 521
+          // clientes el mismo día: durante la ventana de novedad TODOS salían
+          // marcados «Nuevo», incluidos los que llevan comprando desde 2023.
+          const ins = insigniaCliente(c);
+          return ins ? <Badge tone={ins.tono}>{ins.texto}</Badge> : null;
+        })()}
         description={`${c.customerNumber}${c.documentType ? ` · ${c.documentType}` : ""}${c.documentNumber ? ` ${c.documentNumber}` : ""}`}
         breadcrumbs={[
           { label: "Clientes", href: "/clientes" },
@@ -361,7 +368,11 @@ export default function ClienteDetallePage() {
           </CardHeader>
           <CardContent>
             {(() => {
-              const byMonth = purchasesByMonth(proformas);
+              // 🔴 De `compras` (las dos fuentes), no de `proformas`: con
+              // `proformas` a 0 filas esta tarjeta decía «Sin compras en los
+              // últimos meses» justo debajo de un KPI de RD$99 150. Dos
+              // afirmaciones opuestas en la misma pantalla.
+              const byMonth = comprasPorMes(compras);
               const hasData = byMonth.some((m) => m.value > 0);
               if (!hasData) {
                 return (

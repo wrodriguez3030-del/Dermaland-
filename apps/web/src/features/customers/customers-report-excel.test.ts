@@ -101,18 +101,20 @@ describe("buildCustomersWorkbookSpec — paridad con perfil/pantalla", () => {
     // que alguien la revierta a «Total gastado acumulado» (la colisión con la
     // ficha que este trabajo vino a cerrar). Se fija primero el texto exacto
     // de la constante, y LUEGO se busca el KPI por ese literal.
-    expect(ETIQUETA_TOTAL_GASTADO_ACUMULADO).toBe("Total gastado acumulado (sistema)");
-    const total = kpis.find((k) => k.label === "Total gastado acumulado (sistema)");
+    expect(ETIQUETA_TOTAL_GASTADO_ACUMULADO).toBe("Total gastado acumulado");
+    const total = kpis.find((k) => k.label === "Total gastado acumulado");
     expect(Number(total!.value)).toBeCloseTo(34908, 2);
   });
 
-  it("🔴 TODAS las hojas dicen que el gasto es solo del sistema (sin Alegra)", () => {
+  it("🔴 TODAS las hojas dicen qué cuenta el gasto", () => {
     // El Excel sale del edificio. Su columna de dinero cuenta solo `proformas`
     // —con `proformas` a 0 filas, un cliente con 172 facturas migradas exporta
     // RD$0.00— mientras la ficha de ese mismo cliente enseña RD$X bajo la
     // MISMA etiqueta. `TableSpec` no tiene clave de nota: el único texto que el
     // motor pinta encima de una tabla es su `title`, y ahí va el alcance.
-    expect(ALCANCE_TOTAL_GASTADO).toContain("solo las ventas del sistema");
+    // Ya suma las dos fuentes: la nota lo dice, y se compara contra el
+    // literal para que cambiarla sin cambiar las tres pantallas se ponga rojo.
+    expect(ALCANCE_TOTAL_GASTADO).toContain("histórico migrado de Alegra");
     // N4: cuenta cuántas tablas entran al `if` de abajo. Si alguien renombra
     // la clave `totalSpent` en `customers-report-excel.ts`, el `some(...)` deja
     // de matchear en TODAS las hojas, el cuerpo del `if` nunca corre, y esta
@@ -127,7 +129,7 @@ describe("buildCustomersWorkbookSpec — paridad con perfil/pantalla", () => {
           // Contra el literal: si la constante se renombrara a «Total gastado»
           // volvería la colisión con la ficha y la prueba tiene que verlo.
           const columna = tabla.columns.find((c) => c.key === "totalSpent")!;
-          expect(columna.header).toBe("Total gastado (sistema)");
+          expect(columna.header).toBe("Total gastado");
           expect(columna.header).toBe(ETIQUETA_TOTAL_GASTADO);
         }
       }

@@ -27,3 +27,24 @@ export function isNewCustomer(
   if (ageMs < 0) return false;
   return ageMs < windowDays * 24 * 60 * 60 * 1000;
 }
+
+/**
+ * 🔴 Qué insignia lleva el cliente al lado del nombre: `null` si ninguna.
+ *
+ * «Nuevo» se calcula por antigüedad, y la migración de Alegra creó los 6 523
+ * clientes el mismo día: durante la ventana de novedad, TODO el listado salía
+ * marcado «Nuevo» —clientes que llevan comprando desde 2023—. Una insignia que
+ * la lleva todo el mundo no informa de nada, y encima miente.
+ *
+ * Manda el origen: si vino de Alegra, se dice eso. «Nuevo» queda para los que
+ * de verdad se dieron de alta aquí hace poco, que es lo que esa palabra
+ * significa para quien la lee.
+ */
+export function insigniaCliente(
+  c: Pick<Customer, "createdAt" | "source">,
+  now: Date = new Date(),
+): { texto: string; tono: "success" | "info" } | null {
+  if (c.source === "alegra") return { texto: "Migrado de Alegra", tono: "info" };
+  if (isNewCustomer(c, now)) return { texto: "Nuevo", tono: "success" };
+  return null;
+}

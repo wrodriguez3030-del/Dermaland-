@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { Proforma } from "@/types";
-import { combinarComprasCliente, metricasComprasCliente, textoComprasCliente } from "./compras-cliente";
+import { combinarComprasCliente, metricasComprasCliente, textoComprasCliente,
+  comprasPorMes,
+  type CompraCliente,
+} from "./compras-cliente";
 import type { VentaUnificada } from "./venta-unificada";
 
 const proforma = (over: Partial<Proforma>): Proforma =>
@@ -185,5 +188,61 @@ describe("🔴 una sola definición de «lo que este cliente ha comprado»", () 
     const texto = textoComprasCliente(metricasComprasCliente(filas));
     expect(texto).toMatch(/compras/);
     expect(texto).not.toMatch(/ventas|período/);
+  });
+});
+
+/**
+ * 🔴 «Compras por mes» salía de `purchasesByMonth(proformas)`, o sea solo de
+ * las ventas del sistema. Con `proformas` a 0 filas, la ficha de un cliente con
+ * 17 compras migradas y RD$99 150 gastados enseñaba «Sin compras en los últimos
+ * meses» justo debajo de un KPI que decía RD$99 150.
+ */
+describe("comprasPorMes", () => {
+  const HOY = new Date("2026-09-07T12:00:00Z");
+  const migrada = (id: string, fecha: string, total: number, anulada = false): CompraCliente => ({
+    venta: {
+      id, origen: "alegra", numero: id, fecha, clienteId: "c1", clienteNombre: "X",
+      total, itbis: 0, subtotal: total, formaPago: null, vendedor: null, sucursalId: null,
+      anulada, editable: false, estado: anulada ? "anulada" : "vigente",
+    } as CompraCliente["venta"],
+    proforma: null,
+  });
+
+  it("🔴 una compra migrada SÍ aparece en su mes", () => {
+    const barras = comprasPorMes([migrada("a", "2026-08-15", 3340)], 6, HOY);
+    const ago = barras.find((b) => b.label === "Ago");
+    expect(ago!.value).toBe(3340);
+  });
+
+  it("🔴 las barras suman lo mismo que el KPI de arriba", () => {
+    const compras = [
+      migrada("a", "2026-09-01", 1000),
+      migrada("b", "2026-08-15", 2500.55),
+      migrada("c", "2026-07-20", 3499.45),
+    ];
+    const suma = comprasPorMes(compras, 6, HOY).reduce((s, b) => s + b.value, 0);
+    expect(suma).toBe(metricasComprasCliente(compras).totalGastado);
+  });
+
+  it("🔴 una anulada no suma, ni en el gráfico ni en el KPI", () => {
+    const compras = [migrada("a", "2026-08-15", 3340), migrada("b", "2026-08-16", 9999, true)];
+    const ago = comprasPorMes(compras, 6, HOY).find((b) => b.label === "Ago");
+    expect(ago!.value).toBe(3340);
+  });
+
+  it("🔴 mayo de 2025 NO cae en la barra de mayo de 2026", () => {
+    // Sin el año en la clave, una compra vieja inventaría un mes bueno.
+    const barras = comprasPorMes([migrada("viejo", "2025-05-10", 5000)], 6, HOY);
+    expect(barras.every((b) => b.value === 0)).toBe(true);
+  });
+
+  it("una compra del día 1 no se va al mes anterior por la zona horaria", () => {
+    const barras = comprasPorMes([migrada("a", "2026-09-01", 700)], 6, HOY);
+    expect(barras.find((b) => b.label === "Sep")!.value).toBe(700);
+    expect(barras.find((b) => b.label === "Ago")!.value).toBe(0);
+  });
+
+  it("sin compras, todas las barras a cero", () => {
+    expect(comprasPorMes([], 6, HOY).every((b) => b.value === 0)).toBe(true);
   });
 });

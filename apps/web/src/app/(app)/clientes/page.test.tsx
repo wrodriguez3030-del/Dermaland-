@@ -24,6 +24,8 @@ const searchParams = new URLSearchParams("");
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
+  // Lo buscado vive en la URL para que el «Atrás» devuelva la búsqueda intacta.
+  usePathname: () => "/clientes",
 }));
 
 const CLIENTE = {
@@ -64,22 +66,26 @@ import ClientesPage from "./page";
 afterEach(cleanup);
 
 describe("Clientes — qué cuenta «Total gastado»", () => {
-  it("🔴 dice en pantalla que el gasto es solo del sistema (sin el histórico de Alegra)", () => {
+  it("🔴 dice en pantalla qué cuenta el «Total gastado»", () => {
     render(<ClientesPage />);
     // Contra el literal, no contra la constante: si la frase se vacía o se
     // queda sin la parte que importa, esta prueba se pone roja igual.
-    const aviso = screen.getByText(/solo las ventas del sistema/);
+    const aviso = screen.getByText(/histórico migrado de Alegra/);
     expect(aviso).toBeInTheDocument();
-    expect(aviso.textContent).toContain("el histórico migrado de Alegra no entra");
+    expect(aviso.textContent).toContain("suma las ventas del sistema y el histórico migrado");
     expect(ALCANCE_TOTAL_GASTADO).toBe(aviso.textContent);
   });
 
-  it("🔴 la columna NO se llama «Total gastado» a secas: colisionaba con la ficha", () => {
+  it("🔴 la columna se llama igual que en la ficha, el Excel y el PDF", () => {
     render(<ClientesPage />);
-    // El literal exacto de la ficha del cliente NO puede aparecer aquí: es la
-    // colisión que hacía que el mismo cliente valiera RD$0.00 en esta fila y
-    // RD$X dos clics más allá, bajo la misma palabra.
-    expect(screen.queryByText("Total gastado")).toBeNull();
-    expect(screen.getByText(/Total gastado \(sistema\)/)).toBeInTheDocument();
+    // 🔴 Ahora las tres pantallas cuentan LO MISMO —el listado suma el histórico
+    // migrado desde `metricas_clientes_alegra`—, así que la etiqueta vuelve a
+    // ser la simple. El «(sistema)» de antes era el aviso de una discrepancia
+    // que ya no existe, y un aviso falso estorba más que ayuda.
+    // El encabezado de la columna, no el párrafo de arriba (que también la
+    // nombra): se busca dentro de la cabecera de la tabla.
+    const encabezados = screen.getAllByRole("columnheader").map((c) => c.textContent ?? "");
+    expect(encabezados.some((h) => h.includes("Total gastado"))).toBe(true);
+    expect(encabezados.some((h) => h.includes("(sistema)"))).toBe(false);
   });
 });

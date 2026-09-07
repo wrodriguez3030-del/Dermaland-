@@ -77,4 +77,5 @@ export const FUENTES: { valor: Customer["source"]; etiqueta: string }[] = [
   { valor: "web", etiqueta: "Web" },
   { valor: "import", etiqueta: "Importación" },
   { valor: "agendapro", etiqueta: "AgendaPro" },
+  { valor: "alegra", etiqueta: "Migrado de Alegra" },
 ];

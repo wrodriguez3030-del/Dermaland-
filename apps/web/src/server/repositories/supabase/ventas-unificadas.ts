@@ -33,6 +33,7 @@ import "server-only";
 import type { RepoContext } from "@/server/repositories";
 import { failRepo, getClient, type AnySupabase } from "@/server/repositories/supabase/client";
 import { proformaRowToTs } from "@/server/repositories/supabase/mappers";
+import { fetchAllPages } from "@/server/repositories/supabase/pagination";
 import {
   desdeFacturaAlegra,
   desdeProforma,
@@ -435,15 +436,28 @@ export async function metricasClientesAlegra(
   filtros: Pick<FiltrosVentas, "desde" | "hasta" | "sucursalId"> = {},
 ): Promise<{ filas: MetricasClienteAlegra[]; aviso?: string }> {
   const sb = await clienteDe(ctx, "ventasUnificadas.metricasClientes");
-  const { data, error } = await sb.rpc("metricas_clientes_alegra", {
-    p_business_id: ctx.businessId,
-    p_desde: filtros.desde ?? null,
-    p_hasta: filtros.hasta ?? null,
-    p_sucursal_id: filtros.sucursalId ?? null,
-  });
-  if (error) failRepo("ventasUnificadas.metricasClientes", error);
 
-  const filas = (data as FilaMetricaClienteRpc[] | null) ?? [];
+  // 🔴 PAGINADO, y no es un detalle. Esta función devuelve una fila por cliente
+  // CON compras —hoy 5 995— y PostgREST corta en 1 000 EN SILENCIO si no se le
+  // pide un rango. Sin esto, 4 995 clientes salían con RD$0,00 gastado: el
+  // listado ordenado por «Total gastado» encabezaba con alguien de RD$190 mil
+  // cuando el que más había gastado llevaba RD$1,2 millones, y nada avisaba.
+  // Es el mismo tope que ya mordió a este proyecto en otras consultas.
+  const filas = await fetchAllPages<FilaMetricaClienteRpc>(async (from, to) => {
+    const { data, error } = await sb
+      .rpc("metricas_clientes_alegra", {
+        p_business_id: ctx.businessId,
+        p_desde: filtros.desde ?? null,
+        p_hasta: filtros.hasta ?? null,
+        p_sucursal_id: filtros.sucursalId ?? null,
+      })
+      // El orden por `cliente_id` es total y estable: sin él, dos páginas
+      // podrían repetir una fila y perder otra.
+      .order("cliente_id", { ascending: true })
+      .range(from, to);
+    if (error) failRepo("ventasUnificadas.metricasClientes", error);
+    return (data as FilaMetricaClienteRpc[] | null) ?? [];
+  });
   return {
     filas: filas
       // Sin id de cliente no hay a quién sumárselo: la base ya las excluye,

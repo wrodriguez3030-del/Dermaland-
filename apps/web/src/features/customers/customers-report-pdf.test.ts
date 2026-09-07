@@ -51,17 +51,17 @@ describe("buildCustomersPdfSpec — qué cuenta «Total gastado»", () => {
 
   it("🔴 la sección lleva la nota de alcance en `footnote`, la única clave que el motor pinta", () => {
     const nota = spec.sections[0]!.footnote;
-    expect(nota).toContain("solo las ventas del sistema");
-    expect(nota).toContain("el histórico migrado de Alegra no entra");
+    expect(nota).toContain("histórico migrado de Alegra");
+    expect(nota).toContain("suma las ventas del sistema y el histórico migrado");
     expect(nota).toBe(ALCANCE_TOTAL_GASTADO);
   });
 
-  it("🔴 la columna de dinero NO se llama «Total gastado» a secas", () => {
-    // Contra el literal: comparar con la constante haría que renombrarla a
-    // «Total gastado» dejara la prueba en verde con el fallo dentro.
+  it("🔴 la columna de dinero se llama igual que en pantalla y en el Excel", () => {
+    // Contra el LITERAL, no contra la constante: comparar la constante consigo
+    // misma pasaría aunque alguien la cambiara y dejara los tres sitios
+    // diciendo cosas distintas, que es justo lo que hay que impedir.
     const columna = spec.sections[0]!.table.columns.find((c) => c.key === "totalSpent");
-    expect(columna!.header).toBe("Total gastado (sistema)");
+    expect(columna!.header).toBe("Total gastado");
     expect(columna!.header).toBe(ETIQUETA_TOTAL_GASTADO);
-    expect(spec.kpis!.map((k) => k.label)).not.toContain("Total gastado");
   });
 });

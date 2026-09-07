@@ -401,7 +401,12 @@ export interface Customer extends Audited, SoftDeletable, BusinessScoped {
   address?: string;
   city?: string;
   province?: string;
-  source: "manual" | "whatsapp" | "web" | "import" | "agendapro";
+  /**
+   * De dónde salió el cliente. `alegra` es la migración de septiembre de
+   * 2026: 6 521 de los 6 525 clientes vienen de ahí, y el tipo no lo
+   * contemplaba —la base sí—, así que ningún código podía distinguirlos.
+   */
+  source: "manual" | "whatsapp" | "web" | "import" | "agendapro" | "alegra";
   tags: string[];
   /** Tipo de comprobante por defecto al facturar. Default: "consumo". */
   defaultBillingType: DefaultBillingType;

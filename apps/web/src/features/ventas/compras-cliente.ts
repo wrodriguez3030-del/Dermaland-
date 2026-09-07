@@ -113,15 +113,14 @@ export function metricasComprasCliente(compras: CompraCliente[]): MetricasCompra
     const excluida = proforma ? isExcludedStatus(proforma.status) : venta.anulada;
     if (!excluida && (!ultimaCompra || venta.fecha > ultimaCompra)) ultimaCompra = venta.fecha;
 
+    const cuenta = centavosQueCuentan({ venta, proforma }, convertidas);
     if (proforma) {
-      if (!isFinalCustomerTransaction(proforma, convertidas)) continue;
-      centavos += aCentavos(
-        proforma.status === "partially_paid" ? proforma.paid : proforma.total,
-      );
+      if (cuenta === null) continue;
+      centavos += cuenta;
       cantidadSistema += 1;
     } else {
-      if (venta.anulada) continue;
-      centavos += aCentavos(venta.total);
+      if (cuenta === null) continue;
+      centavos += cuenta;
       cantidadAlegra += 1;
     }
   }
@@ -180,4 +179,91 @@ export function textoComprasCliente(m: MetricasComprasCliente): string {
       ? ` · la tabla lista ${m.listadas} filas: ${noCuentan} no cuentan como gasto (anuladas o sin cobrar)`
       : "";
   return `${origen}${cola}`;
+}
+
+/**
+ * 🔴 Cuánto cuenta ESTA compra, en centavos enteros. `null` = no cuenta.
+ *
+ * UNA sola definición para el KPI «Total gastado» de la ficha y para el gráfico
+ * «Compras por mes». Cuando eran dos, las barras podían no sumar el número
+ * grande de arriba y nadie sabría cuál creer.
+ *
+ * Las reglas que encierra, y por qué:
+ *  - Del sistema: solo las transacciones finales del cliente
+ *    (`isFinalCustomerTransaction` descarta las proformas convertidas, para no
+ *    contar dos veces la misma venta), y una pagada a medias cuenta lo PAGADO,
+ *    no lo facturado.
+ *  - De Alegra: cuenta el total salvo que esté anulada. No hay pagos parciales
+ *    que distinguir porque la migración trajo la factura, no su cobro.
+ */
+export function centavosQueCuentan(
+  { venta, proforma }: CompraCliente,
+  convertidas: Set<string>,
+): number | null {
+  if (proforma) {
+    if (!isFinalCustomerTransaction(proforma, convertidas)) return null;
+    return aCentavos(proforma.status === "partially_paid" ? proforma.paid : proforma.total);
+  }
+  // Sin ternario a propósito: hay un guardián que prohíbe `anulada ? … : …`
+  // porque ese patrón fue siempre una decisión de PINTURA disfrazada. Aquí
+  // `anulada` decide si la venta CUENTA, que es para lo que existe el campo, y
+  // escribirlo como un `if` deja clara la diferencia sin debilitar la guarda.
+  if (venta.anulada) return null;
+  return aCentavos(venta.total);
+}
+
+/** Abreviaturas de mes, como las escribe la casa. */
+const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+/**
+ * Gasto por mes del cliente, contando LAS DOS fuentes.
+ *
+ * 🔴 Antes esto salía de `purchasesByMonth(proformas)`, o sea solo de las
+ * ventas del sistema. Con `proformas` a 0 filas, la ficha de un cliente con 17
+ * compras migradas y RD$99 150 gastados enseñaba «Sin compras en los últimos
+ * meses» justo debajo de un KPI que decía RD$99 150. Dos afirmaciones opuestas
+ * en la misma pantalla.
+ *
+ * Se agrupa por año Y mes: sin el año, una compra de mayo de 2025 caería en la
+ * barra de mayo de 2026 y el gráfico inventaría un mes bueno.
+ *
+ * Las que no cuentan para los totales (anuladas, borradores) tampoco cuentan
+ * aquí: el mismo criterio que el KPI de arriba, para que las barras sumen lo
+ * que dice el número grande.
+ */
+export function comprasPorMes(
+  compras: CompraCliente[],
+  meses = 6,
+  ahora: Date = new Date(),
+): { label: string; value: number }[] {
+  const cubos: { clave: string; label: string; value: number }[] = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - i, 1));
+    cubos.push({
+      clave: `${d.getUTCFullYear()}-${d.getUTCMonth()}`,
+      label: MESES[d.getUTCMonth()]!,
+      value: 0,
+    });
+  }
+  const indice = new Map(cubos.map((c, i) => [c.clave, i]));
+  // Mismo conjunto de convertidas que el KPI: si se calculara aquí sobre otra
+  // lista, una proforma convertida podría contarse en el gráfico y no arriba.
+  const convertidas = collectConvertedSourceIds(
+    compras.map((f) => f.proforma).filter((p): p is Proforma => p !== null),
+  );
+  for (const f of compras) {
+    const cuenta = centavosQueCuentan(f, convertidas);
+    if (cuenta === null) continue;
+    // La fecha llega como ISO (`2026-05-29` o con hora): se parte a mano en vez
+    // de `new Date(...)` para que la zona horaria no mueva una compra del día 1
+    // al mes anterior.
+    const [anio, mes] = f.venta.fecha.slice(0, 7).split("-");
+    if (!anio || !mes) continue;
+    const i = indice.get(`${Number(anio)}-${Number(mes) - 1}`);
+    if (i === undefined) continue;
+    cubos[i]!.value += cuenta;
+  }
+  // De centavos a pesos AL FINAL, una sola vez: sumar pesos con coma flotante
+  // arrastra céntimos que no cuadran con el KPI.
+  return cubos.map(({ label, value }) => ({ label, value: value / 100 }));
 }

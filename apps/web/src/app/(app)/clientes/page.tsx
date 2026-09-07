@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Badge,
@@ -29,7 +29,7 @@ import { useToast } from "@/components/ui/toast";
 import { deleteCustomerAnywhere } from "@/features/customers/customer-store";
 import { useCustomersReport } from "@/features/customers/customer-profile-hooks";
 import { coincideCliente, FUENTES } from "@/features/customers/customer-search";
-import { isNewCustomer } from "@/features/customers/customer-flags";
+import { insigniaCliente } from "@/features/customers/customer-flags";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
 import { skinTypeLabel } from "@/features/customers/billing";
 import {
@@ -76,9 +76,27 @@ function ClientesContent() {
   // un `<input>` sin valor ni manejador y dos `<select>` sueltos. Con 6 524
   // clientes eso dejaba la lista inservible — encontrar a alguien exigía pasar
   // páginas a mano.
-  const [busqueda, setBusqueda] = React.useState("");
-  const [fuente, setFuente] = React.useState("");
-  const [tipoPiel, setTipoPiel] = React.useState("");
+  // 🔴 Lo buscado vive en la URL, no solo en memoria: al entrar a una ficha y
+  // volver, la lista aparecía otra vez entera y había que teclear de nuevo. Con
+  // esto el «Atrás» del navegador devuelve la búsqueda intacta, y el enlace se
+  // puede guardar o pasar a alguien ya filtrado.
+  const rutaActual = usePathname();
+  const busqueda = params.get("q") ?? "";
+  const fuente = params.get("fuente") ?? "";
+  const tipoPiel = params.get("piel") ?? "";
+
+  const cambiarFiltro = React.useCallback(
+    (clave: "q" | "fuente" | "piel", valor: string) => {
+      const siguientes = new URLSearchParams(params.toString());
+      if (valor) siguientes.set(clave, valor);
+      else siguientes.delete(clave);
+      // `replace` y no `push`: teclear ocho letras no debe dejar ocho entradas
+      // en el historial que haya que deshacer una a una.
+      const qs = siguientes.toString();
+      router.replace(qs ? `${rutaActual}?${qs}` : rutaActual, { scroll: false });
+    },
+    [params, router, rutaActual],
+  );
 
   const tiposDePiel = React.useMemo(() => {
     // Solo los tipos que ALGUIEN tiene: un desplegable con diez opciones de las
@@ -145,12 +163,12 @@ function ClientesContent() {
           placeholder="Buscar por nombre, cédula, RNC, teléfono…"
           containerClassName="flex-1 min-w-[260px]"
           value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
+          onChange={(e) => cambiarFiltro("q", e.target.value)}
         />
         <select
           className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm"
           value={fuente}
-          onChange={(e) => setFuente(e.target.value)}
+          onChange={(e) => cambiarFiltro("fuente", e.target.value)}
         >
           <option value="">Todas las fuentes</option>
           {FUENTES.map((f) => (
@@ -162,7 +180,7 @@ function ClientesContent() {
         <select
             className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm"
             value={tipoPiel}
-            onChange={(e) => setTipoPiel(e.target.value)}
+            onChange={(e) => cambiarFiltro("piel", e.target.value)}
           >
           <option value="">Todos los tipos de piel</option>
           {tiposDePiel.map((t) => (
@@ -198,9 +216,10 @@ function ClientesContent() {
                       <span className="truncate">
                         {c.firstName} {c.lastName}
                       </span>
-                      {isNewCustomer(c) && (
-                        <Badge tone="success">Nuevo</Badge>
-                      )}
+                      {(() => {
+                        const ins = insigniaCliente(c);
+                        return ins ? <Badge tone={ins.tono}>{ins.texto}</Badge> : null;
+                      })()}
                     </div>
                     <div className="font-mono text-xs opacity-60">{c.customerNumber}</div>
                     <div className="mt-1 text-xs opacity-70">
@@ -297,9 +316,10 @@ function ClientesContent() {
                         <span>
                           {c.firstName} {c.lastName}
                         </span>
-                        {isNewCustomer(c) && (
-                          <Badge tone="success">Nuevo</Badge>
-                        )}
+                        {(() => {
+                          const ins = insigniaCliente(c);
+                          return ins ? <Badge tone={ins.tono}>{ins.texto}</Badge> : null;
+                        })()}
                       </div>
                       <div className="text-xs opacity-60 font-mono">
                         {c.customerNumber}
