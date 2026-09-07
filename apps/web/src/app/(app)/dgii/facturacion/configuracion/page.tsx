@@ -24,6 +24,7 @@ import {
 import { canEditBillingSettings } from "@/features/billing/permissions";
 import { useCurrentUser } from "@/features/auth/current-user";
 import { billingTypeOptions } from "@/features/customers/billing";
+import { formatTime } from "@/lib/utils/format";
 
 /**
  * DGII / Facturación → Configuración de facturación.
@@ -73,7 +74,7 @@ export default function BillingConfigPage() {
     });
     setGuardando(false);
     if (res.ok) {
-      setSaved(new Date().toLocaleTimeString("es-DO"));
+      setSaved(formatTime(new Date()));
     } else {
       setError(res.error);
     }

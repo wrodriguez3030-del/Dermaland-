@@ -8,6 +8,7 @@ import { QueueRunButton } from "@/features/dgii/components/queue-run-button";
 import { roleHasDgiiPermission } from "@/features/dgii/permissions";
 import { getSession } from "@/server/auth/context";
 import { loadDgiiDashboard } from "@/server/services/dgii/dashboard";
+import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * Estado real del módulo fiscal.
@@ -97,7 +98,7 @@ export default async function EstadoDgiiPage() {
             </h2>
             <p className="mt-2 text-sm text-[color:var(--brand-fg)]/80">
               <span className="font-mono">{d.masAntiguoPendiente.eNcf}</span>, desde el{" "}
-              {new Date(d.masAntiguoPendiente.desde).toLocaleString("es-DO")}.
+              {formatDateTime(d.masAntiguoPendiente.desde)}.
             </p>
             <p className="mt-1 text-sm text-[color:var(--brand-fg)]/60">
               Si lleva mucho ahí y la cola corre cada 15 minutos, algo no está

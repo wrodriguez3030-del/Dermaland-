@@ -15,6 +15,7 @@ import { FormSection } from "@/components/ui/filter-bar";
 import { DgiiLocationSelect } from "@/components/dgii/location-select";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { saveDgiiSettings } from "./actions";
+import { formatTime } from "@/lib/utils/format";
 
 /**
  * Configuración fiscal DGII.
@@ -70,7 +71,7 @@ export default function ConfigDgiiPage() {
     });
     setSaving(false);
     if (res.ok) {
-      setStatus({ kind: "ok", at: new Date().toLocaleTimeString("es-DO") });
+      setStatus({ kind: "ok", at: formatTime(new Date()) });
     } else {
       setStatus({ kind: "error", error: res.error });
     }

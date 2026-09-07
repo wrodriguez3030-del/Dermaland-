@@ -6,15 +6,24 @@ const dopFormatter = new Intl.NumberFormat("es-DO", {
 
 const intFormatter = new Intl.NumberFormat("es-DO");
 
+/**
+ * 🔴 `dd/mm/aaaa` en TODO el sistema (pedido del dueño, 08/09/2026).
+ *
+ * Con `month: "short"` salía «18 jun de 2026» en pantalla mientras el PDF y el
+ * Excel ya escribían `18/06/2026`: el mismo dato leído de dos maneras según
+ * dónde se mirara. Cambiar aquí lo cambia en los 74 sitios que usan estos
+ * helpers; la prueba de al lado impide que vuelva, y el guardián del final de
+ * ese archivo impide que alguien lo sortee con un `toLocaleDateString` suelto.
+ */
 const dateFormatter = new Intl.DateTimeFormat("es-DO", {
   day: "2-digit",
-  month: "short",
+  month: "2-digit",
   year: "numeric",
 });
 
 const dateTimeFormatter = new Intl.DateTimeFormat("es-DO", {
   day: "2-digit",
-  month: "short",
+  month: "2-digit",
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",

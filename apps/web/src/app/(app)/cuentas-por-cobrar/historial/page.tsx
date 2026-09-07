@@ -11,10 +11,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Coins, ReceiptText } from "lucide-react";
 import { METHOD_LABEL } from "@/features/receivables/components";
 import { arApi, money, type CollectionHistoryRow } from "@/features/receivables/receivables-client";
+import { formatDateTime } from "@/lib/utils/format";
 
 function fechaHora(iso: string): string {
   const d = new Date(iso);
-  return `${d.toLocaleDateString("es-DO")} ${d.toLocaleTimeString("es-DO", { hour: "2-digit", minute: "2-digit" })}`;
+  return formatDateTime(d);
 }
 
 /**

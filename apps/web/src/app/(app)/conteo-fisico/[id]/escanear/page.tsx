@@ -35,7 +35,7 @@ import {
 import { Modal } from "@/components/ui/modal";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { formatCurrency } from "@/lib/utils/format";
+import { formatCurrency, formatTime } from "@/lib/utils/format";
 import { downloadBlob } from "@/lib/utils/download";
 import { useProducts } from "@/features/products/product-store";
 import {
@@ -732,7 +732,7 @@ export default function EscanearPage() {
                 <TBody>
                   {session.scans.slice(0, 30).map((s) => (
                     <TR key={s.id}>
-                      <TD className="text-xs opacity-70">{new Date(s.at).toLocaleTimeString("es-DO")}</TD>
+                      <TD className="text-xs opacity-70">{formatTime(s.at)}</TD>
                       <TD className="font-mono text-xs">{s.scannedCode}</TD>
                       <TD className="text-sm">{s.productName ?? "—"}</TD>
                       <TD>

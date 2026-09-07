@@ -37,6 +37,7 @@ import {
 } from "@/features/dgii/certificate-status-store";
 import { useLocalTest } from "@/features/dgii/local-test-store";
 import { RepresentanteEvidenceForm } from "./representante-evidence-form";
+import { formatDateTime } from "@/lib/utils/format";
 
 interface EnablementStepCardProps {
   step: EnablementStepDef;
@@ -405,7 +406,7 @@ export function EnablementStepCard({
           {progress?.completedAt && (
             <p className="text-xs opacity-60">
               Completado por <strong>{progress.completedBy ?? "—"}</strong> el{" "}
-              {new Date(progress.completedAt).toLocaleString("es-DO")}
+              {formatDateTime(progress.completedAt)}
             </p>
           )}
         </CardContent>

@@ -14,6 +14,7 @@ import {
 } from "@/features/ai/ai-client";
 import { ProviderWizard } from "@/features/ai/provider-wizard";
 import { AiSetupGuide } from "@/features/ai/setup-guide";
+import { formatDateTime } from "@/lib/utils/format";
 
 const STATUS_TONE: Record<ProviderView["status"], "success" | "danger" | "warning" | "neutral"> = {
   unconfigured: "neutral",
@@ -85,7 +86,7 @@ export default function ProveedoresPage() {
               </div>
               <dl className="grid grid-cols-2 gap-y-1 text-xs">
                 <dt className="opacity-60">Modelo</dt><dd className="text-right">{p.defaultModel ?? "—"}</dd>
-                <dt className="opacity-60">Última prueba</dt><dd className="text-right">{p.lastTestedAt ? new Date(p.lastTestedAt).toLocaleString() : "—"}</dd>
+                <dt className="opacity-60">Última prueba</dt><dd className="text-right">{p.lastTestedAt ? formatDateTime(p.lastTestedAt) : "—"}</dd>
                 <dt className="opacity-60">Latencia</dt><dd className="text-right">{p.lastTestLatencyMs != null ? `${p.lastTestLatencyMs} ms` : "—"}</dd>
                 <dt className="opacity-60">Límite mensual</dt><dd className="text-right">{p.monthlyBudgetUsd != null ? `US$${p.monthlyBudgetUsd}` : p.monthlyRequestLimit != null ? `${p.monthlyRequestLimit} req` : "sin tope"}</dd>
               </dl>
