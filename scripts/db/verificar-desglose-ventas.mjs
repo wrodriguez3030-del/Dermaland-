@@ -18,9 +18,14 @@
  *     abajo el desglose, y si no cuadran no hay nada que auditar. Los
  *     criterios de exclusión están duplicados en dos funciones SQL a la
  *     fuerza — nada en la base los ata.
- *  2. Que el reparto por vendedor es el REAL, el que dejó
+ *  2. Que ninguna factura se cuenta dos veces: el desglose por vendedor busca
+ *     al usuario con un `left join lateral`, y sin su `limit 1` dos usuarios
+ *     con el nombre parecido duplicarían cada factura no enlazada.
+ *  3. Que ningún vendedor sale partido en dos filas, y en qué estado está el
+ *     enlace `seller_id` (que el sincronizador diario no rellena).
+ *  4. Que el reparto por vendedor es el REAL, el que dejó
  *     `scripts/alegra/vincular-vendedores.mjs`.
- *  3. Que `anon` NO puede ejecutarla y `authenticated` sí.
+ *  5. Que `anon` NO puede ejecutarla y `authenticated` sí.
  *
  * Requiere SUPABASE_DB_URL (se lee de apps/web/.env.local si no está en el
  * entorno), igual que scripts/db/apply-migration.mjs.
@@ -132,6 +137,54 @@ async function main() {
         ? ok(`${nombre}: ${Number(kpi).toLocaleString("es-DO")} en los dos`)
         : mal(`${nombre} DESCUADRA — KPI ${kpi} vs desglose ${desglose}`);
     }
+
+    console.log("\n3 bis) 🔴 Ninguna factura se cuenta dos veces\n");
+    // El `left join lateral` del desglose por vendedor busca al usuario primero
+    // por `seller_id` y, si falta, por nombre normalizado. Sin su `limit 1`,
+    // dos usuarios cuyo nombre normalice igual devolverían DOS filas por
+    // factura y el desglose contaría el dinero dos veces. Aquí se mide.
+    const facturas = await cliente.query(
+      `select count(*)::int as n, coalesce(sum(total), 0) as total
+       from public.alegra_invoices
+       where business_id = $1 and status not in ('void', 'draft')`,
+      [BUSINESS],
+    );
+    const fac = facturas.rows[0];
+    Number(c.d_alegra_cantidad) === Number(fac.n)
+      ? ok(`${Number(fac.n).toLocaleString("es-DO")} facturas, ${Number(fac.n).toLocaleString("es-DO")} contadas`)
+      : mal(`el desglose cuenta ${c.d_alegra_cantidad} facturas y hay ${fac.n}: se está duplicando o perdiendo`);
+
+    console.log("\n3 ter) En qué estado está el enlace de vendedores\n");
+    // La columna la crea 20260906120000 y la rellena vincular-vendedores.mjs.
+    // Entre una cosa y otra, y con cada factura nueva del sincronizador, hay
+    // facturas SIN enlazar: el desglose tiene que seguir juntándolas con las de
+    // su misma persona, no abrirles una fila aparte.
+    const enlace = await cliente.query(
+      `select count(*) filter (where seller_id is not null)::int as enlazadas,
+              count(*) filter (where seller_id is null)::int     as sueltas
+       from public.alegra_invoices
+       where business_id = $1 and status not in ('void', 'draft')`,
+      [BUSINESS],
+    );
+    const e = enlace.rows[0];
+    console.log(`    ${Number(e.enlazadas).toLocaleString("es-DO")} con seller_id · ${Number(e.sueltas).toLocaleString("es-DO")} sin enlazar`);
+    if (e.enlazadas === 0) {
+      console.log("    ℹ Todavía no se ha corrido scripts/alegra/vincular-vendedores.mjs --apply.");
+      console.log("      El desglose agrupa por nombre NORMALIZADO; el reparto es correcto,");
+      console.log("      pero las etiquetas son el texto de Alegra («LAURA MEJIA»), no el nombre real.");
+    }
+    // Nadie puede salir dos veces con el mismo nombre visible: eso sería la
+    // persona partida en dos filas, que es lo que este arreglo cierra.
+    const repetidos = await cliente.query(
+      `select etiqueta, count(*)::int as veces
+       from public.desglose_ventas_unificadas($1, null, null, null, null, 'vendedor')
+       where origen = 'alegra'
+       group by etiqueta having count(*) > 1`,
+      [BUSINESS],
+    );
+    repetidos.rows.length === 0
+      ? ok("ningún vendedor sale dos veces en el desglose")
+      : mal(`vendedores partidos en dos filas: ${repetidos.rows.map((r) => `${r.etiqueta} (${r.veces})`).join(", ")}`);
 
     console.log("\n4) Reparto por vendedor (el que dejó vincular-vendedores.mjs)\n");
     const vend = await cliente.query(

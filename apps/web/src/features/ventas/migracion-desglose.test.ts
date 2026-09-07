@@ -222,9 +222,15 @@ describe("desglose de ventas unificadas — la migración", () => {
   });
 
   it("devuelve las cinco columnas del contrato, con `origen` entre ellas", () => {
+    // Anclado en la función GRANDE: el fichero declara antes el ayudante
+    // `nombre_vendedor_normalizado`, que también dice `language sql`.
+    const desdeLaFuncion = codigoDesglose.indexOf(
+      "create or replace function public.desglose_ventas_unificadas(",
+    );
+    expect(desdeLaFuncion, "no se encontró la función del desglose").toBeGreaterThan(-1);
     const returns = codigoDesglose.slice(
-      codigoDesglose.indexOf("returns table"),
-      codigoDesglose.indexOf("language sql"),
+      codigoDesglose.indexOf("returns table", desdeLaFuncion),
+      codigoDesglose.indexOf("language sql", desdeLaFuncion),
     );
     for (const col of ["clave text", "etiqueta text", "origen text", "cantidad integer", "total numeric"]) {
       expect(returns, `falta la columna ${col}`).toMatch(new RegExp(col, "i"));
@@ -249,19 +255,33 @@ describe("desglose de ventas unificadas — la migración", () => {
     expect(condiciones.length).toBe(ramas.length);
   });
 
-  it("🔴 usa las MISMAS etiquetas de «sin dato» que agregados.ts", () => {
-    // Si allí se renombran, la misma fila se llamaría de dos maneras según qué
-    // pantalla la pinte.
+  it("🔴 la etiqueta de «sin vendedor» es la que se VE en la pantalla, no la de otro módulo", () => {
+    // La mitad del sistema de esa misma tabla la pone `bySeller`
+    // (features/sales/sales-report.ts), que para lo mismo dice «No asignado».
+    // Antes esto se comparaba con `agregados.ts` («Sin vendedor»), un módulo
+    // que esta pantalla no usa: la fila del SQL y la de al lado se habrían
+    // llamado distinto si alguna vez se enseñaran juntas.
+    const salesReport = readFileSync(
+      resolve(process.cwd(), "src", "features", "sales", "sales-report.ts"),
+      "utf8",
+    );
+    expect(salesReport, "bySeller ya no dice «No asignado»").toContain('"No asignado"');
+    expect(codigoDesglose, "la migración ya no dice «No asignado»").toContain("'No asignado'");
+    expect(codigoDesglose, "la migración volvió a la etiqueta que no se ve")
+      .not.toContain("'Sin vendedor'");
+  });
+
+  it("🔴 la etiqueta de «sin forma de pago» sigue siendo la de agregados.ts", () => {
     const agregados = readFileSync(
       resolve(process.cwd(), "src", "features", "ventas", "agregados.ts"),
       "utf8",
     );
-    for (const etiqueta of ["Sin vendedor", "Sin forma de pago"]) {
-      expect(agregados, `agregados.ts ya no dice «${etiqueta}»`).toContain(`"${etiqueta}"`);
-      expect(codigoDesglose, `la migración ya no dice «${etiqueta}»`).toContain(`'${etiqueta}'`);
-    }
-    // «Oficina» no sale de agregados.ts sino del guion que creó ese vendedor:
-    // son las 8 197 facturas que Alegra dejó sin vendedor.
+    expect(agregados).toContain('"Sin forma de pago"');
+    expect(codigoDesglose).toContain("'Sin forma de pago'");
+  });
+
+  it("«Oficina» sale del guion que creó ese vendedor, no de la nada", () => {
+    // Son las 8 197 facturas que Alegra dejó sin vendedor.
     const guion = readFileSync(
       resolve(process.cwd(), "..", "..", "scripts", "alegra", "vincular-vendedores.mjs"),
       "utf8",
@@ -290,5 +310,153 @@ describe("desglose de ventas unificadas — la migración", () => {
     // Y el tope se aplica sobre un orden ESTABLE: sin desempate, dos llamadas
     // seguidas podrían quedarse con filas distintas.
     expect(codigoDesglose).toMatch(/order by d\.total desc, d\.etiqueta, d\.origen/i);
+  });
+});
+
+/**
+ * 🔴 El desglose por vendedor tiene que funcionar en los TRES estados de
+ * `alegra_invoices.seller_id`, y en el cuarto que nadie nombra: el MIXTO.
+ *
+ * La columna la crea `20260906120000_alegra_vendedor.sql` y la rellena
+ * `scripts/alegra/vincular-vendedores.mjs`. Entre una cosa y la otra hay
+ * horas o días, y después el sincronizador diario trae facturas NUEVAS con la
+ * columna vacía —su upsert no manda esa columna, lo dice la propia migración
+ * que la creó—. O sea: el estado mixto no es una hipótesis, es el día 2.
+ *
+ *   1. Sin columna     → la migración se NIEGA a correr, y dice qué aplicar.
+ *   2. Columna vacía   → cae al nombre normalizado. El reparto de hoy.
+ *   3. Columna rellena → agrupa por `users.id` y etiqueta con el nombre real.
+ *   4. Mixto           → una factura sin enlazar cae en el MISMO grupo que las
+ *                        enlazadas de esa persona, no en una fila aparte.
+ *
+ * Comportamiento comprobado contra un Postgres 16 efímero (ver el informe de
+ * la ronda de arreglos); lo que se guarda aquí es que las PIEZAS que lo hacen
+ * posible no desaparezcan. La comprobación contra la base real vive en
+ * `scripts/db/verificar-desglose-ventas.mjs`.
+ */
+describe("desglose por vendedor — los cuatro estados de seller_id", () => {
+  /** La rama de Alegra de la dimensión `vendedor`. */
+  const rama = RAMAS.find((r) => r.dimension === "vendedor" && r.tabla === "alegra_invoices");
+
+  it("hay rama de vendedor sobre alegra_invoices", () => {
+    expect(rama, "desapareció la rama de vendedor de Alegra").toBeTruthy();
+  });
+
+  it("🔴 estado 1 — sin la columna, se NIEGA a correr y dice qué aplicar", () => {
+    // Postgres valida el cuerpo de una función `language sql` al crearla, así
+    // que sin la columna el error es «column ai.seller_id does not exist», que
+    // no dice qué hacer. Esta guarda sí, y va ANTES de crear nada.
+    expect(codigoDesglose).toMatch(
+      /table_name = 'alegra_invoices'\s+and column_name = 'seller_id'/i,
+    );
+    expect(codigoDesglose).toMatch(
+      /raise exception 'Falta aplicar antes 20260906120000_alegra_vendedor\.sql/i,
+    );
+    // Sobre el SQL CON comentarios: el `--apply` del comando lo confundiría
+    // `sinComentarios` con un comentario de línea y se comería media frase.
+    expect(sqlDesglose).toContain(
+      "node scripts/db/apply-migration.mjs supabase/migrations/20260906120000_alegra_vendedor.sql --apply",
+    );
+    expect(
+      codigoDesglose.search(/raise exception 'Falta aplicar antes 20260906120000/i),
+      "la guarda va DESPUÉS de crear la función: no serviría de nada",
+    ).toBeLessThan(
+      codigoDesglose.indexOf("create or replace function public.desglose_ventas_unificadas("),
+    );
+  });
+
+  it("🔴 estado 3 — agrupa por el enlace real (`seller_id` → `users.id`), no por el texto", () => {
+    // Es la columna que 20260906120000 creó «para que los reportes por vendedor
+    // y los incentivos funcionen […] no una comparación de cadenas en cada
+    // consulta».
+    expect(rama!.sql, "el lateral ya no busca por seller_id").toMatch(/u\.id\s*=\s*ai\.seller_id/);
+    expect(rama!.sql, "la clave dejó de ser el usuario").toMatch(/coalesce\(\s*v\.id::text/);
+    // Y la etiqueta es el nombre REAL de la persona, no el grito de Alegra.
+    expect(rama!.sql, "la etiqueta ya no prefiere el nombre del usuario").toMatch(
+      /coalesce\(\s*v\.full_name/,
+    );
+  });
+
+  it("🔴 estados 2 y 4 — cae al nombre NORMALIZADO cuando no hay enlace", () => {
+    // Sin esto, el día que el sync traiga «Desteny Reynoso» sin enlazar se
+    // abriría una segunda fila para la misma persona, en la tarjeta que este
+    // plan llama «base de incentivos».
+    expect(rama!.sql).toMatch(/ai\.seller_id is null/i);
+    expect(rama!.sql).toMatch(/nombre_vendedor_normalizado\(u\.full_name\)/);
+    expect(rama!.sql).toMatch(/nombre_vendedor_normalizado\(ai\.seller_name\)/);
+  });
+
+  it("🔴 una factura sin vendedor busca al usuario «Oficina», no una fila suelta", () => {
+    // Las 8 197 sin vendedor las ató el guion al usuario «Oficina». Una factura
+    // nueva sin vendedor tiene que caer en ESE grupo.
+    expect(rama!.sql).toMatch(
+      /coalesce\(nullif\(public\.nombre_vendedor_normalizado\(ai\.seller_name\), ''\), 'OFICINA'\)/,
+    );
+  });
+
+  it("🔴 el lateral trae UN vendedor como mucho: sin `limit 1` se duplicaría la factura", () => {
+    // Dos usuarios cuyo nombre normalice igual harían que el LEFT JOIN
+    // devolviera dos filas por factura y el desglose contara el dinero dos
+    // veces. Comprobado contra un Postgres 16 efímero: con `limit 1`, el
+    // desglose sigue dando 7 facturas y RD$2 188,00 exactos.
+    expect(rama!.sql).toMatch(/left join lateral/i);
+    const lateral = rama!.sql.slice(rama!.sql.search(/left join lateral/i));
+    expect(lateral, "el lateral perdió su `limit 1`").toMatch(/limit 1/i);
+    // Y el enlace real manda sobre el emparejamiento por nombre.
+    expect(lateral).toMatch(/order by \(u\.id = ai\.seller_id\) desc/);
+  });
+
+  it("🔴 el lateral no se sale de la empresa", () => {
+    const lateral = rama!.sql.slice(rama!.sql.search(/left join lateral/i));
+    expect(lateral).toMatch(/u\.business_id\s*=\s*ai\.business_id/);
+  });
+});
+
+describe("nombre_vendedor_normalizado", () => {
+  // Solo la función, hasta su `$$;`: el `comment on function` de más abajo
+  // también lleva un literal largo y confundiría la cuenta de listas.
+  const desde = codigoDesglose.indexOf(
+    "create or replace function public.nombre_vendedor_normalizado(",
+  );
+  const fn = codigoDesglose.slice(desde, codigoDesglose.indexOf("$$;", desde) + 3);
+
+  it("existe, es inmutable y no la puede llamar `anon`", () => {
+    expect(fn).toMatch(/\bimmutable\b/i);
+    expect(fn).toMatch(/set search_path = public/i);
+    expect(codigoDesglose).toMatch(
+      /revoke execute on function public\.nombre_vendedor_normalizado\(text\) from public, anon;/i,
+    );
+    expect(codigoDesglose).toMatch(
+      /grant execute on function public\.nombre_vendedor_normalizado\(text\) to authenticated;/i,
+    );
+  });
+
+  it("🔴 quita mayúsculas, tildes Y los espacios de DENTRO", () => {
+    // Los tres, y cada uno por su cuenta: comprobado contra un Postgres 16
+    // efímero, sin el `regexp_replace` la variante «desteny  reynoso» (dos
+    // espacios) abría una fila aparte para la misma persona.
+    expect(fn, "ya no pasa a mayúsculas").toMatch(/\bupper\(/i);
+    expect(fn, "ya no quita tildes").toMatch(/\btranslate\(/i);
+    expect(fn, "ya no colapsa los espacios de dentro").toMatch(
+      /regexp_replace\(btrim\(coalesce\(p_nombre, ''\)\), '\\s\+', ' ', 'g'\)/,
+    );
+  });
+
+  it("🔴 las dos cadenas de `translate` tienen el MISMO largo", () => {
+    // `translate` no avisa si la segunda es más corta: se limita a BORRAR los
+    // caracteres que le sobran a la primera. Una tilde de más en la lista y
+    // «Mejía» pasaría a «MEJA», partiendo a la persona en dos filas.
+    // Las dos listas son los únicos literales largos de la función: el resto
+    // ('\\s+', ' ', 'g') son de una letra o dos.
+    const listas = [...fn.matchAll(/'([^']{10,})'/g)].map((x) => x[1]!);
+    expect(listas.length, `se esperaban las dos listas de translate, hay ${listas.length}`).toBe(2);
+    const [origen, destino] = listas as [string, string];
+    expect([...origen].length, "sobran o faltan caracteres en la lista de reemplazo").toBe(
+      [...destino].length,
+    );
+    // Y cubre de verdad las vocales acentuadas del español.
+    for (const c of ["Á", "É", "Í", "Ó", "Ú", "Ñ", "á", "é", "í", "ó", "ú", "ñ"]) {
+      expect([...origen], `el normalizador no conoce «${c}»`).toContain(c);
+    }
   });
 });
