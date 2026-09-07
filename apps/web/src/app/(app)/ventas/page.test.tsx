@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import { formatCurrency } from "@/lib/utils/format";
+import type { Proforma } from "@/types";
 
 // La pantalla lee `?period=` con useSearchParams: sin router montado hay que
 // mockear next/navigation en el entorno de test.
@@ -16,9 +17,11 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
 }));
-// Cero proformas: es el estado REAL de producción (`proformas` tiene 0 filas)
-// y por eso esta pantalla enseñaba RD$0.00 teniendo 48 millones migrados.
-vi.mock("@/features/sales/proforma-store", () => ({ useProformas: () => [] }));
+// Por defecto, cero proformas: es el estado REAL de producción (`proformas`
+// tiene 0 filas) y por eso esta pantalla enseñaba RD$0.00 teniendo 48 millones
+// migrados. Una prueba lo cambia para el caso de la venta anulada.
+let proformas: Proforma[] = [];
+vi.mock("@/features/sales/proforma-store", () => ({ useProformas: () => proformas }));
 
 import VentasPage from "./page";
 
@@ -71,6 +74,35 @@ const FACTURA_BORRADOR = {
   estado: "borrador",
 };
 
+/**
+ * Factura emitida del sistema (NCF): lo que `isInvoiceDocument` deja pasar.
+ *
+ * `estado` va como `string` a propósito: `voided` es un estado EXTENDIDO de la
+ * base que no está en el union TS `ProformaStatus` (lo documenta
+ * `isExcludedStatus`), y es justo el que llega de una anulación real del punto
+ * de venta. Tiparlo estrecho dejaría el caso de verdad fuera de la prueba.
+ */
+function factura(o: Omit<Partial<Proforma>, "status"> & { status: string }): Proforma {
+  return {
+    businessId: "b",
+    branchId: "br1",
+    customerName: "CLIENTE",
+    cashierId: "u",
+    cashierName: "Rosa",
+    items: [],
+    subtotal: 0,
+    discount: 0,
+    itbis: 0,
+    paid: 0,
+    balance: 0,
+    documentKind: "invoice",
+    payments: [],
+    createdAt: "2026-08-20T10:00:00Z",
+    updatedAt: "2026-08-20T10:00:00Z",
+    ...o,
+  } as Proforma;
+}
+
 /** `/api/ventas` respondiendo bien a sus dos vistas. */
 function fetchOk() {
   return vi.fn(async (url: string) => {
@@ -90,6 +122,7 @@ describe("Ventas / Facturas — el histórico migrado de Alegra", () => {
   });
   afterEach(() => {
     searchParams.delete("period");
+    proformas = [];
     vi.unstubAllGlobals();
   });
 
@@ -136,6 +169,30 @@ describe("Ventas / Facturas — el histórico migrado de Alegra", () => {
     }
     // Y no hay ninguna anulada en los datos, así que esa palabra no aparece.
     expect(screen.queryByText("Anulada")).toBeNull();
+  });
+
+  it("🔴 una venta ANULADA del sistema no suma al total (restricción dura)", async () => {
+    // `isInvoiceDocument` clasifica por tipo de documento y NO mira `status`
+    // jamás, así que la lista trae también las anuladas. Desde que esta
+    // pantalla presenta el mismo número que el panel, sumarlas la haría decir
+    // MÁS que el panel sin que ninguna de las dos dijera por qué.
+    proformas = [
+      factura({ id: "p1", number: "B0200000001", status: "paid", total: 1000, itbis: 100 }),
+      factura({ id: "p2", number: "B0200000002", status: "voided", total: 5000, itbis: 500 }),
+      factura({ id: "p3", number: "B0200000003", status: "cancelled", total: 3000, itbis: 300 }),
+    ];
+    vi.stubGlobal("fetch", fetchOk());
+    render(<VentasPage />);
+    await waitFor(() =>
+      expect(screen.getByText(formatCurrency(1000 + 48454899.08))).toBeInTheDocument(),
+    );
+    // Ni los RD$5 000 `voided` ni los RD$3 000 `cancelled` están en el total.
+    expect(screen.queryByText(formatCurrency(9000 + 48454899.08))).toBeNull();
+    // El ITBIS «(sistema)» tampoco los cuenta.
+    expect(screen.getByText(formatCurrency(100))).toBeInTheDocument();
+    // Pero las filas SIGUEN listadas, y la pantalla dice cuántas no cuentan.
+    expect(screen.getAllByText("B0200000002").length).toBeGreaterThan(0);
+    expect(screen.getByText(/2 listadas no cuentan para el total/)).toBeInTheDocument();
   });
 
   it("🔴 si el histórico falla, avisa — nunca enseña el cero como si fuera el total", async () => {

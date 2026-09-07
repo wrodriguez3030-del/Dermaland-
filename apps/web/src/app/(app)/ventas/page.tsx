@@ -32,6 +32,7 @@ import {
 } from "@/features/sales/document-label";
 import { documentEditability } from "@/features/sales/editability";
 import { canEditSales } from "@/features/billing/permissions";
+import { esVentaCompletada } from "@/features/sales/venta-completada";
 import { useCurrentUser } from "@/features/auth/current-user";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { useListadoVentas } from "@/features/ventas/ventas-api";
@@ -123,6 +124,26 @@ function VentasContent() {
     return scopedSales.filter((s) => s.sellerId === sellerFilter);
   }, [scopedSales, sellerFilter]);
 
+  /**
+   * 🔴 Las anuladas no suman — restricción dura del proyecto.
+   *
+   * `isInvoiceDocument` clasifica por tipo de documento (`documentKind` /
+   * `ecfType`) y **no mira `status` jamás**, así que `sales` incluye las
+   * facturas ANULADAS del sistema. Mientras esta pantalla era un listado del
+   * día daba igual; desde que su titular presenta el mismo número que el panel,
+   * sumarlas haría que dijera MÁS que el panel —que cuenta con
+   * `esVentaCompletada`— sin que ninguna de las dos dijera por qué. Hoy no se
+   * nota porque `proformas` tiene 0 filas; se notará con la primera venta
+   * anulada del punto de venta, y entonces habrá dinero de por medio.
+   *
+   * La TABLA sigue enseñándolas con su badge de estado: se ven, no se suman.
+   */
+  const ventasContadas = React.useMemo(
+    () => sales.filter((p) => esVentaCompletada(p.status)),
+    [sales],
+  );
+  const noCuentan = sales.length - ventasContadas.length;
+
   const canEdit = canEditSales(currentUser.role);
 
   const [sendDoc, setSendDoc] = React.useState<{
@@ -152,7 +173,7 @@ function VentasContent() {
   const historico = useHistoricoAlegra({
     desde: rango.desde,
     hasta: rango.hasta,
-    cantidadSistema: sales.length,
+    cantidadSistema: ventasContadas.length,
     incluir: true,
     filtrosNoAplicables,
   });
@@ -200,14 +221,14 @@ function VentasContent() {
         ? "La tabla enseña solo las ventas más recientes: el histórico migrado no cabe entero en una página. Los totales de arriba sí lo cuentan completo."
         : null;
 
-  const totalSistema = sales.reduce((s, p) => s + p.total, 0);
-  const itbis = sales.reduce((s, p) => s + p.itbis, 0);
-  const items = sales.reduce(
+  const totalSistema = ventasContadas.reduce((s, p) => s + p.total, 0);
+  const itbis = ventasContadas.reduce((s, p) => s + p.itbis, 0);
+  const items = ventasContadas.reduce(
     (s, p) => s + p.items.reduce((q, i) => q + i.quantity, 0),
     0,
   );
   const total = totalSistema + historico.total;
-  const transacciones = sales.length + historico.cantidad;
+  const transacciones = ventasContadas.length + historico.cantidad;
 
   return (
     <>
@@ -267,6 +288,9 @@ function VentasContent() {
         <StatCard
           label="Transacciones"
           value={historico.cargando ? "Cargando…" : formatNumber(transacciones)}
+          {...(noCuentan > 0
+            ? { hint: `${formatNumber(noCuentan)} listadas no cuentan para el total` }
+            : {})}
           icon={Receipt}
         />
         <StatCard
