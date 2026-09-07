@@ -4,7 +4,7 @@
 > "Hecho recientemente" con la fecha. Léelo después de
 > `docs/estado-actual.md`.
 
-**Última actualización:** 2026-08-06
+**Última actualización:** 2026-09-06
 
 > Esta lista estaba fechada 2026-06-18 y listaba como pendiente cosas que
 > llevan meses hechas (p. ej. "Conectar Supabase" — producción corre en
@@ -86,6 +86,27 @@ Detalle completo en `docs/estado-actual.md` (entrada `2026-08-06`) y
       (R-SEC-07).
 - [ ] Revisar quién tiene acceso a `SUPABASE_SERVICE_ROLE_KEY` y su rotación
       periódica — es el punto único de fallo del 2FA (R-SEC-04).
+- [ ] **Gasto por cliente del histórico migrado de Alegra.** Hoy «Total
+      gastado» de `/clientes` y `/reportes/clientes` cuenta SOLO `proformas`,
+      mientras la ficha del cliente suma también las facturas migradas: misma
+      etiqueta, dos números, dos clics. Se cerró el silencio (la columna se
+      llama «Total gastado (sistema)» y el alcance se dice en pantalla, en el
+      Excel y en el PDF — ver `features/customers/alcance-total-gastado.ts`),
+      pero no la diferencia. Cerrarla de verdad exige un agregado agrupado por
+      `client_id` sobre 14 965 facturas, y los agregados de PostgREST están
+      desactivados en este proyecto: hace falta una **función SQL de gasto
+      migrado por cliente**. No vale traer las filas al navegador ni llamar a
+      `/api/ventas?clienteId=…` por cliente (N+1 sobre 6 523 clientes). El día
+      que exista, se borra `alcance-total-gastado.ts` y sus cuatro usos.
+- [ ] **Conteo de lotes vencidos sin descargarlos.** `get_expiring_lots`
+      (`server/services/ai/tool-executor.ts`) trae el conjunto ENTERO a
+      propósito: `vencidosTotal` y `porVencerTotal` se calculan contando esas
+      filas, así que ponerle `limit` haría que dijeran «25 vencidos» habiendo
+      300, en silencio — un número corto de más es peor que una lectura
+      grande. 🔴 **No lo "optimices" con un tope.** El arreglo bueno es una
+      consulta de conteo en el repositorio (`count: "exact", head: true`) y
+      dejar el tope solo para el detalle; es tarea propia, con su prueba. Hay
+      una prueba de guardia que se pone roja si alguien añade `limit`.
 
 ## Prioridad 3 — recuperación de desastres más completa
 
