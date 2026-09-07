@@ -35,6 +35,7 @@ const alegra = (over: Partial<VentaUnificada>): VentaUnificada => ({
   vendedor: null,
   sucursalId: null,
   anulada: false,
+  estado: "vigente",
   editable: false,
   ...over,
 });
@@ -147,6 +148,35 @@ describe("🔴 una sola definición de «lo que este cliente ha comprado»", () 
     );
     const texto = textoComprasCliente(metricasComprasCliente(filas));
     expect(texto).toMatch(/no cuentan como gasto/);
+  });
+
+  it("🔴 con todo excluido y todo migrado, la leyenda NO se lo cuelga al sistema", () => {
+    // Alcanzable hoy: un cliente cuya única factura migrada esté anulada. La
+    // frase decía «0 compras del sistema» con la etiqueta «Migrada de Alegra»
+    // visible dos centímetros más abajo, contradiciéndola. La mutación que
+    // esto mata: volver a hablar del sistema cuando `m.compras === 0`.
+    const filas = combinarComprasCliente([], [alegra({ anulada: true, estado: "anulada" })]);
+    const texto = textoComprasCliente(metricasComprasCliente(filas));
+    expect(texto).not.toMatch(/del sistema/);
+    expect(texto).toMatch(/migradas de Alegra/);
+    expect(texto).toMatch(/Ninguna de las 1 compras? listadas cuenta como gasto/);
+  });
+
+  it("y si lo excluido es todo del sistema, tampoco se lo cuelga a Alegra", () => {
+    const filas = combinarComprasCliente([proforma({ status: "cancelled" })], []);
+    const texto = textoComprasCliente(metricasComprasCliente(filas));
+    expect(texto).toMatch(/todas del sistema/);
+    expect(texto).not.toMatch(/migradas de Alegra/);
+  });
+
+  it("con las dos fuentes excluidas, dice cuántas pone cada una", () => {
+    const filas = combinarComprasCliente(
+      [proforma({ status: "cancelled" })],
+      [alegra({ anulada: true, estado: "anulada" })],
+    );
+    expect(textoComprasCliente(metricasComprasCliente(filas))).toMatch(
+      /1 del sistema, 1 migradas de Alegra/,
+    );
   });
 
   it("la leyenda habla de compras, no de «ventas» ni de «período»", () => {

@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { formatNumber } from "@/lib/utils/format";
-import type { DesgloseOrigen } from "./agregados";
 import type {
+  DesgloseOrigen,
   DimensionDesglose,
+  EstadoVenta,
   FilaDesglose,
   OrigenVenta,
   VentaUnificada,
@@ -134,6 +135,12 @@ export function comoResumenVentas(json: unknown): ResumenVentasApi {
   };
 }
 
+/** Estado de la respuesta, si es uno de los que conocemos. */
+function comoEstado(v: unknown, anulada: boolean): EstadoVenta {
+  if (v === "vigente" || v === "anulada" || v === "borrador" || v === "vencida") return v;
+  return anulada ? "anulada" : "vigente";
+}
+
 /** Una fila del listado, o `null` si no tiene la forma mínima de una venta. */
 function comoVenta(v: unknown): VentaUnificada | null {
   const o = objeto(v);
@@ -155,6 +162,12 @@ function comoVenta(v: unknown): VentaUnificada | null {
     vendedor: textoOpcional(o.vendedor),
     sucursalId: textoOpcional(o.sucursalId),
     anulada: o.anulada === true,
+    // El estado viaja aparte de `anulada` a propósito: «no cuenta» y «anulada
+    // fiscalmente» no son lo mismo, y una de Alegra en borrador salía con
+    // badge rojo «Anulada» en la ficha del cliente. Se acepta solo un valor
+    // conocido; ante una respuesta corrupta se cae al comportamiento de
+    // siempre, que no inventa un estado que nadie mandó.
+    estado: comoEstado(o.estado, o.anulada === true),
     // `editable` NO se cree a ciegas: lo decide el origen, igual que en
     // `venta-unificada.ts`. Una respuesta manipulada no puede convertir una
     // factura de Alegra en editable.

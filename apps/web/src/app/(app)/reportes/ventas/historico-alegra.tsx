@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils/format";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
+import { pinturaEstadoVenta, type EstadoVenta } from "@/features/ventas/venta-unificada";
 import {
   textoDesgloseOrigen,
   useListadoVentas,
@@ -45,6 +46,23 @@ import type { SalesReportFilters } from "@/features/sales/sales-report";
 const POR_PAGINA = 50;
 
 /** Qué filtros del reporte NO sabe aplicar `/api/ventas` al histórico. */
+
+/**
+ * Importe con la marca de su estado. Tacha SOLO lo anulado; lo que no cuenta
+ * por otra razón (un borrador) se atenúa y lleva su palabra al lado.
+ */
+function ImporteConEstado({ estado, total }: { estado: EstadoVenta; total: number }) {
+  const p = pinturaEstadoVenta(estado);
+  if (p.tachada) return <span className="line-through opacity-60">{formatCurrency(total)}</span>;
+  if (!p.atenuada) return <>{formatCurrency(total)}</>;
+  return (
+    <span className="opacity-60">
+      {formatCurrency(total)}{" "}
+      <span className="text-[10px] uppercase tracking-wide">{p.etiqueta}</span>
+    </span>
+  );
+}
+
 export interface FiltroSinHistorico {
   /** Nombre visible del filtro, tal como se llama en la pantalla. */
   etiqueta: string;
@@ -335,11 +353,11 @@ export function TablaHistoricoAlegra({
                     <TD className="text-right tabular-nums">{formatCurrency(v.subtotal)}</TD>
                     <TD className="text-right tabular-nums">{formatCurrency(v.itbis)}</TD>
                     <TD className="text-right tabular-nums font-medium">
-                      {v.anulada ? (
-                        <span className="line-through opacity-60">{formatCurrency(v.total)}</span>
-                      ) : (
-                        formatCurrency(v.total)
-                      )}
+                      {/* 🔴 Tachar es decir «anulada». Un borrador tampoco
+                          cuenta para los totales, pero no está anulado: se
+                          marca con su palabra, no con la raya de otra cosa.
+                          La decisión la toma `pinturaEstadoVenta`, no `anulada`. */}
+                      <ImporteConEstado estado={v.estado} total={v.total} />
                     </TD>
                     <TD className="pr-4">
                       <EtiquetaOrigen origen={v.origen} />

@@ -16,6 +16,59 @@ import { cuentaParaTotales } from "@/features/alegra/sales-report";
 
 export type OrigenVenta = "sistema" | "alegra";
 
+/**
+ * 🔴 QUÉ ES el documento — para PINTARLO. No decide nada de dinero.
+ *
+ * `anulada` significa «no cuenta para los totales», que NO es lo mismo que
+ * «anulada fiscalmente»: una factura de Alegra en borrador tampoco cuenta, y
+ * durante un tiempo la ficha del cliente la enseñaba con badge rojo «Anulada»
+ * y el reporte la tachaba. Eso es falso sobre un documento fiscal de otro
+ * sistema, y basta con que alguien lo repita por teléfono.
+ *
+ * Quien construya una columna de ESTADO usa este campo. Quien sume, `anulada`.
+ * La invariante que los ata —y que fija la prueba— es
+ * `anulada === (estado !== "vigente")`: separar la etiqueta no cambió ni una
+ * fila de lo que entra en los totales.
+ */
+export type EstadoVenta = "vigente" | "anulada" | "borrador" | "vencida";
+
+/** Cómo se llama cada estado en pantalla. Un solo sitio para todas las tablas. */
+export const ETIQUETA_ESTADO_VENTA: Record<EstadoVenta, string> = {
+  vigente: "Vigente",
+  anulada: "Anulada",
+  borrador: "Borrador",
+  vencida: "Vencida",
+};
+
+/** Cómo se pinta una venta en una columna de estado o junto a su importe. */
+export interface PinturaVenta {
+  /** Texto del estado; `null` cuando no hay nada que advertir. */
+  etiqueta: string | null;
+  /** Tachar el importe. SOLO la anulada: tachar un número ES decir «anulada». */
+  tachada: boolean;
+  /** Atenuar el importe: no cuenta para los totales, pero no está anulada. */
+  atenuada: boolean;
+  /** Tono del badge del design system. */
+  tono: "neutral" | "warning" | "danger";
+}
+
+/**
+ * 🔴 UNA sola decisión de cómo se pinta un estado, para las dos tablas que lo
+ * pintan (la ficha del cliente y el histórico del reporte de ventas).
+ *
+ * Estaba escrita dos veces y las dos leían `anulada`, que significa «no cuenta
+ * para los totales»: un borrador de Alegra salía con badge rojo «Anulada» y
+ * con el importe tachado. Aquí es imposible: `tachada` solo es cierto para la
+ * anulada de verdad.
+ */
+export function pinturaEstadoVenta(estado: EstadoVenta): PinturaVenta {
+  if (estado === "vigente") return { etiqueta: null, tachada: false, atenuada: false, tono: "neutral" };
+  if (estado === "anulada") {
+    return { etiqueta: ETIQUETA_ESTADO_VENTA.anulada, tachada: true, atenuada: false, tono: "danger" };
+  }
+  return { etiqueta: ETIQUETA_ESTADO_VENTA[estado], tachada: false, atenuada: true, tono: "warning" };
+}
+
 export interface VentaUnificada {
   id: string;
   origen: OrigenVenta;
@@ -30,7 +83,10 @@ export interface VentaUnificada {
   formaPago: string | null;
   vendedor: string | null;
   sucursalId: string | null;
+  /** No cuenta para los totales. NO quiere decir «anulada fiscalmente». */
   anulada: boolean;
+  /** Qué es el documento, para pintarlo. Ver `EstadoVenta`. */
+  estado: EstadoVenta;
   /** Solo las del sistema se pueden abrir, editar o anular. */
   editable: boolean;
 }
@@ -61,6 +117,18 @@ export interface FilaFacturaAlegra {
  * Alegra se usa sin pasar antes por aquí.
  */
 const numero = (v: number | string | null | undefined): number => Number(v ?? 0) || 0;
+
+/**
+ * Estado visible de una proforma. Los cuatro que `isExcludedStatus` deja
+ * fuera de los totales no son lo mismo entre sí: `cancelled`/`voided` sí están
+ * anuladas, `draft` es un borrador y `expired` una proforma vencida.
+ */
+function estadoDeProforma(status: string): EstadoVenta {
+  if (status === "cancelled" || status === "voided") return "anulada";
+  if (status === "draft") return "borrador";
+  if (status === "expired") return "vencida";
+  return "vigente";
+}
 
 /**
  * Proforma del sistema → venta unificada. Es la venta viva: se puede abrir,
@@ -97,6 +165,7 @@ export function desdeProforma(p: Proforma): VentaUnificada {
     // (`isExcludedStatus`): cubre 'cancelled' y también el estado extendido
     // de la DB 'voided', que no está en el union TS `ProformaStatus`.
     anulada: isExcludedStatus(p.status),
+    estado: estadoDeProforma(p.status),
     editable: true,
   };
 }
@@ -125,9 +194,37 @@ export function desdeFacturaAlegra(f: FilaFacturaAlegra): VentaUnificada {
     vendedor: f.seller_name ?? null,
     sucursalId: f.branch_id ?? null,
     anulada: !cuentaParaTotales(f),
+    // El estado REAL de Alegra, no «lo que no cuenta»: `draft` es borrador y
+    // `void` es anulada, y son cosas distintas que decirle al usuario.
+    estado: f.status === "void" ? "anulada" : f.status === "draft" ? "borrador" : "vigente",
     editable: false,
   };
 }
+
+/**
+ * Cuánto puso cada fuente. No es un extra: un total que mezcla dos sistemas
+ * sin decir cuánto pone cada uno no se puede auditar.
+ *
+ * Vive aquí, en el modelo compartido, porque lo usan el repositorio
+ * (`resumenVentas`) y el cliente de la API (`ventas-api.ts`). Antes vivía en
+ * `agregados.ts`, un módulo de agregados que NADIE llamaba: era la quinta
+ * definición de «lo vendido» y la única que no cuadraba con ninguna pantalla,
+ * puesta en el sitio más obvio para reutilizarla y con pruebas verdes. Se
+ * borró; este tipo, que sí se usaba, se quedó.
+ */
+export interface DesgloseOrigen {
+  total: number;
+  cantidad: number;
+}
+
+/**
+ * 🔴 Etiqueta de «sin forma de pago». La resuelve la BASE
+ * (`20260906140000_desglose_ventas_unificadas.sql`) y la pinta la tarjeta de
+ * medios de pago tal cual. Está fijada aquí, y comparada con el SQL por
+ * `migracion-desglose.test.ts`, para que la fila del desglose migrado y la del
+ * sistema no acaben llamándose distinto si alguien cambia una sola de las dos.
+ */
+export const ETIQUETA_SIN_FORMA_PAGO = "Sin forma de pago";
 
 /**
  * Las tres formas de agrupar que sabe la función SQL

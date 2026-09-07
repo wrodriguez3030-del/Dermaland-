@@ -48,6 +48,7 @@ import { isNewCustomer } from "@/features/customers/customer-flags";
 import { purchasesByMonth } from "@/features/customers/customer-purchases";
 import { AlegraPurchasesTab } from "@/features/alegra/client-purchases-tab";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
+import { pinturaEstadoVenta } from "@/features/ventas/venta-unificada";
 import { useListadoVentas } from "@/features/ventas/ventas-api";
 import {
   combinarComprasCliente,
@@ -491,17 +492,27 @@ export default function ClienteDetallePage() {
                           —
                         </TD>
                         <TD className="text-right tabular-nums font-medium">
-                          {venta.anulada ? (
+                          {/* 🔴 Solo la ANULADA se tacha. Un borrador tachado se
+                              lee como anulado, y no lo está: los dos quedan
+                              fuera de los totales, pero eso es lo que significa
+                              `anulada`, no lo que se le dice al usuario sobre
+                              un documento fiscal de otro sistema. La decisión
+                              la toma `pinturaEstadoVenta`, no `anulada`. */}
+                          {pinturaEstadoVenta(venta.estado).tachada ? (
                             <span className="line-through opacity-60">
                               {formatCurrency(venta.total)}
                             </span>
+                          ) : pinturaEstadoVenta(venta.estado).atenuada ? (
+                            <span className="opacity-60">{formatCurrency(venta.total)}</span>
                           ) : (
                             formatCurrency(venta.total)
                           )}
                         </TD>
                         <TD>
-                          <Badge tone={venta.anulada ? "danger" : "neutral"}>
-                            {venta.anulada ? "Anulada" : "Histórico"}
+                          <Badge tone={pinturaEstadoVenta(venta.estado).tono}>
+                            {/* «Histórico» es lo que dice una migrada vigente:
+                                su origen ya está en la columna de al lado. */}
+                            {pinturaEstadoVenta(venta.estado).etiqueta ?? "Histórico"}
                           </Badge>
                         </TD>
                         <TD

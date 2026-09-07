@@ -1,9 +1,8 @@
 /**
  * Ventas unificadas: une `proformas` (el sistema propio) y `alegra_invoices`
  * (el histórico migrado) SIN copiar ni tocar ninguna de las dos — se leen y
- * se combinan al vuelo. Ver `features/ventas/venta-unificada.ts` (el modelo
- * y los mapeadores) y `features/ventas/agregados.ts` (las sumas en memoria
- * para lo que ya viene cargado).
+ * se combinan al vuelo. Ver `features/ventas/venta-unificada.ts` (el modelo,
+ * los mapeadores y `DesgloseOrigen`).
  *
  * Tres funciones, y la distinción es el corazón del plan (ver "El rendimiento
  * no es un extra de este plan" en la spec):
@@ -34,11 +33,11 @@ import "server-only";
 import type { RepoContext } from "@/server/repositories";
 import { failRepo, getClient, type AnySupabase } from "@/server/repositories/supabase/client";
 import { proformaRowToTs } from "@/server/repositories/supabase/mappers";
-import type { DesgloseOrigen } from "@/features/ventas/agregados";
 import {
   desdeFacturaAlegra,
   desdeProforma,
   DIMENSIONES_DESGLOSE,
+  type DesgloseOrigen,
   type DimensionDesglose,
   type FilaDesglose,
   type FilaFacturaAlegra,
@@ -236,9 +235,8 @@ async function alegraDeListado(
  *
  * No filtra anuladas — igual que `alegra/queries.ts#facturasEnRango`, que
  * tampoco lo hace: esto es el recorte por fecha/cliente/sucursal, no un
- * agregado. Cada venta llega con su `anulada` correcto para que quien la
- * muestre decida, y para que `agregados.ts` las excluya de los totales si el
- * consumidor sólo cargó esta página para sumar.
+ * agregado. Cada venta llega con su `anulada` correcto —para quien sume— y con
+ * su `estado`, para quien tenga que decir qué es el documento.
  */
 export async function listarVentasUnificadas(
   ctx: CtxVentasUnificadas,

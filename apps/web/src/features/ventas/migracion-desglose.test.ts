@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { ETIQUETA_SIN_FORMA_PAGO } from "./venta-unificada";
 
 /**
  * La migración `20260906140000_desglose_ventas_unificadas.sql` no se puede
@@ -20,9 +21,8 @@ import { resolve } from "node:path";
  * criterio está duplicado a propósito — y esta prueba es lo único que impide
  * que las dos copias se separen.
  *
- * Igual con las etiquetas: «Sin vendedor» y «Sin forma de pago» son las que ya
- * usa `agregados.ts` para lo mismo. Si allí se renombran y aquí no, la misma
- * fila se llamaría de dos maneras según qué pantalla la pinte.
+ * Igual con las etiquetas: si el SQL y el TypeScript se renombran por separado,
+ * la misma fila se llamaría de dos maneras según qué pantalla la pinte.
  */
 
 const MIGRACIONES = resolve(process.cwd(), "..", "..", "supabase", "migrations");
@@ -271,13 +271,12 @@ describe("desglose de ventas unificadas — la migración", () => {
       .not.toContain("'Sin vendedor'");
   });
 
-  it("🔴 la etiqueta de «sin forma de pago» sigue siendo la de agregados.ts", () => {
-    const agregados = readFileSync(
-      resolve(process.cwd(), "src", "features", "ventas", "agregados.ts"),
-      "utf8",
-    );
-    expect(agregados).toContain('"Sin forma de pago"');
-    expect(codigoDesglose).toContain("'Sin forma de pago'");
+  it("🔴 la etiqueta de «sin forma de pago» es la MISMA en el SQL y en el modelo", () => {
+    // Antes esto se comparaba contra `agregados.ts`, un módulo que no usaba
+    // NADIE: la etiqueta que ve el usuario quedaba anclada a código muerto. La
+    // constante vive ahora en el modelo compartido, que sí está vivo.
+    expect(ETIQUETA_SIN_FORMA_PAGO).toBe("Sin forma de pago");
+    expect(codigoDesglose).toContain(`'${ETIQUETA_SIN_FORMA_PAGO}'`);
   });
 
   it("«Oficina» sale del guion que creó ese vendedor, no de la nada", () => {

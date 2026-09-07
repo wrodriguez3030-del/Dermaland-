@@ -65,6 +65,28 @@ describe("lectura del listado de /api/ventas", () => {
     expect(ventas[0]!.editable).toBe(true);
   });
 
+  it("🔴 el estado del documento VIAJA: un borrador no llega como anulado", () => {
+    // Si `estado` no cruzara la API, el cliente volvería a deducirlo de
+    // `anulada` y la ficha pintaría badge rojo «Anulada» sobre un borrador
+    // de Alegra. La ficha del cliente lee sus compras migradas por AQUÍ.
+    const { ventas } = comoListadoVentas({
+      ventas: [{ id: "a", fecha: "2026-01-01", origen: "alegra", anulada: true, estado: "borrador" }],
+    });
+    expect(ventas[0]!.estado).toBe("borrador");
+    expect(ventas[0]!.anulada).toBe(true);
+  });
+
+  it("un estado que no reconocemos no se cuela: se cae a lo que dice `anulada`", () => {
+    const { ventas } = comoListadoVentas({
+      ventas: [
+        { id: "a", fecha: "2026-01-01", anulada: true, estado: "inventado" },
+        { id: "b", fecha: "2026-01-01", anulada: false },
+      ],
+    });
+    expect(ventas[0]!.estado).toBe("anulada");
+    expect(ventas[1]!.estado).toBe("vigente");
+  });
+
   it("hayMas solo es cierto si el servidor lo dice", () => {
     expect(comoListadoVentas({ ventas: [], hayMas: "sí" }).hayMas).toBe(false);
     expect(comoListadoVentas({ ventas: [], hayMas: true }).hayMas).toBe(true);

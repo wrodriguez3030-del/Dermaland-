@@ -132,7 +132,7 @@ export function ResumenesVentas({
     // Alegra guarda `cash`/`credit-card`; se traducen con el MISMO diccionario
     // que ya usa la tabla del histórico (`METODO_ETIQUETA`), no con uno nuevo.
     // La clave vacía se deja como vino: la base ya la resolvió a «Sin forma de
-    // pago», que es el texto de `agregados.ts`; `METODO_ETIQUETA[""]` dice
+    // pago» (`ETIQUETA_SIN_FORMA_PAGO`); `METODO_ETIQUETA[""]` dice
     // «Sin método» y serían dos nombres para lo mismo.
     etiquetaMigrada: (f) => (f.clave ? (METODO_ETIQUETA[f.clave] ?? f.etiqueta) : f.etiqueta),
   });

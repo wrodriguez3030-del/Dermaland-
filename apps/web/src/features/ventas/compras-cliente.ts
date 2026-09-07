@@ -85,6 +85,12 @@ export interface MetricasComprasCliente {
   cantidadAlegra: number;
   /** Filas que la tabla lista (incluye anuladas y documentos sin cobrar). */
   listadas: number;
+  /**
+   * Cuántas de las LISTADAS vienen de Alegra. No es lo mismo que
+   * `cantidadAlegra`, que solo cuenta las que suman gasto: sin este número, la
+   * leyenda no puede decir la verdad sobre una tabla en la que nada cuenta.
+   */
+  listadasAlegra: number;
   /** Última compra no anulada, para «Última visita». */
   ultimaCompra: string | null;
 }
@@ -126,6 +132,7 @@ export function metricasComprasCliente(compras: CompraCliente[]): MetricasCompra
     cantidadSistema,
     cantidadAlegra,
     listadas: compras.length,
+    listadasAlegra: compras.filter((c) => c.proforma === null).length,
     ultimaCompra,
   };
 }
@@ -139,6 +146,25 @@ export function metricasComprasCliente(compras: CompraCliente[]): MetricasCompra
 export function textoComprasCliente(m: MetricasComprasCliente): string {
   const plural = (n: number) => (n === 1 ? "compra" : "compras");
   if (m.listadas === 0) return "Este cliente aún no tiene compras registradas.";
+
+  // 🔴 Cuando NADA cuenta como gasto hay que hablar de lo LISTADO y de su
+  // origen, no del sistema. Un cliente cuya única factura migrada esté anulada
+  // leía «0 compras del sistema» con la etiqueta «Migrada de Alegra» visible
+  // dos centímetros más abajo: la frase atribuía al sistema una lista que es
+  // 100 % migrada, justo en la pantalla que se arregló para dejar de mentir
+  // sobre el origen.
+  if (m.compras === 0) {
+    const deDonde =
+      m.listadasAlegra === m.listadas
+        ? "todas migradas de Alegra"
+        : m.listadasAlegra === 0
+          ? "todas del sistema"
+          : `${m.listadas - m.listadasAlegra} del sistema, ${m.listadasAlegra} migradas de Alegra`;
+    return (
+      `Ninguna de las ${m.listadas} ${plural(m.listadas)} listadas cuenta como gasto ` +
+      `(anuladas o sin cobrar) · ${deDonde}`
+    );
+  }
 
   const origen =
     m.cantidadAlegra === 0
