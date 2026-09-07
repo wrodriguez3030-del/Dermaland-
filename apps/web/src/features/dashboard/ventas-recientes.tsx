@@ -175,7 +175,7 @@ export function VentasRecientes({
             dueño saldría de una lista con facturas migradas y aterrizaría
             donde no están. /ventas sí las cuenta. */}
         <Link
-          href="/ventas"
+          href="/ventas?period=all"
           className="text-xs font-medium text-[color:var(--brand-accent)] hover:underline"
         >
           Ver ventas →

@@ -80,20 +80,31 @@ function proforma(over: Partial<Proforma> = {}): Proforma {
   } as Proforma;
 }
 
-const fetchDelHistorico = (ventas: unknown[] = MIGRADAS) =>
-  vi.fn((_url: string) =>
-    Promise.resolve({
+/**
+ * 🔴 El falso LEE la URL: solo devuelve facturas si la petición trae el
+ * `sucursalId` que el panel tiene puesto. Cuando ignoraba la URL, se podía
+ * borrar ese filtro de la petición y las 281 pruebas seguían en verde — con el
+ * panel en «Villa Olga», la tarjeta habría listado facturas de Principal.
+ */
+const fetchDelHistorico = (ventas: unknown[] = MIGRADAS, sucursalEsperada = SUCURSAL) =>
+  vi.fn((url: string) => {
+    const p = new URL(url, "http://x").searchParams;
+    const pedidas = p.get("sucursalId") === sucursalEsperada ? ventas : [];
+    return Promise.resolve({
       ok: true,
       status: 200,
-      json: () => Promise.resolve({ ventas, hayMas: false }),
-    }),
-  );
+      json: () => Promise.resolve({ ventas: pedidas, hayMas: false }),
+    });
+  });
+
+/** La sucursal que el panel tiene filtrada en estas pruebas. */
+const SUCURSAL = "b-villa";
 
 function pintar(over: Partial<React.ComponentProps<typeof VentasRecientes>> = {}) {
   return render(
     <VentasRecientes
       ventasDelSistema={[]}
-      filtros={{ desde: "2026-09-01", hasta: "2026-09-30" }}
+      filtros={{ desde: "2026-09-01", hasta: "2026-09-30", sucursalId: SUCURSAL }}
       historicoParticipa
       {...over}
     />,
@@ -293,5 +304,50 @@ describe("cuando el histórico no llega", () => {
     expect(p.get("limite")).toBe("8");
     expect(p.get("desde")).toBe("2026-09-01");
     expect(p.get("hasta")).toBe("2026-09-30");
+    // 🔴 Y el filtro de SUCURSAL. Sin esta aserción se podía borrar de la
+    // petición con toda la suite en verde: con el panel en «Villa Olga», la
+    // tarjeta habría listado facturas de Principal.
+    expect(p.get("sucursalId")).toBe(SUCURSAL);
+  });
+
+  it("🔴 sin el filtro de sucursal, la tarjeta se queda sin facturas que enseñar", async () => {
+    // La otra mitad de lo mismo, medida en PANTALLA: el falso solo responde a
+    // quien pide la sucursal del panel.
+    vi.stubGlobal("fetch", fetchDelHistorico(MIGRADAS, "otra-sucursal"));
+    pintar();
+    await waitFor(() =>
+      expect(screen.getByText("Aún no hay ventas registradas en el período.")).toBeInTheDocument(),
+    );
+  });
+
+  it("🔴 no duplica una venta del sistema que el endpoint también devuelve", async () => {
+    // El endpoint trae LAS DOS fuentes, y esta pantalla ya pone su mitad del
+    // sistema por su cuenta (filtrada con `esVentaCompletada`). Sin el filtro
+    // `origen === "alegra"`, cada venta del sistema saldría DOS veces —y se
+    // colarían proformas `pending`, que todavía no son una venta—. Se podía
+    // borrar con 263 pruebas en verde.
+    const propiaDelEndpoint = {
+      id: "p1",
+      origen: "sistema",
+      numero: "F-0001",
+      fecha: "2026-09-06T14:00:00.000Z",
+      clienteId: null,
+      clienteNombre: "Cliente del sistema",
+      total: 1000,
+      itbis: 0,
+      subtotal: 1000,
+      formaPago: "cash",
+      vendedor: "Rosa Peralta",
+      sucursalId: SUCURSAL,
+      anulada: false,
+      estado: "vigente",
+      editable: true,
+    };
+    vi.stubGlobal("fetch", fetchDelHistorico([propiaDelEndpoint, ...MIGRADAS]));
+    pintar({ ventasDelSistema: [proforma()] });
+    await waitFor(() => expect(within(lista()).getByText(/B0100000123/)).toBeInTheDocument());
+    // Una sola vez, no dos.
+    expect(within(lista()).getAllByText(/F-0001/)).toHaveLength(1);
+    expect(within(lista()).getAllByRole("listitem")).toHaveLength(3);
   });
 });

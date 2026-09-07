@@ -82,6 +82,7 @@ export function ResumenesVentas({
   const desgloseVendedor = useDesgloseVentas("vendedor", filtros, historicoParticipa);
   const desglosePago = useDesgloseVentas("forma_pago", filtros, historicoParticipa);
   const desgloseProducto = useDesgloseVentas("producto", filtros, historicoParticipa);
+  const desgloseSucursal = useDesgloseVentas("sucursal", filtros, historicoParticipa);
 
   // La mitad del sistema sale del reporte ya filtrado (ver el porqué en
   // `desglose-tarjetas.tsx`), no de la base.
@@ -136,6 +137,26 @@ export function ResumenesVentas({
     // «Sin método» y serían dos nombres para lo mismo.
     etiquetaMigrada: (f) => (f.clave ? (METODO_ETIQUETA[f.clave] ?? f.etiqueta) : f.etiqueta),
   });
+  const sucursalesSistema: FilaTarjeta[] = report.branches.map((b) => ({
+    clave: b.id,
+    etiqueta: b.name,
+    origen: "sistema",
+    cantidad: b.transactions,
+    total: b.total,
+  }));
+
+  const tarjetaSucursal = combinarDesglose({
+    sistema: sucursalesSistema,
+    historicoParticipa,
+    historicoCargando,
+    historicoAviso,
+    estado: desgloseSucursal,
+    // Aquí NO se reclava para fundir las dos mitades, al revés que en el panel:
+    // en este bloque cada fila va suelta con su etiqueta de origen —es lo que
+    // hacen las otras tres tablas— y fundirlas escondería de qué lado viene
+    // cada cifra, que es justo lo que este reporte existe para enseñar.
+  });
+
   const tarjetaProducto = combinarDesglose({
     sistema: productosSistema,
     historicoParticipa,
@@ -199,22 +220,17 @@ export function ResumenesVentas({
         vacio="Sin pagos registrados."
         nota={notasPago.length ? notasPago.join(" ") : undefined}
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>Ventas por sucursal</CardTitle>
-          <AvisoSoloSistema mostrar={historicoParticipa} />
-        </CardHeader>
-        <CardContent>
-          {report.branches.length ? (
-            <BarChart
-              data={report.branches.map((b) => ({ label: b.name, value: b.total }))}
-              formatter={formatCurrency}
-            />
-          ) : (
-            <p className="text-sm opacity-60">Sin datos.</p>
-          )}
-        </CardContent>
-      </Card>
+      {/* Era una gráfica solo-sistema, y como `proformas` está vacía decía
+          «Sin datos.» justo donde aterriza el clic de la tarjeta homónima del
+          panel: se salía de un dato bueno a una pantalla en blanco. Ahora
+          cuenta las dos mitades, como las otras tres tablas de este bloque. */}
+      <TarjetaDesglose
+        titulo="Ventas por sucursal"
+        estado={tarjetaSucursal}
+        encabezadoClave="Sucursal"
+        encabezadoCantidad="Ventas"
+        vacio="Sin ventas en el rango."
+      />
       <Card>
         <CardHeader>
           <CardTitle>Top cajeros / vendedores</CardTitle>
