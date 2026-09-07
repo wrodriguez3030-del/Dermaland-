@@ -16,6 +16,11 @@ import {
   type CustomerMetricsRow,
 } from "./customer-metrics";
 import { skinTypeLabel } from "./billing";
+import {
+  ALCANCE_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO_ACUMULADO,
+} from "./alcance-total-gastado";
 
 function customerColumns(): TableSpec["columns"] {
   return [
@@ -24,7 +29,7 @@ function customerColumns(): TableSpec["columns"] {
     { header: "Documento", key: "document", width: 18 },
     { header: "Teléfono", key: "phone", width: 16 },
     { header: "Compras", key: "purchases", format: "int" },
-    { header: "Total gastado", key: "totalSpent", format: "currency" },
+    { header: ETIQUETA_TOTAL_GASTADO, key: "totalSpent", format: "currency", width: 22 },
     { header: "Ticket promedio", key: "avgTicket", format: "currency" },
     { header: "Última visita", key: "lastVisit", format: "date" },
     { header: "Segmento", key: "segment", width: 20 },
@@ -52,9 +57,22 @@ function customerRow(r: CustomerMetricsRow) {
   };
 }
 
+/**
+ * 🔴 El alcance viaja SIEMPRE con la tabla, no lo pone quien llama.
+ *
+ * `TableSpec` no tiene clave de nota (`lib/reports/excel/types.ts`): el único
+ * texto libre que el motor pinta encima de una tabla es su `title`. Este
+ * archivo sale del edificio, así que la frase va aquí dentro — si dependiera de
+ * que la pantalla la pase en `meta`, un caller nuevo exportaría el Excel sin
+ * ella y nadie lo notaría.
+ */
+function tituloConAlcance(title?: string): string {
+  return title ? `${title} — ${ALCANCE_TOTAL_GASTADO}` : ALCANCE_TOTAL_GASTADO;
+}
+
 function customersTable(rows: CustomerMetricsRow[], title?: string): TableSpec {
   return {
-    title,
+    title: tituloConAlcance(title),
     columns: customerColumns(),
     rows: rows.map(customerRow),
     totals: {
@@ -96,7 +114,7 @@ export function buildCustomersWorkbookSpec(
     kpis: [
       { label: "Clientes totales", value: kpis.totalCustomers, format: "int" },
       { label: "Clientes activos (con compras)", value: kpis.activeCustomers, format: "int" },
-      { label: "Total gastado acumulado", value: kpis.totalSpent, format: "currency" },
+      { label: ETIQUETA_TOTAL_GASTADO_ACUMULADO, value: kpis.totalSpent, format: "currency" },
       { label: "Compras totales", value: kpis.totalPurchases, format: "int" },
       { label: "Ticket promedio", value: kpis.avgTicket, format: "currency" },
       { label: "Clientes VIP", value: kpis.vipCustomers, format: "int" },

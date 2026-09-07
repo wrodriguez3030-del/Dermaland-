@@ -37,6 +37,11 @@ import {
   type CustomerMetricsRow,
 } from "@/features/customers/customer-metrics";
 import { normalizePhone } from "@/features/customers/customer-normalization";
+import {
+  ALCANCE_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO_ACUMULADO,
+} from "@/features/customers/alcance-total-gastado";
 import { skinTypeOptions, skinTypeLabel } from "@/features/customers/billing";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { ExportExcelButton } from "@/components/reporting/export-excel-button";
@@ -139,7 +144,7 @@ export default function ReporteClientesPage() {
 
   const kpiItems: ReportKpi[] = [
     { label: "Clientes activos", value: kpis.activeCustomers, tone: "primary" },
-    { label: "Total gastado acumulado", value: formatCurrency(kpis.totalSpent) },
+    { label: ETIQUETA_TOTAL_GASTADO_ACUMULADO, value: formatCurrency(kpis.totalSpent) },
     { label: "Ticket promedio", value: formatCurrency(kpis.avgTicket) },
     { label: "Clientes VIP", value: kpis.vipCustomers },
   ];
@@ -198,7 +203,7 @@ export default function ReporteClientesPage() {
     <>
       <PageHeader
         title="Reporte de clientes"
-        description="Frecuentes, segmentación, total gastado y ticket promedio — mismas métricas que el perfil."
+        description="Frecuentes, segmentación, total gastado y ticket promedio — solo ventas del sistema, sin el histórico migrado de Alegra."
         breadcrumbs={[{ label: "Reportes", href: "/reportes" }, { label: "Clientes" }]}
         actions={
           <>
@@ -353,6 +358,10 @@ export default function ReporteClientesPage() {
 
           <ReportSummaryCards items={kpiItems} columns={4} />
 
+          {/* Qué cuentan estos números. Va dentro del ReportLayout a propósito:
+              así sale también en el impreso, no solo en pantalla. */}
+          <p className="mt-3 text-xs opacity-60">{ALCANCE_TOTAL_GASTADO}</p>
+
           {segmentation.length > 0 && (
             <ReportSection title="Segmentación por etiqueta">
               <BarChart data={segmentation} />
@@ -367,7 +376,7 @@ export default function ReporteClientesPage() {
                   <TR>
                     <TH>Cliente</TH>
                     <TH className="text-right">Compras</TH>
-                    <TH className="text-right">Total gastado</TH>
+                    <TH className="text-right">{ETIQUETA_TOTAL_GASTADO}</TH>
                     <TH className="text-right">Ticket promedio</TH>
                     <TH>Última visita</TH>
                     <TH>Segmento</TH>
@@ -407,7 +416,7 @@ export default function ReporteClientesPage() {
                   <TR>
                     <TH>Cliente</TH>
                     <TH className="text-right">Compras</TH>
-                    <TH className="text-right">Total gastado</TH>
+                    <TH className="text-right">{ETIQUETA_TOTAL_GASTADO}</TH>
                     <TH className="text-right">Ticket promedio</TH>
                   </TR>
                 </THead>

@@ -10,6 +10,10 @@ import {
   type CustomerMetricsRow,
 } from "./customer-metrics";
 import { skinTypeLabel } from "./billing";
+import {
+  ALCANCE_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO,
+} from "./alcance-total-gastado";
 
 export function buildCustomersPdfSpec(
   rows: CustomerMetricsRow[],
@@ -25,7 +29,7 @@ export function buildCustomersPdfSpec(
         { header: "No.", key: "_i", format: "index" },
         { header: "Cliente", key: "name", weight: 2 },
         { header: "Compras", key: "purchases", format: "int" },
-        { header: "Total gastado", key: "totalSpent", format: "currency" },
+        { header: ETIQUETA_TOTAL_GASTADO, key: "totalSpent", format: "currency" },
         { header: "Ticket promedio", key: "avgTicket", format: "currency" },
         { header: "Última visita", key: "lastVisit", format: "date" },
         { header: "Segmento", key: "segment", weight: 1.2 },
@@ -51,6 +55,11 @@ export function buildCustomersPdfSpec(
       },
       emptyMessage: "Sin clientes para mostrar.",
     },
+    // 🔴 `footnote` a nivel de `PdfSection` es lo ÚNICO que el motor pinta bajo
+    // una tabla (`server/services/reports/report-pdf.ts`): una `note` dentro de
+    // `table` se descarta en silencio. Este papel sale del edificio y no puede
+    // callarse qué cuenta su columna de dinero.
+    footnote: ALCANCE_TOTAL_GASTADO,
   };
 
   return {
@@ -58,7 +67,7 @@ export function buildCustomersPdfSpec(
     orientation: "portrait",
     kpis: [
       { label: "Clientes activos", value: kpis.activeCustomers, format: "int" },
-      { label: "Total gastado", value: kpis.totalSpent, format: "currency" },
+      { label: ETIQUETA_TOTAL_GASTADO, value: kpis.totalSpent, format: "currency" },
       { label: "Ticket promedio", value: kpis.avgTicket, format: "currency" },
       { label: "Clientes VIP", value: kpis.vipCustomers, format: "int" },
     ],

@@ -32,6 +32,10 @@ import { isNewCustomer } from "@/features/customers/customer-flags";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
 import { skinTypeLabel } from "@/features/customers/billing";
 import {
+  ALCANCE_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO,
+} from "@/features/customers/alcance-total-gastado";
+import {
   formatCurrency,
   formatDate,
   relativeTime,
@@ -130,6 +134,10 @@ function ClientesContent() {
         </select>
       </FilterBar>
 
+      {/* Qué cuenta «Total gastado» aquí. Sin esta línea, la misma etiqueta da
+          un número en esta fila y otro en la ficha, a un clic de distancia. */}
+      <p className="mb-3 text-xs opacity-60">{ALCANCE_TOTAL_GASTADO}</p>
+
       <Card>
         <CardContent className="p-0">
           {/* Móvil: tarjetas */}
@@ -161,10 +169,15 @@ function ClientesContent() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <div className="font-semibold tabular-nums text-[color:var(--brand-accent)]">
+                    <div
+                      className="font-semibold tabular-nums text-[color:var(--brand-accent)]"
+                      title={ALCANCE_TOTAL_GASTADO}
+                    >
                       {formatCurrency(stats.totalSpent)}
                     </div>
-                    <div className="text-[10px] opacity-50">{stats.purchases} pedidos</div>
+                    <div className="text-[10px] opacity-50">
+                      {stats.purchases} pedidos · solo sistema
+                    </div>
                     <Badge tone="primary" outlined>
                       {skinTypeLabel(c.skinType)}
                     </Badge>
@@ -202,7 +215,7 @@ function ClientesContent() {
                   onClick={toggle}
                   align="right"
                 >
-                  Total gastado
+                  {ETIQUETA_TOTAL_GASTADO}
                 </SortableTH>
                 <SortableTH
                   sortKey="lastVisit"

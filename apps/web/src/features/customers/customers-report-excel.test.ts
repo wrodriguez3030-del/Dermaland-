@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import type { Customer, Proforma } from "@/types";
 import { computeCustomersReport } from "./customer-metrics";
 import { buildCustomersWorkbookSpec } from "./customers-report-excel";
+import {
+  ALCANCE_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO,
+  ETIQUETA_TOTAL_GASTADO_ACUMULADO,
+} from "./alcance-total-gastado";
 import type { ReportMeta } from "@/lib/reports/excel/types";
 
 const META: ReportMeta = {
@@ -90,8 +95,26 @@ describe("buildCustomersWorkbookSpec — paridad con perfil/pantalla", () => {
 
   it("KPI Resumen: total acumulado = suma de filas", () => {
     const kpis = spec.sheets[0]!.kpis!;
-    const total = kpis.find((k) => k.label === "Total gastado acumulado");
+    const total = kpis.find((k) => k.label === ETIQUETA_TOTAL_GASTADO_ACUMULADO);
     expect(Number(total!.value)).toBeCloseTo(34908, 2);
+  });
+
+  it("🔴 TODAS las hojas dicen que el gasto es solo del sistema (sin Alegra)", () => {
+    // El Excel sale del edificio. Su columna de dinero cuenta solo `proformas`
+    // —con `proformas` a 0 filas, un cliente con 172 facturas migradas exporta
+    // RD$0.00— mientras la ficha de ese mismo cliente enseña RD$X bajo la
+    // MISMA etiqueta. `TableSpec` no tiene clave de nota: el único texto que el
+    // motor pinta encima de una tabla es su `title`, y ahí va el alcance.
+    for (const hoja of spec.sheets) {
+      for (const tabla of hoja.tables) {
+        if (tabla.columns.some((c) => c.key === "totalSpent")) {
+          expect(tabla.title).toContain(ALCANCE_TOTAL_GASTADO);
+          expect(tabla.columns.find((c) => c.key === "totalSpent")!.header).toBe(
+            ETIQUETA_TOTAL_GASTADO,
+          );
+        }
+      }
+    }
   });
 
   it("nunca usa la columna estática totalSpent del cliente", () => {
