@@ -60,16 +60,8 @@ import {
   mockInventoryCounts,
   isPendingInventoryCount,
 } from "@/lib/mock-data/inventory-counts";
-import { ChartCard, BarChart, DonutChart, TrendChart } from "@/features/dashboard/charts";
-import {
-  salesByBranch,
-  paymentsByMethod,
-  monthlyTrend,
-  topProducts,
-  buildInsights,
-} from "@/features/dashboard/dashboard-metrics";
-import { CheckCircle2, Info, AlertCircle } from "lucide-react";
-import type { Proforma } from "@/types";
+import { TarjetasVentasPanel } from "@/features/dashboard/tarjetas-ventas";
+import { VentasRecientes } from "@/features/dashboard/ventas-recientes";
 // Segunda fuente de "Ventas del período": el resumen YA CALCULADO de
 // `/api/ventas?vista=resumen` (sistema + histórico migrado de Alegra). El
 // cliente de esa ruta —petición, lectura defensiva del JSON y el texto que
@@ -187,16 +179,6 @@ export default function DashboardPage() {
           }
         : { aviso: false, texto: textoDesgloseOrigen(transactionsToday, alegraDesglose?.cantidad ?? 0) };
 
-  // Actividad de ventas del día (para el listado "Ventas recientes"): proformas
-  // y facturas completadas hoy, más recientes primero.
-  const todayProformas = React.useMemo(
-    () =>
-      [...filteredSaleDocs].sort(
-        (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
-      ),
-    [filteredSaleDocs],
-  );
-
   // Lotes próximos a vencer (≤90 días, sucursales activas) — MISMO selector que
   // `/inventario/vencimientos?days=90`. Sin cap: el KPI cuenta TODOS, no 5.
   const expiringSoon = React.useMemo(
@@ -237,6 +219,14 @@ export default function DashboardPage() {
   // valor fijo). El efectivo esperado se recalcula con la MISMA función pura
   // que /caja (computeShiftDetail); los movimientos manuales de efectivo, poco
   // frecuentes, se ven solo en la pantalla de caja.
+  //
+  // 🔴 Esta tarjeta NO cuenta el histórico migrado de Alegra, y está bien así.
+  // No es una omisión como la de las otras cinco: el efectivo esperado se ata a
+  // la sesión de caja abierta (`cashRegisterSessionId`) y las facturas de
+  // Alegra no tienen sesión de caja en DermaLand — se cobraron en el sistema
+  // anterior. Sumarlas aquí haría que el arqueo pidiera un dinero que nunca
+  // entró en esta gaveta. Que solo cuente proformas es LO CORRECTO; no lo
+  // «arregles».
   const cashDetail = React.useMemo(() => {
     if (!cashSession) return null;
     const sessionProformas = proformas.filter(
@@ -245,16 +235,22 @@ export default function DashboardPage() {
     return computeShiftDetail(cashSession, sessionProformas, []);
   }, [cashSession, proformas]);
 
-  // ── Gráficos ejecutivos (mismas ventas completadas que "Ventas recientes") ──
+  // ── Tarjetas de ventas ──────────────────────────────────────────────────────
+  // 🔴 Las cinco tarjetas de ventas del panel —sucursal, forma de pago,
+  // tendencia, top productos y «Ventas recientes»— viven en
+  // `features/dashboard/`. Se alimentaban SOLO de `proformas` (0 filas hoy) y
+  // salían en blanco con RD$317 723,13 facturados en septiembre; ahora cada una
+  // suma su mitad migrada de Alegra, pedida YA AGREGADA a la base. Están fuera
+  // de este archivo porque ya rondaba las 830 líneas, por encima del máximo de
+  // 800 de la casa.
   const branchNameById = React.useMemo(
     () => new Map(activeBranches.map((b) => [b.id, b.name])),
     [activeBranches],
   );
-  const branchSales = React.useMemo(
-    () => salesByBranch(filteredSaleDocs, (id) => branchNameById.get(id) ?? ""),
-    [filteredSaleDocs, branchNameById],
+  const nombreDeSucursal = React.useCallback(
+    (id: string) => branchNameById.get(id) ?? "",
+    [branchNameById],
   );
-  const methodSales = React.useMemo(() => paymentsByMethod(filteredSaleDocs), [filteredSaleDocs]);
   // La tendencia mensual es una serie de tiempo (últimos 6 meses): respeta la
   // sucursal pero NO el mes/año elegidos (colapsarían la serie a un punto).
   const trendDocs = React.useMemo(
@@ -264,19 +260,23 @@ export default function DashboardPage() {
       ),
     [proformas, branchFilter],
   );
-  const trend = React.useMemo(() => monthlyTrend(trendDocs, 6), [trendDocs]);
-  const topProds = React.useMemo(() => topProducts(filteredSaleDocs, 5), [filteredSaleDocs]);
-  const insights = React.useMemo(
-    () =>
-      buildInsights({
-        branchLeader: branchSales[0],
-        topProduct: topProds[0],
-        criticalExpiring: expiringSoon.filter((l) => daysUntil(l.expiresAt) < 15).length,
-        lowStock: lowStockProducts.length,
-        formatCurrency,
-      }),
-    [branchSales, topProds, expiringSoon, lowStockProducts],
+  const vencimientosCriticos = React.useMemo(
+    () => expiringSoon.filter((l) => daysUntil(l.expiresAt) < 15).length,
+    [expiringSoon],
   );
+  /** Los tres filtros que el histórico migrado sabe aplicar. */
+  const filtrosHistorico = React.useMemo(
+    () => ({ desde: rangoResumen?.desde, hasta: rangoResumen?.hasta, sucursalId: sucursalIdResumen }),
+    [rangoResumen, sucursalIdResumen],
+  );
+  /**
+   * El histórico participa en las tarjetas cuando el periodo se puede expresar
+   * como un rango de fechas y su total no ha fallado. Es la MISMA condición que
+   * decide si entra en el KPI de arriba: dos criterios distintos harían que el
+   * número grande y las tarjetas contaran cosas distintas.
+   */
+  const historicoParticipa = !mesSinAnioNoSoportado && resumenAlegra.tipo !== "error";
+  const historicoAviso = ventasCaption.aviso ? ventasCaption.texto : null;
 
   return (
     <>
@@ -461,75 +461,17 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* ── Gráficos ejecutivos (ventas del mes / tendencia) ── */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <ChartCard title="Ventas por sucursal" href="/reportes/ventas">
-          <BarChart data={branchSales} />
-        </ChartCard>
-        <ChartCard title="Cobros por método de pago" href="/reportes/caja">
-          <DonutChart data={methodSales} formatValue={formatCurrency} />
-        </ChartCard>
-        <ChartCard title="Tendencia mensual (ventas)" href="/ventas?period=all" linkLabel="Ver ventas →">
-          <TrendChart data={trend} />
-        </ChartCard>
-      </div>
-
-      {/* ── Top productos + Insights del período ── */}
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <ChartCard
-          title="Top productos del mes"
-          href="/reportes/productos"
-          linkLabel="Ver ranking completo →"
-          className="lg:col-span-2"
-        >
-          {topProds.length === 0 ? (
-            <p className="py-8 text-center text-sm opacity-50">Sin ventas este mes.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] font-bold uppercase tracking-wider opacity-50">
-                  <th className="pb-2 pr-2 text-left">#</th>
-                  <th className="pb-2 pr-2 text-left">Producto</th>
-                  <th className="pb-2 pr-2 text-right">Unidades</th>
-                  <th className="pb-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/5">
-                {topProds.map((p, i) => (
-                  <tr key={p.sku}>
-                    <td className="py-2 pr-2 tabular-nums opacity-50">{i + 1}</td>
-                    <td className="max-w-0 truncate py-2 pr-2 font-medium">{p.name}</td>
-                    <td className="py-2 pr-2 text-right tabular-nums">{p.units}</td>
-                    <td className="py-2 text-right font-bold tabular-nums">{formatCurrency(p.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </ChartCard>
-        <Card>
-          <CardContent className="p-5">
-            <h3 className="mb-3 text-sm font-bold">Insights del período</h3>
-            <ul className="space-y-3">
-              {insights.map((ins, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  {ins.tone === "good" ? (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  ) : ins.tone === "warn" ? (
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  ) : (
-                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
-                  )}
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold leading-snug">{ins.title}</div>
-                    <div className="text-xs opacity-60">{ins.detail}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      <TarjetasVentasPanel
+        ventasDelPeriodo={filteredSaleDocs}
+        ventasParaTendencia={trendDocs}
+        nombreDeSucursal={nombreDeSucursal}
+        filtros={filtrosHistorico}
+        historicoParticipa={historicoParticipa}
+        historicoCargando={cargandoAlegra}
+        historicoAviso={historicoAviso}
+        vencimientosCriticos={vencimientosCriticos}
+        bajoStock={lowStockProducts.length}
+      />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -630,52 +572,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle>Ventas recientes</CardTitle>
-              <p className="mt-1 text-xs opacity-60">
-                Proformas del día — sesión actual de caja.
-              </p>
-            </div>
-            <Link
-              href="/proformas"
-              className="text-xs font-medium text-[color:var(--brand-accent)] hover:underline"
-            >
-              Ver proformas →
-            </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ul className="divide-y divide-black/5">
-              {todayProformas.length === 0 && (
-                <li className="px-6 py-8 text-center text-sm opacity-60">
-                  Aún no hay ventas registradas hoy.
-                </li>
-              )}
-              {todayProformas.slice(0, 8).map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 px-6 py-3"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium truncate">
-                      {p.number} · {p.customerName}
-                    </div>
-                    <div className="text-xs opacity-60">
-                      {p.cashierName} · {formatDateTime(p.createdAt)}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(p.total)}
-                    </span>
-                    <ProformaStatusBadge status={p.status} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        <VentasRecientes
+          ventasDelSistema={filteredSaleDocs}
+          filtros={filtrosHistorico}
+          historicoParticipa={historicoParticipa}
+        />
 
         <Card>
           <CardHeader>
@@ -770,32 +671,6 @@ export default function DashboardPage() {
         </Card>
       </div>
     </>
-  );
-}
-
-function ProformaStatusBadge({
-  status,
-}: {
-  status: Proforma["status"];
-}) {
-  const map: Record<
-    Proforma["status"],
-    { label: string; tone: "success" | "warning" | "info" | "neutral" | "danger" }
-  > = {
-    paid: { label: "Pagada", tone: "success" },
-    partially_paid: { label: "Pago parcial", tone: "warning" },
-    issued: { label: "Emitida", tone: "info" },
-    pending_ecf: { label: "Pendiente e-CF", tone: "warning" },
-    converted_to_ecf: { label: "Convertida e-CF", tone: "success" },
-    draft: { label: "Borrador", tone: "neutral" },
-    cancelled: { label: "Cancelada", tone: "danger" },
-    expired: { label: "Vencida", tone: "neutral" },
-  };
-  const v = map[status];
-  return (
-    <Badge tone={v.tone} className="mt-0.5 text-[10px]">
-      {v.label}
-    </Badge>
   );
 }
 
