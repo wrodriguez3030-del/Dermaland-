@@ -86,16 +86,22 @@ export function ResumenesVentas({
     cantidad: s.transactions,
     total: s.total,
   }));
-  const pagosSistema: FilaTarjeta[] = report.methods.map((m) => ({
-    clave: m.key,
-    etiqueta: m.label,
-    origen: "sistema",
-    // `sales` (ventas distintas), no `count` (líneas de pago): una venta con
-    // pago mixto tiene dos líneas y sigue siendo UNA venta, que es lo que
-    // cuenta la columna de al lado en las filas migradas.
-    cantidad: m.sales,
-    total: m.amount,
-  }));
+  const pagosSistema: FilaTarjeta[] = report.methods
+    // `byPaymentMethod` devuelve SIEMPRE los cuatro grupos, con ceros incluidos:
+    // en una gráfica de barras eso era una barra a cero, pero en una tabla son
+    // cuatro filas vacías al pie del desglose migrado. Un grupo sin nada dentro
+    // no es información.
+    .filter((m) => m.sales > 0 || m.amount !== 0)
+    .map((m) => ({
+      clave: m.key,
+      etiqueta: m.label,
+      origen: "sistema",
+      // `sales` (ventas distintas), no `count` (líneas de pago): una venta con
+      // pago mixto tiene dos líneas y sigue siendo UNA venta, que es lo que
+      // cuenta la columna de al lado en las filas migradas.
+      cantidad: m.sales,
+      total: m.amount,
+    }));
   const productosSistema: FilaTarjeta[] = report.products.map((p) => ({
     clave: p.productId,
     etiqueta: p.name,
