@@ -63,7 +63,8 @@ describe("origenesDe", () => {
   it("🔴 una fila vacía NO cuenta como fuente", () => {
     // Anunciar «histórico migrado» por una fila a cero es tan falso como
     // callarlo cuando trae dinero.
-    expect(origenesDe([{ clave: "x", etiqueta: "x", origen: "alegra", cantidad: 0, total: 0 }])).toEqual([]);
+    const vacia: FilaTarjeta[] = [{ clave: "x", etiqueta: "x", origen: "alegra", cantidad: 0, total: 0 }];
+    expect(origenesDe(vacia)).toEqual([]);
   });
 
   it("sin filas no hay ninguna fuente que anunciar", () => {

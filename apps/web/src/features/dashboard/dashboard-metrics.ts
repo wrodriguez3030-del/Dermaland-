@@ -174,10 +174,21 @@ export interface Insight {
   detail: string;
 }
 
+/**
+ * Lo mínimo que hace falta de un producto para titularlo. NO es
+ * `TopProductRow`: los insights del panel se construyen sobre filas ya
+ * FUNDIDAS (sistema + histórico migrado), que no tienen SKU porque el
+ * histórico de Alegra no lo trae.
+ */
+export interface ProductoDestacado {
+  name: string;
+  total: number;
+}
+
 /** Insights simples del período, en lenguaje del negocio. */
 export function buildInsights(input: {
   branchLeader?: LabeledValue;
-  topProduct?: TopProductRow;
+  topProduct?: ProductoDestacado;
   criticalExpiring: number; // lotes que vencen en <15 días
   lowStock: number;
   formatCurrency: (n: number) => string;
@@ -194,7 +205,13 @@ export function buildInsights(input: {
     out.push({
       tone: "info",
       title: `${input.topProduct.name} es el producto más vendido`,
-      detail: `${input.topProduct.units} unidades · ${input.formatCurrency(input.topProduct.total)}.`,
+      // 🔴 Sin unidades a propósito. La fila puede venir del sistema (donde la
+      // cantidad son unidades) o del histórico migrado (donde son RENGLONES de
+      // factura: `alegra_invoice_items.quantity` es numeric(14,3) y redondear
+      // unidades vendidas es mentir). Un titular no es sitio para explicar esa
+      // diferencia, así que dice lo único que significa lo mismo en las dos
+      // mitades: el dinero.
+      detail: `${input.formatCurrency(input.topProduct.total)} en el período.`,
     });
   }
   out.push(

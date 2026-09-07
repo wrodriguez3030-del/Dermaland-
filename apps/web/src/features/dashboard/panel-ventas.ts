@@ -71,7 +71,9 @@ const ORDEN_ORIGEN: OrigenVenta[] = ["sistema", "alegra"];
  * cero no cuenta: anunciar «histórico migrado» por una fila vacía sería tan
  * falso como callarlo cuando sí trae dinero.
  */
-export function origenesDe(filas: { origen: OrigenVenta; cantidad: number; total: number }[]): OrigenVenta[] {
+export function origenesDe(
+  filas: readonly { origen: OrigenVenta; cantidad: number; total: number }[],
+): OrigenVenta[] {
   const vistos = new Set<OrigenVenta>();
   for (const f of filas) {
     if (f.cantidad === 0 && f.total === 0) continue;
@@ -118,13 +120,30 @@ export function fundirPorClave(filas: FilaTarjeta[]): FilaPanel[] {
     .sort((a, b) => b.total - a.total || a.etiqueta.localeCompare(b.etiqueta, "es"));
 }
 
-/** Convierte un `EstadoTarjeta` (filas sueltas por origen) en una tarjeta del panel. */
-export function tarjetaDePanel(estado: EstadoTarjeta): TarjetaPanel {
+/**
+ * Convierte un `EstadoTarjeta` (filas sueltas por origen) en una tarjeta del
+ * panel, fundiendo por clave.
+ *
+ * `reclavarMigrada` se aplica SOLO a las filas del histórico, antes de fundir,
+ * y puede cambiar su CLAVE además de su etiqueta. Existe por la forma de pago:
+ * Alegra agrupa por `cash` y el sistema por «Efectivo», así que sin reclavar
+ * la dona enseñaría dos porciones «Efectivo» con la mitad del dinero cada una.
+ * `combinarDesglose` no sirve para esto —su `etiquetaMigrada` sólo cambia el
+ * texto, no la clave— y ampliarlo rompería al reporte, que necesita las claves
+ * separadas por origen.
+ */
+export function tarjetaDePanel(
+  estado: EstadoTarjeta,
+  reclavarMigrada?: (fila: FilaTarjeta) => FilaTarjeta,
+): TarjetaPanel {
+  const filas = reclavarMigrada
+    ? estado.filas.map((f) => (f.origen === "alegra" ? reclavarMigrada(f) : f))
+    : estado.filas;
   return {
-    filas: fundirPorClave(estado.filas),
+    filas: fundirPorClave(filas),
     cargando: estado.cargando,
     error: estado.error,
-    origenes: origenesDe(estado.filas),
+    origenes: origenesDe(filas),
   };
 }
 
