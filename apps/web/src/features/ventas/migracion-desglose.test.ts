@@ -42,8 +42,32 @@ const leer = (f: string) => readFileSync(resolve(MIGRACIONES, f), "utf8");
 const RESUMEN = "20260906130000_resumen_ventas_unificadas.sql";
 const CREA_LA_FUNCION = "create or replace function public.desglose_ventas_unificadas(";
 
-/** Sin comentarios de línea: lo que se comprueba es CÓDIGO, no documentación. */
-const sinComentarios = (sql: string) => sql.replace(/--.*$/gm, "");
+/**
+ * Sin comentarios: lo que se comprueba es CÓDIGO, no documentación.
+ *
+ * 🔴 Los de BLOQUE van primero, y no son un extra. Cuando esto sólo quitaba
+ * `--`, todo lo escrito dentro de un `/* … *\/` contaba como código para las
+ * ~30 aserciones de contenido de este fichero: se podía BORRAR el
+ * `and ai.status not in ('void','draft')` real de la rama `producto` y dejar el
+ * criterio citado dentro de un bloque, y las 105 pruebas seguían en verde.
+ * «Top productos» habría empezado a contar renglones de facturas anuladas y a
+ * descuadrar con el KPI, sin un solo error — y la cabecera de la propia
+ * migración ya cita ese criterio palabra por palabra, así que el escenario no
+ * es rebuscado.
+ *
+ * Vale igual para «Sin sucursal», «No asignado», `business_id = p_business_id`,
+ * `limit 200` y `security invoker`.
+ */
+const sinComentarios = (sql: string) =>
+  sql.replace(/\/\*[\s\S]*?\*\//g, "").replace(/--.*$/gm, "");
+
+/**
+ * Lo mismo para el TypeScript del que se cuelgan las etiquetas. Un literal
+ * citado en un JSDoc no es el literal que ve el usuario: sin esto, renombrar
+ * la constante de verdad dejaba la aserción contenta con el comentario.
+ */
+const sinComentariosTs = (ts: string) =>
+  ts.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 
 /** Espacios colapsados: el formateo no puede hacer fallar (ni pasar) una comparación. */
 const normalizar = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
@@ -140,9 +164,52 @@ function estadosDeLaHermana(): { proformas: string; alegra: string } {
 }
 
 describe("desglose de ventas unificadas — las migraciones", () => {
-  it("se descubre al menos una versión, y la vigente es la más reciente", () => {
+  it("🔴 un comentario de BLOQUE no cuenta como código", () => {
+    // Este fichero afirma cosas sobre el TEXTO del SQL. Si un comentario de
+    // bloque contara como código, bastaría con borrar un criterio real y
+    // citarlo dentro de un `/* … */` para dejar las ~30 aserciones de
+    // contenido en verde. Es exactamente la forma del comentario que el
+    // revisor usó para desactivar el guardián entero.
+    const conBloque = [
+      "/* Filtros heredados de la factura:",
+      "     ai.status not in ('void', 'draft')",
+      "     ai.date >= p_desde y ai.date <= p_hasta */",
+      "select 1 from public.alegra_invoices ai where p_dimension = 'producto'",
+    ].join("\n");
+    const limpio = sinComentarios(conBloque);
+    expect(limpio, "un criterio citado en un bloque pasa por código").not.toMatch(
+      /status\s+not\s+in/i,
+    );
+    expect(limpio, "se comió el código de verdad").toContain("select 1");
+    // Y los de línea siguen fuera, que era lo que ya hacía.
+    expect(sinComentarios("select 1 -- ai.status not in ('void')")).not.toMatch(
+      /status\s+not\s+in/i,
+    );
+    // Un bloque en medio de una línea tampoco se cuela.
+    expect(sinComentarios("select /* status not in ('void') */ 1")).not.toMatch(
+      /status\s+not\s+in/i,
+    );
+  });
+
+  it("se descubren TODAS las versiones, y la vigente es la más reciente", () => {
+    // Las dos que existen hoy: la que estrenó la función y la que le añadió
+    // las dimensiones del panel. Si alguien borra una, esto lo dice.
     expect(FICHEROS).toContain("20260906140000_desglose_ventas_unificadas.sql");
-    expect(VIGENTE).toBe(FICHEROS.slice().sort().at(-1));
+    expect(FICHEROS).toContain("20260907120000_desglose_ventas_sucursal_mes.sql");
+    // 🔴 Y la vigente es de verdad la ÚLTIMA por fecha. Compararla contra
+    // `FICHEROS.sort().at(-1)` no probaba nada: `FICHEROS` ya viene ordenado y
+    // `VIGENTE` sale de ahí, así que los dos lados eran el mismo valor. Se
+    // comprueba contra las demás, una a una.
+    for (const otro of FICHEROS) {
+      if (otro === VIGENTE) continue;
+      expect(
+        VIGENTE.localeCompare(otro),
+        `${otro} es posterior a la que se está tomando como vigente (${VIGENTE})`,
+      ).toBeGreaterThan(0);
+    }
+    // El nombre empieza por su marca de tiempo, que es lo que hace que ordenar
+    // por nombre sea ordenar por fecha.
+    for (const f of FICHEROS) expect(f).toMatch(/^\d{14}_/);
   });
 
   it.each(CASOS)(
@@ -304,9 +371,15 @@ describe("desglose de ventas unificadas — las migraciones", () => {
       // Antes esto se comparaba con `agregados.ts` («Sin vendedor»), un módulo
       // que esa pantalla no usa: la fila del SQL y la de al lado se habrían
       // llamado distinto si alguna vez se enseñaran juntas.
-      const salesReport = readFileSync(
-        resolve(process.cwd(), "src", "features", "sales", "sales-report.ts"),
-        "utf8",
+      // 🔴 SIN los comentarios del TypeScript. «No asignado» aparece dos veces
+      // en ese fichero —en el JSDoc y en el código— y con el fuente crudo se
+      // podía renombrar la constante de verdad a «Sin asignar» dejando esta
+      // aserción en verde: el ancla se anclaba a la documentación.
+      const salesReport = sinComentariosTs(
+        readFileSync(
+          resolve(process.cwd(), "src", "features", "sales", "sales-report.ts"),
+          "utf8",
+        ),
       );
       expect(salesReport, "bySeller ya no dice «No asignado»").toContain('"No asignado"');
       expect(codigoDe(fichero), `${fichero}: ya no dice «No asignado»`).toContain("'No asignado'");
@@ -338,9 +411,16 @@ describe("desglose de ventas unificadas — las migraciones", () => {
 
   it.each(VERSIONES)("$fichero une los renglones con SU factura y hereda sus filtros", ({ fichero }) => {
     const codigo = codigoDe(fichero);
-    // La rama entera, desde su primera columna hasta el final: empezar en el
-    // `from` dejaría fuera los agregados, que van arriba.
-    const rama = codigo.slice(codigo.indexOf("coalesce(ii.product_id::text"));
+    // La rama entera, desde su primera columna hasta donde de verdad ACABA.
+    // 🔴 Antes el corte no tenía cota superior: cuando `producto` era la última
+    // rama daba igual, pero al meter `sucursal` y `mes` detrás el `slice`
+    // arrastraba las dos ramas nuevas, el `order by`, el `limit` y los
+    // `grant` — y `toMatch(/group by 1/)` se daba por satisfecho con el
+    // `group by 1, 2` de OTRA rama.
+    const desde = codigo.indexOf("coalesce(ii.product_id::text");
+    expect(desde, `${fichero}: no se encontró la rama de renglones`).toBeGreaterThan(-1);
+    const siguiente = codigo.toLowerCase().indexOf("union all", desde);
+    const rama = codigo.slice(desde, siguiente === -1 ? undefined : siguiente);
     expect(rama).toMatch(/join public\.alegra_invoices ai on ai\.id = ii\.invoice_id/i);
     // El estado y la fecha se piden a la FACTURA (`ai`), no al renglón: un
     // renglón de una factura anulada no es una venta.
@@ -590,18 +670,31 @@ describe("nombre_vendedor_normalizado", () => {
 
   it("🔴 toda versión que lo llame exige que exista antes de crear la función", () => {
     // La que lo declara se basta sola; las demás tienen que negarse a correr
-    // si falta, o el error sería «function ... does not exist» y nadie sabría
+    // si falta, o el error sería «function … does not exist» y nadie sabría
     // qué aplicar.
+    //
+    // 🔴 Toda versión asierta ALGO. Antes esto era un bucle con un `continue`
+    // sobre los declarantes: el día que las migraciones se consolidaran en un
+    // solo fichero, la prueba habría pasado con CERO aserciones. Ahora la que
+    // declara también se comprueba —que lo declara antes de usarlo— así que no
+    // hay rama muda.
     for (const f of FICHEROS) {
-      if (declarantes.includes(f)) continue;
       const codigo = codigoDe(f);
-      expect(codigo, `${f}: llama al normalizador`).toContain("public.nombre_vendedor_normalizado(");
-      expect(codigo, `${f}: no comprueba que el normalizador exista`).toMatch(
-        /to_regprocedure\('public\.nombre_vendedor_normalizado\(text\)'\) is null/i,
+      expect(codigo, `${f}: ya no llama al normalizador`).toContain(
+        "public.nombre_vendedor_normalizado(",
       );
+      const guarda = declarantes.includes(f)
+        ? codigo.indexOf(DECLARA)
+        : codigo.search(/to_regprocedure\('public\.nombre_vendedor_normalizado\(text\)'\) is null/i);
       expect(
-        codigo.search(/to_regprocedure\('public\.nombre_vendedor_normalizado/i),
-        `${f}: la guarda va DESPUÉS de crear la función`,
+        guarda,
+        declarantes.includes(f)
+          ? `${f}: lo llama sin declararlo`
+          : `${f}: no comprueba que el normalizador exista`,
+      ).toBeGreaterThan(-1);
+      expect(
+        guarda,
+        `${f}: el normalizador se declara o se comprueba DESPUÉS de crear la función`,
       ).toBeLessThan(codigo.indexOf(CREA_LA_FUNCION));
     }
   });
