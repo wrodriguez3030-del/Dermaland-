@@ -314,10 +314,16 @@ export const productLotRepository: ProductLotRepository = {
 
       if (opts?.productId) q = q.eq("product_id", opts.productId);
       if (opts?.status) q = q.eq("status", opts.status);
+      // 🔴 Preguntar por vencimiento es preguntar por mercancía en riesgo, y un
+      // lote agotado no vence nada. De 16 lotes vencidos en producción solo 3
+      // tenían unidades; los otros 13 eran ruido que hacía ignorar la lista
+      // entera — la peor forma de fallar de una alerta. Se filtra AQUÍ además de
+      // en las pantallas: así el asistente de IA tampoco los nombra, y de paso
+      // no viajan filas que se van a tirar.
       if (expiringCutoff != null) {
-        q = q.gte("expires_at", today).lte("expires_at", expiringCutoff);
+        q = q.gte("expires_at", today).lte("expires_at", expiringCutoff).gt("current_quantity", 0);
       }
-      if (opts?.expiredOnly) q = q.lt("expires_at", today);
+      if (opts?.expiredOnly) q = q.lt("expires_at", today).gt("current_quantity", 0);
 
       const { data, error } = await q
         .order("expires_at", { ascending: true })

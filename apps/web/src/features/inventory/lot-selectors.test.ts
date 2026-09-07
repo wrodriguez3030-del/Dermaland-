@@ -6,6 +6,7 @@ import {
   matchesExpiryDayFilter,
   isBlockedLot,
   blockedLots,
+  tieneExistencia,
 } from "./lot-selectors";
 
 // Construye una fecha ISO a `days` días de hoy. Se usa medianoche local para
@@ -116,5 +117,53 @@ describe("lot-selectors — bloqueados (cuarentena + recall)", () => {
     expect(all).toHaveLength(3);
     // Coherencia de la pestaña "Todos" = Cuarentena + Recall.
     expect(all.length).toBe(cuarentena.length + recall.length);
+  });
+});
+
+/**
+ * 🔴 Un lote agotado no vence nada.
+ *
+ * El panel llegó a enseñar «Lote 4545345 · 0 unid. · vence en 72 días» como una
+ * alerta, y de los 16 lotes vencidos en producción solo 3 tenían unidades. Una
+ * lista de alertas con ruido se deja de mirar, que es la peor forma de fallar
+ * que tiene una alerta.
+ */
+describe("solo lo que tiene existencia entra en los vencimientos", () => {
+  const activas = new Set(["b1"]);
+  const lote = (id: string, currentQuantity: number, dias: number): ProductLot => {
+    const f = new Date();
+    f.setDate(f.getDate() + dias);
+    return {
+      id,
+      branchId: "b1",
+      currentQuantity,
+      expiresAt: f.toISOString().slice(0, 10),
+      status: "available",
+    } as ProductLot;
+  };
+
+  it("🔴 un lote en CERO no sale como próximo a vencer", () => {
+    const r = lotsExpiringWithin([lote("vacío", 0, 30)], activas, 90);
+    expect(r).toHaveLength(0);
+  });
+
+  it("uno con unidades sí sale", () => {
+    const r = lotsExpiringWithin([lote("lleno", 5, 30)], activas, 90);
+    expect(r.map((l) => l.id)).toEqual(["lleno"]);
+  });
+
+  it("🔴 entre uno lleno y uno vacío, solo se avisa del lleno", () => {
+    const r = lotsExpiringWithin([lote("vacío", 0, 10), lote("lleno", 3, 40)], activas, 90);
+    expect(r.map((l) => l.id)).toEqual(["lleno"]);
+  });
+
+  it("una cantidad negativa tampoco cuenta", () => {
+    expect(lotsExpiringWithin([lote("negativo", -2, 30)], activas, 90)).toHaveLength(0);
+  });
+
+  it("tieneExistencia mira la cantidad, no el estado", () => {
+    // Un lote en cuarentena CON unidades sí vence y hay que verlo.
+    expect(tieneExistencia({ currentQuantity: 1 })).toBe(true);
+    expect(tieneExistencia({ currentQuantity: 0 })).toBe(false);
   });
 });

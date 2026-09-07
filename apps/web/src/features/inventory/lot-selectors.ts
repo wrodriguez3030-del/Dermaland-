@@ -26,9 +26,25 @@ export function isWithinExpiryWindow(
 }
 
 /**
- * Lotes "próximos a vencer": vencen en ≤ `days` días, en sucursales ACTIVAS.
- * Mismo criterio que la vista `/inventario/vencimientos?days=<days>` (que opera
- * sobre lotes de sucursales activas). Ordenados por fecha de vencimiento.
+ * 🔴 ¿Este lote tiene mercancía de verdad?
+ *
+ * Un lote agotado no vence nada: no hay nada que sacar del estante ni que
+ * perder. El panel llegó a enseñar «Lote 4545345 · 0 unid. · vence en 72 días»
+ * como una alerta, y de 16 lotes vencidos solo 3 tenían unidades — el resto era
+ * ruido que hacía ignorar la lista entera, que es la peor forma de fallar de
+ * una alerta.
+ *
+ * Se mira `currentQuantity`, no el estado: un lote en cuarentena CON unidades
+ * sí vence, y hay que verlo.
+ */
+export function tieneExistencia(lot: Pick<ProductLot, "currentQuantity">): boolean {
+  return lot.currentQuantity > 0;
+}
+
+/**
+ * Lotes "próximos a vencer": vencen en ≤ `days` días, CON unidades, en
+ * sucursales ACTIVAS. Mismo criterio que la vista
+ * `/inventario/vencimientos?days=<days>`. Ordenados por fecha de vencimiento.
  */
 export function lotsExpiringWithin(
   lots: ProductLot[],
@@ -37,6 +53,7 @@ export function lotsExpiringWithin(
 ): ProductLot[] {
   return lots
     .filter((l) => activeBranchIds.has(l.branchId))
+    .filter(tieneExistencia)
     .filter((l) => isWithinExpiryWindow(l.expiresAt, days))
     .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt));
 }

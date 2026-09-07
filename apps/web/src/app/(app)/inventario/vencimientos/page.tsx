@@ -37,6 +37,7 @@ import {
 } from "@/features/inventory/lot-store";
 import {
   matchesExpiryDayFilter,
+  tieneExistencia,
   type ExpiryDayFilter,
 } from "@/features/inventory/lot-selectors";
 
@@ -76,8 +77,13 @@ function VencimientosContent() {
 
   // Vencimientos operativos: solo lotes de sucursales ACTIVAS.
   const activeBranchIds = new Set(activeBranches.map((b) => b.id));
+  // 🔴 Y SOLO con mercancía: un lote agotado no vence nada. Sin esto la lista
+  // enseñaba 13 lotes vencidos vacíos junto a los 3 que sí tenían unidades, y
+  // una alerta con ruido se deja de mirar. Mismo predicado que el selector del
+  // panel (`tieneExistencia`), para que los dos cuenten lo mismo.
   const allLots = rawLots
     .filter((l) => activeBranchIds.has(l.branchId))
+    .filter(tieneExistencia)
     .sort((a, b) => +new Date(a.expiresAt) - +new Date(b.expiresAt));
 
   const expired = allLots.filter((l) => daysUntil(l.expiresAt) < 0);
