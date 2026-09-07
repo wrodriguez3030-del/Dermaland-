@@ -335,6 +335,13 @@ describe("aplicar un cobro", () => {
   it("🔴 basta UNA factura de Alegra en el lote para que no se aplique nada", async () => {
     // Un cobro múltiple es atómico: o entran todas o no entra ninguna. Aplicar
     // «las que se pueda» dejaría al usuario creyendo que cobró todo.
+    //
+    // N6: `toThrow(MOTIVO_ALEGRA_NO_COBRABLE)` compararía el mensaje contra la
+    // MISMA constante que lanza `service.ts:414` — sobrevive a cualquier
+    // reescritura del texto, y como `toThrow(string)` matchea por SUBCADENA,
+    // si la constante se vaciara coincidiría con cualquier error (hasta uno
+    // que no tenga nada que ver con Alegra). Fijo el literal, como la
+    // hermana de arriba.
     tablas.alegra_invoices = { data: [{ id: ID_ALEGRA }] };
     await expect(
       collect(ctx, {
@@ -344,7 +351,7 @@ describe("aplicar un cobro", () => {
         ],
         method: "cash",
       }),
-    ).rejects.toThrow(MOTIVO_ALEGRA_NO_COBRABLE);
+    ).rejects.toThrow(/Alegra/);
     expect(rpcLlamado).not.toHaveBeenCalled();
   });
 
