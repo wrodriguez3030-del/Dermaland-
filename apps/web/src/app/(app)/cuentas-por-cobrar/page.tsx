@@ -139,7 +139,7 @@ export default function CxcDashboardPage() {
             <StatCard
               label="Recuperación mensual"
               value={s.recuperacionPct != null ? `${s.recuperacionPct}%` : "—"}
-              hint="cobrado / (cobrado + pendiente)"
+              hint="cobrado / (cobrado + pendiente) · solo ventas del sistema"
               icon={FileText}
               href="/cuentas-por-cobrar/reportes"
             />

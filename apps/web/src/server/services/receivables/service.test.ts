@@ -41,13 +41,27 @@ function aplicaFiltros(filas: unknown[], filtros: Filtro[]): unknown[] {
   });
 }
 
-/** Builder encadenable que recuerda sus filtros y los aplica al resolver. */
+/**
+ * Builder encadenable que recuerda sus filtros y los aplica al resolver.
+ *
+ * 🔴 `.range(from, to)` RECORTA de verdad, y sin `.range()` la respuesta se
+ * corta en `TOPE_POSTGREST` filas — igual que PostgREST, que trunca en 1 000 EN
+ * SILENCIO. Un falso que devuelve siempre todo no puede probar una paginación:
+ * la consulta sin paginar pasaría la prueba y en producción escondería deuda.
+ */
+const TOPE_POSTGREST = 1000;
+
 function consulta(tabla: string) {
   const filtros: Filtro[] = [];
+  let rango: { from: number; to: number } | null = null;
   const q: Record<string, unknown> = {};
-  for (const m of ["select", "gt", "gte", "lte", "lt", "not", "order", "limit", "range", "maybeSingle"]) {
+  for (const m of ["select", "gt", "gte", "lte", "lt", "not", "order", "limit", "maybeSingle"]) {
     q[m] = vi.fn(() => q);
   }
+  q.range = vi.fn((from: number, to: number) => {
+    rango = { from, to };
+    return q;
+  });
   q.eq = vi.fn((columna: string, valor: unknown) => {
     filtros.push({ tipo: "eq", columna, valor });
     return q;
@@ -58,8 +72,12 @@ function consulta(tabla: string) {
     return q;
   });
   q.then = (r: (v: unknown) => void) => {
-    const filas = aplicaFiltros(tablas[tabla]?.data ?? [], filtros);
-    r({ data: filas, error: null, count: tablas[tabla]?.count ?? filas.length });
+    const todas = aplicaFiltros(tablas[tabla]?.data ?? [], filtros);
+    const rangoActual: { from: number; to: number } | null = rango;
+    const filas = rangoActual
+      ? todas.slice(rangoActual.from, Math.min(rangoActual.to + 1, rangoActual.from + TOPE_POSTGREST))
+      : todas.slice(0, TOPE_POSTGREST);
+    r({ data: filas, error: null, count: tablas[tabla]?.count ?? todas.length });
   };
   return q;
 }
@@ -184,6 +202,105 @@ describe("facturas pendientes: sistema + Alegra", () => {
     expect(filas[0]!.dueDate).toBe("2025-01-09");
     expect(filas[0]!.overdueDays).toBeGreaterThan(60);
     expect(filas[0]!.bucket).toBe("v60");
+  });
+});
+
+describe("🔴 la mitad del sistema PAGINA", () => {
+  /** `n` proformas con saldo, todas del mismo negocio y el mismo vencimiento. */
+  const muchasProformas = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `p${String(i).padStart(5, "0")}`,
+      number: `FAC-${i}`,
+      customer_name: "Ana",
+      branch_id: "b",
+      cashier_name: "Rosa",
+      created_at: "2026-09-01T00:00:00Z",
+      due_date: "2026-09-30",
+      total: 10,
+      paid: 0,
+      balance: 10,
+      status: "issued",
+    }));
+
+  it("🔴 con 1 001 proformas con saldo no se pierde ninguna", async () => {
+    // La mutación que esto mata: quitar el `.range()`/`fetchAllPages` de la
+    // consulta a `proformas`. PostgREST corta en 1 000 EN SILENCIO y de la
+    // 1 001 en adelante desaparecen del total por cobrar, del aging, de la
+    // mora, del calendario, del estado de cuenta y de los tres exports. Un
+    // total de deuda que se corta callado es lo peor que puede pasar en esta
+    // pantalla — y es literalmente lo que esta rama declaró que no quería.
+    tablas.proformas = { data: muchasProformas(1001) };
+    const filas = await listPending(ctx);
+    expect(filas).toHaveLength(1001);
+  });
+
+  it("🔴 y el total por cobrar las suma TODAS", async () => {
+    tablas.proformas = { data: muchasProformas(1001) };
+    const s = await summary(ctx);
+    expect(s.totalPendiente).toBe(10010);
+    expect(s.facturasPendientes).toBe(1001);
+    expect(s.porOrigen.sistema).toEqual({ total: 10010, facturas: 1001 });
+  });
+
+  it("no pide páginas de más cuando cabe todo en la primera", async () => {
+    tablas.proformas = { data: muchasProformas(3) };
+    expect(await listPending(ctx)).toHaveLength(3);
+  });
+});
+
+describe("🔴 índice de recuperación: las dos mitades, la misma fuente", () => {
+  const cobroDelMes = (amount: number) => {
+    const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santo_Domingo" }).format(new Date());
+    return {
+      amount,
+      created_at: `${hoy}T12:00:00Z`,
+      proforma_id: "p1",
+      balance_after: 0,
+      business_id: "b1",
+    };
+  };
+
+  it("🔴 la deuda migrada NO diluye el índice: no es cartera que se cobre aquí", async () => {
+    // La mutación que esto mata: volver a `cobradoMes / (cobradoMes +
+    // aging.totalAmount)`. Con RD$100 000 cobrados por el POS y RD$27 207,53
+    // migrados abiertos, el índice mezclado dice 78,6 % de una cartera que
+    // DermaLand recuperó al 100 %. Numerador de una fuente, denominador de
+    // dos: el número no significa nada.
+    tablas.proforma_payments = { data: [cobroDelMes(100000)] };
+    facturasAlegra = [facturaAlegra({ total: 27207.53, balance: 27207.53, totalPaid: 0 })];
+    const s = await summary(ctx);
+    expect(s.cobradoMes).toBe(100000);
+    expect(s.recuperacionPct).toBe(100);
+  });
+
+  it("con cartera propia abierta el índice baja, que es lo que debe medir", async () => {
+    tablas.proforma_payments = { data: [cobroDelMes(300)] };
+    tablas.proformas = {
+      data: [
+        {
+          id: "p9",
+          number: "FAC-9",
+          customer_name: "Ana",
+          branch_id: "b",
+          cashier_name: "Rosa",
+          created_at: "2026-09-01T00:00:00Z",
+          due_date: "2026-09-30",
+          total: 100,
+          paid: 0,
+          balance: 100,
+          status: "issued",
+        },
+      ],
+    };
+    expect((await summary(ctx)).recuperacionPct).toBe(75);
+  });
+
+  it("🔴 sin cobros ni cartera propia vuelve a «N/D», no a 0,0 %", async () => {
+    // Es el estado de HOY: 0 proformas con saldo y RD$27 207,53 migrados. Con
+    // el denominador mezclado la tarjeta pasó de «—» a «0,0 %» sin que nada
+    // cambiara en la operación.
+    facturasAlegra = [facturaAlegra({ total: 27207.53, balance: 27207.53, totalPaid: 0 })];
+    expect((await summary(ctx)).recuperacionPct).toBeNull();
   });
 });
 
