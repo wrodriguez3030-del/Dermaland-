@@ -28,6 +28,7 @@ import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { useToast } from "@/components/ui/toast";
 import { deleteCustomerAnywhere } from "@/features/customers/customer-store";
 import { useCustomersReport } from "@/features/customers/customer-profile-hooks";
+import { coincideCliente, FUENTES } from "@/features/customers/customer-search";
 import { isNewCustomer } from "@/features/customers/customer-flags";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
 import { skinTypeLabel } from "@/features/customers/billing";
@@ -70,20 +71,45 @@ function ClientesContent() {
     params.get("created") === "this_month" ? "this_month" : "all";
   const { rows } = useCustomersReport();
   const toast = useToast();
-  const scopedRows = React.useMemo(
-    () =>
+
+  // 🔴 Estos tres filtros existían en pantalla y no estaban conectados a nada:
+  // un `<input>` sin valor ni manejador y dos `<select>` sueltos. Con 6 524
+  // clientes eso dejaba la lista inservible — encontrar a alguien exigía pasar
+  // páginas a mano.
+  const [busqueda, setBusqueda] = React.useState("");
+  const [fuente, setFuente] = React.useState("");
+  const [tipoPiel, setTipoPiel] = React.useState("");
+
+  const tiposDePiel = React.useMemo(() => {
+    // Solo los tipos que ALGUIEN tiene: un desplegable con diez opciones de las
+    // que ocho no devuelven a nadie es peor que uno con dos.
+    const vistos = new Set(rows.map((r) => r.customer.skinType).filter(Boolean));
+    return [...vistos].sort((a, b) => skinTypeLabel(a).localeCompare(skinTypeLabel(b), "es"));
+  }, [rows]);
+
+  const scopedRows = React.useMemo(() => {
+    const base =
       createdFilter === "this_month"
         ? rows.filter((r) => isSameCalendarMonth(r.customer.createdAt))
-        : rows,
-    [rows, createdFilter],
-  );
+        : rows;
+    return base.filter(
+      (r) =>
+        coincideCliente(r.customer, busqueda) &&
+        (fuente === "" || r.customer.source === fuente) &&
+        (tipoPiel === "" || r.customer.skinType === tipoPiel),
+    );
+  }, [rows, createdFilter, busqueda, fuente, tipoPiel]);
   const { sort, sorted, toggle } = useTableSort(
     scopedRows,
     "createdAt",
     "desc",
     comparators,
   );
-  const pag = usePagination(sorted, { resetKey: createdFilter });
+  // `resetKey` incluye los filtros: sin esto, buscar desde la página 7 dejaba
+  // la tabla vacía porque el resultado tiene menos páginas que esa.
+  const pag = usePagination(sorted, {
+    resetKey: `${createdFilter}|${busqueda}|${fuente}|${tipoPiel}`,
+  });
 
   return (
     <>
@@ -118,19 +144,32 @@ function ClientesContent() {
         <SearchInput
           placeholder="Buscar por nombre, cédula, RNC, teléfono…"
           containerClassName="flex-1 min-w-[260px]"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
         />
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todas las fuentes</option>
-          <option>Manual</option>
-          <option>WhatsApp</option>
-          <option>Web</option>
-          <option>Importación</option>
+        <select
+          className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm"
+          value={fuente}
+          onChange={(e) => setFuente(e.target.value)}
+        >
+          <option value="">Todas las fuentes</option>
+          {FUENTES.map((f) => (
+            <option key={f.valor} value={f.valor}>
+              {f.etiqueta}
+            </option>
+          ))}
         </select>
-        <select className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm">
-          <option>Todos los tipos de piel</option>
-          <option>Sensible</option>
-          <option>Acneica</option>
-          <option>Madura</option>
+        <select
+            className="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm"
+            value={tipoPiel}
+            onChange={(e) => setTipoPiel(e.target.value)}
+          >
+          <option value="">Todos los tipos de piel</option>
+          {tiposDePiel.map((t) => (
+            <option key={t} value={t}>
+              {skinTypeLabel(t)}
+            </option>
+          ))}
         </select>
       </FilterBar>
 
