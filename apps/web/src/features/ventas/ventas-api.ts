@@ -45,6 +45,10 @@ import type {
 export interface ResumenVentasApi {
   total: number;
   cantidad: number;
+  /** ITBIS de las dos mitades. Lo enseña el índice de Reportes. */
+  itbis: number;
+  /** Unidades vendidas (cantidades de las líneas), no ventas. */
+  unidades: number;
   porOrigen: Record<OrigenVenta, DesgloseOrigen>;
 }
 
@@ -116,7 +120,16 @@ function objeto(v: unknown): Record<string, unknown> {
 
 function comoDesglose(v: unknown): DesgloseOrigen {
   const o = objeto(v);
-  return { total: numeroSeguro(o.total), cantidad: numeroSeguro(o.cantidad) };
+  return {
+    total: numeroSeguro(o.total),
+    cantidad: numeroSeguro(o.cantidad),
+    // Si la migración `20260907140000` todavía no está aplicada, la base no
+    // manda estas dos y `numeroSeguro` devuelve 0. Es lo correcto aquí: un cero
+    // de ITBIS junto a un total real se lee como «no lo sé», no como una cifra
+    // inventada, y el aviso de la tarjeta ya cubre el caso de que falle entera.
+    itbis: numeroSeguro(o.itbis),
+    unidades: numeroSeguro(o.unidades),
+  };
 }
 
 /** Interpreta el JSON de `GET /api/ventas?vista=resumen`. */
@@ -131,6 +144,9 @@ export function comoResumenVentas(json: unknown): ResumenVentasApi {
     // respuesta venga incompleta.
     total: Math.round((sistema.total + alegra.total) * 100) / 100,
     cantidad: sistema.cantidad + alegra.cantidad,
+    // Mismo criterio: del desglose, no de campos sueltos.
+    itbis: Math.round((sistema.itbis + alegra.itbis) * 100) / 100,
+    unidades: sistema.unidades + alegra.unidades,
     porOrigen: { sistema, alegra },
   };
 }

@@ -221,6 +221,16 @@ export function desdeFacturaAlegra(f: FilaFacturaAlegra): VentaUnificada {
 export interface DesgloseOrigen {
   total: number;
   cantidad: number;
+  /**
+   * ITBIS de la cabecera de la factura. Mide lo mismo en las dos mitades, así
+   * que se puede sumar entre orígenes sin trampa.
+   */
+  itbis: number;
+  /**
+   * Unidades vendidas: suma de las CANTIDADES de las líneas. Una venta de 3
+   * cajas cuenta 3, no 1 — no confundir con `cantidad`, que son ventas.
+   */
+  unidades: number;
 }
 
 /**

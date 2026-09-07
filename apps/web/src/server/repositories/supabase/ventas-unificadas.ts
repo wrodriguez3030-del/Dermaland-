@@ -63,6 +63,10 @@ export interface FiltrosVentas {
 export interface ResumenVentas {
   total: number;
   cantidad: number;
+  /** ITBIS de las dos mitades. Lo enseña el índice de Reportes. */
+  itbis: number;
+  /** Unidades vendidas (cantidades de las líneas), no ventas. */
+  unidades: number;
   porOrigen: Record<OrigenVenta, DesgloseOrigen>;
 }
 
@@ -262,6 +266,12 @@ interface FilaResumenRpc {
   sistema_cantidad: number | string | null;
   alegra_total: number | string | null;
   alegra_cantidad: number | string | null;
+  // Añadidas por `20260907140000_resumen_ventas_itbis_items.sql` para el índice
+  // de Reportes, que enseña ITBIS y unidades además del total.
+  sistema_itbis: number | string | null;
+  sistema_unidades: number | string | null;
+  alegra_itbis: number | string | null;
+  alegra_unidades: number | string | null;
 }
 
 /**
@@ -296,14 +306,23 @@ export async function resumenVentas(
   const sistema: DesgloseOrigen = {
     total: numero(fila?.sistema_total),
     cantidad: Math.trunc(numero(fila?.sistema_cantidad)),
+    itbis: numero(fila?.sistema_itbis),
+    unidades: numero(fila?.sistema_unidades),
   };
   const alegra: DesgloseOrigen = incluirAlegra
-    ? { total: numero(fila?.alegra_total), cantidad: Math.trunc(numero(fila?.alegra_cantidad)) }
-    : { total: 0, cantidad: 0 };
+    ? {
+        total: numero(fila?.alegra_total),
+        cantidad: Math.trunc(numero(fila?.alegra_cantidad)),
+        itbis: numero(fila?.alegra_itbis),
+        unidades: numero(fila?.alegra_unidades),
+      }
+    : { total: 0, cantidad: 0, itbis: 0, unidades: 0 };
 
   return {
     total: redondearDinero(sistema.total + alegra.total),
     cantidad: sistema.cantidad + alegra.cantidad,
+    itbis: redondearDinero(sistema.itbis + alegra.itbis),
+    unidades: sistema.unidades + alegra.unidades,
     porOrigen: { sistema, alegra },
   };
 }

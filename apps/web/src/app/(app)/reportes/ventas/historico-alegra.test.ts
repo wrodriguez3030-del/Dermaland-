@@ -10,9 +10,11 @@ import type { ResumenVentasApi } from "@/features/ventas/ventas-api";
 const resumen = (totalAlegra: number, cantidadAlegra: number): ResumenVentasApi => ({
   total: totalAlegra,
   cantidad: cantidadAlegra,
+  itbis: 0,
+  unidades: 0,
   porOrigen: {
-    sistema: { total: 0, cantidad: 0 },
-    alegra: { total: totalAlegra, cantidad: cantidadAlegra },
+    sistema: { total: 0, cantidad: 0, itbis: 0, unidades: 0 },
+    alegra: { total: totalAlegra, cantidad: cantidadAlegra, itbis: 0, unidades: 0 },
   },
 });
 

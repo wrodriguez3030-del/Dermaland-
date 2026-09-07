@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
+import { useResumenVentas } from "@/features/ventas/ventas-api";
 import { buildSalesReport, EMPTY_FILTERS } from "@/features/sales/sales-report";
 import { formatCurrency } from "@/lib/utils/format";
 
@@ -149,9 +150,25 @@ export default function ReportesHub() {
     [all],
   );
   const k = report.kpis;
-  const totalSales = k.totalBilled;
-  const itbis = k.itbis;
-  const items = k.items;
+
+  // 🔴 Y el histórico migrado de Alegra, que es donde está TODO hoy: `proformas`
+  // tiene 0 filas porque el punto de venta propio aún no ha cobrado nada, así
+  // que estas cuatro cifras salían en RD$0.00 con RD$48 millones detrás. Los
+  // totales llegan calculados de la base (`resumen_ventas_unificadas`), sin
+  // traer ni una fila para sumarla. Sin filtros: este índice mira TODO el
+  // negocio, igual que `EMPTY_FILTERS` en la mitad del sistema.
+  const resumenAlegra = useResumenVentas({});
+  const historico = resumenAlegra.tipo === "listo" ? resumenAlegra.datos : null;
+  const cargandoHistorico = resumenAlegra.tipo === "cargando";
+  const falloHistorico = resumenAlegra.tipo === "error" ? resumenAlegra.mensaje : null;
+
+  // Mientras el histórico viaja NO se enseña un número: el RD$0.00 del sistema
+  // solo es exactamente lo que hizo creer que los datos no se habían migrado.
+  const totalSales = k.totalBilled + (historico?.porOrigen.alegra.total ?? 0);
+  const itbis = k.itbis + (historico?.porOrigen.alegra.itbis ?? 0);
+  const items = k.items + (historico?.porOrigen.alegra.unidades ?? 0);
+  const transacciones = k.transactions + (historico?.porOrigen.alegra.cantidad ?? 0);
+  const cifra = (valor: string) => (cargandoHistorico ? "Cargando…" : valor);
 
   const allItems = CATEGORIES.flatMap((c) => c.items);
   const favItems = allItems.filter((i) => favs.includes(i.href));
@@ -165,11 +182,19 @@ export default function ReportesHub() {
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Ventas" value={formatCurrency(totalSales)} icon={Coins} tone="primary" />
-        <StatCard label="ITBIS recaudado" value={formatCurrency(itbis)} icon={TrendingUp} />
-        <StatCard label="Items vendidos" value={items} icon={ShoppingCart} />
-        <StatCard label="Transacciones" value={k.transactions} icon={Receipt} />
+        <StatCard label="Ventas" value={cifra(formatCurrency(totalSales))} icon={Coins} tone="primary" />
+        <StatCard label="ITBIS recaudado" value={cifra(formatCurrency(itbis))} icon={TrendingUp} />
+        <StatCard label="Items vendidos" value={cifra(String(items))} icon={ShoppingCart} />
+        <StatCard label="Transacciones" value={cifra(String(transacciones))} icon={Receipt} />
       </div>
+      {/* Si el histórico falla, se dice: cuatro cifras que solo cuentan el
+          sistema —hoy, cero— pasando por las del negocio entero es justo el
+          silencio que este trabajo existe para cerrar. */}
+      {falloHistorico && (
+        <p className="mb-6 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {falloHistorico} Las cifras de arriba cuentan solo las ventas del sistema.
+        </p>
+      )}
 
       {favItems.length > 0 && (
         <ReportSection
