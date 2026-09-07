@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 import {
   Card,
   CardContent,
@@ -83,6 +85,10 @@ export function ResumenesVentas({
   const desglosePago = useDesgloseVentas("forma_pago", filtros, historicoParticipa);
   const desgloseProducto = useDesgloseVentas("producto", filtros, historicoParticipa);
   const desgloseSucursal = useDesgloseVentas("sucursal", filtros, historicoParticipa);
+  // La tendencia: el histórico migrado sí sabe agruparse por mes desde
+  // `20260907120000`, así que esta gráfica deja de decir «Sin datos para el
+  // rango» teniendo 44 meses de historia detrás.
+  const desgloseMes = useDesgloseVentas("mes", filtros, historicoParticipa);
 
   // La mitad del sistema sale del reporte ya filtrado (ver el porqué en
   // `desglose-tarjetas.tsx`), no de la base.
@@ -157,6 +163,45 @@ export function ResumenesVentas({
     // cada cifra, que es justo lo que este reporte existe para enseñar.
   });
 
+  /**
+   * La serie mensual, con las dos mitades sumadas por mes.
+   *
+   * `report.trend` viene ya etiquetado por el sistema; el desglose migrado trae
+   * `clave` = `YYYY-MM` y `etiqueta` legible. Se juntan por etiqueta y se
+   * ordenan por la clave, que es la que ordena bien como texto — «Sep 2026»
+   * alfabéticamente iría antes que «Ago 2026».
+   */
+  const tendencia = React.useMemo(() => {
+    const migrados =
+      historicoParticipa && desgloseMes.tipo === "listo"
+        ? desgloseMes.datos.filas.filter((f) => f.origen === "alegra")
+        : [];
+    if (migrados.length === 0) return report.trend;
+    const porEtiqueta = new Map<string, { clave: string; value: number }>();
+    for (const p of report.trend) {
+      porEtiqueta.set(p.label, { clave: p.label, value: p.value });
+    }
+    for (const f of migrados) {
+      const previo = porEtiqueta.get(f.etiqueta);
+      porEtiqueta.set(f.etiqueta, {
+        clave: f.clave,
+        value: (previo?.value ?? 0) + f.total,
+      });
+    }
+    return [...porEtiqueta.entries()]
+      .sort((a, b) => a[1].clave.localeCompare(b[1].clave))
+      .map(([label, v]) => ({ label, value: v.value }));
+  }, [report.trend, desgloseMes, historicoParticipa]);
+
+  // La tendencia comparte el mismo criterio de honestidad que las tablas: si
+  // falta media serie —porque el KPI del histórico sigue en camino, porque hay
+  // un filtro que no sabe aplicar, o porque la consulta falló— se dice.
+  const tendenciaCargando = historicoCargando || (historicoParticipa && desgloseMes.tipo === "cargando");
+  const tendenciaAviso =
+    desgloseMes.tipo === "error" && historicoParticipa
+      ? `${desgloseMes.mensaje} La gráfica enseña solo las ventas del sistema.`
+      : (historicoAviso ?? null);
+
   const tarjetaProducto = combinarDesglose({
     sistema: productosSistema,
     historicoParticipa,
@@ -199,13 +244,24 @@ export function ResumenesVentas({
       <Card>
         <CardHeader>
           <CardTitle>Tendencia de ventas</CardTitle>
-          <AvisoSoloSistema mostrar={historicoParticipa} />
         </CardHeader>
         <CardContent>
-          {report.trend.length ? (
-            <BarChart data={report.trend} formatter={formatCurrency} />
+          {/* 🔴 Una barra por mes con las DOS mitades sumadas, no dos series:
+              son el mismo mes y los mismos filtros. Aquí sí se funden —al revés
+              que en las tablas de al lado— porque el eje es el tiempo, no el
+              origen, y una barra no puede llevar etiqueta. La leyenda de abajo
+              dice cuántas ventas migradas entran en el total. */}
+          {/* Mientras falta media serie se dice, igual que en las tablas: una
+              gráfica a la que le falta el histórico y no avisa se lee como si
+              el negocio hubiera vendido eso y nada más. */}
+          {tendenciaCargando && (
+            <p className="mb-2 text-sm opacity-60">Cargando el histórico migrado…</p>
+          )}
+          {tendenciaAviso && <p className="mb-2 text-sm text-amber-700">{tendenciaAviso}</p>}
+          {tendencia.length ? (
+            <BarChart data={tendencia} formatter={formatCurrency} />
           ) : (
-            <p className="text-sm opacity-60">Sin datos para el rango.</p>
+            !tendenciaCargando && <p className="text-sm opacity-60">Sin datos para el rango.</p>
           )}
         </CardContent>
       </Card>
@@ -231,10 +287,15 @@ export function ResumenesVentas({
         encabezadoCantidad="Ventas"
         vacio="Sin ventas en el rango."
       />
+      {/* 🔴 CAJEROS, no vendedores — y la diferencia importa. El cajero es quien
+          cobró en el punto de venta de DermaLand; las facturas migradas no
+          pasaron por esa caja y NO tienen cajero, así que aquí no hay nada que
+          sumarles. Los vendedores del histórico sí están, en su propia tarjeta
+          más abajo. Se quitó «/ vendedores» del título porque prometía algo que
+          esta tarjeta no puede dar y que la de al lado sí. */}
       <Card>
         <CardHeader>
-          <CardTitle>Top cajeros / vendedores</CardTitle>
-          <AvisoSoloSistema mostrar={historicoParticipa} />
+          <CardTitle>Top cajeros</CardTitle>
         </CardHeader>
         <CardContent>
           {report.cashiers.length ? (
@@ -243,7 +304,10 @@ export function ResumenesVentas({
               formatter={formatCurrency}
             />
           ) : (
-            <p className="text-sm opacity-60">Sin datos.</p>
+            <p className="text-sm opacity-60">
+              Sin cobros en caja para el rango. Las facturas migradas de Alegra no pasaron por la
+              caja de DermaLand; sus vendedores están en «Ventas por vendedor».
+            </p>
           )}
         </CardContent>
       </Card>

@@ -35,6 +35,7 @@ import { contactToSupplierDraft, isProvider, type ClientDraft } from "../apps/we
 import { planProducts, type ExistingProduct } from "../apps/web/src/features/alegra/plan-products";
 import { stockRowsFromItems } from "../apps/web/src/features/alegra/stock-rows";
 import { invoiceToRows } from "../apps/web/src/features/alegra/map-invoice";
+import { resolverVendedor, normalizarNombre } from "./lib/vendedor-de-factura.mjs";
 import { buildImportPlan } from "../apps/web/src/features/inventory/alegra-import";
 import { normalizeDocument } from "../apps/web/src/features/customers/customer-normalization";
 import { nextSkuAfter, nextSkuFromSkus } from "../apps/web/src/features/products/product-sku";
@@ -522,6 +523,21 @@ async function sincronizarFacturas(): Promise<void> {
       await rest.getAll<{ id: string; alegra_id: string }>(`products?select=id,alegra_id&${B}&alegra_id=not.is.null`)
     ).map((p) => [p.alegra_id, p.id]),
   );
+  // 🔴 El vendedor. Alegra manda `seller.name` como texto libre y NO el enlace
+  // al usuario de DermaLand, así que sin esto cada factura nueva entraba con
+  // `seller_id` NULL y se quedaba fuera de la comisión sin que nadie lo notara
+  // — se descubrió con 7 facturas del mismo día ya sueltas.
+  const vendedorPorNombre = await cargarVendedores();
+  // Y para las que Alegra manda SIN vendedor: la encargada de la sucursal. La
+  // regla vive en `branches.default_seller_id`, no aquí, para que se pueda
+  // cambiar sin tocar este guion.
+  const vendedorPorSucursal = new Map(
+    (
+      await rest.getAll<{ id: string; default_seller_id: string | null }>(
+        `branches?select=id,default_seller_id&${B}&default_seller_id=not.is.null`,
+      )
+    ).map((b) => [b.id, b.default_seller_id!]),
+  );
 
   // Sin `order_field`: `listAll` ordena por id, la única clave total. Ordenar
   // por fecha hacía que la paginación repitiera y perdiera facturas.
@@ -544,11 +560,13 @@ async function sincronizarFacturas(): Promise<void> {
       const cabeceras = nuevas.map((i) => {
         const { invoice } = invoiceToRows(i);
         const { warehouse_id, ...fila } = invoice;
+        const branchId = warehouse_id ? (branchPorAlmacen.get(warehouse_id) ?? null) : null;
         return {
           ...fila,
           business_id: BUSINESS_ID,
-          branch_id: warehouse_id ? (branchPorAlmacen.get(warehouse_id) ?? null) : null,
+          branch_id: branchId,
           client_id: invoice.alegra_client_id ? (clientePorAlegraId.get(invoice.alegra_client_id) ?? null) : null,
+          seller_id: resolverVendedor(fila.seller_name, branchId, vendedorPorNombre, vendedorPorSucursal),
           synced_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -585,6 +603,67 @@ async function sincronizarFacturas(): Promise<void> {
 }
 
 /**
+ * Los vendedores de DermaLand, indexados por su nombre NORMALIZADO.
+ *
+ * Se normaliza —minúsculas, sin tildes, sin espacios de más— porque Alegra
+ * escribe «LAURA MEJIA» y en DermaLand la persona es «Laura Mejía». Comparar
+ * el texto tal cual las trataría como dos vendedoras distintas y le partiría
+ * las ventas —y la comisión— en dos.
+ */
+async function cargarVendedores(): Promise<Map<string, string>> {
+  const usuarios = await rest.getAll<{ id: string; full_name: string | null }>(
+    `users?select=id,full_name&${B}&deleted_at=is.null`,
+  );
+  const m = new Map<string, string>();
+  for (const u of usuarios) {
+    const clave = normalizarNombre(u.full_name);
+    // El primero gana: si hubiera dos con el mismo nombre normalizado, quedarse
+    // con uno es determinista; alternarlos movería la comisión entre corridas.
+    if (clave && !m.has(clave)) m.set(clave, u.id);
+  }
+  return m;
+}
+
+/**
+ * Ata las facturas que quedaron sin vendedor en corridas anteriores: la persona
+ * no existía todavía como usuario, o la sucursal no tenía encargada. Se
+ * recalcula con las mismas reglas que el mapeo, no con otras.
+ */
+async function reenlazarVendedores(): Promise<void> {
+  const sueltas = await rest.getAll<{
+    id: string;
+    seller_name: string | null;
+    branch_id: string | null;
+  }>(`alegra_invoices?select=id,seller_name,branch_id&${B}&seller_id=is.null`);
+  if (sueltas.length === 0) return;
+
+  const porNombre = await cargarVendedores();
+  const porSucursal = new Map(
+    (
+      await rest.getAll<{ id: string; default_seller_id: string | null }>(
+        `branches?select=id,default_seller_id&${B}&default_seller_id=not.is.null`,
+      )
+    ).map((b) => [b.id, b.default_seller_id!]),
+  );
+
+  let atadas = 0;
+  for (const inv of sueltas) {
+    const sellerId = resolverVendedor(inv.seller_name, inv.branch_id, porNombre, porSucursal);
+    if (!sellerId) continue;
+    try {
+      await rest.patch("alegra_invoices", `id=eq.${inv.id}&${B}`, {
+        seller_id: sellerId,
+        updated_at: new Date().toISOString(),
+      });
+      atadas++;
+    } catch (e) {
+      fail("invoices", e);
+    }
+  }
+  if (atadas) console.log(`  Vendedor: ${atadas} facturas atadas (de ${sueltas.length} sueltas)`);
+}
+
+/**
  * Enlaza facturas y líneas que quedaron sin `client_id` / `product_id` porque
  * el contacto o el ítem aún no tenían ficha en DermaLand. Es barato y hace que
  * el historial se vaya completando solo en cada corrida.
@@ -593,6 +672,11 @@ async function reenlazarFacturas(
   clientePorAlegraId: Map<string, string>,
   productoPorAlegraId: Map<string, string>,
 ): Promise<void> {
+  // El vendedor de las que quedaron sueltas: o porque la persona aún no existía
+  // como usuario, o porque la sucursal no tenía encargada asignada. Barato y
+  // hace que la atribución se complete sola en cada corrida.
+  await reenlazarVendedores();
+
   const facturas = await rest.getAll<{ id: string; alegra_client_id: string }>(
     `alegra_invoices?select=id,alegra_client_id&${B}&client_id=is.null&alegra_client_id=not.is.null`,
   );
