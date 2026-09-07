@@ -167,6 +167,8 @@ describe("makeChatToolExecutor", () => {
       { status: "pending", total: 700 }, // todavía no es una venta
       { status: "draft", total: 300 }, // borrador
       { status: "voided", total: 900 }, // anulada en la BD
+      { status: "cancelled", total: 200 }, // también anulada: mismo cubo que voided
+      { status: "expired", total: 150 }, // vencida: NO es lo mismo que anulada
     ]);
     resumenVentas.mockResolvedValue({
       total: 0, cantidad: 0,
@@ -175,8 +177,10 @@ describe("makeChatToolExecutor", () => {
     const exec = makeChatToolExecutor(ctx);
     const out = JSON.parse(await exec({ name: "get_sales_summary", arguments: {} }));
     expect(out.porOrigen.sistema).toEqual({ ventas: 2, totalDOP: 1500 });
-    // `anuladas` significa anuladas: `draft` y `voided`, no «lo que sobra».
-    expect(out.anuladasSistema).toBe(2);
+    // N9: el asistente ya no mete `draft`/`expired` en un único «anuladas» —
+    // desglosa con las MISMAS palabras que el resto de pantallas
+    // (`ETIQUETA_ESTADO_VENTA`): un borrador y una vencida no son anuladas.
+    expect(out.estadosExcluidosSistema).toEqual({ Anulada: 2, Borrador: 1, Vencida: 1 });
   });
 
   it("search_products reintenta sin acentos y por palabra más distintiva (regresión Rilastil)", async () => {

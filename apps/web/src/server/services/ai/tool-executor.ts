@@ -4,6 +4,7 @@ import type { RepoContext } from "@/server/repositories/types";
 import type { AIToolInvocation } from "./providers/types";
 import { esVentaCompletada } from "@/features/sales/venta-completada";
 import { isExcludedStatus } from "@/features/customers/customer-purchases";
+import { ETIQUETA_ESTADO_VENTA, estadoDeProforma } from "@/features/ventas/venta-unificada";
 import { ALLOWED_TOOLS, validateToolSet, type Tool } from "./tools";
 
 /**
@@ -196,7 +197,22 @@ export function makeChatToolExecutor(ctx: RepoContext) {
         const ventasSistema = headers.filter((h) => esVentaCompletada(h.status));
         const totalSistema =
           Math.round(ventasSistema.reduce((s, h) => s + h.total, 0) * 100) / 100;
-        const anuladasSistema = headers.filter((h) => isExcludedStatus(h.status)).length;
+        // 🔴 N9: un borrador o una vencida NO son lo mismo que una anulada, y
+        // este canal no tiene badge en pantalla que corrija al modelo si lo
+        // dice mal — si el asistente le dice al dueño «N anuladas» contando
+        // borradores, se lo cree. Se desglosa con el MISMO vocabulario que ya
+        // usa el resto de la aplicación (`ETIQUETA_ESTADO_VENTA` +
+        // `estadoDeProforma`, de `features/ventas/venta-unificada.ts`), no uno
+        // inventado aquí.
+        const excluidosSistema = headers.filter((h) => isExcludedStatus(h.status));
+        const estadosExcluidosSistema = excluidosSistema.reduce<Record<string, number>>(
+          (acc, h) => {
+            const etiqueta = ETIQUETA_ESTADO_VENTA[estadoDeProforma(h.status)];
+            acc[etiqueta] = (acc[etiqueta] ?? 0) + 1;
+            return acc;
+          },
+          {},
+        );
 
         // ── Mitad del HISTÓRICO migrado de Alegra ────────────────────────
         // El total llega YA SUMADO por la base (`resumen_ventas_unificadas`,
@@ -237,7 +253,7 @@ export function makeChatToolExecutor(ctx: RepoContext) {
             historicoIncluido: false,
             ventasSistema: ventasSistema.length,
             totalSistemaDOP: totalSistema,
-            anuladasSistema,
+            estadosExcluidosSistema,
             desde: from ?? null, hasta: to ?? null,
             aviso_historico:
               "No se pudo consultar el histórico migrado de Alegra, así que NO hay total del negocio: " +
@@ -256,12 +272,14 @@ export function makeChatToolExecutor(ctx: RepoContext) {
             alegra: { ventas: historico.ventas, totalDOP: historico.totalDOP },
           },
           historicoIncluido: true,
-          anuladasSistema,
+          estadosExcluidosSistema,
           desde: from ?? null, hasta: to ?? null,
           nota:
             "El total suma las ventas del sistema y el histórico migrado de Alegra. " +
-            "Al responder, di cuánto pone cada origen (porOrigen). `anuladasSistema` " +
-            "cuenta solo documentos anulados del sistema, no del histórico.",
+            "Al responder, di cuánto pone cada origen (porOrigen). `estadosExcluidosSistema` " +
+            "desglosa, por estado (Anulada/Borrador/Vencida), los documentos del sistema que " +
+            "NO cuentan en el total; no del histórico. No los llames a todos «anulados»: " +
+            "un borrador o una vencida no son lo mismo que una anulada.",
           ...avisosDeFiltro,
         };
       }

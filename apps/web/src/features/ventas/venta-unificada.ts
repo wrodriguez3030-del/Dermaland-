@@ -122,8 +122,14 @@ const numero = (v: number | string | null | undefined): number => Number(v ?? 0)
  * Estado visible de una proforma. Los cuatro que `isExcludedStatus` deja
  * fuera de los totales no son lo mismo entre sí: `cancelled`/`voided` sí están
  * anuladas, `draft` es un borrador y `expired` una proforma vencida.
+ *
+ * Exportada (además de usarla `desdeProforma`) para que el asistente de IA
+ * (`server/services/ai/tool-executor.ts`) desglose sus propios conteos con el
+ * MISMO criterio: sin esto, ese canal tenía uno propio que llamaba «anuladas»
+ * a los borradores y a las vencidas (N9), justo donde no hay un badge en
+ * pantalla que lo corrija.
  */
-function estadoDeProforma(status: string): EstadoVenta {
+export function estadoDeProforma(status: string): EstadoVenta {
   if (status === "cancelled" || status === "voided") return "anulada";
   if (status === "draft") return "borrador";
   if (status === "expired") return "vencida";
