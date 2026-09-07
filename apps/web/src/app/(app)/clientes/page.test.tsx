@@ -4,10 +4,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import type { Customer } from "@/types";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
-import {
-  ALCANCE_TOTAL_GASTADO,
-  ETIQUETA_TOTAL_GASTADO,
-} from "@/features/customers/alcance-total-gastado";
+import { ALCANCE_TOTAL_GASTADO } from "@/features/customers/alcance-total-gastado";
 
 /**
  * 🔴 «Total gastado» decía DOS cosas distintas a dos clics de distancia.
@@ -69,11 +66,20 @@ afterEach(cleanup);
 describe("Clientes — qué cuenta «Total gastado»", () => {
   it("🔴 dice en pantalla que el gasto es solo del sistema (sin el histórico de Alegra)", () => {
     render(<ClientesPage />);
-    expect(screen.getByText(ALCANCE_TOTAL_GASTADO)).toBeInTheDocument();
+    // Contra el literal, no contra la constante: si la frase se vacía o se
+    // queda sin la parte que importa, esta prueba se pone roja igual.
+    const aviso = screen.getByText(/solo las ventas del sistema/);
+    expect(aviso).toBeInTheDocument();
+    expect(aviso.textContent).toContain("el histórico migrado de Alegra no entra");
+    expect(ALCANCE_TOTAL_GASTADO).toBe(aviso.textContent);
   });
 
-  it("🔴 la columna se llama «(sistema)»: ya no colisiona con la etiqueta de la ficha", () => {
+  it("🔴 la columna NO se llama «Total gastado» a secas: colisionaba con la ficha", () => {
     render(<ClientesPage />);
-    expect(screen.getByText(ETIQUETA_TOTAL_GASTADO)).toBeInTheDocument();
+    // El literal exacto de la ficha del cliente NO puede aparecer aquí: es la
+    // colisión que hacía que el mismo cliente valiera RD$0.00 en esta fila y
+    // RD$X dos clics más allá, bajo la misma palabra.
+    expect(screen.queryByText("Total gastado")).toBeNull();
+    expect(screen.getByText(/Total gastado \(sistema\)/)).toBeInTheDocument();
   });
 });

@@ -50,12 +50,18 @@ describe("buildCustomersPdfSpec — qué cuenta «Total gastado»", () => {
   );
 
   it("🔴 la sección lleva la nota de alcance en `footnote`, la única clave que el motor pinta", () => {
-    expect(spec.sections[0]!.footnote).toBe(ALCANCE_TOTAL_GASTADO);
+    const nota = spec.sections[0]!.footnote;
+    expect(nota).toContain("solo las ventas del sistema");
+    expect(nota).toContain("el histórico migrado de Alegra no entra");
+    expect(nota).toBe(ALCANCE_TOTAL_GASTADO);
   });
 
-  it("🔴 la columna de dinero se llama «(sistema)»: ya no colisiona con la de la ficha", () => {
+  it("🔴 la columna de dinero NO se llama «Total gastado» a secas", () => {
+    // Contra el literal: comparar con la constante haría que renombrarla a
+    // «Total gastado» dejara la prueba en verde con el fallo dentro.
     const columna = spec.sections[0]!.table.columns.find((c) => c.key === "totalSpent");
+    expect(columna!.header).toBe("Total gastado (sistema)");
     expect(columna!.header).toBe(ETIQUETA_TOTAL_GASTADO);
-    expect(spec.kpis!.find((k) => k.label === ETIQUETA_TOTAL_GASTADO)).toBeDefined();
+    expect(spec.kpis!.map((k) => k.label)).not.toContain("Total gastado");
   });
 });

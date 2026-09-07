@@ -105,13 +105,16 @@ describe("buildCustomersWorkbookSpec — paridad con perfil/pantalla", () => {
     // RD$0.00— mientras la ficha de ese mismo cliente enseña RD$X bajo la
     // MISMA etiqueta. `TableSpec` no tiene clave de nota: el único texto que el
     // motor pinta encima de una tabla es su `title`, y ahí va el alcance.
+    expect(ALCANCE_TOTAL_GASTADO).toContain("solo las ventas del sistema");
     for (const hoja of spec.sheets) {
       for (const tabla of hoja.tables) {
         if (tabla.columns.some((c) => c.key === "totalSpent")) {
           expect(tabla.title).toContain(ALCANCE_TOTAL_GASTADO);
-          expect(tabla.columns.find((c) => c.key === "totalSpent")!.header).toBe(
-            ETIQUETA_TOTAL_GASTADO,
-          );
+          // Contra el literal: si la constante se renombrara a «Total gastado»
+          // volvería la colisión con la ficha y la prueba tiene que verlo.
+          const columna = tabla.columns.find((c) => c.key === "totalSpent")!;
+          expect(columna.header).toBe("Total gastado (sistema)");
+          expect(columna.header).toBe(ETIQUETA_TOTAL_GASTADO);
         }
       }
     }
