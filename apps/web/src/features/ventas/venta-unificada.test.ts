@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { desdeProforma, desdeFacturaAlegra, pinturaEstadoVenta } from "./venta-unificada";
+import { isExcludedStatus } from "@/features/customers/customer-purchases";
+import { cuentaParaTotales } from "@/features/alegra/sales-report";
 
 /**
  * 🔴 «No cuenta para los totales» y «anulada fiscalmente» NO son lo mismo.
@@ -155,16 +157,33 @@ describe("🔴 estado visible ≠ «no cuenta para los totales»", () => {
     expect(proforma("paid").estado).toBe("vigente");
   });
 
-  it("🔴 separar la etiqueta NO cambió qué entra en los totales", () => {
-    // La invariante que ata los dos campos: `anulada === (estado !== "vigente")`.
-    // Si alguien "arregla" el estado moviendo también el dinero, esto muere.
-    for (const s of ["open", "closed", "void", "draft"]) {
+  it("🔴 separar la etiqueta NO cambió qué entra en los totales (N7)", () => {
+    // OJO con lo que esto NO puede cazar: comparar `v.anulada` contra
+    // `v.estado !== "vigente"` DEL MISMO `v` es tautológico bajo la mutación
+    // más obvia — si `estado` volviera a derivarse de `anulada`
+    // (`estado = anulada ? "anulada" : "vigente"`), las dos mitades del mismo
+    // objeto seguirían de acuerdo aunque la etiqueta volviera a ser la
+    // incorrecta. ESA regresión concreta la caza EN SOLITARIO la prueba de
+    // arriba ("una de Alegra en BORRADOR no se pinta «Anulada»"), que sí fija
+    // el valor exacto de `estado`, no solo si es "vigente" o no.
+    //
+    // Lo que esta prueba SÍ puede cazar, con una fuente independiente de `v`
+    // (`isExcludedStatus` / `cuentaParaTotales`, no un campo hermano del mismo
+    // objeto): que el criterio de exclusión real se desincronice del mapeo de
+    // `estado` — p. ej., que alguien saque `expired` de `EXCLUDED_STATUSES`
+    // sin tocar `estadoDeProforma`, y una proforma vencida se quede sumando a
+    // los totales sin que ninguna pantalla lo note.
+    for (const s of ["open", "closed", "void", "draft"] as const) {
       const v = alegra(s);
-      expect(v.anulada, `alegra ${s}`).toBe(v.estado !== "vigente");
+      const noCuenta = !cuentaParaTotales({ status: s });
+      expect(v.anulada, `alegra ${s}`).toBe(noCuenta);
+      expect(v.estado !== "vigente", `alegra ${s}`).toBe(noCuenta);
     }
     for (const s of ["paid", "issued", "partially_paid", "cancelled", "voided", "draft", "expired"]) {
       const v = proforma(s);
-      expect(v.anulada, `proforma ${s}`).toBe(v.estado !== "vigente");
+      const noCuenta = isExcludedStatus(s);
+      expect(v.anulada, `proforma ${s}`).toBe(noCuenta);
+      expect(v.estado !== "vigente", `proforma ${s}`).toBe(noCuenta);
     }
   });
 });
