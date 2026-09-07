@@ -198,9 +198,11 @@ describe("perfil de cliente — compras migradas de Alegra", () => {
     expect(screen.getByText(/Compras \(1\)/)).toBeInTheDocument();
   });
 
-  it("🔴 una compra de Alegra no ofrece editar, imprimir ni enviar", () => {
-    // Alegra manda y DermaLand solo lee: un botón de enviar sobre historial
-    // ajeno haría creer que el documento sale de aquí.
+  it("🔴 una compra de Alegra se puede VER e imprimir, pero NO editar ni enviar", () => {
+    // El dueño pidió poder abrir la compra para saber qué se llevó el cliente.
+    // Ver e imprimir sí; editar, enviar y borrar NO se ofrecen siquiera: no es
+    // que estén deshabilitados, es que sobre historial ajeno no existen. Alegra
+    // manda y DermaLand solo lee.
     hookState.current = { customer: willian, loading: false };
     ventasState.current = {
       tipo: "listo",
@@ -209,10 +211,16 @@ describe("perfil de cliente — compras migradas de Alegra", () => {
     render(<ClienteDetallePage />);
     const fila = screen.getByText("B0100000123").closest("tr");
     expect(fila).not.toBeNull();
-    expect(fila!.textContent).toMatch(/Solo lectura/i);
-    // Ni un enlace ni un botón en toda la fila: nada que abrir, editar,
-    // imprimir o enviar.
-    expect(fila!.querySelectorAll("a, button")).toHaveLength(0);
+    const acciones = [...fila!.querySelectorAll("button, a")].map(
+      (b) => b.getAttribute("aria-label") ?? b.getAttribute("title") ?? b.textContent ?? "",
+    );
+    const hay = (re: RegExp) => acciones.some((a) => re.test(a));
+    expect(hay(/ver|detalle/i), `acciones: ${acciones.join(" | ")}`).toBe(true);
+    expect(hay(/imprimir/i)).toBe(true);
+    // 🔴 Lo que NO puede aparecer nunca sobre una factura migrada.
+    expect(hay(/editar/i)).toBe(false);
+    expect(hay(/enviar/i)).toBe(false);
+    expect(hay(/eliminar|borrar|anular/i)).toBe(false);
   });
 
   it("si el histórico no carga, lo dice en vez de enseñar una lista corta", () => {

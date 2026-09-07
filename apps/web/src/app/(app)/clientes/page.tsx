@@ -30,6 +30,8 @@ import { deleteCustomerAnywhere } from "@/features/customers/customer-store";
 import { useCustomersReport } from "@/features/customers/customer-profile-hooks";
 import { coincideCliente, FUENTES } from "@/features/customers/customer-search";
 import { insigniaCliente } from "@/features/customers/customer-flags";
+import { puedeAccionDeRiesgo } from "@/features/auth/riesgo-operativo";
+import { useCurrentRole } from "@/features/auth/current-user";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
 import { skinTypeLabel } from "@/features/customers/billing";
 import {
@@ -71,6 +73,7 @@ function ClientesContent() {
     params.get("created") === "this_month" ? "this_month" : "all";
   const { rows } = useCustomersReport();
   const toast = useToast();
+  const puedeRiesgo = puedeAccionDeRiesgo(useCurrentRole());
 
   // 🔴 Estos tres filtros existían en pantalla y no estaban conectados a nada:
   // un `<input>` sin valor ni manejador y dos `<select>` sueltos. Con 6 524
@@ -360,9 +363,15 @@ function ClientesContent() {
                     onClick={(e) => e.stopPropagation()}
                     onDoubleClick={(e) => e.stopPropagation()}
                   >
+                    {/* 🔴 Ver, siempre. Editar y borrar, solo administradores:
+                        una cajera necesita consultar, no poder borrar la ficha
+                        de un cliente con tres años de historial. Es una guarda
+                        de INTERFAZ; la ruta que borra comprueba el rol aparte. */}
                     <RowActions
                       viewHref={`/clientes/${c.id}`}
                       editHref={`/clientes/${c.id}/editar`}
+                      canEdit={puedeRiesgo}
+                      canDelete={puedeRiesgo}
                       onDelete={async () => {
                         const res = await deleteCustomerAnywhere(c.id);
                         if (!res.ok)

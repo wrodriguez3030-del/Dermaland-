@@ -21,6 +21,12 @@ import { ALCANCE_TOTAL_GASTADO } from "@/features/customers/alcance-total-gastad
  * casa manda: si el número se queda corto, LO DICE.
  */
 const searchParams = new URLSearchParams("");
+// El listado gatea editar/borrar por rol: sin este mock el árbol revienta al
+// pedir el usuario actual fuera de su proveedor.
+vi.mock("@/features/auth/current-user", () => ({
+  useCurrentUser: () => ({ fullName: "Dario", role: "admin" }),
+  useCurrentRole: () => "admin",
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),

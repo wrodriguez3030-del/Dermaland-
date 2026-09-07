@@ -3,6 +3,8 @@ import type { CustomerRepository, RepoContext } from "../types";
 import type { Customer, CustomerNote } from "@/types";
 import { SupabaseRepositoryError, getClient } from "./client";
 import { clientRowToTs } from "./mappers";
+import { fetchAllPages } from "@/server/repositories/supabase/pagination";
+import type { Database } from "@/server/db/database.types";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
 
 /**
@@ -83,18 +85,28 @@ export const customerRepository: CustomerRepository = {
       q = q.or(clausulas.join(","));
     }
 
-    q = q.order("first_name", { ascending: true });
-    // `opts.limit` es opcional: sin él, se preserva el comportamiento previo
-    // (sin tope explícito aquí). Cuando el caller SÍ lo pide —hoy, solo
-    // `/api/customers`— se acota con `.range()` y jamás se supera TOPE_CLIENTES,
-    // sin importar lo que pida `opts.limit`.
-    if (opts?.limit != null) {
-      const limit = Math.min(opts.limit, TOPE_CLIENTES);
-      q = q.range(0, limit - 1);
-    }
-    const { data, error } = await q;
-    if (error) throw new SupabaseRepositoryError("customer.list", error);
-    return (data ?? []).map(clientRowToTs);
+    // Orden total y estable: `first_name` se repite (hay varias «Ana»), y sin
+    // el desempate por `id` dos páginas podrían repetir una fila y perder otra.
+    q = q.order("first_name", { ascending: true }).order("id", { ascending: true });
+
+    // 🔴 Sin `.range()`, PostgREST devuelve 1 000 filas EN SILENCIO. Con 6 525
+    // clientes eso dejaba 5 525 fuera: el buscador de la pantalla no encontraba
+    // a «CIBAO SPA LASER CSL SRL» porque ese cliente NUNCA llegaba al navegador,
+    // y quien no encuentra a un cliente lo vuelve a crear duplicado.
+    //
+    // El tope sigue siendo `TOPE_CLIENTES`: se pagina hasta él, no sin freno.
+    const limite = Math.min(opts?.limit ?? TOPE_CLIENTES, TOPE_CLIENTES);
+    const filas = await fetchAllPages<Database["public"]["Tables"]["clients"]["Row"]>(
+      async (from, to) => {
+        // La última página se recorta al tope: pedir de más traería filas que
+        // habría que tirar.
+        if (from >= limite) return [];
+        const { data, error } = await q.range(from, Math.min(to, limite - 1));
+        if (error) throw new SupabaseRepositoryError("customer.list", error);
+        return data ?? [];
+      },
+    );
+    return filas.map(clientRowToTs);
   },
 
   async byId(ctx: RepoContext, id: string) {

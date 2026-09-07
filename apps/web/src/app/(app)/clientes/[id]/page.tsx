@@ -64,6 +64,8 @@ import {
 import { documentRouteBase } from "@/features/sales/document-label";
 import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import { RowActions } from "@/components/ui/row-actions";
+import { DetalleCompraMigrada } from "@/features/ventas/detalle-compra-migrada";
+import type { VentaUnificada } from "@/features/ventas/venta-unificada";
 import { mockRecommendations } from "@/lib/mock-data/dermatology";
 import type { Proforma } from "@/types";
 import {
@@ -156,6 +158,8 @@ export default function ClienteDetallePage() {
   // la tabla. Antes eran dos y se contradecían en pantalla: «Total gastado
   // RD$0.00 · Compras 0» encima de «Compras (172) · RD$X comprados».
   const metricas = React.useMemo(() => metricasComprasCliente(compras), [compras]);
+  // Qué compra migrada está abierta en el detalle. `null` = ninguna.
+  const [detalle, setDetalle] = React.useState<VentaUnificada | null>(null);
   const hayMasCompras = historicoCliente.tipo === "listo" && historicoCliente.datos.hayMas;
   // Qué se está mirando y de dónde sale: un listado que mezcla dos fuentes sin
   // decir cuánto pone cada una no se puede cuadrar con nada.
@@ -526,11 +530,19 @@ export default function ClienteDetallePage() {
                             {pinturaEstadoVenta(venta.estado).etiqueta ?? "Histórico"}
                           </Badge>
                         </TD>
-                        <TD
-                          className="pr-4 text-right text-xs opacity-60"
-                          title="Factura migrada de Alegra: se puede ver, no editar ni enviar desde DermaLand. Alegra manda y DermaLand solo lee."
-                        >
-                          Solo lectura
+                        <TD className="pr-4">
+                          {/* 🔴 Ver e imprimir SÍ; editar, cobrar y eliminar NO
+                              se ofrecen siquiera: no es que estén deshabilitados,
+                              es que sobre una factura migrada no existen. Alegra
+                              manda y DermaLand solo lee. */}
+                          <RowActions
+                            onView={() => setDetalle(venta)}
+                            onPrint={() => window.print()}
+                            canEdit={false}
+                            canDelete={false}
+                            canSend={false}
+                            itemLabel={`la compra ${venta.numero}`}
+                          />
                         </TD>
                       </TR>
                     ),
@@ -539,6 +551,7 @@ export default function ClienteDetallePage() {
               </Table>
             </CardContent>
           </Card>
+          <DetalleCompraMigrada venta={detalle} onClose={() => setDetalle(null)} />
           <SendInvoiceModal
             proforma={sendModal.proforma}
             open={sendModal.proforma !== null}
