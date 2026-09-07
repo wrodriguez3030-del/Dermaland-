@@ -54,7 +54,7 @@ function MfaChallenge() {
     const vr = await supabase.auth.mfa.verify({ factorId, challengeId: ch.data.id, code: code.trim() });
     if (vr.error) {
       setBusy(false);
-      setError("Código incorrecto. Revisá la hora de tu teléfono e intentá de nuevo.");
+      setError("Código incorrecto. Revisa la hora de tu teléfono e intenta de nuevo.");
       return;
     }
     // Sesión elevada a aal2 → recarga completa para que el middleware la reconozca.
