@@ -122,6 +122,10 @@ export const METODO_ETIQUETA: Record<string, string> = {
   "debit-card": "Tarjeta de débito",
   transfer: "Transferencia",
   check: "Cheque",
+  // Alegra la usa para las ventas a crédito: 4 facturas migradas
+  // (RD$29 982,98), medidas contra la base real el 06/09/2026. Faltaba, y el
+  // desglose de medios de pago enseñaba la fila literal `credit-sell`.
+  "credit-sell": "Venta a crédito",
   "": "Sin método",
 };
 

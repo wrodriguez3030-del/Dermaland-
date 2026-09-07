@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { buildSalesReport, EMPTY_FILTERS } from "@/features/sales/sales-report";
+import type { Proforma } from "@/types";
 import type { DesgloseVentasApi, EstadoVentas } from "@/features/ventas/ventas-api";
 import type { DimensionDesglose, FilaDesglose } from "@/features/ventas/venta-unificada";
 
@@ -23,6 +24,14 @@ import type { DimensionDesglose, FilaDesglose } from "@/features/ventas/venta-un
 
 /** Estado que devolverá `useDesgloseVentas` en la prueba en curso. */
 let estadoDesglose: EstadoVentas<DesgloseVentasApi> = { tipo: "cargando" };
+/**
+ * Estado SOLO para una dimensión, cuando la prueba necesita datos distintos en
+ * cada tarjeta. Hace falta para las de medios de pago: si la misma fixture de
+ * claves `cash`/`credit-sell` se devolviera también a la tarjeta de vendedor y
+ * a la de productos —que no traducen nada, ni deben—, buscar «cash» en la
+ * pantalla encontraría tres y no se podría afirmar nada.
+ */
+let estadoPorDimension: Partial<Record<DimensionDesglose, EstadoVentas<DesgloseVentasApi>>> = {};
 const pedidas: DimensionDesglose[] = [];
 /** `false` cuando la pantalla NO debe pedir el desglose. */
 let activoVisto: boolean[] = [];
@@ -32,7 +41,7 @@ vi.mock("@/features/ventas/ventas-api", async (original) => ({
   useDesgloseVentas: (dimension: DimensionDesglose, _f: unknown, activo = true) => {
     pedidas.push(dimension);
     activoVisto.push(activo);
-    return estadoDesglose;
+    return estadoPorDimension[dimension] ?? estadoDesglose;
   },
 }));
 
@@ -51,13 +60,62 @@ const CON_HISTORICO = ["Medios de pago", "Ventas por vendedor", "Productos más 
 
 const reporteVacio = () => buildSalesReport([], EMPTY_FILTERS);
 
+/**
+ * 🔴 Un reporte con VENTAS DE VERDAD, y hace falta.
+ *
+ * Todas las pruebas de este archivo usaban `buildSalesReport([], …)`. Con un
+ * reporte vacío, `report.methods` son cuatro grupos a cero (así que el filtro
+ * que los quita es indistinguible de no existir) y las filas migradas de la
+ * fixture tenían claves que no están en `METODO_ETIQUETA` (así que el traductor
+ * también era indistinguible de no existir). Verificado por la revisión:
+ * revertir ENTEROS los commits que arreglaron esas dos cosas dejaba la suite en
+ * `9 passed`.
+ *
+ * Con una venta en efectivo del sistema, «Efectivo» aparece con dinero y los
+ * otros tres grupos a cero; y con filas migradas de clave `cash`/`credit-sell`,
+ * el traductor tiene algo que traducir.
+ */
+function ventaEnEfectivo(): Proforma {
+  return {
+    id: "prof_1",
+    businessId: "biz_1",
+    branchId: "br_1",
+    number: "B0100000001",
+    customerId: "cust_1",
+    customerName: "María Fernanda",
+    documentKind: "invoice",
+    status: "paid",
+    items: [],
+    payments: [{ method: "cash", amount: 1000 }],
+    subtotal: 847.46,
+    itbis: 152.54,
+    discount: 0,
+    total: 1000,
+    createdAt: "2026-03-10T10:00:00Z",
+  } as unknown as Proforma;
+}
+
+const reporteConVentas = () => buildSalesReport([ventaEnEfectivo()], EMPTY_FILTERS);
+
 const migradas: FilaDesglose[] = [
   { clave: "DESTENY REYNOSO", etiqueta: "DESTENY REYNOSO", origen: "alegra", cantidad: 5513, total: 20_000 },
   { clave: "", etiqueta: "Sin forma de pago", origen: "alegra", cantidad: 12_672, total: 40_000 },
 ];
 
+/**
+ * Filas migradas de forma de pago tal como las manda la base: con el código
+ * CRUDO de Alegra, que es lo que hay que traducir.
+ */
+const pagosMigrados: FilaDesglose[] = [
+  { clave: "", etiqueta: "Sin forma de pago", origen: "alegra", cantidad: 12_672, total: 40_912_469.65 },
+  { clave: "credit-card", etiqueta: "credit-card", origen: "alegra", cantidad: 1192, total: 4_793_588.8 },
+  { clave: "cash", etiqueta: "cash", origen: "alegra", cantidad: 869, total: 2_689_272.65 },
+  { clave: "credit-sell", etiqueta: "credit-sell", origen: "alegra", cantidad: 4, total: 29_982.98 },
+];
+
 beforeEach(() => {
   estadoDesglose = { tipo: "listo", datos: { filas: migradas, fuentes: ["alegra"] } };
+  estadoPorDimension = {};
   pedidas.length = 0;
   activoVisto = [];
 });
@@ -126,5 +184,64 @@ describe("resúmenes del reporte de ventas", () => {
     expect(screen.getAllByText(/Se enseñan solo las ventas del sistema/i))
       .toHaveLength(CON_HISTORICO.length);
     expect(screen.getAllByText(/Solo ventas del sistema/i)).toHaveLength(CON_AVISO.length);
+  });
+});
+
+/**
+ * Lo que protegen estas cuatro: los dos commits que arreglaron la tabla de
+ * medios de pago. La revisión comprobó que se podían revertir ENTEROS sin que
+ * se pusiera roja una sola prueba, porque todas usaban un reporte vacío y
+ * claves que no estaban en `METODO_ETIQUETA`.
+ */
+describe("medios de pago — con ventas de verdad en el reporte", () => {
+  beforeEach(() => {
+    // Solo la tarjeta de medios de pago recibe las claves crudas de Alegra; las
+    // otras dos siguen con la fixture de siempre.
+    estadoPorDimension = {
+      forma_pago: { tipo: "listo", datos: { filas: pagosMigrados, fuentes: ["alegra"] } },
+    };
+  });
+
+  it("🔴 no queda ni un código de Alegra a la vista: `cash` no puede convivir con «Efectivo»", () => {
+    render(<ResumenesVentas report={reporteConVentas()} historicoParticipa />);
+    for (const crudo of ["cash", "credit-card", "credit-sell"]) {
+      expect(screen.queryByText(crudo), `sigue saliendo el código crudo «${crudo}»`)
+        .not.toBeInTheDocument();
+    }
+    // Y sí salen traducidos, incluido `credit-sell`, que faltaba en el
+    // diccionario y se colaba en inglés.
+    for (const traducido of ["Efectivo", "Tarjeta de crédito", "Venta a crédito"]) {
+      expect(screen.getAllByText(traducido).length, `falta «${traducido}»`).toBeGreaterThan(0);
+    }
+  });
+
+  it("🔴 ni una fila de medio de pago a RD$0.00: `byPaymentMethod` devuelve siempre los cuatro grupos", () => {
+    render(<ResumenesVentas report={reporteConVentas()} historicoParticipa />);
+    // La venta del reporte es en efectivo, así que Tarjeta / Transferencia /
+    // Otro llegan a cero y no se pintan.
+    expect(screen.queryByText("Tarjeta")).not.toBeInTheDocument();
+    expect(screen.queryByText("Transferencia")).not.toBeInTheDocument();
+    expect(screen.queryByText("Otro")).not.toBeInTheDocument();
+    // Y «Efectivo» sí, porque tiene dinero: dos filas, la del sistema y la
+    // migrada.
+    expect(screen.getAllByText("Efectivo").length).toBe(2);
+  });
+
+  it("🔴 dice que las dos mitades de la columna «Total» no miden lo mismo", () => {
+    render(<ResumenesVentas report={reporteConVentas()} historicoParticipa />);
+    expect(screen.getByText(/pagos RECIBIDOS/i)).toBeInTheDocument();
+    expect(screen.getByText(/no se pueden sumar como si midieran lo mismo/i)).toBeInTheDocument();
+  });
+
+  it("sin ventas del sistema esa aclaración sobra y no se enseña", () => {
+    // Es el caso de hoy: `proformas` vacía. La columna es toda «facturado».
+    render(<ResumenesVentas report={reporteVacio()} historicoParticipa />);
+    expect(screen.queryByText(/pagos RECIBIDOS/i)).not.toBeInTheDocument();
+  });
+
+  it("🔴 el ranking de productos dice que es un ranking, no un total", () => {
+    render(<ResumenesVentas report={reporteConVentas()} historicoParticipa />);
+    expect(screen.getByText(/es un ranking, no un total/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 248 productos/)).toBeInTheDocument();
   });
 });

@@ -138,6 +138,26 @@ export function ResumenesVentas({
   const sinFormaDePago = tarjetaPago.filas.find(
     (f) => f.origen === "alegra" && f.clave === "",
   );
+  // 🔴 Y la otra media verdad de esa misma tabla: la columna «Total» NO mide
+  // lo mismo en las dos mitades. En las filas migradas es el total de la
+  // FACTURA; en las del sistema, la suma de los PAGOS RECIBIDOS
+  // (`byPaymentMethod` acumula `pay.amount`), que en una venta a crédito o
+  // pagada a medias no es lo facturado. Hoy `proformas` está vacía y la
+  // columna suma exactamente el KPI, así que quien la lea aprenderá que
+  // cuadra; el día que haya ventas del sistema dejará de cuadrar. Se dice
+  // cuando hay filas del sistema, que es cuando importa.
+  const hayPagosDelSistema = tarjetaPago.filas.some((f) => f.origen === "sistema");
+  const notasPago = [
+    sinFormaDePago
+      ? `Alegra no registró la forma de pago en ${formatNumber(sinFormaDePago.cantidad)} de las ` +
+        "facturas migradas: por eso «Sin forma de pago» encabeza la lista. Es el dato tal como " +
+        "vino de la migración, no un fallo."
+      : null,
+    hayPagosDelSistema
+      ? "En las filas del sistema el total son los pagos RECIBIDOS; en las migradas, el total " +
+        "facturado. Las dos columnas no se pueden sumar como si midieran lo mismo."
+      : null,
+  ].filter((n): n is string => n !== null);
 
   return (
     <>
@@ -165,13 +185,7 @@ export function ResumenesVentas({
         encabezadoClave="Forma de pago"
         encabezadoCantidad="Ventas"
         vacio="Sin pagos registrados."
-        nota={
-          sinFormaDePago
-            ? `Alegra no registró la forma de pago en ${formatNumber(sinFormaDePago.cantidad)} de las ` +
-              "facturas migradas: por eso «Sin forma de pago» encabeza la lista. Es el dato tal como " +
-              "vino de la migración, no un fallo."
-            : undefined
-        }
+        nota={notasPago.length ? notasPago.join(" ") : undefined}
       />
       <Card>
         <CardHeader>
@@ -229,8 +243,11 @@ export function ResumenesVentas({
         tope={10}
         nota={
           tarjetaProducto.filas.some((f) => f.origen === "alegra")
-            ? "«Cant.» son unidades en las ventas del sistema y renglones de factura en las migradas: " +
-              "el histórico de Alegra no trae la unidad con la precisión que hace falta para sumarla."
+            ? `Los 10 de mayor importe de ${formatNumber(tarjetaProducto.filas.length)} que se ` +
+              "reciben, y la base manda como mucho 200 grupos de un catálogo migrado de 1 248 " +
+              "productos: es un ranking, no un total. «Cant.» son unidades en las ventas del " +
+              "sistema y renglones de factura en las migradas: el histórico de Alegra no trae la " +
+              "unidad con la precisión que hace falta para sumarla."
             : undefined
         }
       />
