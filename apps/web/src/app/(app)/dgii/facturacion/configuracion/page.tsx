@@ -16,7 +16,8 @@ import { BillingDgiiWarning } from "@/components/dgii/billing-warning";
 import { CheckCircle2, Lock } from "lucide-react";
 import {
   useBillingSettings,
-  saveBillingSettings,
+  guardarEnServidor,
+  hidratarDesdeServidor,
   clampPercentage,
   type BillingSettings,
 } from "@/features/billing/billing-settings-store";
@@ -47,9 +48,21 @@ export default function BillingConfigPage() {
     setSaved(null);
   }
 
-  const handleSave = () => {
+  // 🔴 Al montar, la configuración REAL viene del servidor. Antes vivía solo en
+  // este navegador: desde otra computadora se veían los valores por defecto y
+  // nadie se enteraba de que su elección no estaba en ningún sitio.
+  React.useEffect(() => {
+    void hidratarDesdeServidor();
+  }, []);
+
+  const [guardando, setGuardando] = React.useState(false);
+
+  const handleSave = async () => {
     setError(null);
-    const res = saveBillingSettings({
+    setGuardando(true);
+    // Al servidor, no al navegador. Si rechaza —sin permiso, o emisión real
+    // fuera de producción— el valor vuelve atrás y se dice el motivo.
+    const res = await guardarEnServidor({
       defaultBillingMode: draft.defaultBillingMode,
       usageMode: draft.usageMode,
       ecfEnvironment: draft.ecfEnvironment,
@@ -58,6 +71,7 @@ export default function BillingConfigPage() {
       cashTransferEcfPercentage: draft.cashTransferEcfPercentage,
       cashTransferSelectionStrategy: draft.cashTransferSelectionStrategy,
     });
+    setGuardando(false);
     if (res.ok) {
       setSaved(new Date().toLocaleTimeString("es-DO"));
     } else {
@@ -65,7 +79,7 @@ export default function BillingConfigPage() {
     }
   };
 
-  const disabled = !isAdmin;
+  const disabled = !isAdmin || guardando;
 
   return (
     <>

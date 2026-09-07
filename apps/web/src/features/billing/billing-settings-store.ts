@@ -5,7 +5,17 @@ import { mockBusiness } from "@/lib/mock-data/tenancy";
 import type { DefaultBillingType } from "@/types";
 
 /**
- * Configuración de facturación por negocio — MVP (localStorage).
+ * Configuración de facturación por negocio.
+ *
+ * 🔴 LA FUENTE DE VERDAD ES LA BASE (`billing_settings`), no el navegador.
+ * Hasta el 08/09/2026 esto era «MVP (localStorage)» y era literal: lo que el
+ * dueño elegía vivía en un solo Chrome, el servidor no se enteraba, y desde
+ * otra computadora volvía a los valores por defecto sin avisar — mientras la
+ * pantalla decía «Configuración guardada».
+ *
+ * `localStorage` se queda como CACHÉ, no como almacén: el punto de venta lee
+ * esta configuración de forma síncrona al montar y no puede esperar a la red.
+ * Se hidrata desde el servidor en cuanto llega la respuesta.
  *
  * Esta es la **fuente única** de las reglas automáticas de facturación y, en
  * particular, del porcentaje de e-CF que el cierre de caja aplica a las ventas
@@ -155,6 +165,82 @@ export function saveBillingSettings(patch: BillingPatch): SaveResult {
   });
   write(merged);
   return { ok: true, settings: merged };
+}
+
+/**
+ * Guarda en el SERVIDOR, que es donde manda.
+ *
+ * 🔴 Con vuelta atrás: si el servidor rechaza —sin permiso, ambiente inválido,
+ * emisión real fuera de producción—, la caché local se restaura al valor
+ * anterior. Dejar la pantalla con el valor nuevo sin haberse guardado es peor
+ * que no dejar cambiarlo: quien lo hizo se va creyendo que quedó puesto, y esto
+ * decide qué comprobante fiscal se emite.
+ */
+export async function guardarEnServidor(patch: BillingPatch): Promise<SaveResult> {
+  const anterior = getBillingSettings();
+  const local = saveBillingSettings(patch);
+  if (!local.ok) return local;
+
+  try {
+    const res = await fetch("/api/billing-settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const cuerpo: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      write(anterior);
+      const msg =
+        cuerpo && typeof cuerpo === "object" && "error" in cuerpo && typeof cuerpo.error === "string"
+          ? cuerpo.error
+          : "No se pudo guardar la configuración de facturación.";
+      return { ok: false, error: msg };
+    }
+    // Manda lo que devolvió el servidor: si saneó algo, la pantalla lo refleja
+    // en vez de enseñar lo que se pidió.
+    const devuelto =
+      cuerpo && typeof cuerpo === "object" && "settings" in cuerpo ? cuerpo.settings : null;
+    if (devuelto && typeof devuelto === "object") {
+      const fusion = normalize({ ...anterior, ...(devuelto as Partial<BillingSettings>) });
+      write(fusion);
+      return { ok: true, settings: fusion };
+    }
+    return local;
+  } catch {
+    write(anterior);
+    return {
+      ok: false,
+      error: "No se pudo guardar la configuración: sin conexión con el servidor.",
+    };
+  }
+}
+
+/**
+ * Trae la configuración del servidor y actualiza la caché.
+ *
+ * Se llama al montar la pantalla: hasta que responde, se ve la caché (o los
+ * valores por defecto), que es lo que permite al punto de venta arrancar sin
+ * esperar. `null` = el negocio aún no tiene fila guardada.
+ */
+export async function hidratarDesdeServidor(): Promise<BillingSettings | null> {
+  try {
+    const res = await fetch("/api/billing-settings", { cache: "no-store" });
+    if (!res.ok) return null;
+    const cuerpo: unknown = await res.json().catch(() => null);
+    const devuelto =
+      cuerpo && typeof cuerpo === "object" && "settings" in cuerpo ? cuerpo.settings : null;
+    if (!devuelto || typeof devuelto !== "object") return null;
+    const fusion = normalize({
+      ...DEFAULT_BILLING_SETTINGS,
+      ...(devuelto as Partial<BillingSettings>),
+    });
+    write(fusion);
+    return fusion;
+  } catch {
+    // Sin red se sigue con la caché: mejor la última configuración conocida que
+    // volver a unos valores por defecto que nadie eligió.
+    return null;
+  }
 }
 
 /** Sólo para tests / reset de demo. */
