@@ -73,7 +73,10 @@ export const ALLOWED_TOOLS: Tool[] = [
   },
   {
     name: "get_sales_summary",
-    description: "Resumen de ventas por período/sucursal/cajero.",
+    description:
+      "Resumen de ventas por período/sucursal: suma las ventas del sistema y el histórico migrado " +
+      "de Alegra, y devuelve el desglose por origen. Si `historicoIncluido` es false, lo que hay es " +
+      "solo el sistema y NO es el total: hay que decirlo.",
     parameters: {
       type: "object",
       properties: {

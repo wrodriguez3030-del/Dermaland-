@@ -12,6 +12,24 @@ const repos = {
 };
 vi.mock("@/server/repositories", () => ({ getRepositories: () => repos }));
 
+// El histórico migrado de Alegra llega YA SUMADO por la base (la misma llamada
+// que usa el panel). Se moquea porque `get_sales_summary` la importa en
+// caliente, igual que `get_receivables` importa su servicio.
+const resumenVentas = vi.fn();
+vi.mock("@/server/repositories/supabase/ventas-unificadas", () => ({
+  resumenVentas: (...args: unknown[]) => resumenVentas(...args),
+}));
+
+/** Resumen con las cifras reales de producción: 14 743 facturas migradas. */
+const RESUMEN_CON_HISTORICO = {
+  total: 48454899.08,
+  cantidad: 14743,
+  porOrigen: {
+    sistema: { total: 0, cantidad: 0 },
+    alegra: { total: 48454899.08, cantidad: 14743 },
+  },
+};
+
 import { chatToolSpecs, makeChatToolExecutor, CHAT_READ_TOOLS } from "./tool-executor";
 
 const ctx = { businessId: "b1", branchId: "s1", userId: "u1" } as never;
@@ -88,18 +106,77 @@ describe("makeChatToolExecutor", () => {
       { status: "paid", total: 1000 },
       { status: "cancelled", total: 400 },
     ]);
+    resumenVentas.mockResolvedValue(RESUMEN_CON_HISTORICO);
     const exec = makeChatToolExecutor(ctx);
     const out = JSON.parse(await exec({
       name: "get_sales_summary",
       arguments: { from: "este-mes", to: "2026-07-31", branch_id: "principal" },
     }));
-    // "este-mes" y "principal" NO llegan a la BD; la fecha válida sí.
+    // "este-mes" y "principal" NO llegan a la BD; la fecha válida sí. Y no solo
+    // al repositorio de proformas: el saneado tiene que valer también para la
+    // consulta del histórico, que es una segunda puerta a Postgres.
     expect(repos.proforma.listHeaders).toHaveBeenCalledWith(ctx, {
       from: undefined, to: "2026-07-31", branchId: undefined,
     });
-    expect(out.ventas).toBe(1);
-    expect(out.totalDOP).toBe(1000);
+    expect(resumenVentas).toHaveBeenCalledWith(ctx, { hasta: "2026-07-31" });
+    expect(out.porOrigen.sistema.ventas).toBe(1);
+    expect(out.porOrigen.sistema.totalDOP).toBe(1000);
     expect(out.aviso).toContain("from inválido");
+  });
+
+  it("🔴 get_sales_summary cuenta el histórico migrado, no solo las proformas", async () => {
+    // El fallo real: el dueño preguntaba «¿cuánto vendimos?» y el asistente
+    // contestaba «0 ventas · RD$0.00» mientras el panel enseñaba
+    // RD$48 454 899,08 — y en el MISMO fichero `get_receivables` sí incluía
+    // Alegra. Dos criterios opuestos en la misma conversación.
+    repos.proforma.listHeaders.mockResolvedValue([]);
+    resumenVentas.mockResolvedValue(RESUMEN_CON_HISTORICO);
+    const exec = makeChatToolExecutor(ctx);
+    const out = JSON.parse(await exec({ name: "get_sales_summary", arguments: {} }));
+    expect(out.historicoIncluido).toBe(true);
+    expect(out.ventas).toBe(14743);
+    expect(out.totalDOP).toBeCloseTo(48454899.08, 2);
+    // El total mezcla dos fuentes: tiene que decir cuánto pone cada una.
+    expect(out.porOrigen.alegra).toEqual({ ventas: 14743, totalDOP: 48454899.08 });
+    expect(out.porOrigen.sistema).toEqual({ ventas: 0, totalDOP: 0 });
+  });
+
+  it("🔴 sin el histórico NO devuelve un total: avisa de que la cifra es parcial", async () => {
+    // Es el camino de HOY: la migración `20260906130000` no está aplicada, así
+    // que la función SQL no existe. En este canal no hay aviso ámbar ni
+    // etiqueta de origen: si saliera un `totalDOP` a secas, el modelo lo
+    // afirmaría como el total del negocio faltando RD$48,4 millones.
+    repos.proforma.listHeaders.mockResolvedValue([{ status: "paid", total: 1000 }]);
+    resumenVentas.mockRejectedValue(new Error("la función resumen_ventas_unificadas no existe"));
+    const exec = makeChatToolExecutor(ctx);
+    const out = JSON.parse(await exec({ name: "get_sales_summary", arguments: {} }));
+    expect(out.historicoIncluido).toBe(false);
+    expect(out.totalDOP).toBeUndefined();
+    expect(out.ventas).toBeUndefined();
+    expect(out.totalSistemaDOP).toBe(1000);
+    expect(out.aviso_historico).toContain("incompletas");
+  });
+
+  it("🔴 get_sales_summary usa el criterio del PANEL, no «todo lo que no sea cancelled»", async () => {
+    // El criterio viejo (`status !== "cancelled"`) era un cuarto criterio: no
+    // excluía `voided`, `draft` ni `expired`, contaba proformas `pending` que
+    // el panel NO cuenta, y llamaba «anuladas» a la diferencia.
+    repos.proforma.listHeaders.mockResolvedValue([
+      { status: "paid", total: 1000 },
+      { status: "issued", total: 500 },
+      { status: "pending", total: 700 }, // todavía no es una venta
+      { status: "draft", total: 300 }, // borrador
+      { status: "voided", total: 900 }, // anulada en la BD
+    ]);
+    resumenVentas.mockResolvedValue({
+      total: 0, cantidad: 0,
+      porOrigen: { sistema: { total: 0, cantidad: 0 }, alegra: { total: 0, cantidad: 0 } },
+    });
+    const exec = makeChatToolExecutor(ctx);
+    const out = JSON.parse(await exec({ name: "get_sales_summary", arguments: {} }));
+    expect(out.porOrigen.sistema).toEqual({ ventas: 2, totalDOP: 1500 });
+    // `anuladas` significa anuladas: `draft` y `voided`, no «lo que sobra».
+    expect(out.anuladasSistema).toBe(2);
   });
 
   it("search_products reintenta sin acentos y por palabra más distintiva (regresión Rilastil)", async () => {
@@ -115,6 +192,33 @@ describe("makeChatToolExecutor", () => {
     expect(repos.product.list).toHaveBeenNthCalledWith(3, ctx, { search: "Xerolact", limit: 10, activeOnly: true });
     expect(out.agotados).toEqual(["Rilastil Xerolact PB Balsamo"]); // existe pero sin stock
     expect(out.disponibles).toEqual([]);
+  });
+
+  it("get_product_lots pide el tope a la CONSULTA, no descarga para tirar filas", async () => {
+    repos.productLot.list.mockResolvedValue([]);
+    const exec = makeChatToolExecutor(ctx);
+    await exec({
+      name: "get_product_lots",
+      arguments: { product_id: "11111111-2222-3333-4444-555555555555" },
+    });
+    expect(repos.productLot.list).toHaveBeenCalledWith(ctx, {
+      productId: "11111111-2222-3333-4444-555555555555",
+      limit: 25,
+    });
+  });
+
+  it("🔴 get_expiring_lots NO lleva tope: sus totales se cuentan sobre el conjunto entero", async () => {
+    // Guarda deliberada. `vencidosTotal`/`porVencerTotal` cuentan estas filas;
+    // ponerle `limit` haría que dijeran «25 vencidos» habiendo 300, en
+    // silencio. El arreglo bueno es una consulta de conteo (anotado en
+    // `docs/proximos-pasos.md`), no un tope aquí. Si esta prueba se pone roja
+    // porque alguien añadió `limit`, el número que se rompió es un total.
+    repos.productLot.list.mockResolvedValue([]);
+    const exec = makeChatToolExecutor(ctx);
+    await exec({ name: "get_expiring_lots", arguments: {} });
+    for (const llamada of repos.productLot.list.mock.calls) {
+      expect(llamada[1]).not.toHaveProperty("limit");
+    }
   });
 
   it("get_inventory_stock con id no-UUID devuelve guía en vez de romper la query", async () => {

@@ -33,6 +33,7 @@ import {
   formatNumber,
 } from "@/lib/utils/format";
 import { useProformas } from "@/features/sales/proforma-store";
+import { esVentaCompletada } from "@/features/sales/venta-completada";
 import {
   useCurrentCashSession,
 } from "@/features/sales/cash-session-store";
@@ -80,7 +81,9 @@ import {
   useResumenVentas,
 } from "@/features/ventas/ventas-api";
 
-const SALE_DONE = new Set(["paid", "partially_paid", "issued", "converted_to_ecf"]);
+// El criterio de «venta hecha del sistema» vive en
+// `features/sales/venta-completada.ts`: el asistente de IA cuenta lo mismo que
+// esta pantalla, y una lista copiada en dos sitios se separa sola.
 
 export default function DashboardPage() {
   // Datos REALES (Supabase o local según DATA_SOURCE). Antes el dashboard
@@ -126,7 +129,7 @@ export default function DashboardPage() {
     () =>
       proformas.filter(
         (p) =>
-          SALE_DONE.has(p.status) &&
+          esVentaCompletada(p.status) &&
           branchMatches(p.branchId, branchFilter) &&
           matchesPeriod(p.createdAt, monthFilter, yearFilter),
       ),
@@ -257,7 +260,7 @@ export default function DashboardPage() {
   const trendDocs = React.useMemo(
     () =>
       proformas.filter(
-        (p) => SALE_DONE.has(p.status) && branchMatches(p.branchId, branchFilter),
+        (p) => esVentaCompletada(p.status) && branchMatches(p.branchId, branchFilter),
       ),
     [proformas, branchFilter],
   );
