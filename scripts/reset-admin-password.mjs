@@ -25,8 +25,10 @@ if (!URL_ || !KEY) {
   console.error("Falta NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en apps/web/.env.local");
   process.exit(1);
 }
-if (PASSWORD.length < 8) {
-  console.error("Define NEW_ADMIN_PASSWORD (mínimo 8 caracteres) en tu terminal antes de correr el script.");
+// Misma política que la aplicación (`lib/auth/password-policy.ts`): 12 mínimo.
+// Aceptar 8 aquí era una puerta trasera a la política.
+if (PASSWORD.length < 12) {
+  console.error("Define NEW_ADMIN_PASSWORD (mínimo 12 caracteres) en tu terminal antes de correr el script.");
   console.error('Ej. PowerShell:  $env:NEW_ADMIN_PASSWORD="TuClaveSegura123"; node scripts/reset-admin-password.mjs');
   process.exit(1);
 }
@@ -69,6 +71,16 @@ async function main() {
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`No se pudo actualizar (${res.status}).`);
+    // La clave cambió por fuera del panel: lo que guarda la bóveda ya no abre
+    // la cuenta. Se marca «desincronizada» para que el ojo no enseñe una
+    // clave vieja como si sirviera (el trigger de 20260909100200 hace lo
+    // mismo; esto cubre el caso de que aún no esté aplicado). Si la tabla no
+    // existe todavía, no pasa nada.
+    await fetch(`${URL_}/rest/v1/user_password_vault?user_id=eq.${existing.id}`, {
+      method: "PATCH",
+      headers: { ...h, Prefer: "return=minimal" },
+      body: JSON.stringify({ stale: true }),
+    }).catch(() => {});
     console.log(`✅ Contraseña actualizada para ${EMAIL}${body.user_metadata ? " (+ rol admin del negocio)" : ""}. Ya puedes iniciar sesión.`);
     return;
   }
