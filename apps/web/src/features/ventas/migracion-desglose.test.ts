@@ -41,56 +41,151 @@ const codigoResumen = sinComentarios(leer(RESUMEN));
 /** Espacios colapsados: el formateo no puede hacer fallar (ni pasar) una comparación. */
 const normalizar = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 
-/** Todos los `status not in (...)` de un SQL, normalizados y sin repetir. */
-function estadosExcluidos(codigo: string): string[] {
-  return [
-    ...new Set(
-      [...codigo.matchAll(/status\s+not\s+in\s*\(([^)]*)\)/gi)].map((m) => normalizar(m[1]!)),
-    ),
-  ].sort();
+/**
+ * 🔴 Por qué esto NO usa `new Set`.
+ *
+ * La versión anterior recogía los `status not in (…)` de todo el fichero, los
+ * metía en un conjunto y comparaba conjuntos. Un conjunto no sabe CUÁNTAS veces
+ * aparece cada criterio: como el de Alegra se repite en tres ramas, BORRARLO
+ * ENTERO de una de ellas dejaba el conjunto idéntico y la prueba en verde.
+ * Comprobado: quitar `and ai.status not in ('void','draft')` de la rama de
+ * `forma_pago` daba `12 passed`. La tarjeta «Medios de pago» habría empezado a
+ * contar facturas anuladas, dejando de cuadrar con el KPI, sin un solo error.
+ *
+ * Así que se comprueba RAMA POR RAMA, y el mensaje de fallo dice cuál falta.
+ */
+interface Rama {
+  /** `vendedor`, `forma_pago`, `producto`… la dimensión que activa la rama. */
+  dimension: string;
+  /** Primera tabla de la rama: decide qué criterios le tocan. */
+  tabla: string;
+  sql: string;
 }
 
-/** Todos los predicados de rango de fecha (`p_desde`/`p_hasta`), normalizados. */
-function predicadosDeFecha(codigo: string): string[] {
-  return [
-    ...new Set(
-      [...codigo.matchAll(/\(\s*p_(?:desde|hasta)\s+is\s+null\s+or\s+([^)]*(?:\([^)]*\))?[^)]*)\)/gi)]
-        .map((m) => normalizar(m[0]!)),
-    ),
-  ].sort();
+/** Las ramas del `union all` del desglose, una por dimensión y fuente. */
+function ramasDelDesglose(): Rama[] {
+  const desde = codigoDesglose.indexOf("from (");
+  const hasta = codigoDesglose.indexOf(") as d");
+  expect(desde, "no se encontró el `from (` del union").toBeGreaterThan(-1);
+  expect(hasta, "no se encontró el `) as d` que cierra el union").toBeGreaterThan(desde);
+  const cuerpo = codigoDesglose.slice(desde, hasta);
+
+  return cuerpo.split(/\bunion all\b/i).map((sql, i) => {
+    const dim = /p_dimension\s*=\s*'([a-z_]+)'/i.exec(sql);
+    const tabla = /\bfrom\s+public\.([a-z_]+)/i.exec(sql);
+    expect(dim, `la rama ${i + 1} no dice a qué dimensión pertenece`).toBeTruthy();
+    expect(tabla, `la rama ${i + 1} no dice de qué tabla lee`).toBeTruthy();
+    return { dimension: dim![1]!, tabla: tabla![1]!, sql };
+  });
+}
+
+const RAMAS = ramasDelDesglose();
+
+/** Nombre legible de una rama, para que el fallo diga CUÁL es. */
+const nombre = (r: Rama) => `${r.dimension} · ${r.tabla}`;
+
+/** El `status not in (...)` de una rama, normalizado. `null` si NO tiene ninguno. */
+function estadoExcluidoDe(r: Rama): string | null {
+  const m = /status\s+not\s+in\s*\(([^)]*)\)/i.exec(r.sql);
+  return m ? normalizar(m[1]!) : null;
+}
+
+/** Los dos `status not in (...)` de la función hermana, en el orden en que salen. */
+function estadosDeLaHermana(): { proformas: string; alegra: string } {
+  const todos = [...codigoResumen.matchAll(/status\s+not\s+in\s*\(([^)]*)\)/gi)].map((m) =>
+    normalizar(m[1]!),
+  );
+  expect(todos.length, "la hermana ya no declara exactamente dos listas de estados").toBe(2);
+  return { proformas: todos[0]!, alegra: todos[1]! };
 }
 
 describe("desglose de ventas unificadas — la migración", () => {
-  it("🔴 excluye EXACTAMENTE los mismos estados que la función hermana", () => {
-    // Si esto se pone rojo, el desglose y el KPI han dejado de contar lo
-    // mismo: hay que arreglar las DOS migraciones, no relajar la prueba.
-    const enElDesglose = estadosExcluidos(codigoDesglose);
-    const enElResumen = estadosExcluidos(codigoResumen);
-    expect(enElResumen.length, "el resumen declara dos listas de estados").toBe(2);
-    expect(enElDesglose).toEqual(enElResumen);
-    // Y son las de la casa, no unas cualesquiera.
-    expect(enElDesglose).toContain("'cancelled', 'draft', 'expired', 'voided'");
-    expect(enElDesglose).toContain("'void', 'draft'");
+  it("hay una rama por dimensión y fuente, y todas se declaran", () => {
+    // Si se añade una quinta, las comprobaciones de abajo la cubren sola: van
+    // rama por rama, no por lista escrita a mano.
+    expect(RAMAS.length).toBeGreaterThanOrEqual(4);
+    expect([...new Set(RAMAS.map((r) => r.dimension))].sort()).toEqual([
+      "forma_pago",
+      "producto",
+      "vendedor",
+    ]);
   });
 
-  it("🔴 recorta las fechas EXACTAMENTE igual que la función hermana", () => {
-    // `proformas` va por `created_at` con el límite superior EXCLUSIVO
-    // (`< hasta + 1 día`, porque es timestamptz) y `alegra_invoices` por
-    // `date` con el límite INCLUSIVO. Cambiar uno de los dos en una sola
-    // función mueve dinero de un día a otro solo en la mitad de la pantalla.
-    expect(predicadosDeFecha(codigoDesglose)).toEqual(predicadosDeFecha(codigoResumen));
-    expect(codigoDesglose).toMatch(/pf\.created_at\s*<\s*\(p_hasta \+ 1\)::timestamptz/i);
-    expect(codigoDesglose).toMatch(/ai\.date\s*<=\s*p_hasta/i);
+  it.each(RAMAS.map((r) => ({ nombre: nombre(r), rama: r })))(
+    "🔴 la rama $nombre excluye los estados que manda la función hermana",
+    ({ rama }) => {
+      // Si esto se pone rojo, esa rama del desglose y el KPI han dejado de
+      // contar lo mismo: hay que arreglar las DOS migraciones, no relajar la
+      // prueba. Se comprueba UNA A UNA porque borrar el criterio de una sola
+      // rama no cambia la lista global de criterios del fichero.
+      const hermana = estadosDeLaHermana();
+      const esperado = rama.tabla === "proformas" ? hermana.proformas : hermana.alegra;
+      expect(
+        estadoExcluidoDe(rama),
+        `la rama «${nombre(rama)}» no excluye ningún estado: las anuladas contarían`,
+      ).toBe(esperado);
+    },
+  );
+
+  it("las dos listas de estados son las de la casa, no unas cualesquiera", () => {
+    const hermana = estadosDeLaHermana();
+    expect(hermana.proformas).toBe("'cancelled', 'draft', 'expired', 'voided'");
+    expect(hermana.alegra).toBe("'void', 'draft'");
   });
 
-  it("🔴 toda consulta filtra por business_id: un desglose no puede mezclar empresas", () => {
-    // Cinco filtros: proformas, alegra (vendedor), alegra (forma de pago) y
-    // las DOS tablas del join de producto — los renglones traen su propio
-    // `business_id` y también se filtra, no solo el de la cabecera.
-    const filtros = codigoDesglose.match(/business_id\s*=\s*p_business_id/gi) ?? [];
-    expect(filtros.length).toBeGreaterThanOrEqual(5);
-    expect(codigoDesglose).toMatch(/ii\.business_id\s*=\s*p_business_id/i);
-    expect(codigoDesglose).toMatch(/ai\.business_id\s*=\s*p_business_id/i);
+  it.each(RAMAS.map((r) => ({ nombre: nombre(r), rama: r })))(
+    "🔴 la rama $nombre recorta las fechas EXACTAMENTE igual que la función hermana",
+    ({ rama }) => {
+      // `proformas` va por `created_at` con el límite superior EXCLUSIVO
+      // (`< hasta + 1 día`, porque es timestamptz) y `alegra_invoices` por
+      // `date` con el límite INCLUSIVO. Perder UNO de los dos extremos en UNA
+      // rama mete en el desglose facturas fuera del rango del reporte.
+      const esperados =
+        rama.tabla === "proformas"
+          ? [/pf\.created_at\s*>=\s*p_desde::timestamptz/i, /pf\.created_at\s*<\s*\(p_hasta \+ 1\)::timestamptz/i]
+          : [/ai\.date\s*>=\s*p_desde/i, /ai\.date\s*<=\s*p_hasta/i];
+      for (const esperado of esperados) {
+        expect(
+          rama.sql,
+          `la rama «${nombre(rama)}» perdió el predicado ${esperado}`,
+        ).toMatch(esperado);
+      }
+      // Y los dos extremos van guardados por el `is null` de siempre, para que
+      // un filtro vacío no recorte nada.
+      expect(rama.sql).toMatch(/p_desde is null or/i);
+      expect(rama.sql).toMatch(/p_hasta is null or/i);
+    },
+  );
+
+  it.each(RAMAS.map((r) => ({ nombre: nombre(r), rama: r })))(
+    "🔴 la rama $nombre filtra por cliente y sucursal como la hermana",
+    ({ rama }) => {
+      expect(rama.sql, `la rama «${nombre(rama)}» ignora el filtro de cliente`).toMatch(
+        /p_cliente_id is null or/i,
+      );
+      expect(rama.sql, `la rama «${nombre(rama)}» ignora el filtro de sucursal`).toMatch(
+        /p_sucursal_id is null or/i,
+      );
+    },
+  );
+
+  it.each(RAMAS.map((r) => ({ nombre: nombre(r), rama: r })))(
+    "🔴 la rama $nombre filtra por business_id: un desglose no puede mezclar empresas",
+    ({ rama }) => {
+      expect(rama.sql, `la rama «${nombre(rama)}» no filtra por empresa`).toMatch(
+        /business_id\s*=\s*p_business_id/i,
+      );
+    },
+  );
+
+  it("🔴 en el join de producto se filtran LAS DOS tablas, no solo la cabecera", () => {
+    // Los renglones traen su propio `business_id`: filtrar solo el de la
+    // factura dejaría la puerta abierta a una fila de renglón de otra empresa
+    // colada bajo una cabecera propia.
+    const rama = RAMAS.find((r) => r.tabla === "alegra_invoice_items");
+    expect(rama, "ya no hay rama de renglones").toBeTruthy();
+    expect(rama!.sql).toMatch(/ii\.business_id\s*=\s*p_business_id/i);
+    expect(rama!.sql).toMatch(/ai\.business_id\s*=\s*p_business_id/i);
   });
 
   it("es de la misma familia que la hermana: sql, stable, security invoker, search_path", () => {
