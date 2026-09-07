@@ -27,19 +27,35 @@ function sameMonth(iso: string, ref: Date): boolean {
  */
 export const ETIQUETA_SIN_SUCURSAL = "Sin sucursal";
 
+/**
+ * Una sucursal en una gráfica: su nombre, su importe y —lo que importa— SU ID.
+ *
+ * 🔴 El id no es decorativo. La mitad migrada de esa misma tarjeta la agrupa la
+ * base por `alegra_invoices.branch_id`, que referencia `public.branches(id)`.
+ * Mientras esto devolvió solo `{label, value}`, el panel clavaba su mitad por
+ * NOMBRE y la de Alegra por UUID: las dos mitades no se fundían nunca y Villa
+ * Olga salía en DOS barras bajo una cabecera que decía «Suma las ventas del
+ * sistema y el histórico migrado». Peor: el insight llegaba a nombrar líder a
+ * la sucursal equivocada, porque leía la primera de unas filas partidas.
+ */
+export interface BranchValue extends LabeledValue {
+  /** `branches.id`. El mismo espacio de ids que usa el histórico migrado. */
+  id: string;
+}
+
 /** Ventas del mes agrupadas por sucursal (solo docs del set dado). */
 export function salesByBranch(
   docs: Proforma[],
   branchName: (id: string) => string,
   ref: Date = new Date(),
-): LabeledValue[] {
+): BranchValue[] {
   const acc = new Map<string, number>();
   for (const p of docs) {
     if (!sameMonth(p.createdAt, ref)) continue;
     acc.set(p.branchId, (acc.get(p.branchId) ?? 0) + p.total);
   }
   return [...acc.entries()]
-    .map(([id, value]) => ({ label: branchName(id) || ETIQUETA_SIN_SUCURSAL, value }))
+    .map(([id, value]) => ({ id, label: branchName(id) || ETIQUETA_SIN_SUCURSAL, value }))
     .sort((a, b) => b.value - a.value);
 }
 

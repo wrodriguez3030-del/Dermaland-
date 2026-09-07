@@ -22,6 +22,7 @@ import {
   pagosDelSistema,
   productosDelSistema,
   reclavarPagoMigrado,
+  reclavarSucursalMigrada,
   serieDeTendencia,
   sucursalesDelSistema,
   tarjetaDePanel,
@@ -169,6 +170,12 @@ export function TarjetasVentasPanel({
   const comun = { historicoParticipa, historicoCargando, historicoAviso };
   const tSucursal = tarjetaDePanel(
     combinarDesglose({ ...comun, sistema: sucursalesDelSistema(ventasSucursal), estado: desgloseSucursal }),
+    // 🔴 Sin esto las dos mitades NO se funden: la del sistema va clavada por
+    // `branches.id` y la migrada por `branch_id`, que es el mismo id salvo
+    // cuando no hay sede. Villa Olga salía en dos barras bajo una cabecera que
+    // decía «Suma las ventas del sistema y el histórico migrado», y el insight
+    // llegó a nombrar líder a la sucursal equivocada.
+    reclavarSucursalMigrada,
   );
   const tPago = tarjetaDePanel(
     combinarDesglose({ ...comun, sistema: pagosDelSistema(cobrosMetodo), estado: desglosePago }),

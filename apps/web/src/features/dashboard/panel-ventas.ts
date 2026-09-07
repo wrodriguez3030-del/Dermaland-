@@ -35,7 +35,9 @@ import type { EstadoTarjeta, FilaTarjeta } from "@/features/ventas/desglose-tarj
 import type { OrigenVenta } from "@/features/ventas/venta-unificada";
 import { METODO_ETIQUETA } from "@/features/alegra/sales-report";
 import {
+  ETIQUETA_SIN_SUCURSAL,
   mesesDeLaTendencia,
+  type BranchValue,
   type CuboMes,
   type LabeledValue,
   type TopProductRow,
@@ -153,14 +155,31 @@ export function tarjetaDePanel(
 // cambian la forma: ni suman, ni filtran, ni deciden nada.
 
 /**
- * Ventas por sucursal del sistema. La clave es el NOMBRE de la sucursal, no su
- * id, porque `salesByBranch` ya resolvió el nombre y perdió el id — y la mitad
- * migrada llega con ese mismo nombre (`branches.name`, la fuente de los dos).
- * Fundir por nombre es lo que hace que Villa Olga salga en UNA barra.
+ * 🔴 La clave de una fila de sucursal, para las DOS mitades.
+ *
+ * Es el `branches.id` — el mismo espacio de ids que agrupa la base
+ * (`alegra_invoices.branch_id` referencia `public.branches(id)`) — salvo
+ * cuando no hay sede que nombrar, y entonces las dos mitades caen en la clave
+ * vacía para que «Sin sucursal» sea UNA fila y no dos.
+ *
+ * Existe porque durante un tiempo el sistema clavó por NOMBRE y la base por
+ * UUID: las dos mitades no se fundían nunca. Villa Olga salía en dos barras
+ * bajo una cabecera que decía «Suma las ventas del sistema y el histórico
+ * migrado», y el insight llegó a decir «Principal lidera las ventas del mes»
+ * con RD$150 000 cuando Villa Olga llevaba RD$200 000: el panel afirmando algo
+ * FALSO sobre el negocio.
  */
-export function sucursalesDelSistema(filas: LabeledValue[]): FilaTarjeta[] {
+export function claveSucursal(id: string, etiqueta: string): string {
+  return etiqueta === ETIQUETA_SIN_SUCURSAL ? "" : id;
+}
+
+/**
+ * Ventas por sucursal del sistema, clavadas por id para poder fundirse con la
+ * mitad migrada.
+ */
+export function sucursalesDelSistema(filas: BranchValue[]): FilaTarjeta[] {
   return filas.map((f) => ({
-    clave: f.label,
+    clave: claveSucursal(f.id, f.label),
     etiqueta: f.label,
     origen: "sistema" as const,
     // `salesByBranch` no cuenta transacciones, solo suma importes: inventar un
@@ -168,6 +187,16 @@ export function sucursalesDelSistema(filas: LabeledValue[]): FilaTarjeta[] {
     cantidad: 0,
     total: f.value,
   }));
+}
+
+/**
+ * La fila migrada de sucursal ya viene clavada por `branch_id`; lo único que
+ * hace falta es que una factura SIN sede caiga en la misma clave que una venta
+ * del sistema sin sede que nombrar. Se pasa como `reclavarMigrada`, igual que
+ * en la dona de formas de pago.
+ */
+export function reclavarSucursalMigrada(fila: FilaTarjeta): FilaTarjeta {
+  return { ...fila, clave: claveSucursal(fila.clave, fila.etiqueta) };
 }
 
 /**

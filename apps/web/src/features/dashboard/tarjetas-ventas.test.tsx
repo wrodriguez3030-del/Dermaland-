@@ -229,6 +229,75 @@ describe("las cuatro tarjetas de ventas del panel", () => {
   });
 });
 
+/**
+ * 🔴 Con las DOS fuentes. Todas las pruebas de arriba pintan con `proformas`
+ * vacía —el estado real de producción hoy—, así que la fusión sistema+Alegra
+ * no se ejercitaba en pantalla. Y ahí estaba el fallo: el sistema clavaba sus
+ * barras por NOMBRE y la base por `branch_id`, así que las dos mitades no se
+ * fundían nunca. Se enciende con la PRIMERA venta del POS, que es justo lo que
+ * este trabajo existe para que ocurra.
+ */
+describe("cuando el POS también ha facturado", () => {
+  /** Una proforma cobrada en Villa Olga, del mes en curso. */
+  function ventaPropia(total: number): Proforma {
+    const hoy = new Date();
+    return {
+      id: "p1",
+      number: "F-0001",
+      customerName: "Cliente del sistema",
+      cashierId: "u1",
+      cashierName: "Cajero",
+      sellerName: "Rosa Peralta",
+      items: [],
+      subtotal: total,
+      discount: 0,
+      itbis: 0,
+      total,
+      status: "paid",
+      payments: [],
+      paid: total,
+      balance: 0,
+      businessId: "b",
+      branchId: "b-villa",
+      createdAt: hoy.toISOString(),
+      updatedAt: hoy.toISOString(),
+    } as Proforma;
+  }
+
+  it("🔴 la misma sucursal sale en UNA barra, no en dos con el mismo nombre", async () => {
+    // La cabecera dice «Suma las ventas del sistema y el histórico migrado».
+    // Si no suma, la tarjeta miente sobre lo que está enseñando.
+    vi.stubGlobal("fetch", fetchDelHistorico());
+    pintar({
+      ventasDelPeriodo: [ventaPropia(1_000)],
+      nombreDeSucursal: (id) => (id === "b-villa" ? "Villa Olga" : id),
+    });
+    const caja = tarjeta("Ventas por sucursal");
+    await waitFor(() => expect(within(caja).getAllByText(/Villa Olga/)).toHaveLength(1));
+    // 165 985 (Alegra) + 1 000 (sistema) = 166 985 → «RD$167.0K» en la barra.
+    expect(within(caja).getByText("RD$167.0K")).toBeInTheDocument();
+    expect(
+      within(caja).getByText("Suma las ventas del sistema y el histórico migrado."),
+    ).toBeInTheDocument();
+  });
+
+  it("🔴 el insight nombra a la sucursal que de VERDAD lidera", async () => {
+    // Con las filas partidas, la primera era «Principal» (RD$151 738,13)
+    // teniendo Villa Olga RD$165 985 + lo del sistema. El panel afirmaba algo
+    // falso sobre el negocio.
+    vi.stubGlobal("fetch", fetchDelHistorico());
+    pintar({
+      ventasDelPeriodo: [ventaPropia(1_000)],
+      nombreDeSucursal: (id) => (id === "b-villa" ? "Villa Olga" : "Principal"),
+    });
+    await waitFor(() =>
+      expect(screen.getByText("Villa Olga lidera las ventas del mes")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Con RD$166,985.00 facturado.")).toBeInTheDocument();
+    expect(screen.queryByText("Principal lidera las ventas del mes")).not.toBeInTheDocument();
+  });
+});
+
 describe("cuando el histórico no llega", () => {
   it("🔴 mientras carga, la tarjeta lo DICE en vez de enseñar un cero mudo", () => {
     vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));

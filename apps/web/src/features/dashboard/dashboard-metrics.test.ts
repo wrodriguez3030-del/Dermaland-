@@ -41,8 +41,11 @@ describe("dashboard-metrics", () => {
   it("salesByBranch agrupa solo el mes actual y ordena desc", () => {
     const r = salesByBranch(docs, (id) => (id === "br1" ? "Santiago" : "Naco"), REF);
     expect(r).toEqual([
-      { label: "Santiago", value: 3000 }, // 1000 + 2000 (la de junio queda fuera)
-      { label: "Naco", value: 3000 },
+      // 🔴 Cada fila lleva SU ID: es la clave con la que el panel la funde con
+      // la misma sucursal del histórico migrado, que la base agrupa por
+      // `alegra_invoices.branch_id`. Sin él, Villa Olga salía en dos barras.
+      { id: "br1", label: "Santiago", value: 3000 }, // 1000 + 2000 (la de junio queda fuera)
+      { id: "br2", label: "Naco", value: 3000 },
     ].sort((a, b) => b.value - a.value));
     expect(r.reduce((s, x) => s + x.value, 0)).toBe(6000);
   });

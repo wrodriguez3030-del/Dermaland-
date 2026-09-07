@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  claveSucursal,
   etiquetaPagoMigrado,
   fundirPorClave,
   mesesDelSistema,
@@ -7,12 +8,13 @@ import {
   pagosDelSistema,
   productosDelSistema,
   reclavarPagoMigrado,
+  reclavarSucursalMigrada,
   serieDeTendencia,
   sucursalesDelSistema,
   tarjetaDePanel,
   ventanaDeTendencia,
 } from "./panel-ventas";
-import { mesesDeLaTendencia } from "./dashboard-metrics";
+import { ETIQUETA_SIN_SUCURSAL, mesesDeLaTendencia } from "./dashboard-metrics";
 import type { EstadoTarjeta, FilaTarjeta } from "@/features/ventas/desglose-tarjeta";
 
 /**
@@ -137,12 +139,52 @@ describe("tarjetaDePanel", () => {
 });
 
 describe("las mitades del sistema, traducidas", () => {
-  it("sucursalesDelSistema conserva el nombre como clave, para poder fundir", () => {
-    // `salesByBranch` pierde el id: la única clave común con la mitad migrada
-    // es el nombre, que las dos sacan de `branches.name`.
-    expect(sucursalesDelSistema([{ label: "Villa Olga", value: 900 }])).toEqual([
-      { clave: "Villa Olga", etiqueta: "Villa Olga", origen: "sistema", cantidad: 0, total: 900 },
+  it("🔴 sucursalesDelSistema clava por ID, que es lo que agrupa la base", () => {
+    // Clavar por NOMBRE era el fallo: la base agrupa por
+    // `alegra_invoices.branch_id`, así que las dos mitades no se fundían nunca.
+    expect(sucursalesDelSistema([{ id: "b-villa", label: "Villa Olga", value: 900 }])).toEqual([
+      { clave: "b-villa", etiqueta: "Villa Olga", origen: "sistema", cantidad: 0, total: 900 },
     ]);
+  });
+
+  it("🔴 una sucursal del sistema y la MISMA de Alegra caen en una sola fila", () => {
+    // Es el arreglo entero, medido: sin él salían dos barras «Villa Olga».
+    const filas = fundirPorClave([
+      ...sucursalesDelSistema([{ id: "b-villa", label: "Villa Olga", value: 100_000 }]),
+      ...[
+        { clave: "b-villa", etiqueta: "Villa Olga", origen: "alegra" as const, cantidad: 41, total: 100_000 },
+        { clave: "b-princ", etiqueta: "Principal", origen: "alegra" as const, cantidad: 30, total: 150_000 },
+      ].map(reclavarSucursalMigrada),
+    ]);
+    expect(filas.map((f) => [f.etiqueta, f.total])).toEqual([
+      ["Villa Olga", 200_000],
+      ["Principal", 150_000],
+    ]);
+    // 🔴 Y por tanto la LÍDER es la correcta. Con las filas partidas, la
+    // primera era «Principal» con RD$150 000 teniendo Villa Olga RD$200 000: el
+    // panel afirmaba algo falso sobre el negocio.
+    expect(filas[0]!.etiqueta).toBe("Villa Olga");
+    expect(filas[0]!.origenes).toEqual(["sistema", "alegra"]);
+  });
+
+  it("🔴 «Sin sucursal» es UNA fila, venga del sistema o de una factura sin sede", () => {
+    // El sistema clava por id aunque no sepa nombrar la sede; la base manda la
+    // clave vacía. Sin normalizar, serían dos filas con el mismo nombre.
+    expect(claveSucursal("b-desconocida", ETIQUETA_SIN_SUCURSAL)).toBe("");
+    expect(claveSucursal("", ETIQUETA_SIN_SUCURSAL)).toBe("");
+    expect(claveSucursal("b-villa", "Villa Olga")).toBe("b-villa");
+    const filas = fundirPorClave([
+      ...sucursalesDelSistema([{ id: "b-borrada", label: ETIQUETA_SIN_SUCURSAL, value: 500 }]),
+      reclavarSucursalMigrada({
+        clave: "",
+        etiqueta: ETIQUETA_SIN_SUCURSAL,
+        origen: "alegra",
+        cantidad: 2,
+        total: 700,
+      }),
+    ]);
+    expect(filas).toHaveLength(1);
+    expect(filas[0]!.total).toBe(1_200);
   });
 
   it("pagosDelSistema deja fuera los grupos a cero", () => {
