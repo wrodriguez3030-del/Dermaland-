@@ -72,7 +72,7 @@ describe("dashboard-metrics", () => {
   it("buildInsights produce mensajes según el estado", () => {
     const ins = buildInsights({
       branchLeader: { label: "Santiago", value: 3000 },
-      topProduct: { name: "Crema A", sku: "SKU-A", units: 2, total: 1000 },
+      topProduct: { productId: "a", name: "Crema A", sku: "SKU-A", units: 2, total: 1000 },
       criticalExpiring: 2,
       lowStock: 0,
       formatCurrency: (n) => `RD$${n}`,

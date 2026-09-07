@@ -134,6 +134,13 @@ export function monthlyTrend(
 }
 
 export interface TopProductRow {
+  /**
+   * Id del producto. Es la MISMA clave con la que la base agrupa los renglones
+   * migrados (`desglose_ventas_unificadas`, dimensión `producto`), y por eso el
+   * panel puede fundir las dos mitades en una sola fila por producto. El `sku`
+   * no vale para eso: el histórico de Alegra no lo trae.
+   */
+  productId: string;
   name: string;
   sku: string;
   units: number;
@@ -151,7 +158,7 @@ export function topProducts(
     if (!sameMonth(p.createdAt, ref)) continue;
     for (const it of p.items ?? []) {
       const cur = acc.get(it.productId) ?? {
-        name: it.productName, sku: it.productSku, units: 0, total: 0,
+        productId: it.productId, name: it.productName, sku: it.productSku, units: 0, total: 0,
       };
       cur.units += it.quantity;
       cur.total += it.total;
