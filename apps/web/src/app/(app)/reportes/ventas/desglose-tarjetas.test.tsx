@@ -60,13 +60,54 @@ describe("combinarDesglose", () => {
     expect(r.filas).toEqual(sistema);
   });
 
-  it("cuando el histórico no participa en ninguna parte, no hay nada que aclarar", () => {
-    // Casilla desmarcada o filtro que el histórico no sabe aplicar: arriba y
-    // abajo cuentan lo mismo, así que el aviso sería ruido.
+  it("con la casilla desmarcada no hay nada que aclarar", () => {
+    // Arriba y abajo cuentan lo mismo, así que el aviso sería ruido.
     const r = combinarDesglose({ sistema, historicoParticipa: false, estado: { tipo: "cargando" } });
     expect(r.soloSistema).toBe(false);
     expect(r.cargando).toBe(false);
     expect(r.filas).toEqual(sistema);
+  });
+
+  it("🔴 mientras el TOTAL del histórico viaja, la tarjeta también lo dice", () => {
+    // En esa ventana `historicoParticipa` todavía es `false` —no se sabe aún si
+    // va a participar— y antes las tarjetas enseñaban lo del sistema sin decir
+    // que faltaba media tabla: avisaba solo la leyenda de los KPIs, arriba.
+    const r = combinarDesglose({
+      sistema,
+      historicoParticipa: false,
+      historicoCargando: true,
+      estado: { tipo: "cargando" },
+    });
+    expect(r.cargando).toBe(true);
+    expect(r.soloSistema).toBe(true);
+  });
+
+  it("🔴 si el histórico no participa por un filtro incompatible, la tarjeta repite el motivo", () => {
+    // El KPI ya lo dice arriba; estas tarjetas se quedan cortas por lo MISMO y
+    // hasta ahora no decían nada.
+    const aviso =
+      "El histórico migrado no se puede filtrar por Método de pago: estos totales son solo del sistema.";
+    const r = combinarDesglose({
+      sistema,
+      historicoParticipa: false,
+      historicoAviso: aviso,
+      estado: { tipo: "cargando" },
+    });
+    expect(r.error).toBe(aviso);
+    expect(r.soloSistema).toBe(true);
+    expect(r.cargando).toBe(false);
+  });
+
+  it("cargando manda sobre el aviso: mientras viaja todavía no se sabe si va a fallar", () => {
+    const r = combinarDesglose({
+      sistema,
+      historicoParticipa: false,
+      historicoCargando: true,
+      historicoAviso: "algo que no toca enseñar todavía",
+      estado: { tipo: "cargando" },
+    });
+    expect(r.cargando).toBe(true);
+    expect(r.error).toBeNull();
   });
 
   it("🔴 la etiqueta migrada se puede traducir: `cash` no puede convivir con «Efectivo»", () => {

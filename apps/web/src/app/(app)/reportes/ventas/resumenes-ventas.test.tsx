@@ -245,3 +245,33 @@ describe("medios de pago — con ventas de verdad en el reporte", () => {
     expect(screen.getByText(/1 248 productos/)).toBeInTheDocument();
   });
 });
+
+/**
+ * 🔴 La ventana en la que el KPI todavía no sabe si el histórico entra.
+ *
+ * `resolverHistorico` devuelve `participa: false` tanto mientras carga como
+ * cuando falla o cuando hay un filtro que el histórico no sabe aplicar. En esos
+ * tres casos las tres tarjetas enseñan solo lo del sistema; antes lo hacían sin
+ * decir nada, y quien avisaba era la leyenda de los KPIs, arriba.
+ */
+describe("mientras el KPI del histórico carga o falla", () => {
+  it("🔴 las tres tarjetas dicen que el histórico viene en camino", () => {
+    render(<ResumenesVentas report={reporteVacio()} historicoParticipa={false} historicoCargando />);
+    expect(screen.getAllByText(/Cargando el histórico migrado/i)).toHaveLength(CON_HISTORICO.length);
+  });
+
+  it("🔴 las tres repiten el motivo por el que el histórico no entra", () => {
+    const aviso =
+      "El histórico migrado no se puede filtrar por Método de pago: estos totales son solo del sistema.";
+    render(
+      <ResumenesVentas report={reporteVacio()} historicoParticipa={false} historicoAviso={aviso} />,
+    );
+    expect(screen.getAllByText(aviso)).toHaveLength(CON_HISTORICO.length);
+  });
+
+  it("con la casilla desmarcada no se repite nada: no hay nada que explicar", () => {
+    render(<ResumenesVentas report={reporteVacio()} historicoParticipa={false} />);
+    expect(screen.queryByText(/Cargando el histórico migrado/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Solo ventas del sistema/i)).not.toBeInTheDocument();
+  });
+});

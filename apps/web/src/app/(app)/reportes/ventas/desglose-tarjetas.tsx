@@ -78,6 +78,19 @@ export function combinarDesglose(entrada: {
   /** Estado de la petición del desglose. */
   estado: EstadoVentas<DesgloseVentasApi>;
   /**
+   * `true` mientras el TOTAL del histórico (el de los KPIs) está en camino. En
+   * esa ventana `historicoParticipa` todavía es `false` —no se sabe aún si va a
+   * participar— y sin esto las tarjetas enseñaban lo del sistema sin decir que
+   * faltaba media tabla. Quien avisaba era solo la leyenda de los KPIs, arriba.
+   */
+  historicoCargando?: boolean | undefined;
+  /**
+   * Aviso que da el KPI cuando el histórico NO va a participar por algo que hay
+   * que explicar: falló, o hay un filtro que no sabe aplicar. Se repite aquí
+   * porque estas tarjetas también se quedan cortas por el mismo motivo.
+   */
+  historicoAviso?: string | null | undefined;
+  /**
    * Cómo se escribe la etiqueta de una fila migrada. Existe para la forma de
    * pago: Alegra guarda `cash`/`credit-card` y la pantalla dice «Efectivo» /
    * «Tarjeta de crédito». Sin esto, la misma tabla enseñaría «Efectivo» en la
@@ -88,9 +101,19 @@ export function combinarDesglose(entrada: {
 }): EstadoTarjeta {
   const { sistema, historicoParticipa, estado, etiquetaMigrada } = entrada;
 
-  // El histórico no entra en ninguna parte de la pantalla: arriba y aquí
-  // cuentan lo mismo, así que no hay nada que aclarar.
   if (!historicoParticipa) {
+    // El TOTAL del histórico todavía viaja: aún no se sabe si va a participar,
+    // y callarlo haría pasar media tabla por entera.
+    if (entrada.historicoCargando) {
+      return { filas: sistema, cargando: true, error: null, soloSistema: true };
+    }
+    // No va a participar por algo que hay que explicar (falló, o hay un filtro
+    // que no sabe aplicar): se dice con las mismas palabras que el KPI.
+    if (entrada.historicoAviso) {
+      return { filas: sistema, cargando: false, error: entrada.historicoAviso, soloSistema: true };
+    }
+    // Y si no hay nada que explicar —la casilla está desmarcada—, arriba y aquí
+    // cuentan lo mismo: el aviso sería ruido.
     return { filas: sistema, cargando: false, error: null, soloSistema: false };
   }
   // Todavía en camino: se enseña lo del sistema, pero DICIENDO que falta la
@@ -102,7 +125,12 @@ export function combinarDesglose(entrada: {
   // Falló: se avisa. Enseñar la mitad del sistema en silencio la haría pasar
   // por el total.
   if (estado.tipo === "error") {
-    return { filas: sistema, cargando: false, error: estado.mensaje, soloSistema: true };
+    return {
+      filas: sistema,
+      cargando: false,
+      error: `${estado.mensaje} Se enseñan solo las ventas del sistema.`,
+      soloSistema: true,
+    };
   }
 
   const migradas: FilaTarjeta[] = estado.datos.filas
@@ -171,7 +199,7 @@ export function TarjetaDesglose({
         {estado.error && (
           <p className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-amber-700">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            {estado.error} Se enseñan solo las ventas del sistema.
+            {estado.error}
           </p>
         )}
       </CardHeader>

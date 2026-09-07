@@ -685,9 +685,15 @@ export default function ReporteVentasPage() {
       </div>
 
       {/* ── Gráficas y resúmenes (ventas del sistema) ── */}
+      {/* Mientras el total del histórico viaja, o cuando no va a participar por
+          algo que hay que explicar (falló, o hay un filtro que no sabe
+          aplicar), las tres tarjetas que sí lo desglosan tienen que decirlo
+          ellas: la leyenda de arriba habla de los KPIs, no de ellas. */}
       <ResumenesVentas
         report={report}
         historicoParticipa={historico.participa}
+        historicoCargando={historico.cargando}
+        historicoAviso={historico.leyenda.aviso ? historico.leyenda.texto : null}
         desde={filters.from || undefined}
         hasta={filters.to || undefined}
         sucursalId={filters.branchId || undefined}

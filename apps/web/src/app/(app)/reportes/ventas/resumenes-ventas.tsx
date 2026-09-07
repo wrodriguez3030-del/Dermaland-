@@ -53,6 +53,8 @@ import type { Proforma } from "@/types";
 export function ResumenesVentas({
   report,
   historicoParticipa,
+  historicoCargando = false,
+  historicoAviso = null,
   desde,
   hasta,
   sucursalId,
@@ -65,6 +67,10 @@ export function ResumenesVentas({
    * si las que no saben desglosarlo tienen que avisar de que se quedan cortas.
    */
   historicoParticipa: boolean;
+  /** `true` mientras el TOTAL del histórico (el de los KPIs) está en camino. */
+  historicoCargando?: boolean | undefined;
+  /** Aviso del KPI cuando el histórico no participa por algo que hay que explicar. */
+  historicoAviso?: string | null | undefined;
   /** Los tres filtros que el histórico sabe aplicar. `YYYY-MM-DD` los dos primeros. */
   desde?: string | undefined;
   hasta?: string | undefined;
@@ -113,11 +119,15 @@ export function ResumenesVentas({
   const tarjetaVendedor = combinarDesglose({
     sistema: vendedoresSistema,
     historicoParticipa,
+    historicoCargando,
+    historicoAviso,
     estado: desgloseVendedor,
   });
   const tarjetaPago = combinarDesglose({
     sistema: pagosSistema,
     historicoParticipa,
+    historicoCargando,
+    historicoAviso,
     estado: desglosePago,
     // Alegra guarda `cash`/`credit-card`; se traducen con el MISMO diccionario
     // que ya usa la tabla del histórico (`METODO_ETIQUETA`), no con uno nuevo.
@@ -129,6 +139,8 @@ export function ResumenesVentas({
   const tarjetaProducto = combinarDesglose({
     sistema: productosSistema,
     historicoParticipa,
+    historicoCargando,
+    historicoAviso,
     estado: desgloseProducto,
   });
 
