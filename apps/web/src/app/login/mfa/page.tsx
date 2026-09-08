@@ -27,6 +27,26 @@ function MfaChallenge() {
   const [estado, setEstado] = useState<
     "cargando" | "pedir-codigo" | "sin-factor" | "no-se-pudo-comprobar"
   >("cargando");
+  // Días que el administrador fijó para las computadoras de confianza. 0 = la
+  // función está apagada y la casilla ni se enseña: ofrecer algo que no hace
+  // nada es peor que no ofrecerlo.
+  const [diasConfianza, setDiasConfianza] = useState(0);
+  const [recordar, setRecordar] = useState(false);
+
+  useEffect(() => {
+    let vigente = true;
+    fetch("/api/settings/seguridad")
+      .then((r) => (r.ok ? r.json() : { trustedDeviceDays: 0 }))
+      .then((d: { trustedDeviceDays?: number }) => {
+        if (vigente) setDiasConfianza(Number(d.trustedDeviceDays) || 0);
+      })
+      .catch(() => {
+        /* sin ajustes, no se ofrece recordar: el lado seguro */
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
 
   const comprobar = async () => {
     setEstado("cargando");
@@ -56,6 +76,17 @@ function MfaChallenge() {
       setBusy(false);
       setError("Código incorrecto. Revisa la hora de tu teléfono e intenta de nuevo.");
       return;
+    }
+    // 🔴 La computadora se marca de confianza DESPUÉS de verificar, nunca
+    // antes: se gana pasando el segundo factor, no pidiéndolo. Si esta llamada
+    // falla, la persona entra igual — solo tendrá que teclear el código la
+    // próxima vez.
+    if (recordar && diasConfianza > 0) {
+      try {
+        await fetch("/api/auth/dispositivos-confianza", { method: "POST" });
+      } catch {
+        /* la sesión ya es válida */
+      }
     }
     // Sesión elevada a aal2 → recarga completa para que el middleware la reconozca.
     window.location.href = next;
@@ -141,6 +172,23 @@ function MfaChallenge() {
                     placeholder="000000" autoFocus
                   />
                 </div>
+                {diasConfianza > 0 && (
+                  <label className="flex items-start gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={recordar}
+                      onChange={(e) => setRecordar(e.target.checked)}
+                    />
+                    <span>
+                      Recordar esta computadora durante {diasConfianza}{" "}
+                      {diasConfianza === 1 ? "día" : "días"}
+                      <span className="block opacity-60">
+                        No la marques en una computadora compartida o prestada.
+                      </span>
+                    </span>
+                  </label>
+                )}
                 <Button className="w-full" size="lg" disabled={busy || code.length < 6 || !factorId} onClick={verify}>
                   {busy ? "Verificando…" : "Verificar"}
                 </Button>

@@ -31,6 +31,7 @@ import {
   USER_BACKEND,
 } from "@/features/admin/user-store";
 import { UserModal } from "@/features/admin/components/user-modal";
+import { AjustesSeguridad } from "@/features/admin/components/ajustes-seguridad";
 import { puedeGestionarClaveDe } from "@/features/auth/jerarquia-de-claves";
 import type { UsuarioDelPanel } from "@/features/admin/user-store";
 import { canManageIncentiveRules } from "@/features/billing/permissions";
@@ -85,6 +86,9 @@ export default function UsuariosPage() {
           Cargando usuarios…
         </div>
       )}
+
+      {/* Los días de confianza los pone el administrador, no vienen fijos. */}
+      {canManage && <AjustesSeguridad />}
 
       {/* Móvil: tarjetas */}
       <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white md:hidden">
