@@ -44,7 +44,22 @@ const VACIO: ResumenInventario = {
   bajoMinimo: { total: 0, lista: [] },
 };
 
-export function useResumenInventario(sucursales: string[]): {
+/**
+ * El resumen de inventario del panel, calculado en la base.
+ *
+ * `activo` en `false` NO pide nada y deja el estado en «cargando».
+ *
+ * 🔴 Por qué existe ese interruptor: las sucursales llegan por su propia
+ * petición, así que en el primer render la lista está VACÍA. Sin él, el panel
+ * pedía dos veces — una con `sucursales=` vacío, que el servidor contesta con
+ * un 503, y otra con las sucursales de verdad, que salía tarde porque tenía que
+ * esperar a la primera. Medido en producción el 08/09/2026: la buena empezaba
+ * en el milisegundo 885 en vez de en el 552.
+ */
+export function useResumenInventario(
+  sucursales: string[],
+  activo = true,
+): {
   resumen: ResumenInventario | null;
   cargando: boolean;
   error: string | null;
@@ -58,11 +73,14 @@ export function useResumenInventario(sucursales: string[]): {
   const clave = React.useMemo(() => [...sucursales].sort().join(","), [sucursales]);
 
   React.useEffect(() => {
+    // Sin las sucursales todavía no hay nada que preguntar: se queda en
+    // «cargando», que es la verdad, no un cero.
+    if (!activo) return;
     const control = new AbortController();
     let vigente = true;
-    // 🔴 `cargando` NO vacía lo que ya está en pantalla. El panel pide dos
-    // veces —una antes de que lleguen las sucursales y otra con ellas—, y si la
-    // segunda borrara la primera, los números aparecerían y se irían. Que fue
+    // 🔴 `cargando` NO vacía lo que ya está en pantalla. Al cambiar de
+    // sucursal en el filtro se vuelve a pedir, y si la nueva respuesta borrara
+    // la anterior mientras viaja, los números aparecerían y se irían. Que fue
     // literalmente lo que reportó el dueño.
     setCargando(true);
     setError(null);
@@ -95,7 +113,7 @@ export function useResumenInventario(sucursales: string[]): {
       vigente = false;
       control.abort();
     };
-  }, [clave]);
+  }, [clave, activo]);
 
   return { resumen, cargando, error };
 }

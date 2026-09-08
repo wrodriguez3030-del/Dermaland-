@@ -38,7 +38,7 @@ import {
   useCurrentCashSession,
 } from "@/features/sales/cash-session-store";
 import { computeShiftDetail } from "@/features/sales/cash-session-detail";
-import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { useBranchesState } from "@/features/tenancy/branch-store";
 import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { useClientesNuevos } from "@/features/dashboard/use-clientes-nuevos";
 import { useResumenInventario } from "@/features/dashboard/use-resumen-inventario";
@@ -78,7 +78,14 @@ export default function DashboardPage() {
   // Datos REALES (Supabase o local según DATA_SOURCE). Antes el dashboard
   // leía seeds estáticos y los KPIs mostraban cifras fijas.
   const proformas = useProformas();
-  const activeBranches = useActiveBranches();
+  // 🔴 `loading`, no solo la lista: en el primer render las sucursales aún no
+  // han llegado y una lista vacía es indistinguible de «este negocio no tiene
+  // ninguna». Sin distinguirlas, el resumen de inventario se pedía dos veces.
+  const { list: sucursalesTodas, loading: sucursalesCargando } = useBranchesState();
+  const activeBranches = React.useMemo(
+    () => sucursalesTodas.filter((b) => b.status === "active"),
+    [sucursalesTodas],
+  );
   const { session: cashSession } = useCurrentCashSession();
   const activeBranchIds = React.useMemo(
     () => new Set(activeBranches.map((b) => b.id)),
@@ -201,7 +208,7 @@ export default function DashboardPage() {
     () => [...scopedBranchIds],
     [scopedBranchIds],
   );
-  const inventario = useResumenInventario(sucursalesDelResumen);
+  const inventario = useResumenInventario(sucursalesDelResumen, !sucursalesCargando);
 
   const recentLogs = mockAuditLogs.slice(0, 6);
 
