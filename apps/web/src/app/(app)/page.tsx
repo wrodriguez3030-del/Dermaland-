@@ -38,12 +38,10 @@ import {
   useCurrentCashSession,
 } from "@/features/sales/cash-session-store";
 import { computeShiftDetail } from "@/features/sales/cash-session-detail";
-import { useProducts } from "@/features/products/product-store";
-import { useAllLots, totalSellableStock } from "@/features/inventory/lot-store";
-import { lotsExpiringWithin, blockedLots } from "@/features/inventory/lot-selectors";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
 import { useClientesNuevos } from "@/features/dashboard/use-clientes-nuevos";
+import { useResumenInventario } from "@/features/dashboard/use-resumen-inventario";
 import {
   matchesPeriod,
   availableYears,
@@ -54,7 +52,6 @@ import {
   type YearFilter,
 } from "@/features/dashboard/dashboard-filters";
 import { Select } from "@/components/ui";
-import { getProductById } from "@/lib/mock-data/catalog";
 import { mockAuditLogs } from "@/lib/mock-data/users";
 import {
   mockInventoryCounts,
@@ -81,8 +78,6 @@ export default function DashboardPage() {
   // Datos REALES (Supabase o local según DATA_SOURCE). Antes el dashboard
   // leía seeds estáticos y los KPIs mostraban cifras fijas.
   const proformas = useProformas();
-  const products = useProducts();
-  const lots = useAllLots();
   const activeBranches = useActiveBranches();
   const { session: cashSession } = useCurrentCashSession();
   const activeBranchIds = React.useMemo(
@@ -178,28 +173,19 @@ export default function DashboardPage() {
           }
         : { aviso: false, texto: textoDesgloseOrigen(transactionsToday, alegraDesglose?.cantidad ?? 0) };
 
-  // Lotes próximos a vencer (≤90 días, sucursales activas) — MISMO selector que
-  // `/inventario/vencimientos?days=90`. Sin cap: el KPI cuenta TODOS, no 5.
-  const expiringSoon = React.useMemo(
-    () => lotsExpiringWithin(lots, scopedBranchIds, 90),
-    [lots, scopedBranchIds],
+  // 🔴 Todo el inventario del panel, calculado en la BASE. Antes esto eran tres
+  // `useMemo` sobre el catálogo entero y todos los lotes: 2 675 KB de JSON al
+  // navegador para quedarse con 1,3 KB. Eran los «par de segundos» al cargar.
+  //
+  // Los criterios (qué vence, qué está bloqueado, qué está bajo mínimo) son los
+  // MISMOS de `lot-selectors.ts`, copiados a la función SQL: si dijeran otra
+  // cosa, el panel y las pantallas de Vencimientos y Bloqueados darían números
+  // distintos del mismo inventario.
+  const sucursalesDelResumen = React.useMemo(
+    () => [...scopedBranchIds],
+    [scopedBranchIds],
   );
-
-  const lowStockProducts = React.useMemo(
-    () =>
-      products
-        .map((p) => ({ p, stock: totalSellableStock(lots, p.id, scopedBranchIds) }))
-        .filter((x) => x.stock <= x.p.minStock)
-        .slice(0, 5),
-    [products, lots, scopedBranchIds],
-  );
-
-  // Lotes bloqueados (cuarentena + recall) — MISMO selector que
-  // `/inventario/bloqueados`, acotado a la sucursal del filtro.
-  const blocked = React.useMemo(
-    () => blockedLots(lots).filter((l) => scopedBranchIds.has(l.branchId)),
-    [lots, scopedBranchIds],
-  );
+  const inventario = useResumenInventario(sucursalesDelResumen);
 
   const recentLogs = mockAuditLogs.slice(0, 6);
 
@@ -262,10 +248,7 @@ export default function DashboardPage() {
       ),
     [proformas, branchFilter],
   );
-  const vencimientosCriticos = React.useMemo(
-    () => expiringSoon.filter((l) => daysUntil(l.expiresAt) < 15).length,
-    [expiringSoon],
-  );
+  const vencimientosCriticos = inventario.resumen?.vencenPronto.criticos ?? 0;
   /** Los tres filtros que el histórico migrado sabe aplicar. */
   const filtrosHistorico = React.useMemo(
     () => ({ desde: rangoResumen?.desde, hasta: rangoResumen?.hasta, sucursalId: sucursalIdResumen }),
@@ -366,29 +349,33 @@ export default function DashboardPage() {
         </div>
         <StatCard
           label="Productos en catálogo"
-          value={products.length.toLocaleString("es-DO")}
+          value={
+            inventario.error
+              ? "—"
+              : (inventario.resumen?.totalProductos.toLocaleString("es-DO") ?? "…")
+          }
           hint="activos e inactivos"
           icon={Package}
           href="/productos"
-          ariaLabel={`${products.length} productos en el catálogo. Ver catálogo.`}
+          ariaLabel={`${inventario.resumen?.totalProductos ?? "…"} productos en el catálogo. Ver catálogo.`}
         />
         <StatCard
           label="Lotes próximos a vencer"
-          value={expiringSoon.length}
+          value={inventario.error ? "—" : (inventario.resumen?.vencenPronto.total ?? "…")}
           hint="≤ 90 días"
           icon={CalendarClock}
           tone="warning"
           href="/inventario/vencimientos?days=90"
-          ariaLabel={`${expiringSoon.length} lotes próximos a vencer en 90 días o menos. Ver vencimientos.`}
+          ariaLabel={`${inventario.resumen?.vencenPronto.total ?? "…"} lotes próximos a vencer en 90 días o menos. Ver vencimientos.`}
         />
         <StatCard
           label="Lotes bloqueados"
-          value={blocked.length}
+          value={inventario.error ? "—" : (inventario.resumen?.bloqueados ?? "…")}
           hint="Cuarentena + recall"
           icon={ShieldAlert}
           tone="danger"
           href="/inventario/bloqueados"
-          ariaLabel={`${blocked.length} lotes bloqueados entre cuarentena y recall. Ver lotes bloqueados.`}
+          ariaLabel={`${inventario.resumen?.bloqueados ?? "…"} lotes bloqueados entre cuarentena y recall. Ver lotes bloqueados.`}
         />
       </div>
 
@@ -485,7 +472,7 @@ export default function DashboardPage() {
         historicoCargando={cargandoAlegra}
         historicoAviso={historicoAviso}
         vencimientosCriticos={vencimientosCriticos}
-        bajoStock={lowStockProducts.length}
+        bajoStock={inventario.resumen?.bajoMinimo.total ?? 0}
       />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -507,13 +494,24 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             <ul className="divide-y divide-black/5">
-              {expiringSoon.length === 0 && (
+              {inventario.cargando && (
                 <li className="px-6 py-8 text-center text-sm opacity-60">
-                  Sin lotes próximos a vencer en los próximos 90 días.
+                  Cargando el inventario…
                 </li>
               )}
-              {expiringSoon.slice(0, 5).map((lot) => {
-                const product = getProductById(lot.productId);
+              {inventario.error && (
+                <li className="px-6 py-8 text-center text-sm font-medium text-red-700">
+                  No se pudo cargar el inventario: {inventario.error}
+                </li>
+              )}
+              {!inventario.cargando &&
+                !inventario.error &&
+                inventario.resumen?.vencenPronto.total === 0 && (
+                  <li className="px-6 py-8 text-center text-sm opacity-60">
+                    Sin lotes próximos a vencer en los próximos 90 días.
+                  </li>
+                )}
+              {(inventario.resumen?.vencenPronto.lista ?? []).map((lot) => {
                 const days = daysUntil(lot.expiresAt);
                 const tone =
                   days < 15 ? "danger" : days < 45 ? "warning" : "info";
@@ -524,7 +522,7 @@ export default function DashboardPage() {
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">
-                        {product?.name}
+                        {lot.productName}
                       </div>
                       <div className="text-xs opacity-60">
                         Lote {lot.lotNumber} · {lot.currentQuantity} unid.
@@ -551,12 +549,16 @@ export default function DashboardPage() {
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {lowStockProducts.length === 0 && (
-              <p className="text-sm opacity-60">
-                Todos los productos están sobre el mínimo.
-              </p>
-            )}
-            {lowStockProducts.map(({ p, stock }) => {
+            {inventario.cargando && <p className="text-sm opacity-60">Cargando…</p>}
+            {!inventario.cargando &&
+              !inventario.error &&
+              inventario.resumen?.bajoMinimo.total === 0 && (
+                <p className="text-sm opacity-60">
+                  Todos los productos están sobre el mínimo.
+                </p>
+              )}
+            {(inventario.resumen?.bajoMinimo.lista ?? []).map((p) => {
+              const stock = p.stock;
               const target = Math.max(p.minStock, 1) * 2; // punto de reorden
               const pct = Math.min(100, Math.round((stock / target) * 100));
               const critical = stock === 0 || stock < p.minStock;
