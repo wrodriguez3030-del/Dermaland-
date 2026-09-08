@@ -17,6 +17,7 @@ import {
 } from "./exports-cxc";
 import type { WorkbookSpec } from "@/lib/reports/excel/types";
 import type { ReportPdfSpec } from "@/lib/reports/pdf/types";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 /**
  * Reportes de Cuentas por Cobrar: un Excel multihoja (motor central ExcelJS),
@@ -35,7 +36,7 @@ export default function ReportesCxcPage() {
 
   const pending = rows ?? [];
   const overdue = pending.filter((r) => r.overdueDays > 0);
-  const nowLabel = new Date().toLocaleString("es-DO");
+  const nowLabel = formatDateTime(new Date());
 
   const meta = {
     title: "Cuentas por Cobrar",
@@ -220,7 +221,7 @@ export default function ReportesCxcPage() {
     meta: {
       title: "CUENTAS POR COBRAR",
       subtitle: "Cartera, antigüedad y morosidad",
-      cutLabel: `Fecha de corte: ${new Date().toLocaleDateString("es-DO")}`,
+      cutLabel: `Fecha de corte: ${formatDate(new Date())}`,
       periodLabel: "A LA FECHA",
       branchLabel: "TODAS LAS SUCURSALES",
       businessName: "DERMALAND",

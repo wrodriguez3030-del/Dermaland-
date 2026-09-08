@@ -39,6 +39,7 @@ import {
   type StoredLocalTest,
 } from "@/features/dgii/local-test-store";
 import { setStepStatus } from "@/features/dgii/enablement-store";
+import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * Modo real (Fase F).
@@ -456,7 +457,7 @@ function LocalTestSection({
                 testId {last.testId.slice(0, 8)}…
               </Badge>
               <span className="text-xs opacity-70">
-                {new Date(last.executedAt).toLocaleString("es-DO")}
+                {formatDateTime(last.executedAt)}
               </span>
             </div>
 
@@ -568,7 +569,7 @@ function CertDetails({ cert }: { cert: PublicCertificate }) {
       {cert.rncEmisor && <Row label="RNC emisor" value={cert.rncEmisor} />}
       <Row
         label="Subido"
-        value={new Date(cert.uploadedAt).toLocaleString("es-DO")}
+        value={formatDateTime(cert.uploadedAt)}
       />
     </dl>
   );

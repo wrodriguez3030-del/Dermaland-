@@ -227,3 +227,65 @@ export function mfaGateDecision(params: {
   if (!tieneFactor && obligado) return "enrolar";
   return "permitir";
 }
+
+/**
+ * Rutas donde una computadora de confianza NO exime de nada.
+ *
+ * `/perfil/seguridad` es la pantalla que RETIRA factores. Si la galleta
+ * eximiera ahí, quien se siente en una computadora abierta podría quitarle el
+ * segundo factor a la cuenta — y a partir de ese momento ya no haría falta ni
+ * la galleta. La exención existe para no teclear el código al entrar a
+ * trabajar, no para desarmar la puerta desde dentro.
+ */
+export const RUTAS_CON_SEGUNDO_FACTOR_REAL: readonly string[] = ["/perfil/seguridad"];
+
+/**
+ * Aplica la computadora de confianza a una decisión ya tomada.
+ *
+ * 🔴 SOLO convierte «desafiar» en «permitir», y solo fuera de las rutas de
+ * arriba. Lo que NUNCA hace, y cada una por su motivo:
+ *
+ *  - «enrolar» se queda: quien no tiene segundo factor y le es obligatorio
+ *    tiene que ponerlo. Una galleta no sustituye a un factor que no existe.
+ *  - `chequeoFallo` se queda: si no sabemos en qué nivel está la sesión, una
+ *    galleta no es motivo para dar por buena una sesión que no pudimos leer.
+ *  - Y no toca el nivel de garantía de Supabase. La sesión sigue siendo aal1,
+ *    así que `requireAal2` sigue pidiendo el código para ver claves, cambiar
+ *    roles o tocar estos mismos ajustes. La computadora de confianza ahorra el
+ *    código al ENTRAR, no al hacer daño.
+ */
+export function aplicarDispositivoDeConfianza(
+  decision: DecisionMfa,
+  params: { valido: boolean; pathname: string },
+): DecisionMfa {
+  if (!params.valido) return decision;
+  if (decision !== "desafiar") return decision;
+  if (RUTAS_CON_SEGUNDO_FACTOR_REAL.some((r) => params.pathname.startsWith(r))) {
+    return decision;
+  }
+  return "permitir";
+}
+
+/**
+ * ¿Sigue verificado el factor con el que se emitió esta computadora?
+ *
+ * Si el usuario retira su TOTP (o se lo retiran con el break-glass), todas sus
+ * computadoras de confianza tienen que morir con él: seguían saltándose una
+ * puerta que ya no protege lo mismo. Se comprueba contra la lista fresca de
+ * `getUser()`, la misma que usa el resto de la puerta.
+ */
+export function factorSigueVerificado(
+  factors: UsuarioConFactores["factors"],
+  factorId: string | null | undefined,
+): boolean {
+  if (!factorId) return false;
+  return (
+    Array.isArray(factors) &&
+    factors.some(
+      (f) =>
+        (f as { id?: string } | null | undefined)?.id === factorId &&
+        f?.status === "verified" &&
+        f?.factor_type === "totp",
+    )
+  );
+}

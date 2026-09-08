@@ -12,6 +12,7 @@ import {
   type ChatMessage,
 } from "@/features/ai/ai-client";
 import { ChatMarkdown } from "@/features/ai/chat-markdown";
+import { formatTime } from "@/lib/utils/format";
 
 /**
  * Chat IA estilo WhatsApp: burbujas, entrada abajo, selector de agente.
@@ -62,7 +63,7 @@ const QUICK_PROMPTS: Record<string, string[]> = {
 
 function hora(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("es-DO", { hour: "2-digit", minute: "2-digit" });
+  return formatTime(d);
 }
 
 function ChatContent() {

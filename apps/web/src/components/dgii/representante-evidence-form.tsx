@@ -10,6 +10,7 @@ import {
   type ChecklistItemEvidence,
 } from "@/features/dgii/enablement-store";
 import type { EnablementStepDef } from "@/lib/mock-data/dgii-enablement";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 interface RepresentanteEvidenceFormProps {
   step: EnablementStepDef;
@@ -117,9 +118,7 @@ export function RepresentanteEvidenceForm({
             {progress?.declarationAcceptedAt && (
               <span className="mt-1 block text-[11px] opacity-70">
                 Aceptada el{" "}
-                {new Date(progress.declarationAcceptedAt).toLocaleString(
-                  "es-DO",
-                )}
+                {formatDateTime(progress.declarationAcceptedAt)}
               </span>
             )}
           </span>
@@ -210,7 +209,7 @@ function EvidenceItemRow({
             <p className="mt-1 text-[11px] opacity-60">
               {current.responsible ? `Responsable: ${current.responsible}` : null}
               {current.confirmedAt
-                ? ` · Confirmado: ${new Date(current.confirmedAt).toLocaleDateString("es-DO")}`
+                ? ` · Confirmado: ${formatDate(current.confirmedAt)}`
                 : null}
               {current.documentRef ? ` · Ref: ${current.documentRef}` : null}
               {current.note ? ` · "${current.note.slice(0, 80)}${current.note.length > 80 ? "…" : ""}"` : null}

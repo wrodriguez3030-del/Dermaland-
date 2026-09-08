@@ -42,7 +42,18 @@ export function normalizarTexto(valor: string | null | undefined): string {
  * «031-0327428-2» encuentra al que está guardado como «03103274282», y
  * «829 714 1975» al que tiene «+1 (829) 714-1975».
  */
-export function coincideCliente(cliente: Customer, consulta: string): boolean {
+/**
+ * Acepta lo MÍNIMO que necesita para buscar, no un `Customer` entero: así el
+ * listado puede mandar al navegador solo los campos que usa (ver
+ * `ClienteDeListado`) sin que esta función lo impida. Un `Customer` completo
+ * sigue valiendo.
+ */
+type ClienteBuscable = Pick<
+  Customer,
+  "firstName" | "lastName" | "customerNumber" | "email" | "documentNumber" | "phone" | "whatsapp"
+>;
+
+export function coincideCliente(cliente: ClienteBuscable, consulta: string): boolean {
   const q = normalizarTexto(consulta);
   if (!q) return true;
 

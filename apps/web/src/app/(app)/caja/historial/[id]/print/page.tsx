@@ -7,7 +7,7 @@ import { CashClosingTicket } from "@/features/sales/components/cash-closing-tick
 import { getRepoContext } from "@/server/auth/context";
 import { getRepositories } from "@/server/repositories";
 import { webInvoicedProformaIds } from "@/server/services/storefront/orders";
-import { PrintTicketButton } from "./print-button";
+import { PrintTicketButton } from "@/features/sales/components/print-ticket-button";
 
 /**
  * Ticket 80mm de un cierre de caja, listo para imprimir.

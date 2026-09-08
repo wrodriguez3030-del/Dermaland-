@@ -25,6 +25,7 @@ import {
   type CreditNoteRecord,
 } from "@/features/dgii/credit-note-store";
 import type { ElectronicInvoice } from "@/types";
+import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * Sección de Nota de Crédito DEMO en `/dgii/facturas/[id]`.
@@ -402,7 +403,7 @@ function ExistingNcPanel({
           <span className="font-mono">{record.mockTrackId}</span>
         </Row>
         <Row label="Generada">
-          {new Date(record.createdAt).toLocaleString("es-DO")}
+          {formatDateTime(record.createdAt)}
         </Row>
         <Row label="Estado">
           <Badge tone="info">Firmada (mock)</Badge>

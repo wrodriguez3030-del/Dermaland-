@@ -10,7 +10,7 @@ import {
   webOrderStatusLabelFor,
   type WebOrderStatus,
 } from "@/features/storefront/orders/status";
-import { formatCurrency } from "@/lib/utils/format";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { getSession } from "@/server/auth/context";
 import {
   listWebOrders,
@@ -168,7 +168,7 @@ export default async function PedidosWebPage({
                         {p.number}
                       </Link>
                       <span className="block text-xs text-[color:var(--brand-fg)]/50">
-                        {new Date(p.createdAt).toLocaleDateString("es-DO")}
+                        {formatDate(p.createdAt)}
                       </span>
                     </TD>
                     <TD>

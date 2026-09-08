@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, afterEach } from "vitest";
-import { render, cleanup } from "@testing-library/react";
+import { render, screen, cleanup } from "@testing-library/react";
 import type { Proforma } from "@/types";
 import { Receipt80mm } from "./receipt-80mm";
 
@@ -91,5 +91,26 @@ describe("Receipt80mm — proforma", () => {
     expect(out).not.toContain("e-NCF");
     expect(out).not.toContain("ecf.dgii.gov.do");
     expect(out).toContain("No. PROF-2026-00001");
+  });
+});
+
+describe("Receipt80mm — sucursal real (prop `sucursal`)", () => {
+  // `make()` usa branchId "b1", que no existe en `mockBranches`: así se
+  // reproduce el caso real de una factura migrada de Alegra, cuyo `branchId`
+  // es un uuid que `getBranchById` nunca va a encontrar en el mock.
+  it("con la prop `sucursal`, el encabezado muestra el nombre real, no el genérico", () => {
+    render(
+      <Receipt80mm
+        proforma={make()}
+        sucursal={{ name: "Villa Olga", phone: "809-000-0000" }}
+      />,
+    );
+    expect(screen.getByText("Villa Olga")).toBeInTheDocument();
+    expect(screen.queryByText("Sucursal principal")).not.toBeInTheDocument();
+  });
+
+  it("sin la prop `sucursal`, cae al nombre genérico si el branchId no está en el mock", () => {
+    render(<Receipt80mm proforma={make()} />);
+    expect(screen.getByText("Sucursal principal")).toBeInTheDocument();
   });
 });

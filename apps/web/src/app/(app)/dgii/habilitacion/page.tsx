@@ -44,6 +44,7 @@ import {
 } from "@/features/dgii/enablement-evaluator";
 import { Send, Lock } from "lucide-react";
 import { TestecfPreflightRunner } from "@/components/dgii/testecf-preflight-runner";
+import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * Habilitación Facturación Electrónica DGII — wizard SaaS para clientes.
@@ -217,7 +218,7 @@ export default function DgiiHabilitacionPage() {
             {evaluation?.evaluatedAt && (
               <p className="mt-3 text-[11px] opacity-50">
                 Última evaluación:{" "}
-                {new Date(evaluation.evaluatedAt).toLocaleString("es-DO")}
+                {formatDateTime(evaluation.evaluatedAt)}
               </p>
             )}
           </CardContent>

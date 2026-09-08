@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import {
+  aplicarDispositivoDeConfianza,
+  factorSigueVerificado,
   mfaGateDecision,
   nivelAal,
   nivelSiguienteConFactores,
   type DecisionMfa,
   type NivelAal,
 } from "@/lib/auth/mfa-gate";
+import { nombreGalleta, parsear, hashSecreto } from "@/lib/auth/trusted-device-cookie";
 
 /**
  * Middleware de auth.
@@ -292,10 +295,57 @@ export async function middleware(request: NextRequest) {
       chequeoFallo,
     });
 
-    if (decision !== "permitir" && !isMfaExempt(pathname, decision)) {
+    // ── Computadora de confianza ──────────────────────────────────────────
+    // Solo se mira cuando tocaría DESAFIAR (tiene factor y no lo usó en esta
+    // sesión): es el único caso que la galleta puede ahorrar. Ni se consulta la
+    // base para quien va a enrolarse o ya pasó.
+    let decisionFinal = decision;
+    let galletaInvalida = false;
+    const nombreDeLaGalleta = nombreGalleta(user.id);
+    if (decision === "desafiar" && nombreDeLaGalleta !== "") {
+      const galleta = request.cookies.get(nombreDeLaGalleta)?.value;
+      const dispositivo = parsear(galleta);
+      if (dispositivo) {
+        try {
+          const hash = await hashSecreto(dispositivo.secreto);
+          // La RPC va con la sesión del usuario y está acotada a `auth.uid()`:
+          // nadie comprueba dispositivos ajenos. Devuelve el factor con el que
+          // se emitió, o null si caducó, se revocó o el negocio puso 0 días.
+          const { data: factorId, error } = await supabase.rpc(
+            "mfa_trusted_device_check",
+            { p_device_id: dispositivo.deviceId, p_token_hash: hash },
+          );
+          // 🔴 Y además el factor tiene que SEGUIR verificado: si el usuario
+          // retiró su TOTP, sus computadoras de confianza mueren con él.
+          const vale =
+            !error && typeof factorId === "string" && factorSigueVerificado(user.factors, factorId);
+          decisionFinal = aplicarDispositivoDeConfianza(decision, { valido: vale, pathname });
+          galletaInvalida = !vale;
+        } catch {
+          // Falla cerrado: si no se puede comprobar, se pide el código.
+          galletaInvalida = true;
+        }
+      }
+    }
+
+    if (decisionFinal === "permitir") {
+      // Galleta buena: se sigue el camino normal, sin redirección.
+      if (galletaInvalida) response.cookies.delete(nombreDeLaGalleta);
+      return response;
+    }
+
+    if (galletaInvalida) {
+      // Una galleta que ya no vale se borra para no volver a consultarla en
+      // cada petición.
+      response.cookies.delete(nombreDeLaGalleta);
+    }
+
+    // Aquí `decisionFinal` ya solo puede ser "enrolar" o "desafiar": el caso
+    // "permitir" salió arriba.
+    if (!isMfaExempt(pathname, decisionFinal)) {
       const url = request.nextUrl.clone();
       url.pathname =
-        decision === "enrolar" ? MFA_ENROLL_PATH : MFA_CHALLENGE_PATH;
+        decisionFinal === "enrolar" ? MFA_ENROLL_PATH : MFA_CHALLENGE_PATH;
       // Limpiar la query original: el destino sólo entiende `next` y arrastrar
       // los parámetros de la ruta bloqueada no aporta nada.
       url.search = "";

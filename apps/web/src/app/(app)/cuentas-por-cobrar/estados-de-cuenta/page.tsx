@@ -29,9 +29,10 @@ import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { arApi, fecha, money, type ClientStatement } from "@/features/receivables/receivables-client";
 import type { ReportPdfSpec } from "@/lib/reports/pdf/types";
 import { seccionFacturasPendientes } from "./pdf-estado-cuenta";
+import { formatDate, formatDateTime } from "@/lib/utils/format";
 
 function hoyLabel(): string {
-  return new Date().toLocaleDateString("es-DO");
+  return formatDate(new Date());
 }
 
 function StatementContent() {
@@ -78,7 +79,7 @@ function StatementContent() {
         businessName: "DERMALAND",
         filtersLabel: st.client.phone ? `Tel: ${st.client.phone}` : "Sin filtros adicionales",
         generatedBy: "Sistema DermaLand",
-        generatedAtLabel: new Date().toLocaleString("es-DO"),
+        generatedAtLabel: formatDateTime(new Date()),
         reportKind: "Estado de cuenta",
       },
       orientation: "auto",

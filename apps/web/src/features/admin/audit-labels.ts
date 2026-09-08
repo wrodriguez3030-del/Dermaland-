@@ -16,6 +16,8 @@ const ACTION_LABELS: Record<string, string> = {
   "ar.promise_update": "Promesa de pago actualizada",
   "ar.settings_update": "Política de crédito actualizada",
   "auth.login": "Inicio de sesión",
+  "auth.trusted_device_created": "Computadora marcada de confianza",
+  "auth.trusted_device_revoked": "Computadora de confianza retirada",
   batch_created: "Lote de comisiones creado",
   "branch.create": "Sucursal creada",
   cancel: "Anulación",
@@ -55,6 +57,15 @@ const ACTION_LABELS: Record<string, string> = {
   "user.mfa_break_glass": "Segundo factor retirado (emergencia)",
   "users.created": "Usuario creado",
   "users.updated": "Usuario actualizado",
+  "security.settings_updated": "Ajustes de seguridad cambiados",
+  "users.access_created": "Cuenta de acceso creada",
+  "users.claims_sync_failed": "No se pudo aplicar el cambio al acceso",
+  "users.demoted_super_admin": "Súper administrador retirado",
+  "users.password_set": "Clave asignada",
+  "users.password_view_denied": "Consulta de clave DENEGADA",
+  "users.password_viewed": "Clave consultada",
+  "users.promoted_super_admin": "Súper administrador nombrado",
+  "users.role_changed": "Rol cambiado",
 };
 
 const ENTITY_LABELS: Record<string, string> = {

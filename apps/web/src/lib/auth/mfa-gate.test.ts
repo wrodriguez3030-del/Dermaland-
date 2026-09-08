@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   accionDelDesafio,
+  aplicarDispositivoDeConfianza,
+  factorSigueVerificado,
   mfaGateDecision,
   nivelAal,
   nivelSiguienteConFactores,
@@ -358,5 +360,72 @@ describe("nivelSiguienteConFactores", () => {
     expect(nivelSiguienteConFactores("aal2", null)).toBe("aal2");
     expect(nivelSiguienteConFactores("aal1", undefined)).toBe("aal1");
     expect(nivelSiguienteConFactores(null, null)).toBe(null);
+  });
+});
+
+describe("computadora de confianza", () => {
+  it("🔴 convierte «desafiar» en «permitir» en una ruta normal", () => {
+    expect(
+      aplicarDispositivoDeConfianza("desafiar", { valido: true, pathname: "/ventas" }),
+    ).toBe("permitir");
+  });
+
+  it("🔴 NO exime en /perfil/seguridad: ahí se retiran factores", () => {
+    // Si eximiera, quien se siente en una computadora abierta podría quitarle
+    // el segundo factor a la cuenta, y a partir de ahí ya no haría falta ni la
+    // galleta.
+    expect(
+      aplicarDispositivoDeConfianza("desafiar", { valido: true, pathname: "/perfil/seguridad" }),
+    ).toBe("desafiar");
+  });
+
+  it("🔴 NUNCA se salta el enrolamiento", () => {
+    // Una galleta no sustituye a un factor que no existe.
+    expect(
+      aplicarDispositivoDeConfianza("enrolar", { valido: true, pathname: "/ventas" }),
+    ).toBe("enrolar");
+  });
+
+  it("sin galleta válida, la decisión no cambia", () => {
+    expect(aplicarDispositivoDeConfianza("desafiar", { valido: false, pathname: "/ventas" })).toBe("desafiar");
+    expect(aplicarDispositivoDeConfianza("enrolar", { valido: false, pathname: "/ventas" })).toBe("enrolar");
+    expect(aplicarDispositivoDeConfianza("permitir", { valido: false, pathname: "/ventas" })).toBe("permitir");
+  });
+
+  it("«permitir» sigue siendo «permitir»", () => {
+    expect(aplicarDispositivoDeConfianza("permitir", { valido: true, pathname: "/ventas" })).toBe("permitir");
+  });
+});
+
+describe("factorSigueVerificado", () => {
+  const factores = [
+    { id: "f-viejo", status: "unverified", factor_type: "totp" },
+    { id: "f-bueno", status: "verified", factor_type: "totp" },
+    { id: "f-tel", status: "verified", factor_type: "phone" },
+  ];
+
+  it("🔴 reconoce el factor con el que se emitió la galleta", () => {
+    expect(factorSigueVerificado(factores, "f-bueno")).toBe(true);
+  });
+
+  it("🔴 si el factor se retiró, la galleta ya no vale", () => {
+    // Es lo que hace que un break-glass o un «desactivar 2FA» maten todas las
+    // computadoras de confianza sin una limpieza aparte.
+    expect(factorSigueVerificado(factores, "f-que-ya-no-esta")).toBe(false);
+    expect(factorSigueVerificado([], "f-bueno")).toBe(false);
+    expect(factorSigueVerificado(null, "f-bueno")).toBe(false);
+  });
+
+  it("un factor a medio verificar no cuenta", () => {
+    expect(factorSigueVerificado(factores, "f-viejo")).toBe(false);
+  });
+
+  it("un factor de otro tipo no cuenta", () => {
+    expect(factorSigueVerificado(factores, "f-tel")).toBe(false);
+  });
+
+  it("sin factorId no vale", () => {
+    expect(factorSigueVerificado(factores, null)).toBe(false);
+    expect(factorSigueVerificado(factores, "")).toBe(false);
   });
 });

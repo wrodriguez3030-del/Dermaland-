@@ -24,6 +24,7 @@ import { useToast } from "@/components/ui/toast";
 import { CatalogFormDialog } from "@/features/products/catalog-form-dialog";
 import { useActiveBranches, getBranchDisplayName } from "@/features/tenancy/branch-store";
 import { useProformas } from "@/features/sales/proforma-store";
+import { useVentasLaboratorio } from "@/features/products/use-ventas-laboratorio";
 import { useProducts } from "@/features/products/product-store";
 import { formatCurrency } from "@/lib/utils/format";
 import { downloadBlob } from "@/lib/utils/download";
@@ -88,11 +89,20 @@ export default function LaboratoriosPage() {
     [branch, from, to],
   );
 
+  // 🔴 El histórico migrado de Alegra, que es DONDE están las ventas: el punto
+  // de venta propio todavía no ha cobrado nada (`proformas` tiene 0 filas) y
+  // sin esto la pantalla entera salía en RD$0.00 sobre RD$48,4 millones.
+  const ventasAlegra = useVentasLaboratorio({
+    desde: from || undefined,
+    hasta: to || undefined,
+    sucursalId: branch || undefined,
+  });
+
   // Ranking real: usa los productos REALES (Supabase) para el join
   // producto→laboratorio; con mock nunca cuadraba y todo salía en 0.
   const rows = React.useMemo(
-    () => computeLabSales(labs, products, proformas, salesFilters),
-    [labs, products, proformas, salesFilters],
+    () => computeLabSales(labs, products, proformas, salesFilters, ventasAlegra.filas),
+    [labs, products, proformas, salesFilters, ventasAlegra.filas],
   );
 
   const summary = React.useMemo(() => summarizeLabSales(rows), [rows]);
@@ -199,6 +209,17 @@ export default function LaboratoriosPage() {
           ? "Los cambios se guardan en este equipo (modo demo, sin Supabase)."
           : "Los laboratorios son una fuente única compartida (Supabase)."}
       </div>
+
+      {/* 🔴 Un fallo al traer el histórico NO puede verse como «no hubo
+          ventas»: sin este aviso, la pantalla enseñaría RD$0.00 y las barras
+          planas, exactamente igual que cuando de verdad no hay nada. */}
+      {ventasAlegra.error && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs text-red-900">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          No se pudo cargar el histórico de ventas: {ventasAlegra.error} El ranking
+          de abajo solo cuenta las ventas del sistema.
+        </div>
+      )}
 
       {summary.hasUnassigned && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-900">

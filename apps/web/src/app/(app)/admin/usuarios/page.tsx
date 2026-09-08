@@ -31,6 +31,9 @@ import {
   USER_BACKEND,
 } from "@/features/admin/user-store";
 import { UserModal } from "@/features/admin/components/user-modal";
+import { AjustesSeguridad } from "@/features/admin/components/ajustes-seguridad";
+import { puedeGestionarClaveDe } from "@/features/auth/jerarquia-de-claves";
+import type { UsuarioDelPanel } from "@/features/admin/user-store";
 import { canManageIncentiveRules } from "@/features/billing/permissions";
 import type { User } from "@/types";
 
@@ -84,6 +87,9 @@ export default function UsuariosPage() {
         </div>
       )}
 
+      {/* Los días de confianza los pone el administrador, no vienen fijos. */}
+      {canManage && <AjustesSeguridad />}
+
       {/* Móvil: tarjetas */}
       <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white md:hidden">
         {!loading && visible.length === 0 && (
@@ -116,10 +122,13 @@ export default function UsuariosPage() {
                 >
                   {u.status === "active" ? "Activo" : u.status === "invited" ? "Invitado" : "Deshabilitado"}
                 </Badge>
-                {u.twoFactorEnabled && (
+                {((u as UsuarioDelPanel).totpVerificados ?? 0) > 0 && (
                   <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-700">
                     <ShieldCheck className="h-3 w-3" /> 2FA
                   </span>
+                )}
+                {(u as UsuarioDelPanel).tieneCuenta === false && (
+                  <span className="text-[10px] font-medium text-amber-800">Sin cuenta</span>
                 )}
               </div>
             </div>
@@ -180,8 +189,14 @@ export default function UsuariosPage() {
                     : "—"}
                 </div>
               </TD>
+              {/* 🔴 El estado REAL de Supabase Auth, no `users.two_factor_enabled`:
+                  esa columna está en `false` para TODOS, incluido quien sí tiene
+                  el segundo factor puesto. Enseñarla era decirle al dueño que
+                  nadie tiene 2FA cuando él mismo lo tiene. */}
               <TD>
-                {u.twoFactorEnabled ? (
+                {(u as UsuarioDelPanel).tieneCuenta === false ? (
+                  <span className="text-xs font-medium text-amber-800">Sin cuenta</span>
+                ) : ((u as UsuarioDelPanel).totpVerificados ?? 0) > 0 ? (
                   <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
                     <ShieldCheck className="h-3.5 w-3.5" /> TOTP
                   </span>
@@ -206,8 +221,11 @@ export default function UsuariosPage() {
                       : "Deshabilitado"}
                 </Badge>
               </TD>
+              {/* Último acceso de Auth: `users.last_login_at` no se escribió nunca. */}
               <TD className="text-xs opacity-70">
-                {u.lastLoginAt ? relativeTime(u.lastLoginAt) : "—"}
+                {(u as UsuarioDelPanel).ultimoAcceso
+                  ? relativeTime((u as UsuarioDelPanel).ultimoAcceso as string)
+                  : "—"}
               </TD>
               <TD className="pr-4">
                 <RowActions
@@ -256,6 +274,21 @@ export default function UsuariosPage() {
         open={modal.open}
         user={modal.user}
         onClose={() => setModal({ open: false })}
+        // La MISMA decisión que toma el servidor: ofrecer el ojo a quien luego
+        // recibiría un 403 es peor que no ofrecerlo.
+        puedeGestionarAcceso={
+          modal.user
+            ? puedeGestionarClaveDe(
+                {
+                  id: currentUser.id,
+                  role: currentUser.role,
+                  isPlatformAdmin: currentUser.isPlatformAdmin === true,
+                },
+                { id: modal.user.id, role: modal.user.role },
+              )
+            : false
+        }
+        onAccesoCambiado={refresh}
       />
       <toast.Toast />
     </>

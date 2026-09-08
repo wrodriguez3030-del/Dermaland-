@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button, Card, CardContent, Input, Label } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
 import { useCurrentUser } from "@/features/auth/current-user";
+import { EnlacesAuthenticator } from "@/features/auth/enlaces-authenticator";
 import { requiere2fa } from "@/lib/auth/mfa-gate";
 import { createClient } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/utils/safe-next";
@@ -14,7 +15,7 @@ import { safeNext } from "@/lib/utils/safe-next";
  * B-04: Seguridad de la cuenta — activar/desactivar 2FA (TOTP).
  *
  * Flujo de enrolamiento (Supabase Auth MFA): enroll → mostrar QR → el usuario lo
- * escanea con Google Authenticator/Authy → ingresa el código de 6 dígitos →
+ * escanea con la app de autenticación → escribe el código de 6 dígitos →
  * challenge + verify → el factor queda verificado. En el PRÓXIMO login se le pedirá
  * el código (enforcement en middleware). Recomendado/obligatorio para administradores.
  */
@@ -75,7 +76,7 @@ export default function SeguridadPage() {
     if (ch.error) { setBusy(false); toast.error(ch.error.message); return; }
     const vr = await supabase.auth.mfa.verify({ factorId: enrolling.factorId, challengeId: ch.data.id, code: code.trim() });
     setBusy(false);
-    if (vr.error) { toast.error("Código incorrecto. Revisá la hora del teléfono e intentá de nuevo."); return; }
+    if (vr.error) { toast.error("Código incorrecto. Revisa la hora del teléfono e intenta de nuevo."); return; }
     toast.success("2FA activado. Te pediremos el código en tu próximo inicio de sesión.");
     setEnrolling(null); setCode("");
     if (vinoDeLaPuerta) {
@@ -133,16 +134,28 @@ export default function SeguridadPage() {
               ))}
               {obligatorio && (
                 <p className="text-xs opacity-60">
-                  Tu rol tiene 2FA obligatorio: si lo desactivás, el sistema te
+                  Tu rol tiene 2FA obligatorio: si lo desactivas, el sistema te
                   devolverá a esta página hasta que lo actives de nuevo.
                 </p>
               )}
             </div>
           ) : enrolling ? (
             <div className="space-y-4">
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>Escaneá este QR con Google Authenticator, Authy o similar; luego ingresá el código de 6 dígitos para confirmar.</span>
+              {/* Tres pasos, en el orden en que se hacen. El primero existe
+                  porque escanear un QR sin tener la app instalada no lleva a
+                  ninguna parte, y a quien acaban de crearle la cuenta no la
+                  tiene (pedido del dueño, 08/09/2026). */}
+              <div>
+                <div className="mb-2 text-sm font-medium">
+                  1. Descarga la app en tu teléfono
+                </div>
+                <p className="mb-2 text-xs opacity-70">
+                  Si ya tienes una app de autenticación, salta al paso 2.
+                </p>
+                <EnlacesAuthenticator />
+              </div>
+              <div className="text-sm font-medium">
+                2. Escanea este código QR con la app
               </div>
               <div className="flex justify-center">
                 {/* Supabase devuelve el QR como SVG (data-uri o crudo). */}
@@ -154,11 +167,11 @@ export default function SeguridadPage() {
                 )}
               </div>
               <div className="text-center text-xs opacity-60">
-                ¿No podés escanear? Clave manual:{" "}
+                ¿No puedes escanear? Clave manual:{" "}
                 <code className="rounded bg-black/[0.04] px-1 font-mono">{enrolling.secret}</code>
               </div>
               <div>
-                <Label htmlFor="code">Código de 6 dígitos</Label>
+                <Label htmlFor="code">3. Escribe el código de 6 dígitos</Label>
                 <Input
                   id="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6}
                   value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
@@ -177,8 +190,8 @@ export default function SeguridadPage() {
                   <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>
                     2FA <strong>no activo</strong>. Tu rol lo tiene{" "}
-                    <strong>obligatorio</strong>: activalo acá para poder seguir
-                    usando el sistema. Toma menos de un minuto y sólo necesitás
+                    <strong>obligatorio</strong>: actívalo aquí para poder seguir
+                    usando el sistema. Toma menos de un minuto y solo necesitas
                     una app de autenticación en el teléfono.
                   </span>
                 </div>

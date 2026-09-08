@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui";
 import type { OrderReceipt } from "@/server/services/storefront/transfer-payments";
+import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * Revisar los comprobantes de un pedido, desde el ERP.
@@ -80,7 +81,7 @@ export function ReceiptReview({ receipts }: { receipts: OrderReceipt[] }) {
             </Badge>
 
             <span className="text-sm text-[color:var(--brand-fg)]/60">
-              {new Date(r.uploadedAt).toLocaleString("es-DO")}
+              {formatDateTime(r.uploadedAt)}
             </span>
 
             {r.signedUrl ? (

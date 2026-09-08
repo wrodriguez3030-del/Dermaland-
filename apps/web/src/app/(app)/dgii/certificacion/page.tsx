@@ -39,6 +39,7 @@ import {
   type CertificationStatus,
   type TipoCertificable,
 } from "@/features/dgii/certification-store";
+import { formatDateTime } from "@/lib/utils/format";
 
 /**
  * Panel de pre-certificación DGII (mock).
@@ -312,7 +313,7 @@ export default function PreCertificacionPage() {
                     </TD>
                     <TD className="text-[10px] opacity-70">
                       {ev?.runAt
-                        ? new Date(ev.runAt).toLocaleString("es-DO")
+                        ? formatDateTime(ev.runAt)
                         : "—"}
                     </TD>
                     <TD className="pr-4 text-right">

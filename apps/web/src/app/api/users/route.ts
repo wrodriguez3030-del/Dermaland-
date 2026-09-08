@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
-import { createServer } from "@/lib/supabase/server";
-import { canManageIncentiveRules, isBillingAdmin } from "@/features/billing/permissions";
+import { canManageIncentiveRules, isBillingAdmin, isBillingAdmin as esAdminDeNegocio } from "@/features/billing/permissions";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 /**
  * GET  /api/users → usuarios del negocio (RLS por business_id vía JWT).
@@ -25,6 +25,41 @@ const VALID_ROLES = new Set([
 ]);
 const AVATAR_COLORS = ["#00685f", "#0d9488", "#6366f1", "#f59e0b", "#ef4444", "#8b5cf6"];
 
+/**
+ * Estado REAL del acceso de cada persona, para que el panel deje de mentir:
+ * `users.two_factor_enabled` está en `false` para todos —incluido quien SÍ
+ * tiene un factor verificado— y `last_login_at` nunca se escribió. Lo que vale
+ * es lo que dice Supabase Auth.
+ *
+ * Solo para administradores: quién tiene 2FA, quién está bloqueado y cuándo
+ * entró cada quien no es información para el mostrador.
+ */
+async function estadoDeAcceso(
+  businessId: string,
+): Promise<Map<string, Record<string, unknown>>> {
+  const mapa = new Map<string, Record<string, unknown>>();
+  const admin = createServiceRoleClient();
+  if (!admin) return mapa;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (admin as any).rpc("resumen_acceso_usuarios", {
+    p_business_id: businessId,
+  });
+  if (error) return mapa;
+  for (const f of (data as Array<Record<string, unknown>>) ?? []) {
+    mapa.set(String(f.user_id), {
+      tieneCuenta: Boolean(f.tiene_cuenta),
+      ultimoAcceso: f.ultimo_acceso ?? null,
+      bloqueado: Boolean(f.bloqueado),
+      totpVerificados: Number(f.totp_verificados) || 0,
+      claveGestionada: Boolean(f.clave_gestionada),
+      claveDesincronizada: Boolean(f.clave_desincronizada),
+      claveAsignadaEl: f.clave_asignada_en ?? null,
+      dispositivosActivos: Number(f.dispositivos_activos) || 0,
+    });
+  }
+  return mapa;
+}
+
 export async function GET(): Promise<NextResponse> {
   if (env.DATA_SOURCE !== "supabase") {
     return NextResponse.json(
@@ -33,9 +68,36 @@ export async function GET(): Promise<NextResponse> {
     );
   }
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
     const ctx = await getRepoContext();
     const users = await getRepositories().user.list(ctx);
-    return NextResponse.json({ users }, { headers: { "Cache-Control": "no-store" } });
+
+    const esAdmin = session.isPlatformAdmin || esAdminDeNegocio(session.user.role);
+    if (!esAdmin) {
+      // 🔴 Proyección reducida. `user.list` hace `select("*")`: sin esto, el
+      // teléfono y el correo de TODO el personal viajan al navegador de
+      // cualquier cajera que abra una pantalla que llame a esta ruta.
+      return NextResponse.json(
+        {
+          users: users.map((u) => ({
+            id: u.id,
+            fullName: u.fullName,
+            role: u.role,
+            branchIds: u.branchIds,
+            avatarColor: u.avatarColor,
+            status: u.status,
+          })),
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const acceso = await estadoDeAcceso(session.businessId);
+    return NextResponse.json(
+      { users: users.map((u) => ({ ...u, ...(acceso.get(u.id) ?? {}) })) },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (e) {
     return NextResponse.json(
       { error: toUserFacingMessage(e, "No se pudieron cargar los usuarios.") },
@@ -83,7 +145,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const sb = await createServer();
+  // 🔴 service_role, no la sesión: desde la migración 20260909100000 `users` ya
+  // no se puede escribir con el rol `authenticated`. Antes CUALQUIER empleado
+  // podía editar CUALQUIER fila por PostgREST —rol incluido—, y con las
+  // cuentas de acceso eso sería escalada a administrador.
+  //
+  // Como service_role se salta la RLS, el `business_id` lo pone el servidor
+  // desde la SESIÓN (nunca el cuerpo): aquí el aislamiento entre negocios lo
+  // pone el código o no lo pone nadie.
+  const sb = createServiceRoleClient();
   if (!sb) return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
 
   const branchIds = Array.isArray(body.branchIds)

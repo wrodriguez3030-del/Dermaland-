@@ -1,10 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import { env, isSupabaseConfigured } from "@/lib/env";
 import { createServer } from "@/lib/supabase/server";
+import { getTrustedDeviceDays } from "@/server/services/security/security-settings";
+import { crearDispositivo } from "@/server/services/auth/trusted-devices";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -102,7 +104,14 @@ export async function signOutCustomer(): Promise<void> {
  * de 6 dígitos. Aquí lo verificamos y elevamos la sesión a "MFA-verified"
  * por la duración del JWT.
  */
-export async function verifyMfa(code: string): Promise<AuthResult> {
+/**
+ * Verifica el código de 6 dígitos y, si se pide, deja esta computadora marcada
+ * como de confianza durante los días que haya fijado el administrador.
+ *
+ * El «recordar» va DESPUÉS de verificar, nunca antes: una computadora se gana
+ * la confianza pasando el segundo factor, no pidiéndolo.
+ */
+export async function verifyMfa(code: string, recordar = false): Promise<AuthResult> {
   if (!isSupabaseConfigured()) return { ok: true };
   const sb = await createServer();
   if (!sb) return { ok: false };
@@ -119,7 +128,40 @@ export async function verifyMfa(code: string): Promise<AuthResult> {
     challengeId: challenge.data.id,
     code,
   });
-  return verified.error
-    ? { ok: false, error: verified.error.message }
-    : { ok: true };
+  if (verified.error) return { ok: false, error: verified.error.message };
+
+  if (recordar) {
+    // Que esto falle NO invalida el inicio de sesión: la persona ya entró. Solo
+    // significa que la próxima vez tendrá que teclear el código otra vez.
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      const businessId =
+        typeof user?.app_metadata?.business_id === "string" ? user.app_metadata.business_id : null;
+      if (user?.id && businessId) {
+        const dias = await getTrustedDeviceDays(businessId);
+        if (dias > 0) {
+          const galleta = await crearDispositivo({
+            userId: user.id,
+            businessId,
+            factorId: totp.id,
+            dias,
+            ua: (await headers()).get("user-agent"),
+          });
+          if (galleta) {
+            (await cookies()).set(galleta.nombre, galleta.valor, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              path: "/",
+              maxAge: galleta.maxAge,
+            });
+          }
+        }
+      }
+    } catch {
+      /* la sesión ya es válida; recordar la computadora es un extra */
+    }
+  }
+
+  return { ok: true };
 }

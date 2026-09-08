@@ -33,9 +33,16 @@ const { hookState, ventasState, filtrosPedidos } = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: UUID }),
 }));
+// 🔴 El mock reenvía TODAS las props. La versión anterior se quedaba con
+// `href` y `children` y tiraba el resto: `aria-label` y `title` nunca llegaban
+// al DOM, así que cualquier acción hecha con `<Link>` salía SIN NOMBRE y una
+// prueba que buscara «Ver» o «Imprimir» no la encontraba — no porque faltara,
+// sino porque el mock la había desnudado.
 vi.mock("next/link", () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={typeof href === "string" ? href : "#"}>{children}</a>
+  default: ({ href, children, ...resto }: { href: string; children: React.ReactNode }) => (
+    <a href={typeof href === "string" ? href : "#"} {...resto}>
+      {children}
+    </a>
   ),
 }));
 vi.mock("@/features/ventas/ventas-api", async (importOriginal) => ({
@@ -217,6 +224,15 @@ describe("perfil de cliente — compras migradas de Alegra", () => {
     const hay = (re: RegExp) => acciones.some((a) => re.test(a));
     expect(hay(/ver|detalle/i), `acciones: ${acciones.join(" | ")}`).toBe(true);
     expect(hay(/imprimir/i)).toBe(true);
+
+    // 🔴 Y llevan a la FACTURA, con el formato de la casa. Antes «Ver» abría un
+    // modal genérico e «Imprimir» hacía `window.print()` de la ficha ENTERA:
+    // ambas cosas existían y ninguna hacía lo que el nombre prometía.
+    const destinos = [...fila!.querySelectorAll("a")].map((a) => a.getAttribute("href") ?? "");
+    expect(destinos, `destinos: ${destinos.join(" | ")}`).toContain(
+      `/ventas/alegra/${compraAlegra.id}`,
+    );
+    expect(destinos).toContain(`/ventas/alegra/${compraAlegra.id}/print?auto=1`);
     // 🔴 Lo que NO puede aparecer nunca sobre una factura migrada.
     expect(hay(/editar/i)).toBe(false);
     expect(hay(/enviar/i)).toBe(false);

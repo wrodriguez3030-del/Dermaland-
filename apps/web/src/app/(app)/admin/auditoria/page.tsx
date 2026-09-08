@@ -1,10 +1,12 @@
 "use client";
 
+import * as React from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Card, CardContent } from "@/components/ui";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { mockAuditLogs } from "@/lib/mock-data/users";
+import type { AuditLog } from "@/types";
 import {
   useBranchesState,
   getBranchDisplayName,
@@ -25,14 +27,68 @@ const actionTone: Record<string, "success" | "info" | "warning" | "danger" | "ne
   "proforma.create": "neutral",
   "user.invite": "info",
   "inventory_movement.adjustment_negative": "danger",
+  // El ojo de las claves: verlas es normal pero no trivial (ámbar), y un
+  // intento DENEGADO es lo primero que hay que ver en esta pantalla (rojo).
+  "users.password_viewed": "warning",
+  "users.password_view_denied": "danger",
+  "users.password_set": "warning",
+  "users.access_created": "success",
+  "users.claims_sync_failed": "danger",
+  "users.promoted_super_admin": "danger",
+  "security.settings_updated": "warning",
+  "auth.trusted_device_created": "info",
+  "auth.trusted_device_revoked": "warning",
 };
+
+/** ¿Hay Supabase? Con datos locales la pantalla sigue usando el ejemplo. */
+const CON_SUPABASE =
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_DATA_SOURCE === "supabase";
+
+/**
+ * 🔴 Esta pantalla leía `mockAuditLogs` —doce filas inventadas— mientras
+ * `audit_logs` se llenaba de verdad. Con el ojo de las claves eso deja de ser
+ * un adorno roto: la salvaguarda que hace aceptable guardar claves legibles es
+ * «cada consulta queda registrada», y esa promesa no vale nada si el dueño no
+ * puede VER el registro.
+ */
+function useRegistros(): { logs: AuditLog[]; cargando: boolean; error: string | null } {
+  const [logs, setLogs] = React.useState<AuditLog[]>(CON_SUPABASE ? [] : mockAuditLogs);
+  const [cargando, setCargando] = React.useState(CON_SUPABASE);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!CON_SUPABASE) return;
+    let vigente = true;
+    fetch("/api/audit?limit=200")
+      .then(async (res) => {
+        const cuerpo = (await res.json().catch(() => ({}))) as { logs?: AuditLog[]; error?: string };
+        if (!res.ok) throw new Error(cuerpo.error ?? "No se pudo cargar la auditoría.");
+        if (vigente) setLogs(cuerpo.logs ?? []);
+      })
+      .catch((e: unknown) => {
+        // 🔴 Una lista vacía por un fallo se ve igual que «no pasó nada», y en
+        // una pantalla de auditoría esas dos cosas son opuestas.
+        if (vigente) setError(e instanceof Error ? e.message : "No se pudo cargar la auditoría.");
+      })
+      .finally(() => {
+        if (vigente) setCargando(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  return { logs, cargando, error };
+}
 
 export default function AuditoriaPage() {
   // Carga las sucursales reales para poder mostrar el NOMBRE del branch en vez
   // del UUID técnico (puebla el cache de `getBranchDisplayName`).
   useBranchesState();
-  const sorted = [...mockAuditLogs].sort(
-    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
+  const { logs, cargando, error } = useRegistros();
+  const sorted = React.useMemo(
+    () => [...logs].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
+    [logs],
   );
   return (
     <>
@@ -41,6 +97,22 @@ export default function AuditoriaPage() {
         description="Timeline de acciones sensibles. Inmutable y exportable. Retención mínima 12 meses."
         breadcrumbs={[{ label: "Administración" }, { label: "Auditoría" }]}
       />
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+          {error} — lo de abajo NO es el registro completo.
+        </div>
+      )}
+      {cargando && (
+        <div className="mb-4 rounded-lg border border-black/5 bg-black/[0.02] px-3 py-6 text-center text-sm opacity-60">
+          Cargando el registro…
+        </div>
+      )}
+      {!cargando && !error && sorted.length === 0 && (
+        <div className="mb-4 rounded-lg border border-black/5 bg-black/[0.02] px-3 py-6 text-center text-sm opacity-60">
+          Todavía no hay acciones registradas.
+        </div>
+      )}
 
       <FilterBar className="mb-4">
         <SearchInput

@@ -10,7 +10,7 @@ import {
   webOrderStatusLabelFor,
 } from "@/features/storefront/orders/status";
 import { lineStockVerdict } from "@/features/storefront/orders/line-stock";
-import { formatCurrency } from "@/lib/utils/format";
+import { formatCurrency, formatDateTime } from "@/lib/utils/format";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
 import { WEB_ORDER_MANAGE_ROLES } from "@/features/billing/permissions";
 import { getSession } from "@/server/auth/context";
@@ -174,7 +174,7 @@ export default async function PedidoWebDetallePage({
           {webOrderStatusLabelFor(pedido.status, pedido.fulfillment)}
         </Badge>
         <span className="text-sm text-[color:var(--brand-fg)]/60">
-          Recibido el {new Date(pedido.createdAt).toLocaleString("es-DO")}
+          Recibido el {formatDateTime(pedido.createdAt)}
         </span>
       </div>
 

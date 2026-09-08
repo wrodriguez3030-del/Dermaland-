@@ -14,6 +14,13 @@ interface Receipt80mmProps {
   /** Si true, muestra borde y fondo gris fuera del recibo (preview en pantalla). */
   preview?: boolean;
   className?: string;
+  /**
+   * Sucursal real a mostrar en el encabezado. `proforma.branchId` puede ser
+   * un uuid de una factura migrada de Alegra que no existe en
+   * `mockBranches`: sin esta prop, `getBranchById` no encuentra nada y el
+   * ticket cae siempre en "Sucursal principal".
+   */
+  sucursal?: { name: string; address?: string | null; phone?: string | null };
 }
 
 const paymentMethodLabel: Record<string, string> = {
@@ -44,8 +51,11 @@ export function Receipt80mm({
   proforma,
   preview = false,
   className,
+  sucursal,
 }: Receipt80mmProps) {
-  const branch = getBranchById(proforma.branchId);
+  // La sucursal real (si llega) manda sobre el mock: `getBranchById` nunca
+  // encuentra un `branchId` uuid de una factura migrada de Alegra.
+  const branch = sucursal ?? getBranchById(proforma.branchId);
   const totalQty = proforma.items.reduce((s, l) => s + l.quantity, 0);
   // Contexto de impresión: decide qué datos fiscales se muestran. Una factura
   // NCF tradicional NUNCA muestra datos e-CF; la proforma no muestra nada fiscal.
