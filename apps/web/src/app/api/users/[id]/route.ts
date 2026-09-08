@@ -4,10 +4,22 @@ import { getSession } from "@/server/auth/context";
 import { createServer } from "@/lib/supabase/server";
 import { getRepositories } from "@/server/repositories";
 import { canManageIncentiveRules, isBillingAdmin } from "@/features/billing/permissions";
+import { sincronizarClaims } from "@/server/services/users/claims-sync";
 
 /**
  * PATCH /api/users/[id] → edita un registro de personal (nombre, rol,
  *   sucursales, estado active/disabled). business_id de la sesión (RLS).
+ *
+ * 🔴 Y SINCRONIZA EL ACCESO. Hasta ahora esto cambiaba `users.role` y nada
+ * más, pero la autorización del sistema lee el rol de `app_metadata`
+ * (SEC-001): el panel enseñaba «Gerente» y la persona seguía entrando como
+ * cajera. El rol que se veía no era el que se aplicaba. Lo mismo con el
+ * estado: deshabilitar a alguien no le impedía entrar, porque su cuenta de
+ * Auth seguía viva.
+ *
+ * Si la ficha se guarda pero el acceso no, se responde 502 DICIÉNDOLO: dejar
+ * que parezca que todo salió bien es como se llega a un usuario deshabilitado
+ * que sigue entrando.
  */
 export const dynamic = "force-dynamic";
 type Params = { params: Promise<{ id: string }> };
@@ -67,6 +79,53 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
     .single();
   if (error)
     return NextResponse.json({ error: "No se pudo actualizar el usuario." }, { status: 422 });
+
+  // El acceso se sincroniza SOLO con lo que esta ruta acaba de validar, nunca
+  // leyendo la fila: hasta la migración 20260909100000 cualquier empleado podía
+  // escribir cualquier fila de `users` por PostgREST, y derivar los claims de
+  // ahí convertiría ese fallo en una escalada a administrador.
+  const tocaElAcceso =
+    body.role !== undefined || body.status !== undefined || body.branchIds !== undefined || body.fullName !== undefined;
+  if (tocaElAcceso) {
+    const sync = await sincronizarClaims(id, {
+      ...(body.role !== undefined && { role: String(body.role) }),
+      ...(body.fullName !== undefined && { fullName: String(body.fullName).trim() }),
+      ...(body.branchIds !== undefined && {
+        branchIds: Array.isArray(body.branchIds) ? (body.branchIds as string[]).filter(Boolean) : [],
+      }),
+      ...(body.status !== undefined && {
+        status: body.status === "disabled" ? ("disabled" as const) : ("active" as const),
+      }),
+    });
+    // «No tiene cuenta de acceso» no es un fallo: la mayoría del personal aún
+    // no la tiene, y su ficha se edita igual.
+    if (!sync.sincronizado && sync.motivo !== "El usuario no tiene cuenta de acceso.") {
+      try {
+        const repos = getRepositories();
+        await repos.audit.log(
+          { businessId: session.businessId, userId: session.user.id },
+          {
+            businessId: session.businessId,
+            userId: session.user.id,
+            userName: session.user.fullName ?? "",
+            action: "users.claims_sync_failed",
+            entity: "user",
+            entityId: id,
+            metadata: { motivo: sync.motivo },
+          },
+        );
+      } catch {
+        /* best-effort */
+      }
+      return NextResponse.json(
+        {
+          error:
+            "Se guardó la ficha, pero NO se pudo aplicar el cambio al acceso: la persona sigue entrando con lo que tenía. Vuelve a intentarlo.",
+        },
+        { status: 502 },
+      );
+    }
+  }
 
   try {
     const repos = getRepositories();
