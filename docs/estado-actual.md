@@ -3,7 +3,37 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-09-06
+**Última actualización:** 2026-09-08
+
+## 2026-09-08 · El panel, medido de verdad (peticiones 13 → 7)
+
+- **El problema.** El dueño pidió «optimizar la carga» seis veces. Mis tres primeras
+  explicaciones fueron **falsas**: el tamaño del JSON (Vercel lo comprime con brotli,
+  3,5 MB → 320 KB), un índice que faltaba (con él quedó **más lento**: 190 ms vs 110 ms)
+  y las consultas del histórico (las cinco juntas cuestan ~300 ms de trabajo real).
+- **Qué se hizo primero: medir.** `Server-Timing` en el middleware y en `/api/ventas`.
+  En producción, en caliente: middleware 114 ms · sesión 47 ms · contexto 39-86 ms ·
+  base 653 ms → 738 ms de servidor. **En frío la base sola tarda 3 883 ms.**
+- **Los «3 segundos» son el arranque en frío**, no el trabajo. Cuantas menos funciones
+  sin servidor arranquen a la vez, menos frío se paga.
+- **Peticiones del panel: 13 → 7.**
+  - `?vista=` acepta una LISTA: el resumen, el listado y los desgloses van en UNA
+    petición (antes tres, con exactamente los mismos filtros).
+  - El resumen de inventario ya no se pide dos veces (una iba con `sucursales=` vacío y
+    la contestaba un 503; la buena empezaba en el ms 885 en vez del 552).
+- **Un viaje de sesión menos.** `authorizeRole` ya devuelve la sesión; `/api/ventas`
+  llamaba después a `getRepoContext()`, que se la volvía a pedir a Supabase Auth.
+  🔴 Quedan **48 rutas** con el mismo doble viaje.
+- **Un viaje de base menos.** `panel_ventas_unificadas` devuelve el resumen y todos los
+  desgloses en una sola llamada. **No recalcula nada**: llama a las dos funciones que ya
+  existían, con los mismos parámetros. Mientras la migración no esté aplicada, el
+  repositorio cae al camino de siempre — solo ante «la función no existe».
+- **Pendiente del dueño:**
+  ```
+  node scripts/db/apply-migration.mjs supabase/migrations/20260909150000_panel_ventas_unificadas.sql --apply
+  node scripts/db/verificar-panel-ventas.mjs
+  ```
+  El verificador compara los dos caminos contra la base real y falla si difieren.
 
 ## 2026-09-06 · Las ventas de Alegra, integradas al sistema (v0.146.0)
 
