@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getSession } from "@/server/auth/context";
-import { createServer } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getRepositories } from "@/server/repositories";
 import { canManageIncentiveRules, isBillingAdmin } from "@/features/billing/permissions";
 import { sincronizarClaims } from "@/server/services/users/claims-sync";
@@ -68,9 +68,23 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
   if (body.status !== undefined)
     patch.status = body.status === "disabled" ? "disabled" : "active";
 
-  const sb = await createServer();
+  // 🔴 service_role: desde la migración 20260909100000 `users` no se escribe
+  // con el rol `authenticated` (ver el porqué en `POST /api/users`). El
+  // `.eq("business_id")` de abajo deja de ser defensa en profundidad y pasa a
+  // ser LA barrera entre negocios, porque service_role se salta la RLS.
+  const sb = createServiceRoleClient();
   if (!sb) return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
-  const { data, error } = await sb
+  const { data, error } = await (sb as unknown as {
+    from: (t: string) => {
+      update: (p: unknown) => {
+        eq: (c: string, v: string) => {
+          eq: (c: string, v: string) => {
+            select: (s: string) => { single: () => Promise<{ data: Record<string, unknown>; error: unknown }> };
+          };
+        };
+      };
+    };
+  })
     .from("users")
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .update(patch as any)

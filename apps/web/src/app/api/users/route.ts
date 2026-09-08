@@ -3,7 +3,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
-import { createServer } from "@/lib/supabase/server";
 import { canManageIncentiveRules, isBillingAdmin, isBillingAdmin as esAdminDeNegocio } from "@/features/billing/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -146,7 +145,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const sb = await createServer();
+  // 🔴 service_role, no la sesión: desde la migración 20260909100000 `users` ya
+  // no se puede escribir con el rol `authenticated`. Antes CUALQUIER empleado
+  // podía editar CUALQUIER fila por PostgREST —rol incluido—, y con las
+  // cuentas de acceso eso sería escalada a administrador.
+  //
+  // Como service_role se salta la RLS, el `business_id` lo pone el servidor
+  // desde la SESIÓN (nunca el cuerpo): aquí el aislamiento entre negocios lo
+  // pone el código o no lo pone nadie.
+  const sb = createServiceRoleClient();
   if (!sb) return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
 
   const branchIds = Array.isArray(body.branchIds)
