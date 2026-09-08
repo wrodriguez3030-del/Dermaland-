@@ -54,7 +54,15 @@ const querySchema = z.object({
   // —que en esta pantalla es indistinguible de «no hubo ventas»—. La
   // obligatoriedad cuando `vista=desglose` se comprueba abajo, con el resto
   // del objeto ya validado.
-  dimension: z.enum(DIMENSIONES_DESGLOSE).optional(),
+  /**
+   * Una dimensión, o VARIAS separadas por comas. Se acepta la lista para que el
+   * panel pida sus cuatro desgloses en una sola petición en vez de cuatro.
+   */
+  dimension: z
+    .string()
+    .transform((v) => v.split(",").map((x) => x.trim()).filter(Boolean))
+    .pipe(z.array(z.enum(DIMENSIONES_DESGLOSE)).min(1).max(DIMENSIONES_DESGLOSE.length))
+    .optional(),
   desde: z.string().regex(FECHA, "Fecha inválida").optional(),
   hasta: z.string().regex(FECHA, "Fecha inválida").optional(),
   clienteId: idDeLaBase.optional(),
@@ -122,7 +130,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Una dimensión desconocida ya la rechazó zod; la que falta, aquí. En los dos
   // casos es un 400: pedir un desglose sin decir de qué es un error de la
   // petición, no un desglose vacío.
-  if (vista === "desglose" && !dimension) {
+  if (vista === "desglose" && (!dimension || dimension.length === 0)) {
     // La lista se ESCRIBE desde `DIMENSIONES_DESGLOSE`, no a mano: enumerarla
     // aquí dejaría el mensaje mintiendo el día que se añada una dimensión
     // (pasó: la tarjeta de sucursal y la de tendencia mensual llegaron
@@ -144,15 +152,35 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (vista === "desglose") {
       // `dimension` está garantizada por la guarda de arriba; el `!` es lo que
       // pide `noUncheckedIndexedAccess` para no repetir la comprobación.
-      const dim: DimensionDesglose = dimension!;
-      const desglose = await desgloseVentas(ctx, filtrosVentas, dim);
-      // Qué fuentes trae ESTE desglose. Con `incluirAlegra=false` el histórico
-      // se queda fuera, así que tampoco puede anunciarse.
-      const fuentes = FUENTES_DESGLOSE[dim].filter(
-        (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
+      const dims: DimensionDesglose[] = dimension!;
+
+      // 🔴 VARIAS dimensiones en UNA petición. El panel pedía cuatro por
+      // separado (sucursal, forma de pago, producto, mes) y la pantalla de
+      // reportes cinco: cada una es una función sin servidor con su propio
+      // arranque, y el navegador además limita cuántas lanza a la vez. Medido
+      // en el navegador el 08/09/2026, el panel disparaba TRECE peticiones al
+      // cargar. Aquí se resuelven en paralelo contra la base, que es donde
+      // cuestan 100 ms cada una y no se estorban.
+      const resultados = await Promise.all(
+        dims.map(async (dim) => {
+          const desglose = await desgloseVentas(ctx, filtrosVentas, dim);
+          // Qué fuentes trae ESTE desglose. Con `incluirAlegra=false` el
+          // histórico se queda fuera, así que tampoco puede anunciarse.
+          const fuentes = FUENTES_DESGLOSE[dim].filter(
+            (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
+          );
+          return [dim, { desglose, fuentes }] as const;
+        }),
       );
+
+      // Una sola dimensión responde con la forma de siempre: hay pantallas que
+      // ya la consumen así y no se les cambia el contrato de rebote.
+      const primera = resultados[0]!;
+      if (resultados.length === 1) {
+        return NextResponse.json(primera[1], { headers: { "Cache-Control": "no-store" } });
+      }
       return NextResponse.json(
-        { desglose, fuentes },
+        { desgloses: Object.fromEntries(resultados) },
         { headers: { "Cache-Control": "no-store" } },
       );
     }

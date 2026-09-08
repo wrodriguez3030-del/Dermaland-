@@ -221,3 +221,42 @@ describe("GET /api/ventas?vista=desglose", () => {
     expect(await (await pedir("")).json()).toHaveProperty("ventas");
   });
 });
+
+/**
+ * 🔴 Varias dimensiones en UNA petición.
+ *
+ * Medido en el navegador el 08/09/2026: el panel disparaba TRECE peticiones al
+ * cargar, cuatro de ellas desgloses que solo se diferenciaban en la dimensión.
+ * Cada una es una función sin servidor con su propio arranque, y el navegador
+ * limita cuántas lanza a la vez.
+ */
+describe("GET /api/ventas?vista=desglose con varias dimensiones", () => {
+  it("🔴 una petición resuelve TODAS las dimensiones pedidas", async () => {
+    const res = await pedir("vista=desglose&dimension=vendedor,producto,mes");
+    expect(res.status).toBe(200);
+    const cuerpo = (await res.json()) as { desgloses?: Record<string, unknown> };
+    expect(Object.keys(cuerpo.desgloses ?? {}).sort()).toEqual(["mes", "producto", "vendedor"]);
+    // Una llamada a la base por dimensión, no una petición HTTP por dimensión.
+    expect(desgloseVentas).toHaveBeenCalledTimes(3);
+  });
+
+  it("una sola dimensión conserva la forma de siempre", async () => {
+    // Hay pantallas que ya la consumen así; no se les cambia el contrato.
+    const res = await pedir("vista=desglose&dimension=vendedor");
+    const cuerpo = (await res.json()) as { desglose?: unknown[]; desgloses?: unknown };
+    expect(Array.isArray(cuerpo.desglose)).toBe(true);
+    expect(cuerpo.desgloses).toBeUndefined();
+  });
+
+  it("🔴 una dimensión inventada en la lista es un 400, no un desglose a medias", async () => {
+    // Devolver las buenas y callar la mala dejaría una tarjeta vacía sin que
+    // nadie supiera por qué.
+    const res = await pedir("vista=desglose&dimension=vendedor,inventada");
+    expect(res.status).toBe(400);
+    expect(desgloseVentas).not.toHaveBeenCalled();
+  });
+
+  it("sin dimensión sigue siendo 400", async () => {
+    expect((await pedir("vista=desglose")).status).toBe(400);
+  });
+});

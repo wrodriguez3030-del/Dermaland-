@@ -385,6 +385,57 @@ export function useDesgloseVentas(
   return useVentasApi("desglose", { ...filtros, dimension }, activo, comoDesgloseVentas);
 }
 
+/**
+ * VARIOS desgloses en UNA sola petición.
+ *
+ * 🔴 Por qué: el panel llamaba a `useDesgloseVentas` cuatro veces —sucursal,
+ * forma de pago, producto y mes— y la pantalla de reportes cinco. Cada una es
+ * una petición a una función sin servidor con su propio arranque, y el
+ * navegador además limita cuántas lanza a la vez. Medido en el navegador el
+ * 08/09/2026: el panel disparaba TRECE peticiones al cargar.
+ *
+ * El servidor las resuelve en paralelo contra la base, donde cuestan ~100 ms
+ * cada una y no se estorban.
+ *
+ * Devuelve un estado por dimensión, con la MISMA forma que devolvía el hook de
+ * una sola: quien lo consume no tiene que aprender otra cosa.
+ */
+export function useDesglosesVentas(
+  dimensiones: readonly DimensionDesglose[],
+  filtros: FiltrosVentasApi,
+  activo = true,
+): Record<DimensionDesglose, EstadoVentas<DesgloseVentasApi>> {
+  // La clave se ordena para que dos listas con las mismas dimensiones en otro
+  // orden no cuenten como una consulta distinta.
+  const clave = [...dimensiones].sort().join(",");
+  const estado = useVentasApi(
+    "desglose",
+    { ...filtros, dimension: clave as DimensionDesglose },
+    activo && clave !== "",
+    (json) => json,
+  );
+
+  return React.useMemo(() => {
+    const salida = {} as Record<DimensionDesglose, EstadoVentas<DesgloseVentasApi>>;
+    for (const d of dimensiones) {
+      if (estado.tipo !== "listo") {
+        salida[d] = estado as EstadoVentas<DesgloseVentasApi>;
+        continue;
+      }
+      const cuerpo = estado.datos as { desgloses?: Record<string, unknown> } | undefined;
+      const trozo = cuerpo?.desgloses?.[d];
+      // Sin su trozo, esa dimensión no está lista — nunca un desglose vacío que
+      // la pantalla pintaría como «sin datos».
+      salida[d] = trozo
+        ? { tipo: "listo", datos: comoDesgloseVentas(trozo) }
+        : { tipo: "error", mensaje: "El servidor no devolvió este desglose." };
+    }
+    return salida;
+    // `clave` resume las dimensiones; `estado` cambia cuando llega la respuesta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado, clave]);
+}
+
 /** Una página de ventas unificadas. Para tablas, nunca para sumar un total. */
 export function useListadoVentas(
   filtros: FiltrosVentasApi,

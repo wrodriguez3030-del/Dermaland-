@@ -64,10 +64,27 @@ function dimensionDe(url: string): string {
   return new URL(url, "http://x").searchParams.get("dimension") ?? "";
 }
 
-/** `fetch` falso que responde el desglose real de cada dimensión. */
+/**
+ * `fetch` falso que responde el desglose real de cada dimensión.
+ *
+ * 🔴 Responde las DOS formas, porque la ruta responde las dos: con una sola
+ * dimensión devuelve `{ desglose, fuentes }` —hay pantallas que ya la consumen
+ * así— y con varias separadas por comas devuelve `{ desgloses: { … } }`. El
+ * panel pide las tres que comparten filtros en UNA petición desde que se midió
+ * que disparaba trece al cargar.
+ */
 function fetchDelHistorico(respuestas = RESPUESTAS) {
   return vi.fn((url: string) => {
-    const cuerpo = respuestas[dimensionDe(url)] ?? { desglose: [], fuentes: [] };
+    const pedidas = dimensionDe(url).split(",").filter(Boolean);
+    const vacio = { desglose: [], fuentes: [] };
+    const cuerpo =
+      pedidas.length > 1
+        ? {
+            desgloses: Object.fromEntries(
+              pedidas.map((d) => [d, respuestas[d] ?? vacio]),
+            ),
+          }
+        : (respuestas[pedidas[0] ?? ""] ?? vacio);
     return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(cuerpo) });
   });
 }
@@ -347,7 +364,10 @@ describe("qué se le pide a la base", () => {
     const espia = fetchDelHistorico();
     vi.stubGlobal("fetch", espia);
     pintar({ filtros: { desde: "2026-09-01", hasta: "2026-09-30", sucursalId: "b-villa" } });
-    await waitFor(() => expect(espia).toHaveBeenCalledTimes(4));
+    // 🔴 DOS peticiones, no cuatro: las tres que comparten filtros van juntas y
+    // la tendencia aparte, porque lleva su propia ventana de seis meses. Antes
+    // eran cuatro y el panel disparaba trece en total al cargar.
+    await waitFor(() => expect(espia).toHaveBeenCalledTimes(2));
     const urls = espia.mock.calls.map((c) => String(c[0]));
     const mes = new URL(urls.find((u) => dimensionDe(u) === "mes")!, "http://x").searchParams;
     // No es el mes que pide el panel: si lo fuera, la serie tendría un punto.
@@ -362,13 +382,16 @@ describe("qué se le pide a la base", () => {
     // Pero la sucursal SÍ se respeta.
     expect(mes.get("sucursalId")).toBe("b-villa");
 
-    // Y las otras tres van con el periodo del panel, tal cual.
-    for (const dim of ["sucursal", "forma_pago", "producto"]) {
-      const p = new URL(urls.find((u) => dimensionDe(u) === dim)!, "http://x").searchParams;
-      expect(p.get("desde"), `la dimensión ${dim} perdió el filtro de periodo`).toBe("2026-09-01");
-      expect(p.get("hasta")).toBe("2026-09-30");
-      expect(p.get("sucursalId")).toBe("b-villa");
-    }
+    // Y las otras tres viajan JUNTAS en la otra petición, con el periodo del
+    // panel tal cual. Agruparlas no puede costarles el filtro: si lo perdieran,
+    // las tarjetas enseñarían el histórico completo como si fuera del mes.
+    const juntas = urls.find((u) => dimensionDe(u).includes(","));
+    expect(juntas, `no se agruparon las tres: ${urls.join(" | ")}`).toBeDefined();
+    const p = new URL(juntas!, "http://x").searchParams;
+    expect(p.get("dimension")!.split(",").sort()).toEqual(["forma_pago", "producto", "sucursal"]);
+    expect(p.get("desde"), "la petición agrupada perdió el filtro de periodo").toBe("2026-09-01");
+    expect(p.get("hasta")).toBe("2026-09-30");
+    expect(p.get("sucursalId")).toBe("b-villa");
   });
 
   it("🔴 pide DESGLOSES, no listas de facturas", async () => {
@@ -376,7 +399,7 @@ describe("qué se le pide a la base", () => {
     const espia = fetchDelHistorico();
     vi.stubGlobal("fetch", espia);
     pintar();
-    await waitFor(() => expect(espia).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(espia).toHaveBeenCalledTimes(2));
     for (const llamada of espia.mock.calls) {
       const p = new URL(String(llamada[0]), "http://x").searchParams;
       expect(p.get("vista")).toBe("desglose");

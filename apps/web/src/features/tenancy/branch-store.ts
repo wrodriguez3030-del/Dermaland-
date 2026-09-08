@@ -424,15 +424,45 @@ export const BRANCH_BACKEND: "local" | "supabase" =
  * Úsalo cuando `BRANCH_BACKEND === "supabase"`. En modo local seguir con
  * `listActiveBranches()` / `listAllBranches()`.
  */
+/**
+ * 🔴 Peticiones EN VUELO, compartidas.
+ *
+ * `useBranchesState` tiene su propio estado por componente, así que cada uno
+ * que lo llama lanza su propia petición. En el panel son TRES a la vez —la
+ * cabecera, el filtro de sucursal y la propia pantalla— y las tres piden
+ * exactamente lo mismo. Medido en el navegador el 08/09/2026: tres
+ * `/api/branches?scope=admin` idénticas en la misma carga.
+ *
+ * Con esto, quien llegue mientras hay una en vuelo se engancha a ella en vez de
+ * abrir otra. No es una caché: en cuanto la petición termina, la entrada se
+ * borra y la siguiente vuelve a preguntar. Solo se colapsa lo simultáneo, que
+ * es lo que sobraba.
+ */
+const enVuelo = new Map<string, Promise<Branch[]>>();
+
 export async function fetchBranchesFromServer(
   scope: "active" | "admin" = "active",
 ): Promise<Branch[]> {
-  const res = await fetch(`/api/branches?scope=${scope}`, { cache: "no-store" });
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? `HTTP ${res.status}`);
+  const enCurso = enVuelo.get(scope);
+  if (enCurso) return enCurso;
+
+  const promesa = (async () => {
+    const res = await fetch(`/api/branches?scope=${scope}`, { cache: "no-store" });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    return ((await res.json()) as { branches: Branch[] }).branches;
+  })();
+
+  enVuelo.set(scope, promesa);
+  try {
+    return await promesa;
+  } finally {
+    // Se suelta pase lo que pase: si falla, la siguiente tiene que reintentar
+    // de verdad, no heredar el error para siempre.
+    enVuelo.delete(scope);
   }
-  return ((await res.json()) as { branches: Branch[] }).branches;
 }
 
 /** Notifica a los hooks (local y servidor) que las sucursales cambiaron. */

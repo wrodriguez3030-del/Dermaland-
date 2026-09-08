@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui";
 import { formatCurrency, formatNumber } from "@/lib/utils/format";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { combinarDesglose } from "@/features/ventas/desglose-tarjeta";
-import { useDesgloseVentas } from "@/features/ventas/ventas-api";
+import { useDesgloseVentas,
+  useDesglosesVentas } from "@/features/ventas/ventas-api";
 import type { Proforma } from "@/types";
 import { BarChart, ChartCard, DonutChart, TrendChart } from "./charts";
 import {
@@ -140,14 +141,26 @@ export function TarjetasVentasPanel({
   const cubos = React.useMemo(() => mesesDeLaTendencia(6, ahora), [ahora]);
   const ventana = React.useMemo(() => ventanaDeTendencia(cubos), [cubos]);
 
-  // ── Las cuatro peticiones. Agregados, nunca filas ──────────────────────────
-  const desgloseSucursal = useDesgloseVentas("sucursal", filtros, historicoParticipa);
-  const desglosePago = useDesgloseVentas("forma_pago", filtros, historicoParticipa);
-  const desgloseProducto = useDesgloseVentas("producto", filtros, historicoParticipa);
-  // 🔴 La tendencia va con SU PROPIA ventana de seis meses y sin el filtro de
-  // mes/año: por eso se pide SIEMPRE, incluso en el combo «mes fijo + año
-  // Todos» que las otras tres no saben pedir. Esa tarjeta nunca respetó el
-  // periodo, así que ese combo no la afecta.
+  // ── Los agregados. Nunca filas ─────────────────────────────────────────────
+  //
+  // 🔴 Los tres que comparten filtros van en UNA petición. Antes eran tres
+  // separadas y, con la de la tendencia, cuatro: medido en el navegador el
+  // 08/09/2026, el panel disparaba TRECE peticiones al cargar. Cada una es una
+  // función sin servidor con su propio arranque, y el navegador limita cuántas
+  // lanza a la vez.
+  const desgloses = useDesglosesVentas(
+    ["sucursal", "forma_pago", "producto"],
+    filtros,
+    historicoParticipa,
+  );
+  const desgloseSucursal = desgloses.sucursal;
+  const desglosePago = desgloses.forma_pago;
+  const desgloseProducto = desgloses.producto;
+  // 🔴 La tendencia va aparte y con SU PROPIA ventana de seis meses, sin el
+  // filtro de mes/año: por eso se pide SIEMPRE, incluso en el combo «mes fijo +
+  // año Todos» que las otras tres no saben pedir. Esa tarjeta nunca respetó el
+  // periodo, así que ese combo no la afecta — y por eso NO puede ir en la
+  // petición agrupada de arriba, que lleva otros filtros.
   const desgloseMes = useDesgloseVentas(
     "mes",
     { desde: ventana.desde, hasta: ventana.hasta, sucursalId: filtros.sucursalId },
