@@ -4,7 +4,9 @@ import * as React from "react";
 import { AlertTriangle, UserPlus } from "lucide-react";
 import { Button, Input, Label, Select } from "@/components/ui";
 import { useToast } from "@/components/ui/toast";
-import { saveUser, USER_BACKEND } from "@/features/admin/user-store";
+import { saveUser, asignarClave, USER_BACKEND } from "@/features/admin/user-store";
+import { CampoClave } from "./campo-clave";
+import { esClaveAceptable } from "@/lib/auth/password-generator";
 import { roleDefinitions } from "@/lib/mock-data/users";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import type { User, UserRole } from "@/types";
@@ -39,6 +41,10 @@ export function UserModal({ open, user, onClose, puedeGestionarAcceso = false, o
   const [branchIds, setBranchIds] = React.useState<string[]>([]);
   const [status, setStatus] = React.useState<"active" | "disabled">("active");
   const [error, setError] = React.useState<string | null>(null);
+  // 🔴 Clave al CREAR. Antes solo se podía poner entrando a editar después:
+  // se registraba a la persona y quedaba sin poder entrar, que es justo lo que
+  // pasaba con seis de los ocho usuarios del sistema.
+  const [clave, setClave] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
@@ -66,16 +72,43 @@ export function UserModal({ open, user, onClose, puedeGestionarAcceso = false, o
       setError("El email es obligatorio.");
       return;
     }
+    // Se valida ANTES de crear nada: crear a la persona y que luego la clave
+    // rebote deja una ficha a medias que alguien tiene que ir a rematar.
+    if (!user && clave !== "" && !esClaveAceptable(clave)) {
+      setError("La clave no cumple la política. Corrígela o déjala en blanco.");
+      return;
+    }
     setSaving(true);
     const res = await saveUser(
       { fullName: fullName.trim(), email: email.trim(), phone: phone.trim() || undefined, role, branchIds, status },
       user?.id,
     );
-    setSaving(false);
     if (!res.ok) {
+      setSaving(false);
       setError(res.error);
       return;
     }
+
+    // Con la ficha ya creada, se le da acceso. El id sale de la respuesta: es
+    // el mismo que llevará su cuenta de Auth.
+    if (!user && clave !== "" && res.user?.id) {
+      const acceso = await asignarClave(res.user.id, clave);
+      setSaving(false);
+      if (!acceso.ok) {
+        // 🔴 La ficha SÍ se creó. Decirlo, en vez de un error a secas que
+        // haría pensar que no se guardó nada y llevaría a crearla otra vez.
+        setError(
+          `Se registró a ${fullName.trim()}, pero no se le pudo dar acceso: ${acceso.error} ` +
+            "Ábrele la ficha para asignarle la clave.",
+        );
+        return;
+      }
+      toast.success(`${fullName.trim()} quedó registrado y ya puede entrar.`);
+      onClose();
+      return;
+    }
+
+    setSaving(false);
     toast.success(user ? "Usuario actualizado." : "Usuario registrado.");
     onClose();
   };
@@ -167,11 +200,23 @@ export function UserModal({ open, user, onClose, puedeGestionarAcceso = false, o
           </div>
         </div>
 
-        {/* 🔴 La sección de acceso solo aparece sobre una ficha YA guardada: dar
-            acceso necesita el id de la persona, y en el alta todavía no existe.
-            Se crea primero, se le da acceso después. */}
+        {/* Al EDITAR manda `SeccionAcceso`: enseña además el estado real de la
+            cuenta (2FA, último acceso, computadoras de confianza). */}
         {user && puedeGestionarAcceso && USER_BACKEND === "supabase" && (
           <SeccionAcceso usuario={user as UsuarioDelPanel} onCambio={onAccesoCambiado} />
+        )}
+
+        {/* Al CREAR basta con la clave: todo lo demás todavía no existe. */}
+        {!user && puedeGestionarAcceso && USER_BACKEND === "supabase" && (
+          <div className="mt-4 rounded-lg border border-black/10 p-3">
+            <CampoClave
+              id="clave-alta"
+              valor={clave}
+              onChange={setClave}
+              etiqueta="Clave de acceso (opcional)"
+              ayuda="Con clave, la persona puede entrar desde el primer día. En blanco, queda registrada solo para atribuir ventas."
+            />
+          </div>
         )}
 
         <div className="mt-3 rounded-lg border border-black/5 bg-black/[0.02] p-3 text-xs opacity-80">

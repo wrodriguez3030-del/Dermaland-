@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { KeyRound, ShieldCheck, ShieldAlert, UserX, Copy, Check, RefreshCw } from "lucide-react";
-import { Button, Input, Label } from "@/components/ui";
-import { generarClaveLegible, esClaveAceptable } from "@/lib/auth/password-generator";
-import { PASSWORD_RULES } from "@/lib/auth/password-policy";
+import { KeyRound, ShieldCheck, ShieldAlert, UserX } from "lucide-react";
+import { Button } from "@/components/ui";
+import { esClaveAceptable } from "@/lib/auth/password-generator";
+import { CampoClave } from "./campo-clave";
 import { asignarClave, type UsuarioDelPanel } from "../user-store";
 import { ClaveReveal } from "./clave-reveal";
 import { formatDateTime } from "@/lib/utils/format";
@@ -36,25 +36,11 @@ export function SeccionAcceso({
   const [guardando, setGuardando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [exito, setExito] = React.useState<string | null>(null);
-  const [copiada, setCopiada] = React.useState(false);
 
   const tieneCuenta = usuario.tieneCuenta === true;
   const valida = esClaveAceptable(clave);
 
-  function generar() {
-    setClave(generarClaveLegible());
-    setCopiada(false);
-    setError(null);
-  }
 
-  async function copiar() {
-    try {
-      await navigator.clipboard.writeText(clave);
-      setCopiada(true);
-    } catch {
-      setError("No se pudo copiar. Selecciónala y cópiala a mano.");
-    }
-  }
 
   async function guardar() {
     setGuardando(true);
@@ -138,47 +124,12 @@ export function SeccionAcceso({
         </div>
       )}
 
-      <Label htmlFor="clave-nueva">
-        {tieneCuenta ? "Cambiar la clave" : "Clave para darle acceso"}
-      </Label>
-      <div className="mt-1 flex gap-2">
-        <Input
-          id="clave-nueva"
-          // Se ve mientras se escribe a propósito: es la clave que el
-          // administrador tiene que dictar o copiar en ese momento.
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          className="font-mono"
-          value={clave}
-          onChange={(e) => {
-            setClave(e.target.value);
-            setCopiada(false);
-          }}
-          placeholder="Kx7m-Rt4p-Wq9s"
-        />
-        <Button variant="outline" size="sm" onClick={generar} aria-label="Generar una clave">
-          <RefreshCw className="h-3.5 w-3.5" />
-          Generar
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => void copiar()}
-          disabled={!clave}
-          aria-label="Copiar la clave"
-        >
-          {copiada ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-        </Button>
-      </div>
-
-      {clave !== "" && !valida && (
-        <ul className="mt-1 list-inside list-disc text-[11px] text-amber-800">
-          {PASSWORD_RULES.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
-        </ul>
-      )}
+      <CampoClave
+        id="clave-nueva"
+        valor={clave}
+        onChange={setClave}
+        etiqueta={tieneCuenta ? "Cambiar la clave" : "Clave para darle acceso"}
+      />
 
       <div className="mt-2 flex items-center gap-2">
         <Button size="sm" disabled={!valida || guardando} onClick={() => void guardar()}>

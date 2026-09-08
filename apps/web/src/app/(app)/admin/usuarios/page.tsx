@@ -276,6 +276,11 @@ export default function UsuariosPage() {
         onClose={() => setModal({ open: false })}
         // La MISMA decisión que toma el servidor: ofrecer el ojo a quien luego
         // recibiría un 403 es peor que no ofrecerlo.
+        //
+        // 🔴 Al CREAR no hay destinatario todavía, así que no hay jerarquía que
+        // comprobar: basta con que quien crea pueda gestionar claves. Antes
+        // aquí iba `false` y el campo de clave no salía nunca en el alta — se
+        // registraba a la persona y quedaba sin poder entrar.
         puedeGestionarAcceso={
           modal.user
             ? puedeGestionarClaveDe(
@@ -286,7 +291,9 @@ export default function UsuariosPage() {
                 },
                 { id: modal.user.id, role: modal.user.role },
               )
-            : false
+            : currentUser.isPlatformAdmin === true ||
+              currentUser.role === "admin" ||
+              currentUser.role === "super_admin"
         }
         onAccesoCambiado={refresh}
       />
