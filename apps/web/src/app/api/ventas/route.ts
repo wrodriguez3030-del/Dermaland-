@@ -11,6 +11,7 @@ import {
   desgloseVentas,
   DIMENSIONES_DESGLOSE,
   listarVentasUnificadas,
+  panelVentas,
   resumenVentas,
   type FiltrosVentas,
 } from "@/server/repositories/supabase/ventas-unificadas";
@@ -170,33 +171,52 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Varias vistas en una sola petición: se resuelven en paralelo contra la
     // base y se devuelven juntas, cada una con la MISMA forma que tendría sola.
     if (vista.length > 1) {
-      const partes = await Promise.all(
-        vista.map(async (v): Promise<Record<string, unknown>> => {
-          if (v === "resumen") {
-            return { resumen: await reloj.medir("db_resumen", resumenVentas(ctx, filtrosVentas)) };
+      const dims: DimensionDesglose[] = vista.includes("desglose") ? (dimension ?? []) : [];
+      // 🔴 El resumen y los desgloses van JUNTOS a la base, en una sola llamada
+      // (`panel_ventas_unificadas`). Antes eran cuatro viajes con exactamente
+      // los mismos filtros, y medido con `Server-Timing` ese tramo costaba
+      // 653 ms en caliente y 3 883 ms en frío. El listado va aparte porque no
+      // es un agregado: es una página de filas de las DOS fuentes.
+      const [panel, lista] = await Promise.all([
+        vista.includes("resumen") || dims.length > 0
+          ? reloj.medir(
+              "db_panel",
+              panelVentas(ctx, filtrosVentas, dims, vista.includes("resumen")),
+            )
+          : Promise.resolve(null),
+        vista.includes("listado")
+          ? reloj.medir("db_listado", listarVentasUnificadas(ctx, filtrosVentas))
+          : Promise.resolve(null),
+      ]);
+
+      const partes: Record<string, unknown>[] = [];
+      if (vista.includes("resumen")) {
+        // 🔴 Nunca un resumen a cero por una respuesta a medias: sin él, la
+        // tarjeta grande del panel enseñaría RD$0.00 como si fuera el total.
+        const resumen = panel?.resumen;
+        if (!resumen) throw new Error("La base no devolvió el resumen de ventas.");
+        partes.push({ resumen });
+      }
+      if (dims.length > 0) {
+        const hechos = dims.map((dim) => {
+          const desglose = panel?.desgloses[dim];
+          // 🔴 Una dimensión que la base NO devolvió no se pinta como cero
+          // filas: eso es indistinguible de «no hubo ventas». Se rompe aquí,
+          // que el `catch` de abajo convierte en un 400 con mensaje.
+          if (!desglose) {
+            throw new Error(`La base no devolvió el desglose por ${dim}.`);
           }
-          if (v === "desglose") {
-            const dims: DimensionDesglose[] = dimension ?? [];
-            const hechos = await Promise.all(
-              dims.map(async (dim) => {
-                // Cada dimensión cronometrada por separado: sin esto «la base
-                // tardó 653 ms» no dice CUÁL de las cinco consultas se lo llevó.
-                const desglose = await reloj.medir(`db_${dim}`, desgloseVentas(ctx, filtrosVentas, dim));
-                const fuentes = FUENTES_DESGLOSE[dim].filter(
-                  (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
-                );
-                return [dim, { desglose, fuentes }] as const;
-              }),
-            );
-            return { desgloses: Object.fromEntries(hechos) };
-          }
-          const { ventas, hayMas } = await reloj.medir(
-            "db_listado",
-            listarVentasUnificadas(ctx, filtrosVentas),
+          const fuentes = FUENTES_DESGLOSE[dim].filter(
+            (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
           );
-          return { ventas, hayMas };
-        }),
-      );
+          return [dim, { desglose, fuentes }] as const;
+        });
+        partes.push({ desgloses: Object.fromEntries(hechos) });
+      }
+      if (vista.includes("listado")) {
+        if (!lista) throw new Error("La base no devolvió el listado de ventas.");
+        partes.push({ ventas: lista.ventas, hayMas: lista.hayMas });
+      }
       reloj.fin("base");
       return NextResponse.json(Object.assign({}, ...partes), {
         headers: reloj.cabeceras({ "Cache-Control": "no-store" }),
@@ -221,17 +241,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       // en el navegador el 08/09/2026, el panel disparaba TRECE peticiones al
       // cargar. Aquí se resuelven en paralelo contra la base, que es donde
       // cuestan 100 ms cada una y no se estorban.
-      const resultados = await Promise.all(
-        dims.map(async (dim) => {
-          const desglose = await desgloseVentas(ctx, filtrosVentas, dim);
-          // Qué fuentes trae ESTE desglose. Con `incluirAlegra=false` el
-          // histórico se queda fuera, así que tampoco puede anunciarse.
-          const fuentes = FUENTES_DESGLOSE[dim].filter(
-            (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
-          );
-          return [dim, { desglose, fuentes }] as const;
-        }),
-      );
+      // Varias dimensiones van JUNTAS a la base con `panel_ventas_unificadas`
+      // (sin resumen: aquí nadie lo pide). Una sola sigue por el camino de
+      // siempre, que es una llamada igualmente y está probado hasta el fondo.
+      const porDimension =
+        dims.length > 1
+          ? (await reloj.medir("db_panel", panelVentas(ctx, filtrosVentas, dims, false))).desgloses
+          : { [dims[0]!]: await reloj.medir(`db_${dims[0]!}`, desgloseVentas(ctx, filtrosVentas, dims[0]!)) };
+
+      const resultados = dims.map((dim) => {
+        const desglose = porDimension[dim];
+        // 🔴 Una dimensión que la base NO devolvió no se pinta como cero filas:
+        // eso es indistinguible de «no hubo ventas».
+        if (!desglose) throw new Error(`La base no devolvió el desglose por ${dim}.`);
+        // Qué fuentes trae ESTE desglose. Con `incluirAlegra=false` el
+        // histórico se queda fuera, así que tampoco puede anunciarse.
+        const fuentes = FUENTES_DESGLOSE[dim].filter(
+          (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
+        );
+        return [dim, { desglose, fuentes }] as const;
+      });
 
       // Una sola dimensión responde con la forma de siempre: hay pantallas que
       // ya la consumen así y no se les cambia el contrato de rebote.

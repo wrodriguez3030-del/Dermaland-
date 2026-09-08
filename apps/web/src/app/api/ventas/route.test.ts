@@ -44,6 +44,27 @@ const resumenVentas = vi.fn(async (_ctx: { businessId: string }, _filtros: Recor
   cantidad: 0,
   porOrigen: { sistema: { total: 0, cantidad: 0 }, alegra: { total: 0, cantidad: 0 } },
 }));
+/**
+ * El camino AGRUPADO: una sola llamada a la base para el resumen y todos los
+ * desgloses. El falso reparte las mismas filas que `desgloseVentas` para que se
+ * pueda comprobar QUÉ dimensiones se pidieron y CON QUÉ filtros.
+ */
+const panelVentas = vi.fn(
+  async (
+    _ctx: { businessId: string },
+    _filtros: Record<string, unknown>,
+    dimensiones: readonly string[],
+    conResumen = true,
+  ) => ({
+    resumen: conResumen ? { total: 0, cantidad: 0 } : null,
+    desgloses: Object.fromEntries(
+      dimensiones.map((d) => [
+        d,
+        [{ clave: "x", etiqueta: "x", origen: "alegra", cantidad: 1, total: 1 }],
+      ]),
+    ) as Record<string, unknown[]>,
+  }),
+);
 const listarVentasUnificadas = vi.fn(
   async (_ctx: { businessId: string }, _filtros: Record<string, unknown>) => ({
     ventas: [],
@@ -68,6 +89,7 @@ vi.mock("@/server/repositories/supabase/ventas-unificadas", async (original) => 
   desgloseVentas,
   resumenVentas,
   listarVentasUnificadas,
+  panelVentas,
 }));
 
 const { GET } = await import("./route");
@@ -80,6 +102,7 @@ beforeEach(() => {
   desgloseVentas.mockClear();
   resumenVentas.mockClear();
   listarVentasUnificadas.mockClear();
+  panelVentas.mockClear();
 });
 
 describe("GET /api/ventas?vista=desglose", () => {
@@ -248,8 +271,20 @@ describe("GET /api/ventas?vista=desglose con varias dimensiones", () => {
     expect(res.status).toBe(200);
     const cuerpo = (await res.json()) as { desgloses?: Record<string, unknown> };
     expect(Object.keys(cuerpo.desgloses ?? {}).sort()).toEqual(["mes", "producto", "vendedor"]);
-    // Una llamada a la base por dimensión, no una petición HTTP por dimensión.
-    expect(desgloseVentas).toHaveBeenCalledTimes(3);
+    // 🔴 UNA sola llamada a la base para las tres, y sin resumen: aquí nadie lo
+    // pide y calcularlo sería un escaneo entero de balde.
+    expect(panelVentas).toHaveBeenCalledTimes(1);
+    expect(panelVentas.mock.calls[0]?.[2]).toEqual(["vendedor", "producto", "mes"]);
+    expect(panelVentas.mock.calls[0]?.[3]).toBe(false);
+    expect(desgloseVentas).not.toHaveBeenCalled();
+  });
+
+  it("una sola dimensión NO pasa por la llamada agrupada", async () => {
+    // Para una sola es el mismo viaje, y el camino de siempre está probado
+    // hasta el fondo. Envolverlo solo añadiría una capa que puede fallar.
+    await pedir("vista=desglose&dimension=vendedor");
+    expect(desgloseVentas).toHaveBeenCalledTimes(1);
+    expect(panelVentas).not.toHaveBeenCalled();
   });
 
   it("una sola dimensión conserva la forma de siempre", async () => {
@@ -304,10 +339,15 @@ describe("GET /api/ventas con varias vistas", () => {
       "producto",
       "sucursal",
     ]);
-    // Una llamada a la base por cosa pedida, ni una de más.
-    expect(resumenVentas).toHaveBeenCalledTimes(1);
+    // 🔴 UNA sola llamada a la base para el resumen y los tres desgloses, más
+    // una para el listado. Antes eran cuatro con exactamente los mismos filtros.
+    expect(panelVentas).toHaveBeenCalledTimes(1);
+    expect(panelVentas.mock.calls[0]?.[2]).toEqual(["sucursal", "forma_pago", "producto"]);
+    expect(panelVentas.mock.calls[0]?.[3]).toBe(true);
     expect(listarVentasUnificadas).toHaveBeenCalledTimes(1);
-    expect(desgloseVentas).toHaveBeenCalledTimes(3);
+    // Y NADIE pide por separado lo que ya vino junto.
+    expect(resumenVentas).not.toHaveBeenCalled();
+    expect(desgloseVentas).not.toHaveBeenCalled();
   });
 
   it("🔴 todas las partes reciben los MISMOS filtros", async () => {
@@ -319,11 +359,8 @@ describe("GET /api/ventas con varias vistas", () => {
       hasta: "2026-09-30",
       sucursalId: "00000000-0000-0000-0000-00000000b001",
     };
-    expect(resumenVentas.mock.calls[0]?.[1]).toMatchObject(esperado);
+    expect(panelVentas.mock.calls[0]?.[1]).toMatchObject(esperado);
     expect(listarVentasUnificadas.mock.calls[0]?.[1]).toMatchObject(esperado);
-    for (const llamada of desgloseVentas.mock.calls) {
-      expect(llamada[1]).toMatchObject(esperado);
-    }
   });
 
   it("dos vistas sin desglose no piden ninguna dimensión", async () => {
@@ -334,18 +371,41 @@ describe("GET /api/ventas con varias vistas", () => {
     expect(Array.isArray(cuerpo.ventas)).toBe(true);
     expect(cuerpo.desgloses).toBeUndefined();
     expect(desgloseVentas).not.toHaveBeenCalled();
+    // Sin desgloses la llamada agrupada va con la lista VACÍA, no con una
+    // dimensión inventada.
+    expect(panelVentas.mock.calls[0]?.[2]).toEqual([]);
   });
 
   it("🔴 pedir desglose dentro de la lista SIN dimensión sigue siendo 400", async () => {
     const res = await pedir("vista=resumen,desglose");
     expect(res.status).toBe(400);
-    expect(resumenVentas).not.toHaveBeenCalled();
+    expect(panelVentas).not.toHaveBeenCalled();
   });
 
   it("🔴 una vista inventada en la lista es un 400, no una respuesta a medias", async () => {
     const res = await pedir("vista=resumen,inventada");
     expect(res.status).toBe(400);
-    expect(resumenVentas).not.toHaveBeenCalled();
+    expect(panelVentas).not.toHaveBeenCalled();
+  });
+
+  it("🔴 si la base no devuelve un desglose pedido, es un ERROR, no una tabla vacía", async () => {
+    // Una tabla vacía sobre un histórico de RD$48 millones se lee como «no hubo
+    // ventas». Tiene que doler.
+    panelVentas.mockResolvedValueOnce({ resumen: { total: 0, cantidad: 0 }, desgloses: {} });
+    const res = await pedir(TODAS);
+    expect(res.status).toBe(400);
+    // Y NO un 200 con las tarjetas en blanco, que es lo que se vería si el
+    // desglose ausente pasara como lista vacía.
+    expect(((await res.json()) as { desgloses?: unknown }).desgloses).toBeUndefined();
+  });
+
+  it("🔴 si la base no devuelve el resumen pedido, es un ERROR, no un RD$0.00", async () => {
+    panelVentas.mockResolvedValueOnce({
+      resumen: null,
+      desgloses: { sucursal: [], forma_pago: [], producto: [] },
+    });
+    const res = await pedir(TODAS);
+    expect(res.status).toBe(400);
   });
 
   it("una sola vista conserva la forma de siempre", async () => {

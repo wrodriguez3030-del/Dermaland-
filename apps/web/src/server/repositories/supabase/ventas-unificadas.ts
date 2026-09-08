@@ -313,7 +313,21 @@ export async function resumenVentas(
   });
   if (error) failRepo("ventasUnificadas.resumen", error);
 
-  const fila = (data as FilaResumenRpc[] | null)?.[0];
+  return interpretarResumen((data as FilaResumenRpc[] | null)?.[0], incluirAlegra);
+}
+
+/**
+ * La fila cruda del resumen → el resumen que usan las pantallas.
+ *
+ * Vive aparte porque hay DOS caminos que traen esa fila: la llamada suelta de
+ * arriba y la agrupada de `panelVentas`. Escribirlo dos veces acabaría con uno
+ * de los dos sumando distinto que el otro, y esa diferencia solo se vería como
+ * un total que cambia según qué pantalla lo pida.
+ */
+function interpretarResumen(
+  fila: FilaResumenRpc | undefined,
+  incluirAlegra: boolean,
+): ResumenVentas {
   const sistema: DesgloseOrigen = {
     total: numero(fila?.sistema_total),
     cantidad: Math.trunc(numero(fila?.sistema_cantidad)),
@@ -396,8 +410,22 @@ export async function desgloseVentas(
   });
   if (error) failRepo("ventasUnificadas.desglose", error);
 
+  return interpretarDesglose(data as FilaDesgloseRpc[] | null, incluirAlegra);
+}
+
+/**
+ * Las filas crudas de un desglose → las filas que pintan las pantallas.
+ *
+ * Igual que `interpretarResumen`: lo llaman el camino suelto y el agrupado, y
+ * tenerlo escrito una sola vez es lo que impide que el desglose de una pantalla
+ * descarte filas que el de otra deja pasar.
+ */
+function interpretarDesglose(
+  crudas: FilaDesgloseRpc[] | null,
+  incluirAlegra: boolean,
+): FilaDesglose[] {
   const filas: FilaDesglose[] = [];
-  for (const cruda of (data as FilaDesgloseRpc[] | null) ?? []) {
+  for (const cruda of crudas ?? []) {
     // 🔴 El origen se comprueba, no se copia: una fila con un `origen` que no
     // conocemos NO se cuela como «sistema» (que es la que la pantalla pinta
     // sin etiqueta, y por tanto la que pasa desapercibida). Se descarta.
@@ -416,6 +444,113 @@ export async function desgloseVentas(
     });
   }
   return filas.slice(0, TOPE_DESGLOSE);
+}
+
+/** Lo que devuelve `panel_ventas_unificadas`: el resumen y los desgloses juntos. */
+export interface PanelVentas {
+  /** `null` cuando no se pidió (`conResumen: false`): la base ni lo calculó. */
+  resumen: ResumenVentas | null;
+  desgloses: Partial<Record<DimensionDesglose, FilaDesglose[]>>;
+}
+
+/**
+ * PostgREST no encuentra la función: la migración
+ * `20260909150000_panel_ventas_unificadas.sql` todavía no está aplicada.
+ *
+ * 🔴 Se distingue ESE error de cualquier otro a propósito. Tratar cualquier
+ * fallo como «usa el camino viejo» convertiría un problema real de la base —un
+ * permiso mal puesto, una consulta que revienta— en cuatro consultas que quizá
+ * también fallan, y el aviso llegaría tarde o no llegaría.
+ */
+function esFuncionSinAplicar(error: { code?: string | null; message?: string | null }): boolean {
+  // PGRST202: PostgREST no la tiene en su caché de esquema. 42883: Postgres
+  // dice que la función no existe (llega cuando la caché está al día y la
+  // función de verdad no está).
+  return error.code === "PGRST202" || error.code === "42883";
+}
+
+/**
+ * El resumen y VARIOS desgloses en UNA llamada a la base.
+ *
+ * 🔴 POR QUÉ. El panel pedía el resumen y tres desgloses por separado: cuatro
+ * viajes a la base con EXACTAMENTE los mismos filtros. Medido el 08/09/2026
+ * contra esta base (14 973 facturas · 31 222 líneas): una llamada sola cuesta
+ * 70-145 ms, pero las cinco en paralelo tardan 412 ms de reloj. Cinco consultas
+ * que leen ~46 000 filas no pueden costar eso en trabajo real —tablas de este
+ * tamaño se escanean en decenas de milisegundos—; lo que cuesta es cada viaje,
+ * y encima se estorban entre ellos. Con `Server-Timing` en producción ese tramo
+ * salía en 653 ms en caliente y 3 883 ms en frío.
+ *
+ * 🔴 NO recalcula nada: la función SQL llama a `resumen_ventas_unificadas` y a
+ * `desglose_ventas_unificadas` con los mismos parámetros, y aquí se interpreta
+ * el resultado con las MISMAS funciones que interpretan el camino suelto. Es
+ * imposible que dé un número distinto.
+ *
+ * Mientras la migración no esté aplicada, cae al camino de siempre —cuatro
+ * llamadas— en vez de romper la pantalla. Solo ante ese error concreto: ver
+ * `esFuncionSinAplicar`.
+ */
+export async function panelVentas(
+  ctx: CtxVentasUnificadas,
+  filtros: FiltrosVentas,
+  dimensiones: readonly DimensionDesglose[],
+  conResumen = true,
+): Promise<PanelVentas> {
+  const sb = await clienteDe(ctx, "ventasUnificadas.panel");
+  const incluirAlegra = filtros.incluirAlegra !== false;
+
+  const { data, error } = await sb.rpc("panel_ventas_unificadas", {
+    p_business_id: ctx.businessId,
+    p_desde: filtros.desde ?? null,
+    p_hasta: filtros.hasta ?? null,
+    p_cliente_id: filtros.clienteId ?? null,
+    p_sucursal_id: filtros.sucursalId ?? null,
+    p_dimensiones: [...dimensiones],
+    p_con_resumen: conResumen,
+  });
+
+  if (error) {
+    if (!esFuncionSinAplicar(error)) failRepo("ventasUnificadas.panel", error);
+    return panelPorSeparado(ctx, filtros, dimensiones, conResumen);
+  }
+
+  const cuerpo = (data ?? {}) as {
+    resumen?: FilaResumenRpc | null;
+    desgloses?: Record<string, FilaDesgloseRpc[] | null> | null;
+  };
+  const desgloses: Partial<Record<DimensionDesglose, FilaDesglose[]>> = {};
+  for (const dim of dimensiones) {
+    const crudas = cuerpo.desgloses?.[dim];
+    // 🔴 `undefined` NO es una lista vacía. Una dimensión que la base no
+    // devolvió se deja FUERA para que la ruta lo note; pintarla como cero filas
+    // sería indistinguible de «no hubo ventas», que es el fallo mudo que todo
+    // este trabajo existe para cerrar.
+    if (crudas === undefined || crudas === null) continue;
+    desgloses[dim] = interpretarDesglose(crudas, incluirAlegra);
+  }
+
+  return {
+    resumen: conResumen ? interpretarResumen(cuerpo.resumen ?? undefined, incluirAlegra) : null,
+    desgloses,
+  };
+}
+
+/** El camino de siempre: una llamada por cosa, en paralelo. */
+async function panelPorSeparado(
+  ctx: CtxVentasUnificadas,
+  filtros: FiltrosVentas,
+  dimensiones: readonly DimensionDesglose[],
+  conResumen: boolean,
+): Promise<PanelVentas> {
+  const [resumen, listas] = await Promise.all([
+    conResumen ? resumenVentas(ctx, filtros) : Promise.resolve(null),
+    Promise.all(dimensiones.map((d) => desgloseVentas(ctx, filtros, d))),
+  ]);
+  const desgloses: Partial<Record<DimensionDesglose, FilaDesglose[]>> = {};
+  dimensiones.forEach((d, i) => {
+    desgloses[d] = listas[i] ?? [];
+  });
+  return { resumen, desgloses };
 }
 
 /**

@@ -265,16 +265,35 @@ describe("lots/route.ts → productLot.list: el techo efectivo de filas por esce
  * 1 248 productos del catálogo migrado.
  */
 describe("/api/ventas?vista=desglose tampoco devuelve la tabla entera", () => {
+  /**
+   * 🔴 El tope vive en `interpretarDesglose`, NO en `desgloseVentas`.
+   *
+   * Y es a propósito: desde que existe la llamada agrupada
+   * (`panel_ventas_unificadas`) hay DOS caminos que traen filas de desglose —el
+   * suelto y el del panel— y los dos las interpretan con esa función. Si el
+   * tope viviera en uno de los dos caminos, el otro devolvería la tabla entera
+   * y nadie lo vería: la pantalla pinta lo que le llega.
+   *
+   * Esta guarda ya cazó exactamente eso: al mover la interpretación a una
+   * función compartida, se quedó apuntando a `desgloseVentas` y se puso roja.
+   */
   const cuerpo = extraerMetodo(
     "src/server/repositories/supabase/ventas-unificadas.ts",
-    "export async function desgloseVentas",
-    "export async function desgloseVentas",
+    "function interpretarDesglose",
+    "function interpretarDesglose",
   );
 
   it("el repositorio corta las filas del desglose con su tope", () => {
-    expect(sinComentarios(cuerpo), "desgloseVentas dejó de acotar las filas").toMatch(
+    expect(sinComentarios(cuerpo), "interpretarDesglose dejó de acotar las filas").toMatch(
       /\.slice\(0,\s*TOPE_DESGLOSE\)/,
     );
+  });
+
+  it("🔴 LOS DOS caminos pasan por ahí: el suelto y el agrupado", () => {
+    const modulo = sinComentarios(lee("src/server/repositories/supabase/ventas-unificadas.ts"));
+    // Dos llamadas: una en `desgloseVentas` y otra en `panelVentas`. Si alguien
+    // interpretara las filas del panel a mano, el tope no se aplicaría allí.
+    expect(modulo.match(/interpretarDesglose\(/g) ?? []).toHaveLength(3);
   });
 
   it("y el tope es una constante del SERVIDOR, no algo que mande quien llama", () => {
