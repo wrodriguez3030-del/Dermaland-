@@ -60,6 +60,10 @@ export function useResumenInventario(sucursales: string[]): {
   React.useEffect(() => {
     const control = new AbortController();
     let vigente = true;
+    // 🔴 `cargando` NO vacía lo que ya está en pantalla. El panel pide dos
+    // veces —una antes de que lleguen las sucursales y otra con ellas—, y si la
+    // segunda borrara la primera, los números aparecerían y se irían. Que fue
+    // literalmente lo que reportó el dueño.
     setCargando(true);
     setError(null);
 

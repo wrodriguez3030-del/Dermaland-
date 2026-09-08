@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { CATALOG_MANAGE_ROLES } from "@/features/billing/permissions";
 import { env } from "@/lib/env";
 import { getRepoContext } from "@/server/auth/context";
@@ -18,7 +19,7 @@ import { setVisibilityBulk } from "@/server/services/storefront/admin";
 export const dynamic = "force-dynamic";
 
 const bulkSchema = z.object({
-  productIds: z.array(z.string().uuid()).min(1).max(1000),
+  productIds: z.array(idDeLaBase).min(1).max(1000),
   visible: z.boolean(),
 });
 

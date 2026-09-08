@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { env } from "@/lib/env";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
@@ -10,7 +11,7 @@ import { facturasDeCliente } from "@/server/services/alegra/queries";
 export const dynamic = "force-dynamic";
 
 const querySchema = z.object({
-  clientId: z.string().uuid(),
+  clientId: idDeLaBase,
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 

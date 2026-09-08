@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { MAX_LINES, MAX_QTY_PER_LINE } from "@/features/storefront/cart";
 import { toLocalPhoneDigits } from "@/features/storefront/phone";
 import { createWebOrder } from "@/server/services/storefront/orders";
@@ -71,7 +72,7 @@ const CuerpoSchema = z.object({
     .union([z.literal(""), z.string().trim().email().max(200)])
     .nullish(),
   notes: z.string().trim().max(500).nullish(),
-  idempotencyKey: z.string().uuid(),
+  idempotencyKey: idDeLaBase,
 });
 
 /** Un problema a la vez y en cristiano, como ya hace `parseDeliveryAddress`. */

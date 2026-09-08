@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { env } from "@/lib/env";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
@@ -56,8 +57,8 @@ const querySchema = z.object({
   dimension: z.enum(DIMENSIONES_DESGLOSE).optional(),
   desde: z.string().regex(FECHA, "Fecha inválida").optional(),
   hasta: z.string().regex(FECHA, "Fecha inválida").optional(),
-  clienteId: z.string().uuid().optional(),
-  sucursalId: z.string().uuid().optional(),
+  clienteId: idDeLaBase.optional(),
+  sucursalId: idDeLaBase.optional(),
   // Solo el texto literal "false" desactiva Alegra; cualquier otra cosa
   // (incluida su ausencia) deja el valor por defecto `true` de
   // `listarVentasUnificadas`/`resumenVentas`.

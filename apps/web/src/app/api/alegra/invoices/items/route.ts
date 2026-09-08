@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { env } from "@/lib/env";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
@@ -24,11 +25,11 @@ const TOPE_FACTURAS = 50;
  */
 const querySchema = z
   .object({
-    invoiceId: z.string().uuid().optional(),
+    invoiceId: idDeLaBase.optional(),
     invoiceIds: z
       .string()
       .transform((v) => v.split(",").map((x) => x.trim()).filter(Boolean))
-      .pipe(z.array(z.string().uuid()).min(1).max(TOPE_FACTURAS))
+      .pipe(z.array(idDeLaBase).min(1).max(TOPE_FACTURAS))
       .optional(),
   })
   .refine((q) => q.invoiceId !== undefined || q.invoiceIds !== undefined, {

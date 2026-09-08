@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { env } from "@/lib/env";
 import { getRepoContext } from "@/server/auth/context";
 import { getClient, toUserFacingMessage } from "@/server/repositories/supabase/client";
@@ -18,7 +19,7 @@ const querySchema = z.object({
   sucursales: z
     .string()
     .transform((v) => v.split(",").map((x) => x.trim()).filter(Boolean))
-    .pipe(z.array(z.string().uuid()).max(50))
+    .pipe(z.array(idDeLaBase).max(50))
     .optional(),
   dias: z.coerce.number().int().min(1).max(365).optional(),
 });

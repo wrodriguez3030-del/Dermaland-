@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { WEB_ORDER_MANAGE_ROLES } from "@/features/billing/permissions";
 import { authorizeRole } from "@/server/auth/require-role";
 import { getRepositories } from "@/server/repositories";
@@ -24,11 +25,11 @@ export const dynamic = "force-dynamic";
 const CuerpoSchema = z.discriminatedUnion("to", [
   z.object({
     to: z.literal("pickup"),
-    branchId: z.string().uuid(),
+    branchId: idDeLaBase,
   }),
   z.object({
     to: z.literal("delivery"),
-    branchId: z.string().uuid(),
+    branchId: idDeLaBase,
     province: z.string().trim().min(1),
     sector: z.string().trim().min(1).max(120),
     address: z.string().trim().min(1).max(300),

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { env } from "@/lib/env";
 import { getRepoContext } from "@/server/auth/context";
 import { authorizeRole } from "@/server/auth/require-role";
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 const querySchema = z.object({
   desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  sucursalId: z.string().uuid().optional(),
+  sucursalId: idDeLaBase.optional(),
   nivel: z.enum(["laboratorio", "producto"]).default("laboratorio"),
 });
 

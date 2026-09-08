@@ -356,9 +356,9 @@ export default function DashboardPage() {
           value={
             inventario.error
               ? "—"
-              : inventario.cargando
-                ? "…"
-                : formatNumber(inventario.resumen?.totalProductos ?? 0)
+              : inventario.resumen
+                ? formatNumber(inventario.resumen.totalProductos ?? 0)
+                : "…"
           }
           hint="activos e inactivos"
           icon={Package}
@@ -370,9 +370,9 @@ export default function DashboardPage() {
           value={
             inventario.error
               ? "—"
-              : inventario.cargando
-                ? "…"
-                : (inventario.resumen?.vencenPronto?.total ?? 0)
+              : inventario.resumen
+                ? (inventario.resumen.vencenPronto?.total ?? 0)
+                : "…"
           }
           hint="≤ 90 días"
           icon={CalendarClock}
@@ -385,9 +385,9 @@ export default function DashboardPage() {
           value={
             inventario.error
               ? "—"
-              : inventario.cargando
-                ? "…"
-                : (inventario.resumen?.bloqueados ?? 0)
+              : inventario.resumen
+                ? (inventario.resumen.bloqueados ?? 0)
+                : "…"
           }
           hint="Cuarentena + recall"
           icon={ShieldAlert}

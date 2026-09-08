@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { WEB_ORDER_MANAGE_ROLES } from "@/features/billing/permissions";
 import { authorizeRole } from "@/server/auth/require-role";
 import { getRepositories } from "@/server/repositories";
@@ -17,7 +18,7 @@ import { linkProformaToWebOrder } from "@/server/services/storefront/orders";
 export const dynamic = "force-dynamic";
 
 const CuerpoSchema = z.object({
-  proformaId: z.string().uuid(),
+  proformaId: idDeLaBase,
   /** Solo para la auditoría: el número que vio el cajero. */
   documentNumber: z.string().trim().max(60).nullish(),
 });
