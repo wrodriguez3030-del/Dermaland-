@@ -8,17 +8,28 @@ import { saveUser, USER_BACKEND } from "@/features/admin/user-store";
 import { roleDefinitions } from "@/lib/mock-data/users";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import type { User, UserRole } from "@/types";
+import { SeccionAcceso } from "./seccion-acceso";
+import type { UsuarioDelPanel } from "@/features/admin/user-store";
 
 interface Props {
   open: boolean;
   user?: User | null;
   onClose: () => void;
+  /**
+   * Si quien tiene el modal abierto puede gestionar la clave de esta persona
+   * (misma decisión que toma el servidor, `puedeGestionarClaveDe`). Sin esto,
+   * la sección de acceso se pintaría y el servidor la rechazaría con un 403:
+   * peor que no ofrecerla.
+   */
+  puedeGestionarAcceso?: boolean;
+  /** Para refrescar la lista tras dar acceso o cambiar la clave. */
+  onAccesoCambiado?: () => void;
 }
 
 // Roles asignables desde la app (super_admin es interno de plataforma).
 const ASSIGNABLE = roleDefinitions.filter((r) => r.key !== "super_admin");
 
-export function UserModal({ open, user, onClose }: Props) {
+export function UserModal({ open, user, onClose, puedeGestionarAcceso = false, onAccesoCambiado }: Props) {
   const toast = useToast();
   const branches = useActiveBranches();
   const [fullName, setFullName] = React.useState("");
@@ -156,11 +167,19 @@ export function UserModal({ open, user, onClose }: Props) {
           </div>
         </div>
 
+        {/* 🔴 La sección de acceso solo aparece sobre una ficha YA guardada: dar
+            acceso necesita el id de la persona, y en el alta todavía no existe.
+            Se crea primero, se le da acceso después. */}
+        {user && puedeGestionarAcceso && USER_BACKEND === "supabase" && (
+          <SeccionAcceso usuario={user as UsuarioDelPanel} onCambio={onAccesoCambiado} />
+        )}
+
         <div className="mt-3 rounded-lg border border-black/5 bg-black/[0.02] p-3 text-xs opacity-80">
           Registrar aquí a la persona la habilita como <strong>vendedor</strong>{" "}
-          en el POS y para incentivos. El <strong>acceso al sistema (login con
-          contraseña)</strong> se gestiona por separado — este registro no crea
-          una cuenta de inicio de sesión.
+          en el POS y para incentivos.
+          {user
+            ? " Su acceso al sistema se gestiona arriba."
+            : " Guarda la ficha y luego ábrela para darle acceso al sistema."}
         </div>
 
         {USER_BACKEND !== "supabase" && (

@@ -115,3 +115,103 @@ export async function setUserStatus(
   if (USER_BACKEND !== "supabase") return { ok: false, error: "Requiere Supabase." };
   return call(`/api/users/${id}`, "PATCH", { status });
 }
+
+/**
+ * Estado REAL del acceso de una persona, tal como lo devuelve `GET /api/users`
+ * a un administrador. Todos opcionales: sin Supabase, o para quien no es
+ * administrador, la lista no los trae.
+ */
+export interface EstadoDeAcceso {
+  tieneCuenta?: boolean;
+  ultimoAcceso?: string | null;
+  bloqueado?: boolean;
+  totpVerificados?: number;
+  claveGestionada?: boolean;
+  claveDesincronizada?: boolean;
+  claveAsignadaEl?: string | null;
+  dispositivosActivos?: number;
+}
+
+export type UsuarioDelPanel = User & EstadoDeAcceso;
+
+/** Lo que devuelve el ojo. La clave NO se guarda en ningún estado global. */
+export type ResultadoClave =
+  | { ok: true; clave: string; asignadaEl: string; asignadaPor: string | null }
+  | { ok: false; error: string; pideSegundoFactor?: boolean };
+
+/**
+ * Manda al desafío del segundo factor conservando a dónde iba.
+ *
+ * El servidor responde 403 con `code: "segundo_factor_requerido"` cuando la
+ * sesión no ha usado el código (típico en una computadora de confianza).
+ * Enseñar «no tienes permiso» sería mentira: permiso tiene, le falta el código.
+ */
+function alSegundoFactor(): void {
+  if (typeof window === "undefined") return;
+  const destino = window.location.pathname + window.location.search;
+  window.location.href = `/login/mfa?next=${encodeURIComponent(destino)}`;
+}
+
+async function respuestaDeClave(res: Response): Promise<ResultadoClave> {
+  const cuerpo = (await res.json().catch(() => ({}))) as {
+    error?: string;
+    code?: string;
+    clave?: string;
+    asignadaEl?: string;
+    asignadaPor?: string | null;
+  };
+  if (!res.ok) {
+    const pide = cuerpo.code === "segundo_factor_requerido";
+    if (pide) alSegundoFactor();
+    return { ok: false, error: cuerpo.error ?? "No se pudo completar la acción.", pideSegundoFactor: pide };
+  }
+  return {
+    ok: true,
+    clave: cuerpo.clave ?? "",
+    asignadaEl: cuerpo.asignadaEl ?? "",
+    asignadaPor: cuerpo.asignadaPor ?? null,
+  };
+}
+
+/** Fija la clave de un usuario (y crea su cuenta si no la tenía). */
+export async function asignarClave(
+  id: string,
+  password: string,
+): Promise<{ ok: true; cuentaCreada: boolean } | { ok: false; error: string; pideSegundoFactor?: boolean }> {
+  if (USER_BACKEND !== "supabase") return { ok: false, error: "Requiere Supabase." };
+  try {
+    const res = await fetch(`/api/users/${encodeURIComponent(id)}/clave`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const cuerpo = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      code?: string;
+      cuentaCreada?: boolean;
+    };
+    if (!res.ok) {
+      const pide = cuerpo.code === "segundo_factor_requerido";
+      if (pide) alSegundoFactor();
+      return { ok: false, error: cuerpo.error ?? "No se pudo fijar la clave.", pideSegundoFactor: pide };
+    }
+    notify();
+    return { ok: true, cuentaCreada: Boolean(cuerpo.cuentaCreada) };
+  } catch {
+    return { ok: false, error: "Sin conexión con el servidor." };
+  }
+}
+
+/**
+ * Pide la clave guardada. POST a propósito (ver la ruta): cada llamada deja un
+ * registro en auditoría y entrega una credencial.
+ */
+export async function verClave(id: string): Promise<ResultadoClave> {
+  if (USER_BACKEND !== "supabase") return { ok: false, error: "Requiere Supabase." };
+  try {
+    const res = await fetch(`/api/users/${encodeURIComponent(id)}/clave/ver`, { method: "POST" });
+    return await respuestaDeClave(res);
+  } catch {
+    return { ok: false, error: "Sin conexión con el servidor." };
+  }
+}
