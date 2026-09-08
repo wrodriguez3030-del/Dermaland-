@@ -63,8 +63,22 @@ const FILAS: CustomerMetricsRow[] = [
   },
 ];
 
-vi.mock("@/features/customers/customer-profile-hooks", () => ({
-  useCustomersReport: () => ({ rows: FILAS, loading: false, error: null, retry: vi.fn() }),
+/**
+ * 🔴 Se simula el hook que la pantalla usa DE VERDAD. Antes aquí se simulaba
+ * `useCustomersReport`, y cuando la pantalla pasó a pedir la página al servidor
+ * (`usePaginaClientes`), esta prueba siguió en VERDE sin tocar el camino real:
+ * pintaba una tabla vacía y comprobaba textos que no dependen de las filas.
+ *
+ * Una prueba que pasa con el código cambiado por debajo no protege nada. La
+ * cazó comprobar a mano quién consume qué, no la suite.
+ */
+vi.mock("@/features/customers/use-pagina-clientes", () => ({
+  usePaginaClientes: () => ({
+    filas: FILAS,
+    total: FILAS.length,
+    cargando: false,
+    error: null,
+  }),
 }));
 
 import ClientesPage from "./page";
@@ -93,5 +107,24 @@ describe("Clientes — qué cuenta «Total gastado»", () => {
     const encabezados = screen.getAllByRole("columnheader").map((c) => c.textContent ?? "");
     expect(encabezados.some((h) => h.includes("Total gastado"))).toBe(true);
     expect(encabezados.some((h) => h.includes("(sistema)"))).toBe(false);
+  });
+});
+
+/**
+ * 🔴 Estas pruebas existen porque las de arriba pasaban en verde con el hook
+ * equivocado simulado: no tocaban las FILAS. Estas sí — si la pantalla dejara
+ * de pintar lo que el servidor le manda, se ponen rojas.
+ */
+describe("Clientes — la tabla pinta lo que manda el servidor", () => {
+  it("🔴 el cliente que devuelve el servidor aparece en la tabla", () => {
+    render(<ClientesPage />);
+    // Si la pantalla dejara de pintar `filas`, esto se pone rojo.
+    expect(screen.getAllByText(/MARIA/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/PEREZ/i).length).toBeGreaterThan(0);
+  });
+
+  it("🔴 no dice «sin clientes» cuando el servidor devolvió filas", () => {
+    render(<ClientesPage />);
+    expect(screen.queryByText(/no hay clientes|sin clientes/i)).not.toBeInTheDocument();
   });
 });

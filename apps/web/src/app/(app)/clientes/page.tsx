@@ -27,14 +27,15 @@ import {
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { useToast } from "@/components/ui/toast";
 import { deleteCustomerAnywhere } from "@/features/customers/customer-store";
-import { useCustomersReport } from "@/features/customers/customer-profile-hooks";
+import { usePaginaClientes } from "@/features/customers/use-pagina-clientes";
 import { coincideCliente, FUENTES } from "@/features/customers/customer-search";
 import { insigniaCliente } from "@/features/customers/customer-flags";
 import { puedeAccionDeRiesgo } from "@/features/auth/riesgo-operativo";
 import { SelectorTipoPiel } from "@/features/customers/selector-tipo-piel";
 import { useCurrentRole } from "@/features/auth/current-user";
 import type { CustomerMetricsRow } from "@/features/customers/customer-metrics";
-import { skinTypeLabel } from "@/features/customers/billing";
+import { skinTypeOptions, skinTypeLabel } from "@/features/customers/billing";
+import type { CustomerSkinType } from "@/types";
 import {
   ALCANCE_TOTAL_GASTADO,
   ETIQUETA_TOTAL_GASTADO,
@@ -72,7 +73,17 @@ function ClientesContent() {
   const params = useSearchParams();
   const createdFilter =
     params.get("created") === "this_month" ? "this_month" : "all";
-  const { rows } = useCustomersReport();
+  // 🔴 La página la arma el SERVIDOR: filtro, orden y corte. Antes esta pantalla
+  // se bajaba los 6 523 clientes —siete idas y vueltas a PostgREST, ~1,8 s— para
+  // filtrarlos y ordenarlos en el navegador. Ordenar por «total gastado» o
+  // «última visita» obligaba a conocerlos todos antes de cortar la página; eso
+  // ahora es un `order by`.
+  const [orden, setOrden] = React.useState<
+    "createdAt" | "name" | "totalOrders" | "totalSpent" | "lastVisit"
+  >("createdAt");
+  const [dir, setDir] = React.useState<"asc" | "desc">("desc");
+  const [pagina, setPagina] = React.useState(0);
+  const [porPagina, setPorPagina] = React.useState(25);
   const toast = useToast();
   const puedeRiesgo = puedeAccionDeRiesgo(useCurrentRole());
 
@@ -102,36 +113,52 @@ function ClientesContent() {
     [params, router, rutaActual],
   );
 
-  const tiposDePiel = React.useMemo(() => {
-    // Solo los tipos que ALGUIEN tiene: un desplegable con diez opciones de las
-    // que ocho no devuelven a nadie es peor que uno con dos.
-    const vistos = new Set(rows.map((r) => r.customer.skinType).filter(Boolean));
-    return [...vistos].sort((a, b) => skinTypeLabel(a).localeCompare(skinTypeLabel(b), "es"));
-  }, [rows]);
-
-  const scopedRows = React.useMemo(() => {
-    const base =
-      createdFilter === "this_month"
-        ? rows.filter((r) => isSameCalendarMonth(r.customer.createdAt))
-        : rows;
-    return base.filter(
-      (r) =>
-        coincideCliente(r.customer, busqueda) &&
-        (fuente === "" || r.customer.source === fuente) &&
-        (tipoPiel === "" || r.customer.skinType === tipoPiel),
-    );
-  }, [rows, createdFilter, busqueda, fuente, tipoPiel]);
-  const { sort, sorted, toggle } = useTableSort(
-    scopedRows,
-    "createdAt",
-    "desc",
-    comparators,
+  // Los tipos de piel del desplegable ya no se deducen de la lista (que ahora
+  // es una página): se ofrecen todos los que el sistema conoce.
+  const tiposDePiel = React.useMemo<CustomerSkinType[]>(
+    () => skinTypeOptions.map((o) => o.value).filter((v) => v !== "not_specified"),
+    [],
   );
-  // `resetKey` incluye los filtros: sin esto, buscar desde la página 7 dejaba
-  // la tabla vacía porque el resultado tiene menos páginas que esa.
-  const pag = usePagination(sorted, {
-    resetKey: `${createdFilter}|${busqueda}|${fuente}|${tipoPiel}`,
+
+  const consulta = usePaginaClientes({
+    q: busqueda,
+    fuente,
+    piel: tipoPiel,
+    creadosEsteMes: createdFilter === "this_month",
+    orden,
+    dir,
+    pagina,
+    limite: porPagina,
   });
+
+  // Cualquier cambio de filtro vuelve a la primera página: sin esto, buscar
+  // desde la página 7 deja la tabla vacía porque el resultado tiene menos.
+  React.useEffect(() => {
+    setPagina(0);
+  }, [busqueda, fuente, tipoPiel, createdFilter, orden, dir, porPagina]);
+
+  /** Pulsar una cabecera: misma columna invierte el sentido, otra empieza por descendente. */
+  const toggle = React.useCallback(
+    (columna: typeof orden) => {
+      if (columna === orden) setDir((d) => (d === "asc" ? "desc" : "asc"));
+      else {
+        setOrden(columna);
+        setDir("desc");
+      }
+    },
+    [orden],
+  );
+  const sort = { key: orden, direction: dir };
+
+  /** Lo que la tabla espera, pero servido por el servidor. */
+  const pag = {
+    pageItems: consulta.filas,
+    page: pagina + 1,
+    pageSize: porPagina,
+    total: consulta.total,
+    setPage: (n: number) => setPagina(Math.max(0, n - 1)),
+    setPageSize: (n: number) => setPorPagina(n),
+  };
 
   return (
     <>
@@ -152,7 +179,7 @@ function ClientesContent() {
       {createdFilter === "this_month" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
           <span>
-            Mostrando: <strong>clientes nuevos de este mes</strong> ({sorted.length})
+            Mostrando: <strong>clientes nuevos de este mes</strong> ({consulta.total})
           </span>
           <Link href="/clientes">
             <Button variant="ghost" size="sm">
@@ -293,7 +320,7 @@ function ClientesContent() {
               </TR>
             </THead>
             <TBody>
-              {sorted.length === 0 && (
+              {!consulta.cargando && consulta.filas.length === 0 && (
                 <TR>
                   <TD colSpan={9} className="py-8 text-center text-sm opacity-60">
                     Sin clientes aún.
@@ -400,7 +427,7 @@ function ClientesContent() {
             </TBody>
           </Table>
           </div>
-          {sorted.length > 0 && (
+          {consulta.total > 0 && (
             <DataPagination
               page={pag.page}
               pageSize={pag.pageSize}
