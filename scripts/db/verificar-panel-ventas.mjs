@@ -4,7 +4,7 @@
  * `resumen_ventas_unificadas` + `desglose_ventas_unificadas` por separado.
  *
  * Solo LEE. No escribe nada. Se corre DESPUÉS de aplicar la migración
- * `20260909150000_panel_ventas_unificadas.sql`:
+ * `20260908175750_panel_ventas_unificadas.sql`:
  *
  *   node scripts/db/verificar-panel-ventas.mjs
  *
@@ -82,7 +82,19 @@ for (const caso of CASOS) {
     p_con_resumen: true,
   });
 
-  const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  // 🔴 Comparación INSENSIBLE AL ORDEN de las claves. `jsonb` de Postgres las
+  // reordena (por longitud y luego alfabéticamente) y PostgREST no, así que un
+  // `JSON.stringify` a secas marca «difieren» dos objetos idénticos. Pasó en la
+  // primera pasada: los 11 campos del resumen coincidían uno a uno y el
+  // verificador decía que no. Un verificador que grita en falso se acaba
+  // ignorando, y entonces no verifica nada.
+  const ordenar = (v) =>
+    Array.isArray(v)
+      ? v.map(ordenar)
+      : v && typeof v === "object"
+        ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, ordenar(v[k])]))
+        : v;
+  const igual = (a, b) => JSON.stringify(ordenar(a)) === JSON.stringify(ordenar(b));
   const problemas = [];
   if (!igual(nuevo.datos.resumen, resumen.datos[0] ?? null)) problemas.push("resumen");
   DIMENSIONES.forEach((d, i) => {

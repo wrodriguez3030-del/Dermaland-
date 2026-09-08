@@ -455,7 +455,7 @@ export interface PanelVentas {
 
 /**
  * PostgREST no encuentra la función: la migración
- * `20260909150000_panel_ventas_unificadas.sql` todavía no está aplicada.
+ * `20260908175750_panel_ventas_unificadas.sql` todavía no está aplicada.
  *
  * 🔴 Se distingue ESE error de cualquier otro a propósito. Tratar cualquier
  * fallo como «usa el camino viejo» convertiría un problema real de la base —un

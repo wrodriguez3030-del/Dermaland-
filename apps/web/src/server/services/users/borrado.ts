@@ -148,9 +148,9 @@ export async function eliminarUsuario(
   }
 
   // ¿Qué quedaría colgando? (ver el encabezado y la migración
-  // `20260909160000_referencias_de_usuario.sql`).
+  // `20260908174608_referencias_de_usuario.sql`).
   // El cliente tipado no conoce esta función (los tipos generados son de antes
-  // de la migración `20260909160000`). Se acota el `any` a esta llamada en vez
+  // de la migración `20260908174608`). Se acota el `any` a esta llamada en vez
   // de regenerar todo el fichero de tipos por una función.
   const { data: refs, error: errRefs } = await (
     sb as unknown as {

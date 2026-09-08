@@ -28,12 +28,12 @@
   desgloses en una sola llamada. **No recalcula nada**: llama a las dos funciones que ya
   existían, con los mismos parámetros. Mientras la migración no esté aplicada, el
   repositorio cae al camino de siempre — solo ante «la función no existe».
-- **Pendiente del dueño:**
-  ```
-  node scripts/db/apply-migration.mjs supabase/migrations/20260909150000_panel_ventas_unificadas.sql --apply
-  node scripts/db/verificar-panel-ventas.mjs
-  ```
-  El verificador compara los dos caminos contra la base real y falla si difieren.
+- **Aplicada y verificada** el 08/09. `verificar-panel-ventas.mjs` compara los dos
+  caminos contra la base real: idénticos en los tres periodos probados. Con todo el
+  histórico y cinco dimensiones, **1 352 ms → 608 ms**.
+  🔴 El verificador comparaba con `JSON.stringify` y marcó «difieren» tres veces
+  siendo idénticos: `jsonb` reordena las claves y PostgREST no. Un verificador que
+  grita en falso se acaba ignorando; ahora compara sin mirar el orden.
 
 ## 2026-09-06 · Las ventas de Alegra, integradas al sistema (v0.146.0)
 
