@@ -26,12 +26,18 @@ interface Props {
   puedeGestionarAcceso?: boolean;
   /** Para refrescar la lista tras dar acceso o cambiar la clave. */
   onAccesoCambiado?: () => void;
+  /**
+   * ¿Está la bóveda de claves configurada en el servidor? `undefined` mientras
+   * no se sabe. En `false` no se puede asignar ninguna clave y se DICE, en vez
+   * de dejar escribirla para que el guardado no haga nada.
+   */
+  boveda?: boolean | undefined;
 }
 
 // Roles asignables desde la app (super_admin es interno de plataforma).
 const ASSIGNABLE = roleDefinitions.filter((r) => r.key !== "super_admin");
 
-export function UserModal({ open, user, onClose, puedeGestionarAcceso = false, onAccesoCambiado }: Props) {
+export function UserModal({ open, user, onClose, puedeGestionarAcceso = false, onAccesoCambiado, boveda }: Props) {
   const toast = useToast();
   const branches = useActiveBranches();
   const [fullName, setFullName] = React.useState("");
@@ -203,19 +209,32 @@ export function UserModal({ open, user, onClose, puedeGestionarAcceso = false, o
         {/* Al EDITAR manda `SeccionAcceso`: enseña además el estado real de la
             cuenta (2FA, último acceso, computadoras de confianza). */}
         {user && puedeGestionarAcceso && USER_BACKEND === "supabase" && (
-          <SeccionAcceso usuario={user as UsuarioDelPanel} onCambio={onAccesoCambiado} />
+          <SeccionAcceso usuario={user as UsuarioDelPanel} onCambio={onAccesoCambiado} boveda={boveda} />
         )}
 
         {/* Al CREAR basta con la clave: todo lo demás todavía no existe. */}
         {!user && puedeGestionarAcceso && USER_BACKEND === "supabase" && (
           <div className="mt-4 rounded-lg border border-black/10 p-3">
-            <CampoClave
-              id="clave-alta"
-              valor={clave}
-              onChange={setClave}
-              etiqueta="Clave de acceso (opcional)"
-              ayuda="Con clave, la persona puede entrar desde el primer día. En blanco, queda registrada solo para atribuir ventas."
-            />
+            {/* 🔴 Sin bóveda, la clave que se escriba aquí NO se guarda ni crea
+                la cuenta: la ficha sí se crea y la persona no puede entrar. Se
+                dice antes en vez de dejar que parezca que quedó puesta. */}
+            {boveda === false ? (
+              <p className="text-xs text-red-900">
+                <span className="font-semibold">
+                  Las claves no se pueden asignar todavía.
+                </span>{" "}
+                Falta la llave <code>USER_PASSWORD_VAULT_KEY</code> en el servidor.
+                Registra la ficha y asígnale la clave cuando esté puesta.
+              </p>
+            ) : (
+              <CampoClave
+                id="clave-alta"
+                valor={clave}
+                onChange={setClave}
+                etiqueta="Clave de acceso (opcional)"
+                ayuda="Con clave, la persona puede entrar desde el primer día. En blanco, queda registrada solo para atribuir ventas."
+              />
+            )}
           </div>
         )}
 

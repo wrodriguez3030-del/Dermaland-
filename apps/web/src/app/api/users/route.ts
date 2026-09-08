@@ -5,6 +5,7 @@ import { getRepositories } from "@/server/repositories";
 import { getRepoContext, getSession } from "@/server/auth/context";
 import { canManageIncentiveRules, isBillingAdmin, isBillingAdmin as esAdminDeNegocio } from "@/features/billing/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { bovedaConfigurada } from "@/server/crypto/password-vault-cipher";
 
 /**
  * GET  /api/users → usuarios del negocio (RLS por business_id vía JWT).
@@ -95,7 +96,16 @@ export async function GET(): Promise<NextResponse> {
 
     const acceso = await estadoDeAcceso(session.businessId);
     return NextResponse.json(
-      { users: users.map((u) => ({ ...u, ...(acceso.get(u.id) ?? {}) })) },
+      {
+        users: users.map((u) => ({ ...u, ...(acceso.get(u.id) ?? {}) })),
+        // 🔴 Si falta `USER_PASSWORD_VAULT_KEY`, «asignar clave» no hace NADA:
+        // ni crea la cuenta de acceso ni guarda la clave. Sin este dato, el
+        // administrador solo se entera después de escribir una clave y darle a
+        // guardar, y lo que ve entonces es el nombre de una variable de
+        // entorno. Pasó de verdad el 08/09/2026: se dio por hecho que la
+        // persona podía entrar y el login decía «Invalid login credentials».
+        boveda: bovedaConfigurada(),
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

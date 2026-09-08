@@ -45,12 +45,23 @@ export function useUsersList(): {
   loading: boolean;
   error: string | null;
   refresh: () => void;
+  /**
+   * ¿Está la bóveda de claves configurada en el SERVIDOR
+   * (`USER_PASSWORD_VAULT_KEY`)? `undefined` mientras no se sabe.
+   *
+   * 🔴 Sin ella, «asignar clave» no hace NADA: ni crea la cuenta ni guarda la
+   * clave. Que la pantalla lo sepa de antemano es lo que evita repetir el
+   * 08/09/2026 — se dio la clave por puesta y el login decía «Invalid login
+   * credentials», sin que nadie relacionara una cosa con la otra.
+   */
+  boveda: boolean | undefined;
 } {
   const [users, setUsers] = React.useState<User[]>(() =>
     USER_BACKEND === "supabase" ? [] : mockUsers,
   );
   const [loading, setLoading] = React.useState(USER_BACKEND === "supabase");
   const [error, setError] = React.useState<string | null>(null);
+  const [boveda, setBoveda] = React.useState<boolean | undefined>(undefined);
 
   const refresh = React.useCallback(() => {
     if (USER_BACKEND === "supabase") {
@@ -58,10 +69,12 @@ export function useUsersList(): {
         .then(async (res) => {
           const data = (await res.json().catch(() => ({}))) as {
             users?: User[];
+            boveda?: boolean;
             error?: string;
           };
           if (!res.ok) throw new Error(data.error);
           setUsers(data.users ?? []);
+          setBoveda(data.boveda);
           setError(null);
         })
         .catch(() => setError("No se pudieron cargar los usuarios."))
@@ -78,7 +91,7 @@ export function useUsersList(): {
     return () => window.removeEventListener(CHANGE_EVENT, refresh);
   }, [refresh]);
 
-  return { users, loading, error, refresh };
+  return { users, loading, error, refresh, boveda };
 }
 
 async function call(path: string, method: string, body: unknown): Promise<UserResult> {

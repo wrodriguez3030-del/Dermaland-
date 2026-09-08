@@ -41,7 +41,7 @@ import type { User } from "@/types";
 
 export default function UsuariosPage() {
   const currentUser = useCurrentUser();
-  const { users, loading, error, refresh } = useUsersList();
+  const { users, loading, error, refresh, boveda } = useUsersList();
   const toast = useToast();
   // Sucursales REALES (Supabase en prod). Puebla el cache de nombres para que
   // `getBranchDisplayName` nunca exponga el UUID técnico del branch_id.
@@ -327,6 +327,7 @@ export default function UsuariosPage() {
               currentUser.role === "super_admin"
         }
         onAccesoCambiado={refresh}
+        boveda={boveda}
       />
       <toast.Toast />
     </>

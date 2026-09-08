@@ -27,10 +27,22 @@ import { formatDateTime } from "@/lib/utils/format";
 export function SeccionAcceso({
   usuario,
   onCambio,
+  boveda,
 }: {
   usuario: UsuarioDelPanel;
   /** Se llama tras fijar la clave, para refrescar la lista. */
   onCambio?: () => void;
+  /**
+   * ¿Está la bóveda configurada en el servidor? `undefined` = todavía no se
+   * sabe (no se estorba mientras carga).
+   *
+   * 🔴 En `false`, asignar una clave NO HACE NADA: ni crea la cuenta de acceso
+   * ni guarda la clave. Se avisa ANTES y se apaga el botón, porque el 08/09/2026
+   * pasó justo lo contrario: se escribió la clave, el aviso nombraba una
+   * variable de entorno, y de ahí nadie dedujo que la persona seguía sin poder
+   * entrar. El login decía «Invalid login credentials» y parecía otro problema.
+   */
+  boveda?: boolean | undefined;
 }) {
   const [clave, setClave] = React.useState("");
   const [guardando, setGuardando] = React.useState(false);
@@ -38,7 +50,8 @@ export function SeccionAcceso({
   const [exito, setExito] = React.useState<string | null>(null);
 
   const tieneCuenta = usuario.tieneCuenta === true;
-  const valida = esClaveAceptable(clave);
+  // Con la bóveda apagada la clave nunca llegaría a guardarse: no se deja pulsar.
+  const valida = esClaveAceptable(clave) && boveda !== false;
 
 
 
@@ -66,6 +79,17 @@ export function SeccionAcceso({
         <KeyRound className="h-4 w-4" />
         Acceso al sistema
       </div>
+
+      {boveda === false && (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+          <span className="font-semibold">Las claves no se pueden asignar todavía.</span>{" "}
+          Falta la llave <code>USER_PASSWORD_VAULT_KEY</code> en el servidor: sin
+          ella no se crea la cuenta de acceso ni se guarda la clave, y la persona
+          no puede entrar. Ponla en Vercel (y en <code>.env.local</code>) y
+          vuelve a desplegar — está explicado en{" "}
+          <code>docs/comandos-locales.md</code>.
+        </div>
+      )}
 
       {/* Estado actual, con lo que dice Auth de verdad — no la columna
           `two_factor_enabled` de la ficha, que está en `false` para todos
