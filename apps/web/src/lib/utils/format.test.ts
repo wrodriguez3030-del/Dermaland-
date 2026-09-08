@@ -142,3 +142,63 @@ describe("nadie formatea una fecha por su cuenta", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * 🔴 Una fecha SIN hora no se corre un día.
+ *
+ * Lo encontró el dueño el 07/09/2026 mirando «Ventas de hoy»: la pantalla
+ * enseñaba «06 sept 2026» en las siete ventas del día. Los importes eran
+ * correctos —RD$13 531,50, que es justo el total de hoy menos la anulada—, así
+ * que el filtro estaba bien: lo que estaba mal era la FECHA pintada.
+ *
+ * La causa: `alegra_invoices.date` es una columna `date` (sin hora) y llega
+ * como «2026-09-07». `new Date("2026-09-07")` la interpreta como MEDIANOCHE
+ * UTC, y República Dominicana es UTC-4: en pantalla, las 8 de la noche del día
+ * ANTERIOR. Con el 1 de enero se pierde hasta el año — «2026-01-01» salía
+ * «31/12/2025».
+ *
+ * Afecta a las 14 973 facturas migradas, en el listado de ventas, la ficha del
+ * cliente y los reportes.
+ */
+describe("una fecha sin hora se lee tal cual, sin corrimiento", () => {
+  it("🔴 el día que dice la base es el día que se enseña", () => {
+    expect(formatDate("2026-09-07")).toBe("07/09/2026");
+    expect(formatDate("2026-09-06")).toBe("06/09/2026");
+  });
+
+  it("🔴 el 1 de enero no se convierte en 31 de diciembre del año anterior", () => {
+    expect(formatDate("2026-01-01")).toBe("01/01/2026");
+  });
+
+  it("🔴 el último día del mes tampoco se corre", () => {
+    expect(formatDate("2026-02-28")).toBe("28/02/2026");
+    expect(formatDate("2026-12-31")).toBe("31/12/2026");
+  });
+
+  it("una marca de tiempo COMPLETA sigue respetando la zona horaria", () => {
+    // Aquí sí hay hora, y convertir es lo correcto: son las 8 de la noche del
+    // día 6 en Santo Domingo.
+    expect(formatDate("2026-09-07T00:00:00.000Z")).toBe("06/09/2026");
+  });
+
+  it("una fecha sin hora tampoco se corre en `formatDateTime`", () => {
+    // Sin hora no hay hora que enseñar: se pinta el día a secas.
+    expect(formatDateTime("2026-09-07")).toBe("07/09/2026");
+  });
+
+  it("lo inválido sigue siendo una raya", () => {
+    expect(formatDate("2026-13-45")).toBe("—");
+    expect(formatDate("")).toBe("—");
+  });
+
+  it("🔴 un día que NO existe no se pinta como si existiera", () => {
+    // Sin esta comprobación, el atajo de «fecha sin hora» devolvería
+    // «31/02/2026» tal cual: una fecha inventada, y encima con cara de buena.
+    // La primera versión de esta prueba no existía y la mutación sobrevivió.
+    expect(formatDate("2026-02-31")).toBe("—");
+    expect(formatDate("2026-04-31")).toBe("—");
+    expect(formatDate("2025-02-29")).toBe("—");
+    // Pero un bisiesto de verdad sí vale.
+    expect(formatDate("2024-02-29")).toBe("29/02/2024");
+  });
+});
