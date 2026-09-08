@@ -43,7 +43,7 @@ import { useAllLots, totalSellableStock } from "@/features/inventory/lot-store";
 import { lotsExpiringWithin, blockedLots } from "@/features/inventory/lot-selectors";
 import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { BranchFilter, branchMatches, ALL_BRANCHES } from "@/features/tenancy/branch-filter";
-import { useCustomers } from "@/features/customers/customer-store";
+import { useClientesNuevos } from "@/features/dashboard/use-clientes-nuevos";
 import {
   matchesPeriod,
   availableYears,
@@ -83,7 +83,6 @@ export default function DashboardPage() {
   const proformas = useProformas();
   const products = useProducts();
   const lots = useAllLots();
-  const customers = useCustomers();
   const activeBranches = useActiveBranches();
   const { session: cashSession } = useCurrentCashSession();
   const activeBranchIds = React.useMemo(
@@ -204,12 +203,15 @@ export default function DashboardPage() {
 
   const recentLogs = mockAuditLogs.slice(0, 6);
 
-  // Clientes nuevos del mes ACTUAL — MISMA definición que
-  // `/clientes?created=this_month`.
-  const newCustomersThisMonth = React.useMemo(
-    () => customers.filter((c) => matchesPeriod(c.createdAt, monthFilter, yearFilter)).length,
-    [customers, monthFilter, yearFilter],
-  );
+  // Clientes nuevos del período — MISMA definición que
+  // `/clientes?created=this_month`, pero contados en la BASE.
+  //
+  // 🔴 Antes esto era `customers.filter(...).length` sobre la lista completa:
+  // el panel se descargaba los 6 525 clientes (2,6 MB de JSON, medidos) para
+  // contar unos pocos. Esa sola tarjeta era casi la mitad de lo que pesaba
+  // abrir el panel.
+  const clientesNuevos = useClientesNuevos(monthFilter, yearFilter);
+  const newCustomersThisMonth = clientesNuevos.total;
 
   // Inventarios pendientes (borrador + en progreso) — MISMO predicado que
   // `/conteo-fisico?status=pending`.
@@ -391,13 +393,26 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 🔴 Mientras carga dice «…», y si falla dice que falló: un 0 por un
+            fallo de red se lee como «no entró ni un cliente este mes», que es
+            una afirmación sobre el negocio y no un hueco. */}
         <StatCard
           label="Clientes nuevos"
-          value={newCustomersThisMonth}
-          hint="en el período"
+          value={
+            clientesNuevos.error
+              ? "—"
+              : newCustomersThisMonth === null
+                ? "…"
+                : newCustomersThisMonth
+          }
+          hint={clientesNuevos.error ? "no se pudo contar" : "en el período"}
           icon={Users}
           href="/clientes"
-          ariaLabel={`${newCustomersThisMonth} clientes nuevos en el período. Ver clientes.`}
+          ariaLabel={
+            clientesNuevos.error
+              ? "No se pudo contar los clientes nuevos. Ver clientes."
+              : `${newCustomersThisMonth ?? "…"} clientes nuevos en el período. Ver clientes.`
+          }
         />
         <StatCard
           label="Inventarios pendientes"

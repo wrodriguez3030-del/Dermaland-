@@ -27,7 +27,8 @@ import {
  */
 
 export interface CustomerMetricsRow {
-  customer: Customer;
+  /** Solo los campos que el listado usa — ver `ClienteDeListado` al final. */
+  customer: ClienteDeListado;
   stats: CustomerPurchaseStats;
 }
 
@@ -250,3 +251,37 @@ export function fusionarMetricasAlegra(
     };
   });
 }
+
+/**
+ * Lo que el LISTADO de clientes necesita de cada cliente, y nada más.
+ *
+ * 🔴 Por qué existe este tipo en vez de mandar el `Customer` entero: la
+ * pantalla de clientes se traía los 6 525 clientes con TODAS sus columnas —
+ * 4,9 MB de JSON, medidos— para poder buscar sin ir al servidor. Con eso, abrir
+ * «Clientes» era esperar. De esos campos, la pantalla y sus ayudantes usan
+ * TRECE: ocho para pintar (`coincideCliente` usa los otros cinco para buscar).
+ * Los trece los fijó el compilador, no una búsqueda a ojo: recortar de menos
+ * habría roto la pantalla, y recortar de más no habría avisado nadie.
+ *
+ * Recortar a esos doce baja el envío a 1,9 MB (61% menos), medido contra la
+ * base real el 07/09/2026.
+ *
+ * `Customer` sigue siendo asignable a esto, así que el camino con datos de
+ * ejemplo no cambia ni una línea.
+ */
+export type ClienteDeListado = Pick<
+  Customer,
+  | "id"
+  | "firstName"
+  | "lastName"
+  | "createdAt"
+  | "skinType"
+  | "source"
+  | "tags"
+  | "customerNumber"
+  | "documentNumber"
+  | "documentType"
+  | "email"
+  | "phone"
+  | "whatsapp"
+>;

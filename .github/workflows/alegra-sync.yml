@@ -2,11 +2,19 @@ name: Sincronizar Alegra → DermaLand
 
 on:
   schedule:
-    # 10:00 UTC = 06:00 República Dominicana. El plan Hobby de Vercel no tiene
-    # nada que ver aquí (esto corre en GitHub Actions), pero se deja diario a
-    # propósito: un barrido completo tarda ~20 min y Alegra solo admite 100
-    # peticiones por minuto.
-    - cron: "0 10 * * *"
+    # 23:00 UTC = 19:00 República Dominicana (UTC-4 todo el año, sin horario de
+    # verano). Lo pidió el dueño el 07/09/2026: a las 7 de la noche la tienda ya
+    # cerró, así que la sincronización trae el día COMPLETO y no lo deja a
+    # medias como pasaba a las 6 de la mañana, que traía lo de ayer con las
+    # ventas de la tarde aún sin registrar en Alegra.
+    #
+    # Sigue siendo diaria a propósito: un barrido completo tarda ~20 min y
+    # Alegra solo admite 100 peticiones por minuto.
+    #
+    # 🔴 GitHub Actions NO garantiza la hora exacta: en horas de mucha carga el
+    # disparo se retrasa, a veces más de una hora. Si algún día hace falta que
+    # sea puntual, hay que moverlo a un cron propio, no discutir con GitHub.
+    - cron: "0 23 * * *"
   workflow_dispatch:
     inputs:
       modo:

@@ -56,7 +56,20 @@ export const customerRepository: CustomerRepository = {
     const sb = await getClient("customer.list");
     let q = sb
       .from("clients")
-      .select("*")
+      // 🔴 Las columnas que el LISTADO usa, no `*`. Con `*`, los 6 525 clientes
+      // pesaban 4,9 MB de JSON y abrir «Clientes» era esperar; con estas trece
+      // son 1,9 MB (61% menos), medido contra la base real el 07/09/2026.
+      //
+      // Las trece las fijó el compilador al estrechar `CustomerMetricsRow`, no
+      // una lectura a ojo: quitar una de más habría roto la pantalla en el sitio
+      // exacto, y eso es justo lo que se quiere de un recorte así.
+      //
+      // `byId` sigue trayendo `*`: la FICHA sí necesita el cliente entero, y es
+      // una sola fila.
+      .select(
+        "id,business_id,customer_number,first_name,last_name,document_type,document_number," +
+          "phone,whatsapp,email,source,tags,skin_type,created_at,updated_at",
+      )
       .eq("business_id", ctx.businessId)
       .is("deleted_at", null);
 
