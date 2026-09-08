@@ -27,14 +27,20 @@ export class Cronometro {
     this.marca = ahora;
   }
 
-  /** Mide una promesa sin tener que llamar a `fin` a mano. */
+  /**
+   * Mide una promesa sin tener que llamar a `fin` a mano.
+   *
+   * 🔴 NO mueve la marca de `fin`. Estas medidas son para trabajos que corren
+   * EN PARALELO: si cada una reiniciara el reloj, el `fin("base")` de después
+   * mediría desde que acabó la última en terminar —casi cero— y el tramo que de
+   * verdad interesa desaparecería de la cabecera.
+   */
   async medir<T>(etapa: string, trabajo: Promise<T>): Promise<T> {
     const antes = performance.now();
     try {
       return await trabajo;
     } finally {
       this.etapas.push([etapa, performance.now() - antes]);
-      this.marca = performance.now();
     }
   }
 

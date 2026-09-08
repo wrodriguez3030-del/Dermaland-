@@ -52,3 +52,16 @@ describe("Cronometro", () => {
     expect(h["Server-Timing"]).toMatch(/total;dur=/);
   });
 });
+
+describe("Cronometro con trabajos en paralelo", () => {
+  it("🔴 `medir` NO mueve la marca de `fin`", async () => {
+    // Si la moviera, el tramo que envuelve a los trabajos paralelos mediría
+    // desde que acabó el último —casi cero— y desaparecería de la cabecera.
+    const c = new Cronometro();
+    const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    await Promise.all([c.medir("a", espera(30)), c.medir("b", espera(30))]);
+    c.fin("total_del_bloque");
+    const dur = /total_del_bloque;dur=([\d.]+)/.exec(c.cabecera())?.[1];
+    expect(Number(dur)).toBeGreaterThan(20);
+  });
+});

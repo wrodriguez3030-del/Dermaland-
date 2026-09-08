@@ -21,7 +21,14 @@ import { DIMENSIONES_DESGLOSE } from "@/features/ventas/venta-unificada";
  */
 
 const authorizeRole = vi.fn();
-const getRepoContext = vi.fn(async () => ({ businessId: "b1" }));
+/**
+ * 🔴 El contexto sale de la sesión que YA devolvió el portero, no de otra
+ * consulta a Supabase Auth. El falso es síncrono a propósito: si la ruta
+ * volviera a `getRepoContext()` —que sí pregunta— estas pruebas seguirían en
+ * verde y el viaje de red extra volvería sin que nadie lo notara. Por eso
+ * `getRepoContext` NO está entre los falsos: usarla revienta el módulo.
+ */
+const sessionToRepoContext = vi.fn((_s: unknown) => ({ businessId: "b1" }));
 /**
  * Los parámetros van DECLARADOS aunque el falso no los use: sin ellos
  * `desgloseVentas.mock.calls[0]` es la tupla vacía y no se puede inspeccionar
@@ -49,7 +56,7 @@ const env = { DATA_SOURCE: "supabase" };
 
 vi.mock("@/lib/env", () => ({ env }));
 vi.mock("@/server/auth/require-role", () => ({ authorizeRole }));
-vi.mock("@/server/auth/context", () => ({ getRepoContext }));
+vi.mock("@/server/auth/context", () => ({ sessionToRepoContext }));
 vi.mock("@/server/repositories/supabase/client", () => ({
   toUserFacingMessage: (_e: unknown, porDefecto: string) => porDefecto,
 }));
@@ -69,7 +76,7 @@ const pedir = (query: string) => GET(new NextRequest(`http://localhost/api/venta
 
 beforeEach(() => {
   env.DATA_SOURCE = "supabase";
-  authorizeRole.mockReset().mockResolvedValue({ ok: true });
+  authorizeRole.mockReset().mockResolvedValue({ ok: true, session: { businessId: "b1" } });
   desgloseVentas.mockClear();
   resumenVentas.mockClear();
   listarVentasUnificadas.mockClear();

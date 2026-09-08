@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { env } from "@/lib/env";
-import { getRepoContext } from "@/server/auth/context";
+import { sessionToRepoContext } from "@/server/auth/context";
 import { Cronometro } from "@/server/http/server-timing";
 import { authorizeRole } from "@/server/auth/require-role";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
@@ -159,7 +159,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const filtrosVentas: FiltrosVentas = filtros;
 
   try {
-    const ctx = await getRepoContext();
+    // 🔴 `sessionToRepoContext`, NO `getRepoContext()`: el portero de arriba ya
+    // resolvió la sesión y la devuelve. Llamar a `getRepoContext()` aquí
+    // preguntaba OTRA VEZ a Supabase Auth quién es el usuario — un viaje de red
+    // entero por petición. Medido en producción el 08/09/2026 con
+    // `Server-Timing`: 39-86 ms tirados en cada llamada.
+    const ctx = sessionToRepoContext(auth.session);
     reloj.fin("contexto");
 
     // Varias vistas en una sola petición: se resuelven en paralelo contra la
@@ -167,12 +172,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (vista.length > 1) {
       const partes = await Promise.all(
         vista.map(async (v): Promise<Record<string, unknown>> => {
-          if (v === "resumen") return { resumen: await resumenVentas(ctx, filtrosVentas) };
+          if (v === "resumen") {
+            return { resumen: await reloj.medir("db_resumen", resumenVentas(ctx, filtrosVentas)) };
+          }
           if (v === "desglose") {
             const dims: DimensionDesglose[] = dimension ?? [];
             const hechos = await Promise.all(
               dims.map(async (dim) => {
-                const desglose = await desgloseVentas(ctx, filtrosVentas, dim);
+                // Cada dimensión cronometrada por separado: sin esto «la base
+                // tardó 653 ms» no dice CUÁL de las cinco consultas se lo llevó.
+                const desglose = await reloj.medir(`db_${dim}`, desgloseVentas(ctx, filtrosVentas, dim));
                 const fuentes = FUENTES_DESGLOSE[dim].filter(
                   (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
                 );
@@ -181,7 +190,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             );
             return { desgloses: Object.fromEntries(hechos) };
           }
-          const { ventas, hayMas } = await listarVentasUnificadas(ctx, filtrosVentas);
+          const { ventas, hayMas } = await reloj.medir(
+            "db_listado",
+            listarVentasUnificadas(ctx, filtrosVentas),
+          );
           return { ventas, hayMas };
         }),
       );
