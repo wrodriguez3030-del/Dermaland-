@@ -66,6 +66,17 @@ const PUBLIC_PATHS = [
   "/tienda/pedido",
   "/_next",
   "/favicon.ico",
+  // 🔴 El icono de la pestaña y el manifiesto son PÚBLICOS. Sin esto el
+  // middleware respondía con un 307 a `/login`: el navegador pedía el icono,
+  // recibía una redirección, y enseñaba el globo genérico — con el logo bien
+  // puesto en el código. El manifiesto igual: instalar la aplicación en un
+  // teléfono nunca funcionó porque el archivo nunca llegaba.
+  //
+  // No exponen nada: son el logo y el nombre de la aplicación, lo mismo que ya
+  // se ve en la pantalla de entrada.
+  "/icon.svg",
+  "/manifest.webmanifest",
+  "/brand",
 ];
 
 // PDF público firmado del comprobante: `/api/proformas/[id]/pdf?t=<token>`.

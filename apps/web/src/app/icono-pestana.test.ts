@@ -36,6 +36,28 @@ describe("icono de la aplicación", () => {
     expect(rotos, `el manifiesto apunta a archivos que no existen: ${rotos.join(", ")}`).toEqual([]);
   });
 
+  it("🔴 la ruta que declara el layout EXISTE en `public`", () => {
+    // Declarar `icons` sustituye a la convención de `src/app/icon.svg`: si la
+    // ruta declarada no está en `public`, el navegador recibe un 404 y enseña
+    // el globo genérico. Pasó en producción.
+    const layout = readFileSync(resolve(raiz, "src/app/layout.tsx"), "utf8");
+    const rutas = [...layout.matchAll(/url:\s*"(\/[^"]+)"|shortcut:\s*"(\/[^"]+)"|apple:\s*"(\/[^"]+)"/g)]
+      .map((m) => m[1] ?? m[2] ?? m[3])
+      .filter((r): r is string => Boolean(r));
+    expect(rutas.length, "el layout no declara ninguna ruta de icono").toBeGreaterThan(0);
+    const rotas = rutas.filter((r) => !existsSync(publico(r)));
+    expect(rotas, `el layout declara iconos que no están en public: ${rotas.join(", ")}`).toEqual([]);
+  });
+
+  it("🔴 el icono y el manifiesto son públicos: el middleware no los manda al login", () => {
+    // Sin esto el navegador pedía el icono, recibía un 307 a /login y enseñaba
+    // el globo genérico — con el logo bien puesto en el código.
+    const mw = readFileSync(resolve(raiz, "src/middleware.ts"), "utf8");
+    const publicos = mw.slice(mw.indexOf("const PUBLIC_PATHS"), mw.indexOf("];", mw.indexOf("const PUBLIC_PATHS")));
+    expect(publicos).toContain('"/icon.svg"');
+    expect(publicos).toContain('"/manifest.webmanifest"');
+  });
+
   it("el layout declara el icono", () => {
     const layout = readFileSync(resolve(raiz, "src/app/layout.tsx"), "utf8");
     expect(layout).toContain("icons:");

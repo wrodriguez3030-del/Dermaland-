@@ -13,11 +13,15 @@ export const metadata: Metadata = {
   },
   description:
     "Plataforma SaaS multiempresa para farmacia, dermocosmética y cuidado dermatológico — República Dominicana.",
-  // El icono sale de `src/app/icon.svg` por convención de Next, pero se
-  // declara también aquí para el manifiesto y para los buscadores. Antes no
-  // había ninguno: la pestaña enseñaba el globo genérico del navegador, y el
-  // manifiesto apuntaba a dos PNG que no existían — instalar la aplicación
-  // dejaba un icono roto.
+  // 🔴 El icono se declara con una ruta de `public/` (`/icon.svg`), no con la
+  // convención de `src/app/icon.svg` a secas: declarar `icons` en el metadata
+  // SUSTITUYE a la convención, así que apuntar a una ruta que solo existe como
+  // convención da un 404 — comprobado en producción, la pestaña se quedó con
+  // el globo genérico. El archivo está en los dos sitios: `src/app` para la
+  // convención y `public` para esta ruta.
+  //
+  // Antes no había ninguno, y el manifiesto apuntaba a dos PNG que no existían:
+  // instalar la aplicación dejaba un icono roto.
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut: "/icon.svg",

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DermaLand">
+  <title>DermaLand</title>
+  <!--
+    Icono de la pestaña y de la aplicación instalada. Es el mismo logo de
+    `public/brand/dermaland-logo.svg` con UNA diferencia: lleva fondo.
+
+    La marca tiene la "D" CALADA (fill-rule evenodd), que sobre papel o sobre
+    el lienzo blanco de la aplicación se ve como debe. Pero una pestaña
+    inactiva es gris, y en modo oscuro casi negra: sin fondo, la letra sería un
+    agujero por el que se ve la pestaña, y a 16 píxeles eso es una mancha.
+  -->
+  <rect width="512" height="512" rx="96" fill="#F7FBFB"/>
+  <!--
+    Marca DermaLand: hoja/gota en verde salvia con una "D" calada.
+    Recreación vectorial fiel del avatar institucional (Instagram @dermalandrd).
+    Fondo transparente: la "D" deja ver el papel/lienzo; sirve en pantalla,
+    recibos térmicos y PDFs por igual. fill-rule evenodd recorta la letra.
+  -->
+  <path fill="#7E8A6E" fill-rule="evenodd" d="
+    M256 60
+    C256 60 120 220 120 330
+    A136 136 0 1 0 392 330
+    C392 220 256 60 256 60 Z
+    M190 210
+    H270
+    C330 210 360 255 360 305
+    C360 355 330 400 270 400
+    H190 Z
+    M218 240
+    H268
+    C305 240 325 270 325 305
+    C325 340 305 370 268 370
+    H218 Z
+  "/>
+</svg>
