@@ -190,6 +190,40 @@ node apps/web/tests/hydration-proforma-print.mjs # si tocaste cliente / impresi�
 
 Y revisar el [checklist completo](agents/checklist-validacion-rapida.md).
 
+## Llaves que SOLO viven en el servidor
+
+Van en `apps/web/.env.local` **y** en Vercel (production, preview y
+development). Sin ellas la función que las usa no falla al arrancar: falla
+cuando alguien la usa, y el aviso solo lo ve quien está en esa pantalla.
+
+| Variable | Para qué | Si falta |
+|---|---|---|
+| `USER_PASSWORD_VAULT_KEY` | Sella la clave que el admin asigna a cada usuario (AES-256-GCM) | «Asignar clave» **no hace nada**: no crea la cuenta de acceso ni guarda la clave. La persona no puede entrar («Invalid login credentials») y el ojo no enseña nada |
+| `DGII_CERT_ENCRYPTION_KEY` | Certificado fiscal `.p12` | No se puede subir ni usar el certificado |
+| `AI_CREDENTIALS_ENCRYPTION_KEY` | Claves de los proveedores de IA | El módulo de IA no guarda credenciales |
+
+Las tres son **32 bytes en base64** y se generan igual:
+
+```bash
+openssl rand -base64 32
+```
+
+🔴 **No se rotan a la ligera.** Lo ya sellado con una llave solo se abre con
+esa llave: cambiarla deja las claves guardadas ilegibles («¿cambió la llave del
+servidor?») y hay que reasignarlas una por una.
+
+🔴 **Al ponerla en Vercel, pásala por la ENTRADA ESTÁNDAR**, nunca como
+argumento — y hace falta un **despliegue nuevo** para que el runtime la vea:
+
+```bash
+printf '%s' "$(openssl rand -base64 32)" | \
+  npx vercel env add USER_PASSWORD_VAULT_KEY production \
+  --project dermaland --scope wrodriguez3030-4801s-projects
+```
+
+`vercel env pull` de production devuelve `"[SENSITIVE]"`, no el valor: para
+comprobar que quedó bien, la prueba es usar la función, no leer la variable.
+
 ## Deploy en Vercel (preview y producción)
 
 ```powershell
