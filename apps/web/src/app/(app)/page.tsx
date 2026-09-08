@@ -57,8 +57,8 @@ import {
   mockInventoryCounts,
   isPendingInventoryCount,
 } from "@/lib/mock-data/inventory-counts";
-import { TarjetasVentasPanel } from "@/features/dashboard/tarjetas-ventas";
-import { VentasRecientes } from "@/features/dashboard/ventas-recientes";
+import { DIMENSIONES_DEL_PANEL, TarjetasVentasPanel } from "@/features/dashboard/tarjetas-ventas";
+import { VentasRecientes, VISIBLES } from "@/features/dashboard/ventas-recientes";
 // Segunda fuente de "Ventas del período": el resumen YA CALCULADO de
 // `/api/ventas?vista=resumen` (sistema + histórico migrado de Alegra). El
 // cliente de esa ruta —petición, lectura defensiva del JSON y el texto que
@@ -67,7 +67,7 @@ import { VentasRecientes } from "@/features/dashboard/ventas-recientes";
 // puede decir una cosa aquí y otra en los reportes.
 import {
   textoDesgloseOrigen,
-  useResumenVentas,
+  usePanelVentas,
 } from "@/features/ventas/ventas-api";
 
 // El criterio de «venta hecha del sistema» vive en
@@ -138,14 +138,30 @@ export default function DashboardPage() {
   // El combo "mes fijo + año Todos" no es un rango continuo: no hay nada que
   // pedirle a la base sin mentir sobre el filtro (ver `rangoParaResumen`), así
   // que la petición ni se lanza.
-  const resumenAlegra = useResumenVentas(
+  /**
+   * 🔴 TODO lo que el panel necesita de las ventas, en UNA petición.
+   *
+   * Antes eran tres, con EXACTAMENTE los mismos filtros: el resumen del KPI
+   * aquí, el listado de «Ventas recientes» dentro de su tarjeta y los tres
+   * desgloses dentro de las suyas. Cada una es una función sin servidor con su
+   * propio arranque, y el navegador además limita cuántas lanza a la vez.
+   * Medido en el navegador el 08/09/2026, el panel disparaba TRECE peticiones
+   * al cargar; esto quita dos de golpe y el servidor resuelve las partes en
+   * paralelo contra la base, que es donde cuestan ~100 ms y no se estorban.
+   *
+   * `limite` solo lo mira el listado; el resumen y los desgloses lo ignoran.
+   */
+  const panelVentas = usePanelVentas(
+    DIMENSIONES_DEL_PANEL,
     {
       desde: rangoResumen?.desde,
       hasta: rangoResumen?.hasta,
       sucursalId: sucursalIdResumen,
+      limite: VISIBLES,
     },
     !mesSinAnioNoSoportado,
   );
+  const resumenAlegra = panelVentas.resumen;
 
   // Mientras el resumen está en camino no hay número fiable que enseñar en
   // "Ventas del período" — ni siquiera el del sistema solo: hoy `proformas`
@@ -491,6 +507,7 @@ export default function DashboardPage() {
         historicoAviso={historicoAviso}
         vencimientosCriticos={vencimientosCriticos}
         bajoStock={inventario.resumen?.bajoMinimo?.total ?? 0}
+        desglosesDelPanel={historicoParticipa ? panelVentas.desgloses : undefined}
       />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -611,6 +628,7 @@ export default function DashboardPage() {
           ventasDelSistema={filteredSaleDocs}
           filtros={filtrosHistorico}
           historicoParticipa={historicoParticipa}
+          listadoDelPanel={historicoParticipa ? panelVentas.listado : undefined}
         />
 
         <Card>

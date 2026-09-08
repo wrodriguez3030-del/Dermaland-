@@ -7,7 +7,12 @@ import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { desdeProforma, pinturaEstadoVenta, type VentaUnificada } from "@/features/ventas/venta-unificada";
-import { useListadoVentas, type FiltrosVentasApi } from "@/features/ventas/ventas-api";
+import {
+  useListadoVentas,
+  type EstadoVentas,
+  type FiltrosVentasApi,
+  type ListadoVentasApi,
+} from "@/features/ventas/ventas-api";
 import type { Proforma } from "@/types";
 
 /**
@@ -46,7 +51,8 @@ import type { Proforma } from "@/types";
  */
 
 /** Cuántas ventas caben en la tarjeta. */
-const VISIBLES = 8;
+/** Cuántas ventas caben en la tarjeta. La pide el panel para agrupar la petición. */
+export const VISIBLES = 8;
 
 /** Fecha de una venta, con la precisión que de verdad tiene su origen. */
 function fechaVisible(v: VentaUnificada): string {
@@ -127,6 +133,7 @@ export function VentasRecientes({
   ventasDelSistema,
   filtros,
   historicoParticipa,
+  listadoDelPanel,
 }: {
   /** Ventas completadas del sistema dentro del filtro del panel. */
   ventasDelSistema: Proforma[];
@@ -138,8 +145,25 @@ export function VentasRecientes({
    * sistema y lo DICE.
    */
   historicoParticipa: boolean;
+  /**
+   * El listado YA PEDIDO por el panel, que lo trae junto al resumen y a los
+   * desgloses en una sola petición (`usePanelVentas`). Cuando llega, esta
+   * tarjeta no pide nada por su cuenta.
+   *
+   * Sin él la tarjeta se vale sola —lo hace en sus pruebas y lo haría en
+   * cualquier otra pantalla—, pero en el panel eso era una función sin
+   * servidor de más por los MISMOS filtros.
+   */
+  listadoDelPanel?: EstadoVentas<ListadoVentasApi> | undefined;
 }) {
-  const listado = useListadoVentas({ ...filtros, limite: VISIBLES }, historicoParticipa);
+  // 🔴 El `activo` en `false` no es un detalle: sin él esta tarjeta seguiría
+  // pidiendo lo mismo que el panel ya trajo. La regla de los hooks impide
+  // llamarlo condicionalmente, así que se llama siempre y se apaga.
+  const propio = useListadoVentas(
+    { ...filtros, limite: VISIBLES },
+    historicoParticipa && !listadoDelPanel,
+  );
+  const listado = listadoDelPanel ?? propio;
 
   const delSistema = React.useMemo(
     () => ventasDelSistema.map(desdeProforma),

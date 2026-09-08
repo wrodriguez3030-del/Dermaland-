@@ -1,0 +1,158 @@
+# Auditoria de migraciones — 2026-09-06
+
+> Generado por `scripts/audit-migrations.mjs`. Clasifica **por objeto**, no
+> por nombre: el historial no es fuente de verdad.
+
+| Archivo | Veredicto | Objetos | En historial | Faltantes |
+|---|---|---|---|---|
+| `0001_phase1_core` | PARCIAL | 25 | si | policy:plans.plans_admin, policy:businesses.businesses_select, policy:businesses.businesses_admin_all, policy:businesses.businesses_self_update, policy:branches.branches_select, policy:branches.branches_write, policy:users.users_select, policy:users.users_admin_write |
+| `0002_phase2_inventory` | PARCIAL | 35 | si | index:products_barcode_unique |
+| `00030_0002a_clients` | PARCIAL | 6 | si | policy:clients.clients_select, policy:clients.clients_write |
+| `0003_dgii_pos` | PARCIAL | 59 | si | table:proforma_to_ecf_logs, policy:proforma_to_ecf_logs.proforma_to_ecf_logs_all, table:dgii_received_ecf, policy:dgii_received_ecf.dgii_received_ecf_all, table:dgii_commercial_approvals, policy:dgii_commercial_approvals.dgii_commercial_approvals_all |
+| `0004_dgii_permissions_seed` | APLICADA | 2 | si | — |
+| `0005_dgii_role_permissions_seed` | APLICADA | 4 | si | — |
+| `0006_auth_helpers_jwt_metadata` | APLICADA | 2 | si | — |
+| `0007_audit_logs_insert_policy` | APLICADA | 1 | si | — |
+| `0008_security_advisor_fixes` | APLICADA | 20 | si | — |
+| `0009_rls_initplan_remaining` | INDETERMINADA | 0 | si | — |
+| `0010_inventory_transfers` | APLICADA | 7 | **NO** | — |
+| `0011_invoice_numberings` | APLICADA | 5 | si | — |
+| `0012_purchases` | APLICADA | 18 | **NO** | — |
+| `0013_pos_favorites_line_discount` | APLICADA | 5 | si | — |
+| `0014_billing_settings_ecf` | PARCIAL | 15 | si | table:cash_closing_ecf_items, policy:cash_closing_ecf_items.cash_closing_ecf_items_all, table:dgii_logs, policy:dgii_logs.dgii_logs_all |
+| `0015_cash_movements` | APLICADA | 3 | si | — |
+| `0016_laboratories_seed` | INDETERMINADA | 0 | si | — |
+| `0017_backfill_product_laboratories` | INDETERMINADA | 0 | si | — |
+| `0018_pos_numbering_wiring` | APLICADA | 2 | si | — |
+| `0019_sale_seller` | APLICADA | 3 | si | — |
+| `0020_sales_incentives` | APLICADA | 8 | si | — |
+| `0021_users_vendedor_role` | INDETERMINADA | 0 | si | — |
+| `0022_customer_sales_relations` | APLICADA | 4 | si | — |
+| `0023_commission` | APLICADA | 15 | si | — |
+| `0024_commission_unify` | APLICADA | 11 | si | — |
+| `0025_products_soft_delete_unique` | APLICADA | 2 | si | — |
+| `0026_sec001_auth_helpers_appmeta_only` | APLICADA | 2 | si | — |
+| `0027_sec010_011_atomic_stock_idempotency` | APLICADA | 3 | si | — |
+| `0028_lot_qty_nonneg_check` | INDETERMINADA | 0 | si | — |
+| `0029_atomic_sale_and_void` | APLICADA | 4 | si | — |
+| `0030_apply_count_adjustments` | APLICADA | 1 | si | — |
+| `0031_accounts_receivable` | APLICADA | 12 | si | — |
+| `0032_transfer_atomic` | APLICADA | 1 | si | — |
+| `0033_laboratory_shelf_life` | APLICADA | 1 | si | — |
+| `0034_email_settings` | APLICADA | 2 | si | — |
+| `0035_dl14_function_search_path` | INDETERMINADA | 0 | si | — |
+| `0036_storefront_web_catalog` | APLICADA | 10 | si | — |
+| `0037_client_auth_links` | APLICADA | 4 | si | — |
+| `0038_web_orders` | APLICADA | 11 | si | — |
+| `0039_web_order_payment_columns` | APLICADA | 4 | si | — |
+| `0040_shipping_rates` | APLICADA | 7 | si | — |
+| `0041_transfer_payments` | APLICADA | 8 | si | — |
+| `0042_client_identity_normalized` | APLICADA | 8 | si | — |
+| `0043_branch_web_fulfillment` | APLICADA | 2 | si | — |
+| `0044_client_phone_uniform_format` | INDETERMINADA | 0 | si | — |
+| `0045_ecf_idempotency_and_events` | APLICADA | 13 | si | — |
+| `0046_dgii_xml_storage` | APLICADA | 1 | si | — |
+| `20260711182946_ai_providers_module` | APLICADA | 11 | si | — |
+| `20260803010512_product_images_storage_bucket` | APLICADA | 4 | si | — |
+| `20260804195156_0042_payments_azul` | APLICADA | 9 | si | — |
+| `20260805020813_ecf_events_fk_restrict` | INDETERMINADA | 0 | si | — |
+| `20260806172849_backfill_laboratories_missing_brands` | INDETERMINADA | 0 | si | — |
+| `20260806175500_laboratories_default_shelf_life_90` | INDETERMINADA | 0 | si | — |
+| `20260806200000_web_orders_delivery_coords` | APLICADA | 2 | si | — |
+| `20260807120000_branches_maps_instagram` | APLICADA | 2 | si | — |
+| `20260807160000_web_settings_linktree` | APLICADA | 1 | si | — |
+| `20260807170000_businesses_datos_fiscales_y_marca` | APLICADA | 6 | si | — |
+| `20260810040000_proforma_number_server_side` | APLICADA | 2 | si | — |
+| `20260819120000_web_settings_azul_payment_link` | APLICADA | 1 | si | — |
+| `20260819180000_web_orders_azul_link` | APLICADA | 1 | si | — |
+| `20260819230000_cash_sessions_closed_by_name` | APLICADA | 1 | si | — |
+| `20260905200000_alegra_sync` | APLICADA | 17 | si | — |
+| `20260906090000_dgii_fase2_retirada_legacy` | INDETERMINADA | 0 | si | — |
+| `20260906090100_dgii_fase2_tablas` | APLICADA | 85 | si | — |
+| `20260906090200_dgii_fase2_funciones` | APLICADA | 5 | si | — |
+
+## Sin archivo local (agujero real)
+
+Registros del historial que no corresponden a NINGUN `.sql` del repositorio
+— ni por nombre ni por los objetos que declaran. Estos son la evidencia de
+que se aplico algo a produccion sin dejar rastro reconstruible.
+
+- `transfer_stock_atomic` (version `20260716203746`)
+- `wa_agent_esquema_inicial` (version `20260823195123`)
+- `wa_agent_permisos_postgrest` (version `20260823200742`)
+- `wa_agent_limpiar_tablas_creadas_por_error_en_public` (version `20260823225428`)
+- `wa_agent_secretos_cifrados` (version `20260825005059`)
+
+## Registrado bajo otro nombre (cosmetico)
+
+Registros del historial que SI tienen un `.sql` local — Supabase los
+registro con el nombre de una tabla o funcion en vez del nombre del
+archivo. Emparejados por similitud de objetos (Jaccard >= 0.5 Y al
+menos 2 objetos en comun — un solo objeto en comun, por mas
+perfecto que sea el jaccard, no es evidencia suficiente por si sola; ver
+seccion Dudosos y el comentario en el codigo). No representan un
+agujero: NO proponer `repair` para estos, ya estan registrados (solo que
+con otro nombre).
+
+- `create_inventory_transfers_tables` (version `20260716203725`) → `0010_inventory_transfers` (jaccard 1.00, 7/7 objetos)
+- `purchases_module` (version `20260716213445`) → `0012_purchases` (jaccard 1.00, 18/18 objetos)
+
+## Dudosos (evidencia insuficiente — revisar a mano)
+
+Registros que superan el umbral de similitud (Jaccard >= 0.5) contra
+algun archivo local sin registro, pero con MENOS de 2 objetos en
+comun — muy poca base para confirmar un renombrado. Un jaccard perfecto
+sobre un solo objeto tambien lo daria un hotfix aplicado a produccion sin
+dejar `.sql` que por casualidad declara el mismo objeto (la forma de
+drift MAS COMUN de este repositorio). NO se cuentan como renombrado NI
+como huerfano: ni se asumen resueltos ni se pierden de vista. Decide un
+humano, no el script.
+
+- Ninguno.
+
+## Archivo sin registro (contabilidad)
+
+Archivos locales que no aparecen en el historial bajo ningun nombre (ni el
+suyo ni un renombrado detectado arriba). No es un agujero: casi todos ya
+estan `APLICADA` de verdad, solo falta que el historial lo sepa.
+
+- Ninguno.
+
+## Reparacion del historial — NINGUN COMANDO EJECUTABLE PROPUESTO
+
+**El proyecto NO esta `linked`** (no existe `supabase/.temp`). Sin
+eso, `supabase migration repair` exige `--db-url` o `-p/--password` como
+argumento en la linea de comandos — y eso deja la contraseña de
+produccion en el historial del shell. Forma segura antes de reparar nada:
+
+```bash
+supabase link --project-ref sntcvyozbhrgicwmtcoh
+# pide un access token interactivo — nunca la contraseña de Postgres.
+supabase migration repair --status applied <version> --linked
+# NUNCA: supabase migration repair ... --db-url "postgresql://..." con
+# la cadena pegada literal. Si hiciera falta --db-url, pasarlo como
+# variable de entorno ya exportada: --db-url "$SUPABASE_DB_URL".
+```
+
+**Las versiones de `supabase_migrations.schema_migrations` son
+timestamps de 14 digitos** (ej. `20260805020813`). Los archivos locales
+de este repo usan un numero de secuencia de 4 digitos (`0007`, `0008`,
+...) que NO es una version valida para `repair` — un comando con ese
+numero fallaria o, peor, registraria una version que no significa nada.
+Para las migraciones `APLICADA` sin fila en el historial no hay ninguna
+fuente confiable de CUANDO se aplicaron realmente (por definicion: si la
+hubiera, tendrian fila). Inventar un timestamp seria un `repair` mal
+formado contra produccion — peor que no proponer nada. Por eso este
+reporte NO emite comandos: falta que un humano decida que version
+asignarle a cada una (o acepte una version "de documentacion", con el
+entendido de que no refleja cuando se aplico de verdad).
+
+- Ninguna.
+
+**Requieren decision humana** (no se propone comando):
+
+- `0001_phase1_core` → PARCIAL. Revisar a mano antes de tocar el historial.
+- `0002_phase2_inventory` → PARCIAL. Revisar a mano antes de tocar el historial.
+- `00030_0002a_clients` → PARCIAL. Revisar a mano antes de tocar el historial.
+- `0003_dgii_pos` → PARCIAL. Revisar a mano antes de tocar el historial.
+- `0014_billing_settings_ecf` → PARCIAL. Revisar a mano antes de tocar el historial.

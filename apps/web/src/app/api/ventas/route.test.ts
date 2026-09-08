@@ -32,12 +32,17 @@ const desgloseVentas = vi.fn(
     { clave: "DESTENY REYNOSO", etiqueta: "DESTENY REYNOSO", origen: "alegra", cantidad: 5513, total: 1 },
   ],
 );
-const resumenVentas = vi.fn(async () => ({
+const resumenVentas = vi.fn(async (_ctx: { businessId: string }, _filtros: Record<string, unknown>) => ({
   total: 0,
   cantidad: 0,
   porOrigen: { sistema: { total: 0, cantidad: 0 }, alegra: { total: 0, cantidad: 0 } },
 }));
-const listarVentasUnificadas = vi.fn(async () => ({ ventas: [], hayMas: false }));
+const listarVentasUnificadas = vi.fn(
+  async (_ctx: { businessId: string }, _filtros: Record<string, unknown>) => ({
+    ventas: [],
+    hayMas: false,
+  }),
+);
 
 /** El origen de datos, mutable entre pruebas (mock ↔ supabase). */
 const env = { DATA_SOURCE: "supabase" };
@@ -258,5 +263,99 @@ describe("GET /api/ventas?vista=desglose con varias dimensiones", () => {
 
   it("sin dimensión sigue siendo 400", async () => {
     expect((await pedir("vista=desglose")).status).toBe(400);
+  });
+});
+
+/**
+ * 🔴 Varias VISTAS en UNA petición.
+ *
+ * El panel pedía el resumen, el listado y los desgloses por separado con
+ * EXACTAMENTE los mismos filtros: tres funciones sin servidor, tres arranques,
+ * para tres consultas que la base resuelve a la vez. Aquí se comprueba que la
+ * respuesta combinada trae las tres partes ENTERAS — resolver solo la primera
+ * y devolver el resto vacío es el fallo mudo que estas pruebas existen para
+ * cazar: el panel pintaría «sin datos» sobre RD$48 millones.
+ */
+describe("GET /api/ventas con varias vistas", () => {
+  const TODAS = "vista=resumen,listado,desglose&dimension=sucursal,forma_pago,producto";
+
+  it("🔴 una petición trae las TRES partes, cada una completa", async () => {
+    const res = await pedir(TODAS);
+    expect(res.status).toBe(200);
+    const cuerpo = (await res.json()) as {
+      resumen?: unknown;
+      ventas?: unknown[];
+      hayMas?: boolean;
+      desgloses?: Record<string, unknown>;
+    };
+    // Las tres partes. Que falte una es indistinguible de «no hubo ventas».
+    expect(cuerpo.resumen).toBeDefined();
+    expect(Array.isArray(cuerpo.ventas)).toBe(true);
+    expect(cuerpo.hayMas).toBe(false);
+    expect(Object.keys(cuerpo.desgloses ?? {}).sort()).toEqual([
+      "forma_pago",
+      "producto",
+      "sucursal",
+    ]);
+    // Una llamada a la base por cosa pedida, ni una de más.
+    expect(resumenVentas).toHaveBeenCalledTimes(1);
+    expect(listarVentasUnificadas).toHaveBeenCalledTimes(1);
+    expect(desgloseVentas).toHaveBeenCalledTimes(3);
+  });
+
+  it("🔴 todas las partes reciben los MISMOS filtros", async () => {
+    // Si una vista se quedara con otro rango, el panel sumaría un total de
+    // septiembre con un listado de agosto y nadie lo vería.
+    await pedir(`${TODAS}&desde=2026-09-01&hasta=2026-09-30&sucursalId=00000000-0000-0000-0000-00000000b001`);
+    const esperado = {
+      desde: "2026-09-01",
+      hasta: "2026-09-30",
+      sucursalId: "00000000-0000-0000-0000-00000000b001",
+    };
+    expect(resumenVentas.mock.calls[0]?.[1]).toMatchObject(esperado);
+    expect(listarVentasUnificadas.mock.calls[0]?.[1]).toMatchObject(esperado);
+    for (const llamada of desgloseVentas.mock.calls) {
+      expect(llamada[1]).toMatchObject(esperado);
+    }
+  });
+
+  it("dos vistas sin desglose no piden ninguna dimensión", async () => {
+    const res = await pedir("vista=resumen,listado");
+    expect(res.status).toBe(200);
+    const cuerpo = (await res.json()) as { resumen?: unknown; ventas?: unknown[]; desgloses?: unknown };
+    expect(cuerpo.resumen).toBeDefined();
+    expect(Array.isArray(cuerpo.ventas)).toBe(true);
+    expect(cuerpo.desgloses).toBeUndefined();
+    expect(desgloseVentas).not.toHaveBeenCalled();
+  });
+
+  it("🔴 pedir desglose dentro de la lista SIN dimensión sigue siendo 400", async () => {
+    const res = await pedir("vista=resumen,desglose");
+    expect(res.status).toBe(400);
+    expect(resumenVentas).not.toHaveBeenCalled();
+  });
+
+  it("🔴 una vista inventada en la lista es un 400, no una respuesta a medias", async () => {
+    const res = await pedir("vista=resumen,inventada");
+    expect(res.status).toBe(400);
+    expect(resumenVentas).not.toHaveBeenCalled();
+  });
+
+  it("una sola vista conserva la forma de siempre", async () => {
+    const cuerpo = (await (await pedir("vista=resumen")).json()) as Record<string, unknown>;
+    expect(cuerpo.resumen).toBeDefined();
+    expect(cuerpo.ventas).toBeUndefined();
+    expect(cuerpo.desgloses).toBeUndefined();
+  });
+
+  it("la respuesta combinada pide el mismo rol y no se cachea", async () => {
+    authorizeRole.mockResolvedValueOnce({
+      ok: false,
+      res: new Response(null, { status: 403 }),
+    });
+    expect((await pedir(TODAS)).status).toBe(403);
+
+    const res = await pedir(TODAS);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 });

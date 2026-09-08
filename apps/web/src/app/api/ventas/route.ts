@@ -48,7 +48,17 @@ type Vista = (typeof VISTAS)[number];
  * distinguiría de la entera.
  */
 const querySchema = z.object({
-  vista: z.enum(VISTAS).default("listado"),
+  /**
+   * Una vista, o VARIAS separadas por comas. Igual que con `dimension`: el
+   * panel pedía resumen, listado y desglose por separado —tres funciones sin
+   * servidor, tres arranques— cuando los tres llevan EXACTAMENTE los mismos
+   * filtros. Juntas es una petición.
+   */
+  vista: z
+    .string()
+    .transform((v) => v.split(",").map((x) => x.trim()).filter(Boolean))
+    .pipe(z.array(z.enum(VISTAS)).min(1).max(VISTAS.length))
+    .default(["listado"]),
   // 🔴 Sin `.default()`: una dimensión que no reconocemos tiene que ser un 400
   // que dice qué se pidió mal, no un desglose de otra cosa ni una tabla vacía
   // —que en esta pantalla es indistinguible de «no hubo ventas»—. La
@@ -103,7 +113,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Solo para elegir la FORMA de la respuesta vacía del modo mock; la vista de
   // verdad la decide zod más abajo.
   const pedida = sp.get("vista");
-  const vistaCruda: Vista = VISTAS.find((v) => v === pedida) ?? "listado";
+  const vistaCruda: Vista = VISTAS.find((v) => v === (pedida ?? "").split(",")[0]) ?? "listado";
 
   // Sin Supabase no hay `alegra_invoices` ni proformas reales que unificar
   // (el modo mock vive en memoria del proceso, sin histórico de Alegra).
@@ -130,7 +140,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Una dimensión desconocida ya la rechazó zod; la que falta, aquí. En los dos
   // casos es un 400: pedir un desglose sin decir de qué es un error de la
   // petición, no un desglose vacío.
-  if (vista === "desglose" && (!dimension || dimension.length === 0)) {
+  if (vista.includes("desglose") && (!dimension || dimension.length === 0)) {
     // La lista se ESCRIBE desde `DIMENSIONES_DESGLOSE`, no a mano: enumerarla
     // aquí dejaría el mensaje mintiendo el día que se añada una dimensión
     // (pasó: la tarjeta de sucursal y la de tendencia mensual llegaron
@@ -145,11 +155,41 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   try {
     const ctx = await getRepoContext();
-    if (vista === "resumen") {
+
+    // Varias vistas en una sola petición: se resuelven en paralelo contra la
+    // base y se devuelven juntas, cada una con la MISMA forma que tendría sola.
+    if (vista.length > 1) {
+      const partes = await Promise.all(
+        vista.map(async (v): Promise<Record<string, unknown>> => {
+          if (v === "resumen") return { resumen: await resumenVentas(ctx, filtrosVentas) };
+          if (v === "desglose") {
+            const dims: DimensionDesglose[] = dimension ?? [];
+            const hechos = await Promise.all(
+              dims.map(async (dim) => {
+                const desglose = await desgloseVentas(ctx, filtrosVentas, dim);
+                const fuentes = FUENTES_DESGLOSE[dim].filter(
+                  (f) => f !== "alegra" || filtrosVentas.incluirAlegra !== false,
+                );
+                return [dim, { desglose, fuentes }] as const;
+              }),
+            );
+            return { desgloses: Object.fromEntries(hechos) };
+          }
+          const { ventas, hayMas } = await listarVentasUnificadas(ctx, filtrosVentas);
+          return { ventas, hayMas };
+        }),
+      );
+      return NextResponse.json(Object.assign({}, ...partes), {
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+
+    const unica = vista[0]!;
+    if (unica === "resumen") {
       const resumen = await resumenVentas(ctx, filtrosVentas);
       return NextResponse.json({ resumen }, { headers: { "Cache-Control": "no-store" } });
     }
-    if (vista === "desglose") {
+    if (unica === "desglose") {
       // `dimension` está garantizada por la guarda de arriba; el `!` es lo que
       // pide `noUncheckedIndexedAccess` para no repetir la comprobación.
       const dims: DimensionDesglose[] = dimension!;

@@ -6,8 +6,12 @@ import { Card, CardContent } from "@/components/ui";
 import { formatCurrency, formatNumber } from "@/lib/utils/format";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { combinarDesglose } from "@/features/ventas/desglose-tarjeta";
-import { useDesgloseVentas,
-  useDesglosesVentas } from "@/features/ventas/ventas-api";
+import {
+  useDesgloseVentas,
+  useDesglosesVentas,
+  type DesgloseVentasApi,
+  type EstadoVentas,
+} from "@/features/ventas/ventas-api";
 import type { Proforma } from "@/types";
 import { BarChart, ChartCard, DonutChart, TrendChart } from "./charts";
 import {
@@ -98,6 +102,17 @@ export function LeyendaTarjeta({ tarjeta }: { tarjeta: TarjetaPanel }) {
   );
 }
 
+/**
+ * Los tres desgloses que estas tarjetas necesitan y que COMPARTEN filtros: van
+ * en una sola petición. La tendencia NO está aquí porque lleva su propia
+ * ventana de seis meses (ver abajo).
+ *
+ * Se exporta para que el panel pida exactamente estos y no una lista paralela
+ * que se desincronice.
+ */
+export const DIMENSIONES_DEL_PANEL = ["sucursal", "forma_pago", "producto"] as const;
+export type DimensionPanel = (typeof DIMENSIONES_DEL_PANEL)[number];
+
 /** Las cuatro tarjetas de ventas del panel + los insights del período. */
 export function TarjetasVentasPanel({
   ventasDelPeriodo,
@@ -109,6 +124,7 @@ export function TarjetasVentasPanel({
   historicoAviso = null,
   vencimientosCriticos,
   bajoStock,
+  desglosesDelPanel,
 }: {
   /** Ventas completadas del sistema dentro del filtro (sucursal + mes + año). */
   ventasDelPeriodo: Proforma[];
@@ -133,6 +149,12 @@ export function TarjetasVentasPanel({
   historicoAviso?: string | null | undefined;
   vencimientosCriticos: number;
   bajoStock: number;
+  /**
+   * Los tres desgloses YA PEDIDOS por el panel, que los trae junto al resumen
+   * y al listado en una sola petición (`usePanelVentas`). Cuando llegan, estas
+   * tarjetas no piden nada por su cuenta.
+   */
+  desglosesDelPanel?: Record<DimensionPanel, EstadoVentas<DesgloseVentasApi>> | undefined;
 }) {
   // Una sola foto del reloj para toda la tarjeta de tendencia: si los cubos y
   // la serie del sistema se calcularan con dos `new Date()` distintos, un
@@ -148,11 +170,15 @@ export function TarjetasVentasPanel({
   // 08/09/2026, el panel disparaba TRECE peticiones al cargar. Cada una es una
   // función sin servidor con su propio arranque, y el navegador limita cuántas
   // lanza a la vez.
-  const desgloses = useDesglosesVentas(
-    ["sucursal", "forma_pago", "producto"],
+  // 🔴 El `activo` en `false` no es un detalle: sin él estas tarjetas
+  // repetirían la petición que el panel ya hizo. La regla de los hooks impide
+  // llamarlo condicionalmente, así que se llama siempre y se apaga.
+  const propios = useDesglosesVentas(
+    DIMENSIONES_DEL_PANEL,
     filtros,
-    historicoParticipa,
+    historicoParticipa && !desglosesDelPanel,
   );
+  const desgloses = desglosesDelPanel ?? propios;
   const desgloseSucursal = desgloses.sucursal;
   const desglosePago = desgloses.forma_pago;
   const desgloseProducto = desgloses.producto;

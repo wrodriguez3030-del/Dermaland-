@@ -74,8 +74,12 @@ export interface ListadoVentasApi {
 }
 
 export interface FiltrosVentasApi {
-  /** Solo para `?vista=desglose`. Sin ella la ruta responde 400, no un desglose vacío. */
-  dimension?: DimensionDesglose | undefined;
+  /**
+   * Solo para `?vista=desglose`. Sin ella la ruta responde 400, no un desglose
+   * vacío. Se acepta una LISTA para pedir varios desgloses en una sola
+   * petición, que es lo que hacen `useDesglosesVentas` y `usePanelVentas`.
+   */
+  dimension?: DimensionDesglose | readonly DimensionDesglose[] | undefined;
   /** `YYYY-MM-DD`, inclusive. */
   desde?: string | undefined;
   /** `YYYY-MM-DD`, inclusive. */
@@ -259,10 +263,20 @@ export function comoMensajeError(json: unknown): string | null {
 /** Las tres vistas de `/api/ventas`. */
 export type VistaVentas = "resumen" | "listado" | "desglose";
 
-/** Cadena de consulta de `/api/ventas` para una vista y unos filtros. */
-export function consultaVentas(vista: VistaVentas, filtros: FiltrosVentasApi): string {
-  const p = new URLSearchParams({ vista });
-  if (filtros.dimension) p.set("dimension", filtros.dimension);
+/**
+ * Cadena de consulta de `/api/ventas` para una vista (o VARIAS, separadas por
+ * comas) y unos filtros.
+ */
+export function consultaVentas(
+  vista: VistaVentas | readonly VistaVentas[],
+  filtros: FiltrosVentasApi,
+): string {
+  const p = new URLSearchParams({ vista: [vista].flat().join(",") });
+  // Ordenadas: dos llamadas con las mismas dimensiones en otro orden tienen
+  // que dar la MISMA cadena, o el efecto las toma por consultas distintas y
+  // pide dos veces lo mismo.
+  const dims = filtros.dimension ? [...[filtros.dimension].flat()].sort() : [];
+  if (dims.length > 0) p.set("dimension", dims.join(","));
   if (filtros.desde) p.set("desde", filtros.desde);
   if (filtros.hasta) p.set("hasta", filtros.hasta);
   if (filtros.clienteId) p.set("clienteId", filtros.clienteId);
@@ -282,7 +296,7 @@ export function consultaVentas(vista: VistaVentas, filtros: FiltrosVentasApi): s
  * una petición por render.
  */
 function useVentasApi<T>(
-  vista: VistaVentas,
+  vista: VistaVentas | readonly VistaVentas[],
   filtros: FiltrosVentasApi,
   activo: boolean,
   interpretar: (json: unknown) => T,
@@ -386,6 +400,63 @@ export function useDesgloseVentas(
 }
 
 /**
+ * El PANEL entero en una sola petición: resumen, últimas ventas y los
+ * desgloses que comparten filtros.
+ *
+ * 🔴 Los tres llevaban EXACTAMENTE los mismos filtros y viajaban por separado.
+ * Medido en el navegador: el panel disparaba trece peticiones al cargar, y cada
+ * una es una función sin servidor con su propio arranque.
+ *
+ * Devuelve cada trozo con la MISMA forma que tendría pedido solo, para que las
+ * pantallas no tengan que aprender otra cosa.
+ */
+export function usePanelVentas(
+  dimensiones: readonly DimensionDesglose[],
+  filtros: FiltrosVentasApi,
+  activo = true,
+): {
+  resumen: EstadoVentas<ResumenVentasApi>;
+  listado: EstadoVentas<ListadoVentasApi>;
+  desgloses: Record<DimensionDesglose, EstadoVentas<DesgloseVentasApi>>;
+} {
+  const clave = [...dimensiones].sort().join(",");
+  const estado = useVentasApi(
+    ["resumen", "listado", "desglose"],
+    { ...filtros, dimension: dimensiones },
+    activo && dimensiones.length > 0,
+    (json) => json,
+  );
+
+  return React.useMemo(() => {
+    const cuerpo =
+      estado.tipo === "listo"
+        ? (estado.datos as { desgloses?: Record<string, unknown> })
+        : undefined;
+    const desgloses = {} as Record<DimensionDesglose, EstadoVentas<DesgloseVentasApi>>;
+    for (const d of dimensiones) {
+      if (!cuerpo) {
+        desgloses[d] = estado as EstadoVentas<DesgloseVentasApi>;
+        continue;
+      }
+      const trozo = cuerpo.desgloses?.[d];
+      desgloses[d] = trozo
+        ? { tipo: "listo", datos: comoDesgloseVentas(trozo) }
+        : { tipo: "error", mensaje: "El servidor no devolvió este desglose." };
+    }
+    return {
+      resumen: cuerpo
+        ? { tipo: "listo" as const, datos: comoResumenVentas(cuerpo) }
+        : (estado as EstadoVentas<ResumenVentasApi>),
+      listado: cuerpo
+        ? { tipo: "listo" as const, datos: comoListadoVentas(cuerpo) }
+        : (estado as EstadoVentas<ListadoVentasApi>),
+      desgloses,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado, clave]);
+}
+
+/**
  * VARIOS desgloses en UNA sola petición.
  *
  * 🔴 Por qué: el panel llamaba a `useDesgloseVentas` cuatro veces —sucursal,
@@ -410,8 +481,8 @@ export function useDesglosesVentas(
   const clave = [...dimensiones].sort().join(",");
   const estado = useVentasApi(
     "desglose",
-    { ...filtros, dimension: clave as DimensionDesglose },
-    activo && clave !== "",
+    { ...filtros, dimension: dimensiones },
+    activo && dimensiones.length > 0,
     (json) => json,
   );
 

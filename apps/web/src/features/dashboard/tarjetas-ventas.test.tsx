@@ -420,3 +420,68 @@ describe("qué se le pide a la base", () => {
     await waitFor(() => expect(tooltips(caja)).toContain("Jul 2026: RD$2.09M"));
   });
 });
+
+/**
+ * 🔴 Los desgloses que el panel ya trajo NO se vuelven a pedir.
+ *
+ * El panel pide el resumen, el listado y estos tres desgloses en UNA petición
+ * (`usePanelVentas`): los cinco llevan exactamente los mismos filtros. Si
+ * estas tarjetas siguieran pidiendo los suyos, el ahorro sería cero y nadie lo
+ * notaría — la pantalla se ve igual.
+ */
+describe("Tarjetas de ventas con los desgloses que ya trajo el panel", () => {
+  /**
+   * Los desgloses tal como los entrega `usePanelVentas`: ya INTERPRETADOS
+   * (`filas`), no el cuerpo crudo de la respuesta (`desglose`).
+   */
+  const listo = (d: string) => ({
+    tipo: "listo",
+    datos: { filas: RESPUESTAS[d]?.desglose ?? [], fuentes: RESPUESTAS[d]?.fuentes ?? [] },
+  });
+  const DEL_PANEL = {
+    sucursal: listo("sucursal"),
+    forma_pago: listo("forma_pago"),
+    producto: listo("producto"),
+  } as never;
+
+  it("🔴 no pide ninguno de los tres por su cuenta", async () => {
+    const espia = fetchDelHistorico();
+    vi.stubGlobal("fetch", espia);
+    pintar({ desglosesDelPanel: DEL_PANEL });
+    const caja = tarjeta("Ventas por sucursal");
+    await waitFor(() => expect(within(caja).getByText(/Villa Olga/)).toBeInTheDocument());
+
+    // La tendencia SÍ sigue pidiendo lo suyo: lleva su propia ventana de seis
+    // meses, sin el filtro de periodo, así que no cabe en la agrupada.
+    const dimensiones = espia.mock.calls.map(([url]) => dimensionDe(url as string));
+    expect(dimensiones).toEqual(["mes"]);
+  });
+
+  it("sin los desgloses del panel sí los pide", async () => {
+    // La otra mitad de la guarda: estas tarjetas siguen valiéndose solas. Sin
+    // esto, «no pide nada» pasaría también con las tarjetas rotas.
+    const espia = fetchDelHistorico();
+    vi.stubGlobal("fetch", espia);
+    pintar();
+    await waitFor(() =>
+      expect(espia.mock.calls.map(([url]) => dimensionDe(url as string)).sort()).toEqual([
+        "forma_pago,producto,sucursal",
+        "mes",
+      ]),
+    );
+  });
+
+  it("🔴 el error del panel se enseña en las tarjetas, no un «sin datos» mudo", async () => {
+    vi.stubGlobal("fetch", fetchDelHistorico());
+    pintar({
+      desglosesDelPanel: {
+        sucursal: { tipo: "error", mensaje: "Se cayó la base." },
+        forma_pago: { tipo: "error", mensaje: "Se cayó la base." },
+        producto: { tipo: "error", mensaje: "Se cayó la base." },
+      } as never,
+    });
+    await waitFor(() =>
+      expect(within(tarjeta("Ventas por sucursal")).getByText(/Se cayó la base/)).toBeInTheDocument(),
+    );
+  });
+});

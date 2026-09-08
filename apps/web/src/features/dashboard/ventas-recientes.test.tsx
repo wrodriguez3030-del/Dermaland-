@@ -355,3 +355,43 @@ describe("cuando el histórico no llega", () => {
     expect(within(lista()).getAllByRole("listitem")).toHaveLength(3);
   });
 });
+
+/**
+ * 🔴 El listado que el panel ya trajo NO se vuelve a pedir.
+ *
+ * El panel pide el resumen, el listado y los desgloses en UNA petición
+ * (`usePanelVentas`), porque los tres llevan exactamente los mismos filtros.
+ * Si esta tarjeta siguiera pidiendo el suyo, el ahorro sería cero y nadie lo
+ * notaría: la pantalla se vería idéntica.
+ */
+describe("«Ventas recientes» con el listado que ya trajo el panel", () => {
+  it("🔴 no dispara NINGUNA petición propia", async () => {
+    const espia = fetchDelHistorico();
+    vi.stubGlobal("fetch", espia);
+    pintar({
+      listadoDelPanel: {
+        tipo: "listo",
+        datos: { ventas: MIGRADAS as never, hayMas: false },
+      },
+    });
+    await waitFor(() =>
+      expect(within(lista()).getByText(/B0100000123 · María Fernández/)).toBeInTheDocument(),
+    );
+    expect(espia).not.toHaveBeenCalled();
+  });
+
+  it("sin el listado del panel sí pide el suyo", async () => {
+    // La otra mitad de la guarda: la tarjeta sigue valiéndose sola fuera del
+    // panel. Sin esto, «no pide nada» pasaría también con la tarjeta rota.
+    const espia = fetchDelHistorico();
+    vi.stubGlobal("fetch", espia);
+    pintar();
+    await waitFor(() => expect(espia).toHaveBeenCalled());
+  });
+
+  it("🔴 el error del panel se enseña aquí, no un «sin ventas» mudo", async () => {
+    vi.stubGlobal("fetch", fetchDelHistorico());
+    pintar({ listadoDelPanel: { tipo: "error", mensaje: "Se cayó la base." } });
+    await waitFor(() => expect(screen.getByText(/Se cayó la base/)).toBeInTheDocument());
+  });
+});
