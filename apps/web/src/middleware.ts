@@ -204,6 +204,10 @@ function esCron(request: NextRequest, pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
+  const arranque = performance.now();
+  const tiempos: string[] = [];
+  const cronometrar = (etapa: string, desde: number) =>
+    tiempos.push(`mw_${etapa};dur=${(performance.now() - desde).toFixed(1)}`);
   const { pathname } = request.nextUrl;
   if (isPublic(pathname)) return NextResponse.next();
 
@@ -233,9 +237,11 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  const tSesion = performance.now();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  cronometrar("getUser", tSesion);
 
   if (!user) {
     const url = request.nextUrl.clone();
@@ -272,6 +278,7 @@ export async function middleware(request: NextRequest) {
     let currentLevel: NivelAal = null;
     let nextLevel: NivelAal = null;
     let chequeoFallo = false;
+    const tAal = performance.now();
     try {
       const { data: aal, error } =
         await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -284,6 +291,7 @@ export async function middleware(request: NextRequest) {
     } catch {
       chequeoFallo = true;
     }
+    cronometrar("aal", tAal);
 
     // `nextLevel` se deriva de la sesión guardada en la galleta, que miente en
     // los dos sentidos —se queda corta tras un enrolamiento y se queda larga
@@ -317,6 +325,7 @@ export async function middleware(request: NextRequest) {
       const galleta = request.cookies.get(nombreDeLaGalleta)?.value;
       const dispositivo = parsear(galleta);
       if (dispositivo) {
+        const tConfianza = performance.now();
         try {
           const hash = await hashSecreto(dispositivo.secreto);
           // La RPC va con la sesión del usuario y está acotada a `auth.uid()`:
@@ -336,6 +345,7 @@ export async function middleware(request: NextRequest) {
           // Falla cerrado: si no se puede comprobar, se pide el código.
           galletaInvalida = true;
         }
+        cronometrar("confianza", tConfianza);
       }
     }
 
@@ -372,6 +382,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // `Server-Timing`: cuánto se le fue al middleware ANTES de que la ruta
+  // empiece. Va en la respuesta de cada petición —también las de `/api`— porque
+  // desde el navegador no había forma de distinguir el tiempo de la sesión del
+  // tiempo de la base, y las tres primeras explicaciones de la lentitud del
+  // panel resultaron ser corazonadas falsas. Solo lleva nombres de etapa y
+  // milisegundos, ningún dato del negocio.
+  tiempos.push(`mw_total;dur=${(performance.now() - arranque).toFixed(1)}`);
+  response.headers.set("Server-Timing", tiempos.join(", "));
   return response;
 }
 

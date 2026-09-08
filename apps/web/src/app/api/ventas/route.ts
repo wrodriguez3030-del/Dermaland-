@@ -3,6 +3,7 @@ import { z } from "zod";
 import { idDeLaBase } from "@/lib/utils/uuid-schema";
 import { env } from "@/lib/env";
 import { getRepoContext } from "@/server/auth/context";
+import { Cronometro } from "@/server/http/server-timing";
 import { authorizeRole } from "@/server/auth/require-role";
 import { toUserFacingMessage } from "@/server/repositories/supabase/client";
 import { ALEGRA_READ_ROLES } from "@/features/alegra/roles";
@@ -119,8 +120,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // (el modo mock vive en memoria del proceso, sin histórico de Alegra).
   if (env.DATA_SOURCE !== "supabase") return respuestaVacia(vistaCruda);
 
+  // Mide dónde se va el tiempo: comprobar la sesión, o preguntarle a la base.
+  // Sale en la cabecera `Server-Timing`, visible en la pestaña Red.
+  const reloj = new Cronometro();
   const auth = await authorizeRole(VENTAS_READ_ROLES);
   if (!auth.ok) return auth.res;
+  reloj.fin("sesion");
 
   const parsed = querySchema.safeParse({
     vista: sp.get("vista") ?? undefined,
@@ -155,6 +160,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   try {
     const ctx = await getRepoContext();
+    reloj.fin("contexto");
 
     // Varias vistas en una sola petición: se resuelven en paralelo contra la
     // base y se devuelven juntas, cada una con la MISMA forma que tendría sola.
@@ -179,15 +185,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           return { ventas, hayMas };
         }),
       );
+      reloj.fin("base");
       return NextResponse.json(Object.assign({}, ...partes), {
-        headers: { "Cache-Control": "no-store" },
+        headers: reloj.cabeceras({ "Cache-Control": "no-store" }),
       });
     }
 
     const unica = vista[0]!;
     if (unica === "resumen") {
       const resumen = await resumenVentas(ctx, filtrosVentas);
-      return NextResponse.json({ resumen }, { headers: { "Cache-Control": "no-store" } });
+      reloj.fin("base");
+      return NextResponse.json({ resumen }, { headers: reloj.cabeceras({ "Cache-Control": "no-store" }) });
     }
     if (unica === "desglose") {
       // `dimension` está garantizada por la guarda de arriba; el `!` es lo que
@@ -215,17 +223,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       // Una sola dimensión responde con la forma de siempre: hay pantallas que
       // ya la consumen así y no se les cambia el contrato de rebote.
+      reloj.fin("base");
       const primera = resultados[0]!;
       if (resultados.length === 1) {
-        return NextResponse.json(primera[1], { headers: { "Cache-Control": "no-store" } });
+        return NextResponse.json(primera[1], { headers: reloj.cabeceras({ "Cache-Control": "no-store" }) });
       }
       return NextResponse.json(
         { desgloses: Object.fromEntries(resultados) },
-        { headers: { "Cache-Control": "no-store" } },
+        { headers: reloj.cabeceras({ "Cache-Control": "no-store" }) },
       );
     }
     const { ventas, hayMas } = await listarVentasUnificadas(ctx, filtrosVentas);
-    return NextResponse.json({ ventas, hayMas }, { headers: { "Cache-Control": "no-store" } });
+    reloj.fin("base");
+    return NextResponse.json({ ventas, hayMas }, { headers: reloj.cabeceras({ "Cache-Control": "no-store" }) });
   } catch (e) {
     return NextResponse.json(
       { error: toUserFacingMessage(e, "No se pudieron cargar las ventas.") },

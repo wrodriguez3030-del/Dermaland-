@@ -23,7 +23,7 @@ const RESUMEN = {
 };
 
 const fetchOk = () =>
-  vi.fn(() =>
+  vi.fn((_url: string, _init?: RequestInit) =>
     Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ resumen: RESUMEN }) }),
   );
 
