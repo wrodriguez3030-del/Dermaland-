@@ -1,0 +1,167 @@
+{
+  "clientes": [
+    {
+      "id": "129fd831-1b6a-46da-8ece-9592c4385752",
+      "nombre": "Willian Rodriguez",
+      "customer_number": "CLI-573912",
+      "source": "web",
+      "created_at": "2026-08-04T21:47:47.234Z"
+    },
+    {
+      "id": "6f72134a-fe84-4f57-bbc5-beccec5c460a",
+      "nombre": "Alan Rodriguez",
+      "customer_number": "CLI-688909",
+      "source": "web",
+      "created_at": "2026-08-06T22:38:10.076Z"
+    }
+  ],
+  "conteos": [
+    {
+      "id": "441564eb-2d03-4fba-a7c0-7defb94ddb12",
+      "status": "in_progress",
+      "scan_count": 0,
+      "item_count": 0,
+      "created_at": "2026-08-03T19:33:34.920Z"
+    },
+    {
+      "id": "0ece3d4b-9c3c-4339-b1da-b88cca0ab440",
+      "status": "in_progress",
+      "scan_count": 0,
+      "item_count": 0,
+      "created_at": "2026-08-08T22:00:12.179Z"
+    },
+    {
+      "id": "a91736c8-020b-4101-a257-6d3da3035656",
+      "status": "in_progress",
+      "scan_count": 0,
+      "item_count": 0,
+      "created_at": "2026-09-05T14:22:55.556Z"
+    }
+  ],
+  "movimientos": [
+    {
+      "id": "1feb59cf-54e9-4f69-a9ce-267a8bcebbc7",
+      "type": "entry_purchase",
+      "quantity": 100,
+      "reference": "tfdgsdfg",
+      "user_name": "Preview Admin",
+      "lot_id": "2e8834db-344f-4220-8d27-79cf19f8fd5c",
+      "product_id": "057ebf75-6202-4155-8551-d614b71aca20",
+      "created_at": "2026-06-22T20:49:35.600Z"
+    },
+    {
+      "id": "6477948a-8248-419e-9f18-c56f6d97a013",
+      "type": "entry_purchase",
+      "quantity": 1000,
+      "reference": "asdfasd",
+      "user_name": "Preview Admin",
+      "lot_id": "7af7281a-f74a-48b5-88a4-b7753d0002be",
+      "product_id": "057ebf75-6202-4155-8551-d614b71aca20",
+      "created_at": "2026-06-22T21:10:56.701Z"
+    },
+    {
+      "id": "541b1f4d-2286-4008-bfad-7d8f29acce3a",
+      "type": "entry_purchase",
+      "quantity": 60,
+      "reference": "XCXVSDV",
+      "user_name": "Preview Admin",
+      "lot_id": "ca7fb78f-92ef-4107-bf92-ad5dd1e5857a",
+      "product_id": "bb12ddb1-73c8-4af7-9dc5-cd38b647a516",
+      "created_at": "2026-07-08T22:00:50.344Z"
+    },
+    {
+      "id": "65343d70-1469-4824-a8ed-7d9c1c8bc8e7",
+      "type": "entry_purchase",
+      "quantity": 10,
+      "reference": "DFDFD",
+      "user_name": "Preview Admin",
+      "lot_id": "456db8f3-cf35-4ca4-bba9-70eaddf1e957",
+      "product_id": "3ef11efb-349d-4778-ac57-157db13c0c9d",
+      "created_at": "2026-07-11T14:48:46.085Z"
+    },
+    {
+      "id": "e1f05170-bd6f-4c82-bb12-f29ede3b8bdd",
+      "type": "entry_purchase",
+      "quantity": 10,
+      "reference": "wffsdf",
+      "user_name": "Preview Admin",
+      "lot_id": "4c323c36-4daa-4b68-9570-1d9ce35c28bb",
+      "product_id": "3ef11efb-349d-4778-ac57-157db13c0c9d",
+      "created_at": "2026-07-11T16:46:30.565Z"
+    }
+  ],
+  "lotes": [
+    {
+      "id": "84dc4437-4c7c-42c7-89dc-7417a299de0d",
+      "lot_number": "dfdefd",
+      "current_quantity": 4,
+      "status": "expired",
+      "expires_at": "2026-06-30T04:00:00.000Z",
+      "producto": "A-derma Crema DE Ducha Hidratante 500 ML"
+    },
+    {
+      "id": "7af7281a-f74a-48b5-88a4-b7753d0002be",
+      "lot_number": "asdfasd",
+      "current_quantity": 0,
+      "status": "available",
+      "expires_at": "2026-06-23T04:00:00.000Z",
+      "producto": "A-derma Crema DE Ducha Hidratante 500 ML"
+    },
+    {
+      "id": "974ef237-aa06-4ea7-b0de-31d41c193e85",
+      "lot_number": "SDFSDF",
+      "current_quantity": 1,
+      "status": "available",
+      "expires_at": "2026-07-22T04:00:00.000Z",
+      "producto": "A-derma Crema DE Ducha Hidratante 500 ML"
+    },
+    {
+      "id": "4cbe779a-eef5-4112-aa02-14891fbf15d2",
+      "lot_number": "DFDFD",
+      "current_quantity": 0,
+      "status": "available",
+      "expires_at": "2026-07-30T04:00:00.000Z",
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "4c323c36-4daa-4b68-9570-1d9ce35c28bb",
+      "lot_number": "wffsdf",
+      "current_quantity": 0,
+      "status": "available",
+      "expires_at": "2026-07-30T04:00:00.000Z",
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "456db8f3-cf35-4ca4-bba9-70eaddf1e957",
+      "lot_number": "DFDFD",
+      "current_quantity": 0,
+      "status": "available",
+      "expires_at": "2026-07-30T04:00:00.000Z",
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "227988a5-0446-44ac-b1df-3446a2c6e98e",
+      "lot_number": "wffsdf",
+      "current_quantity": 0,
+      "status": "available",
+      "expires_at": "2026-07-30T04:00:00.000Z",
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "2e8834db-344f-4220-8d27-79cf19f8fd5c",
+      "lot_number": "tfdgsdfg",
+      "current_quantity": 0,
+      "status": "available",
+      "expires_at": "2026-06-23T04:00:00.000Z",
+      "producto": "A-derma Crema DE Ducha Hidratante 500 ML"
+    },
+    {
+      "id": "ca7fb78f-92ef-4107-bf92-ad5dd1e5857a",
+      "lot_number": "XCXVSDV",
+      "current_quantity": 0,
+      "status": "available",
+      "expires_at": "2026-07-10T04:00:00.000Z",
+      "producto": "Vichy Dercos Shampoo 390 ML"
+    }
+  ]
+}
