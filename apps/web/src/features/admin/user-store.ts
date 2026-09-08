@@ -85,8 +85,11 @@ async function call(path: string, method: string, body: unknown): Promise<UserRe
   try {
     const res = await fetch(path, {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      // Sin cuerpo no se manda `Content-Type` ni `body`: un DELETE con
+      // `body: "undefined"` es un cuerpo con la palabra «undefined» dentro.
+      ...(body === undefined
+        ? {}
+        : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
     });
     const data = (await res.json().catch(() => ({}))) as { user?: User; error?: string };
     if (!res.ok) return { ok: false, error: data.error ?? "No se pudo guardar." };
@@ -106,6 +109,19 @@ export async function saveUser(input: UserInput, id?: string): Promise<UserResul
     };
   }
   return id ? call(`/api/users/${id}`, "PATCH", input) : call("/api/users", "POST", input);
+}
+
+/**
+ * Elimina a una persona del personal, con su cuenta de acceso.
+ *
+ * 🔴 El servidor se niega si dejó rastro (ventas, auditoría, cajas…) y explica
+ * por qué en el mensaje. Ese texto se enseña TAL CUAL: es el que dice que hay
+ * que desactivar en vez de borrar, y resumirlo a «no se pudo eliminar» dejaría
+ * al dueño adivinando.
+ */
+export async function eliminarUsuario(id: string): Promise<UserResult> {
+  if (USER_BACKEND !== "supabase") return { ok: false, error: "Requiere Supabase." };
+  return call(`/api/users/${id}`, "DELETE", undefined);
 }
 
 export async function setUserStatus(

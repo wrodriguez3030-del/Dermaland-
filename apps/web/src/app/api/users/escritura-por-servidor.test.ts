@@ -30,6 +30,10 @@ import { resolve } from "node:path";
 const RUTAS = [
   "src/app/api/users/route.ts",
   "src/app/api/users/[id]/route.ts",
+  // El BORRADO no vive en la ruta sino en su servicio, y es la escritura más
+  // peligrosa de las tres: sin `business_id` un administrador borraría la ficha
+  // de otra empresa y nada daría error.
+  "src/server/services/users/borrado.ts",
 ];
 
 function leer(rel: string): string {
@@ -76,6 +80,17 @@ describe("las rutas de usuarios escriben como servidor y por negocio", () => {
         expect(
           /\.eq\("business_id",\s*session\.businessId\)/.test(actualiza[0]),
           `${rel}: el UPDATE de \`users\` no está acotado por \`business_id\``,
+        ).toBe(true);
+      }
+
+      // 🔴 DELETE: lo mismo, y aquí no hay vuelta atrás. `businessId` puede
+      // llegar como variable (el servicio) o como `session.businessId` (una
+      // ruta); lo que no puede es faltar.
+      const borra = texto.match(/\.delete\(\)[\s\S]{0,300}/);
+      if (borra) {
+        expect(
+          /\.eq\("business_id",\s*(session\.)?businessId\)/.test(borra[0]),
+          `${rel}: el DELETE de \`users\` no está acotado por \`business_id\``,
         ).toBe(true);
       }
     }

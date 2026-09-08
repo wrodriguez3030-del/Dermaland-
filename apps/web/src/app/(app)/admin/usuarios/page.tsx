@@ -28,11 +28,13 @@ import { relativeTime } from "@/lib/utils/format";
 import {
   useUsersList,
   setUserStatus,
+  eliminarUsuario,
   USER_BACKEND,
 } from "@/features/admin/user-store";
 import { UserModal } from "@/features/admin/components/user-modal";
 import { AjustesSeguridad } from "@/features/admin/components/ajustes-seguridad";
 import { puedeGestionarClaveDe } from "@/features/auth/jerarquia-de-claves";
+import { puedeEliminarA } from "@/features/auth/jerarquia-de-borrado";
 import type { UsuarioDelPanel } from "@/features/admin/user-store";
 import { canManageIncentiveRules } from "@/features/billing/permissions";
 import type { User } from "@/types";
@@ -56,6 +58,25 @@ export default function UsuariosPage() {
     open: false,
   });
   const visible = users;
+
+  /** El actor, tal como lo esperan las dos jerarquías. */
+  const actor = {
+    id: currentUser.id,
+    role: currentUser.role,
+    isPlatformAdmin: currentUser.isPlatformAdmin === true,
+  };
+
+  /**
+   * Borra y avisa. El mensaje del servidor se enseña TAL CUAL: cuando la
+   * persona tiene historial, ese texto es el que explica que hay que
+   * desactivarla en vez de borrarla, y resumirlo a «no se pudo» dejaría al
+   * dueño adivinando por qué.
+   */
+  async function borrar(u: User) {
+    const res = await eliminarUsuario(u.id);
+    if (res.ok) toast.success(`${u.fullName} se eliminó.`);
+    else toast.error(res.error);
+  }
 
   return (
     <>
@@ -230,6 +251,16 @@ export default function UsuariosPage() {
               <TD className="pr-4">
                 <RowActions
                   onEdit={canManage ? () => setModal({ open: true, user: u }) : undefined}
+                  // 🔴 La MISMA jerarquía que aplica el servidor: ofrecer un
+                  // botón que luego devuelve 403 es peor que no ofrecerlo. Y no
+                  // sale nunca sobre la propia cuenta — quien se borra a sí
+                  // mismo deja el negocio sin quien administre y no hay
+                  // pantalla desde la que arreglarlo.
+                  onDelete={
+                    canManage && puedeEliminarA(actor, { id: u.id, role: u.role })
+                      ? () => borrar(u)
+                      : undefined
+                  }
                   entityName={u.fullName}
                   customActions={
                     canManage

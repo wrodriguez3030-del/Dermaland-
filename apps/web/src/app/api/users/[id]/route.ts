@@ -5,10 +5,14 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getRepositories } from "@/server/repositories";
 import { canManageIncentiveRules, isBillingAdmin } from "@/features/billing/permissions";
 import { sincronizarClaims } from "@/server/services/users/claims-sync";
+import { eliminarUsuario } from "@/server/services/users/borrado";
+import { puedeEliminarA } from "@/features/auth/jerarquia-de-borrado";
 
 /**
- * PATCH /api/users/[id] → edita un registro de personal (nombre, rol,
+ * PATCH /api/users/[id]  → edita un registro de personal (nombre, rol,
  *   sucursales, estado active/disabled). business_id de la sesión (RLS).
+ * DELETE /api/users/[id] → lo elimina, con su cuenta de acceso. Solo si no
+ *   dejó rastro; si lo dejó, dice que se desactive (ver el bloque de DELETE).
  *
  * 🔴 Y SINCRONIZA EL ACCESO. Hasta ahora esto cambiaba `users.role` y nada
  * más, pero la autorización del sistema lee el rol de `app_metadata`
@@ -171,4 +175,93 @@ export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse
       avatarColor: data.avatar_color,
     },
   });
+}
+
+/**
+ * DELETE /api/users/[id] → elimina una ficha de personal, y su cuenta de
+ * acceso con ella.
+ *
+ * 🔴 Solo para quien NO dejó rastro. El porqué —y las claves foráneas
+ * `ON DELETE SET NULL` que borrarían vendedores y auditoría en silencio— está
+ * en `server/services/users/borrado.ts`. A quien tiene historial se le
+ * desactiva; esta ruta se lo dice con esas palabras.
+ *
+ * La jerarquía (quién puede borrar a quién) es la MISMA que decide quién puede
+ * fijar la clave de quién, con una diferencia: la propia cuenta, no.
+ */
+export async function DELETE(_req: NextRequest, ctx: Params): Promise<NextResponse> {
+  if (env.DATA_SOURCE !== "supabase")
+    return NextResponse.json({ error: "Disponible solo con Supabase" }, { status: 501 });
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!canManageIncentiveRules(session.user.role))
+    return NextResponse.json({ error: "No tienes permiso." }, { status: 403 });
+
+  const { id } = await ctx.params;
+
+  // La jerarquía necesita el rol del DESTINATARIO, así que se lee antes. El
+  // servicio vuelve a leer la ficha —acotada al negocio— y es él quien manda:
+  // aquí solo se decide si esta persona puede siquiera intentarlo.
+  const sb = createServiceRoleClient();
+  if (!sb) return NextResponse.json({ error: "Supabase no configurado" }, { status: 503 });
+  const { data: objetivo } = await sb
+    .from("users")
+    .select("id,role")
+    .eq("business_id", session.businessId)
+    .eq("id", id)
+    .maybeSingle<{ id: string; role: string }>();
+  if (!objetivo)
+    return NextResponse.json({ error: "Ese usuario no existe en este negocio." }, { status: 404 });
+
+  if (
+    !puedeEliminarA(
+      {
+        id: session.user.id,
+        role: session.user.role,
+        isPlatformAdmin: session.isPlatformAdmin === true,
+      },
+      { id: objetivo.id, role: objetivo.role },
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          session.user.id === id
+            ? "No puedes eliminar tu propia cuenta."
+            : "No puedes eliminar a esta persona.",
+      },
+      { status: 403 },
+    );
+  }
+
+  const res = await eliminarUsuario(id, session.businessId, session.user.id);
+  if (!res.ok) return NextResponse.json({ error: res.error }, { status: res.estado });
+
+  // 🔴 La auditoría va DESPUÉS y con el nombre dentro: `audit_logs.user_id` es
+  // quien BORRA (que sigue existiendo), pero el borrado ya no tiene ficha a la
+  // que mirar. Si el nombre no queda escrito aquí, el registro dice «se eliminó
+  // al usuario 8e98…» y no hay forma de saber a quién.
+  try {
+    const repos = getRepositories();
+    await repos.audit.log(
+      { businessId: session.businessId, userId: session.user.id },
+      {
+        businessId: session.businessId,
+        userId: session.user.id,
+        userName: session.user.fullName ?? "",
+        action: "users.deleted",
+        entity: "user",
+        entityId: id,
+        metadata: {
+          nombre: res.borrado.nombre,
+          email: res.borrado.email,
+          teniaCuenta: res.borrado.teniaCuenta,
+        },
+      },
+    );
+  } catch {
+    /* best-effort */
+  }
+
+  return NextResponse.json({ borrado: res.borrado });
 }
