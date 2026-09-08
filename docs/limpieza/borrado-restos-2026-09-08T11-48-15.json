@@ -1,0 +1,24 @@
+{
+  "productos": [
+    {
+      "id": "7e66fa2e-76e8-4256-a6d2-f787e08a6be1",
+      "name": "Producto conteo",
+      "sku": "AT-ct5jmp",
+      "existencias": 0
+    },
+    {
+      "id": "6dcfce77-51ed-42df-a2fe-d31be23b75d1",
+      "name": "RADIOCARE",
+      "sku": "DERM-000002",
+      "existencias": 0
+    },
+    {
+      "id": "74d18468-7872-4e9b-a568-6b4d484d59ad",
+      "name": "RADIOCARE",
+      "sku": "DERM-000001",
+      "existencias": 0
+    }
+  ],
+  "lotes": [],
+  "movimientos": []
+}

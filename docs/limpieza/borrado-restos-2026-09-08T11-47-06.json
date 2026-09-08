@@ -1,0 +1,81 @@
+{
+  "productos": [
+    {
+      "id": "7e66fa2e-76e8-4256-a6d2-f787e08a6be1",
+      "name": "Producto conteo",
+      "sku": "AT-ct5jmp",
+      "existencias": 0
+    },
+    {
+      "id": "6dcfce77-51ed-42df-a2fe-d31be23b75d1",
+      "name": "RADIOCARE",
+      "sku": "DERM-000002",
+      "existencias": 0
+    },
+    {
+      "id": "74d18468-7872-4e9b-a568-6b4d484d59ad",
+      "name": "RADIOCARE",
+      "sku": "DERM-000001",
+      "existencias": 0
+    }
+  ],
+  "lotes": [
+    {
+      "id": "7af7281a-f74a-48b5-88a4-b7753d0002be",
+      "lot_number": "asdfasd",
+      "current_quantity": 0,
+      "producto": "A-derma Crema DE Ducha Hidratante 500 ML"
+    },
+    {
+      "id": "ac538b81-b86d-4a0d-9fe5-d86629819b86",
+      "lot_number": "4545345",
+      "current_quantity": 0,
+      "producto": "A-derma Cytelium Spray 100 ML"
+    },
+    {
+      "id": "4cbe779a-eef5-4112-aa02-14891fbf15d2",
+      "lot_number": "DFDFD",
+      "current_quantity": 0,
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "4c323c36-4daa-4b68-9570-1d9ce35c28bb",
+      "lot_number": "wffsdf",
+      "current_quantity": 0,
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "456db8f3-cf35-4ca4-bba9-70eaddf1e957",
+      "lot_number": "DFDFD",
+      "current_quantity": 0,
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "227988a5-0446-44ac-b1df-3446a2c6e98e",
+      "lot_number": "wffsdf",
+      "current_quantity": 0,
+      "producto": "Radiocare Ultra Crema Reparadora"
+    },
+    {
+      "id": "2e8834db-344f-4220-8d27-79cf19f8fd5c",
+      "lot_number": "tfdgsdfg",
+      "current_quantity": 0,
+      "producto": "A-derma Crema DE Ducha Hidratante 500 ML"
+    },
+    {
+      "id": "ca7fb78f-92ef-4107-bf92-ad5dd1e5857a",
+      "lot_number": "XCXVSDV",
+      "current_quantity": 0,
+      "producto": "Vichy Dercos Shampoo 390 ML"
+    }
+  ],
+  "movimientos": [
+    {
+      "id": "f30e93b8-4225-459e-8f7e-12338b0870a3",
+      "reference": "4545345",
+      "type": "entry_purchase",
+      "quantity": 24,
+      "user_name": "Preview Admin"
+    }
+  ]
+}
