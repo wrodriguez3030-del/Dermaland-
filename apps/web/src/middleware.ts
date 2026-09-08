@@ -339,21 +339,16 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    if (decisionFinal === "permitir") {
-      // Galleta buena: se sigue el camino normal, sin redirección.
-      if (galletaInvalida) response.cookies.delete(nombreDeLaGalleta);
-      return response;
-    }
+    // Una galleta que ya no vale se borra para no volver a consultarla en cada
+    // petición.
+    if (galletaInvalida) response.cookies.delete(nombreDeLaGalleta);
 
-    if (galletaInvalida) {
-      // Una galleta que ya no vale se borra para no volver a consultarla en
-      // cada petición.
-      response.cookies.delete(nombreDeLaGalleta);
-    }
-
-    // Aquí `decisionFinal` ya solo puede ser "enrolar" o "desafiar": el caso
-    // "permitir" salió arriba.
-    if (!isMfaExempt(pathname, decisionFinal)) {
+    // 🔴 Sin `return` aquí. La primera versión salía de la función cuando la
+    // decisión era «permitir», y con eso se saltaba el bloqueo de
+    // `/super-admin` que viene DESPUÉS: cualquiera que pasara la puerta de 2FA
+    // entraba a la consola de plataforma. Se deja caer al resto de las
+    // comprobaciones, como estaba antes.
+    if (decisionFinal !== "permitir" && !isMfaExempt(pathname, decisionFinal)) {
       const url = request.nextUrl.clone();
       url.pathname =
         decisionFinal === "enrolar" ? MFA_ENROLL_PATH : MFA_CHALLENGE_PATH;

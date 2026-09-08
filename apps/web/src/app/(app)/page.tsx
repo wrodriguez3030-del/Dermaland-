@@ -248,7 +248,7 @@ export default function DashboardPage() {
       ),
     [proformas, branchFilter],
   );
-  const vencimientosCriticos = inventario.resumen?.vencenPronto.criticos ?? 0;
+  const vencimientosCriticos = inventario.resumen?.vencenPronto?.criticos ?? 0;
   /** Los tres filtros que el histórico migrado sabe aplicar. */
   const filtrosHistorico = React.useMemo(
     () => ({ desde: rangoResumen?.desde, hasta: rangoResumen?.hasta, sucursalId: sucursalIdResumen }),
@@ -347,12 +347,18 @@ export default function DashboardPage() {
             <span>{ventasCaption.texto}</span>
           </p>
         </div>
+        {/* 🔴 Nada de `.toLocaleString()` encadenado sobre algo que puede no
+            venir: si el resumen llegara sin ese campo, la llamada revienta y se
+            lleva por delante el pintado. `formatNumber` recibe un número
+            siempre, y las tres tarjetas distinguen «cargando» de «falló». */}
         <StatCard
           label="Productos en catálogo"
           value={
             inventario.error
               ? "—"
-              : (inventario.resumen?.totalProductos.toLocaleString("es-DO") ?? "…")
+              : inventario.cargando
+                ? "…"
+                : formatNumber(inventario.resumen?.totalProductos ?? 0)
           }
           hint="activos e inactivos"
           icon={Package}
@@ -361,7 +367,13 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Lotes próximos a vencer"
-          value={inventario.error ? "—" : (inventario.resumen?.vencenPronto.total ?? "…")}
+          value={
+            inventario.error
+              ? "—"
+              : inventario.cargando
+                ? "…"
+                : (inventario.resumen?.vencenPronto?.total ?? 0)
+          }
           hint="≤ 90 días"
           icon={CalendarClock}
           tone="warning"
@@ -370,7 +382,13 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Lotes bloqueados"
-          value={inventario.error ? "—" : (inventario.resumen?.bloqueados ?? "…")}
+          value={
+            inventario.error
+              ? "—"
+              : inventario.cargando
+                ? "…"
+                : (inventario.resumen?.bloqueados ?? 0)
+          }
           hint="Cuarentena + recall"
           icon={ShieldAlert}
           tone="danger"
@@ -472,7 +490,7 @@ export default function DashboardPage() {
         historicoCargando={cargandoAlegra}
         historicoAviso={historicoAviso}
         vencimientosCriticos={vencimientosCriticos}
-        bajoStock={inventario.resumen?.bajoMinimo.total ?? 0}
+        bajoStock={inventario.resumen?.bajoMinimo?.total ?? 0}
       />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
@@ -506,12 +524,12 @@ export default function DashboardPage() {
               )}
               {!inventario.cargando &&
                 !inventario.error &&
-                inventario.resumen?.vencenPronto.total === 0 && (
+                inventario.resumen?.vencenPronto?.total === 0 && (
                   <li className="px-6 py-8 text-center text-sm opacity-60">
                     Sin lotes próximos a vencer en los próximos 90 días.
                   </li>
                 )}
-              {(inventario.resumen?.vencenPronto.lista ?? []).map((lot) => {
+              {(inventario.resumen?.vencenPronto?.lista ?? []).map((lot) => {
                 const days = daysUntil(lot.expiresAt);
                 const tone =
                   days < 15 ? "danger" : days < 45 ? "warning" : "info";
@@ -552,12 +570,12 @@ export default function DashboardPage() {
             {inventario.cargando && <p className="text-sm opacity-60">Cargando…</p>}
             {!inventario.cargando &&
               !inventario.error &&
-              inventario.resumen?.bajoMinimo.total === 0 && (
+              inventario.resumen?.bajoMinimo?.total === 0 && (
                 <p className="text-sm opacity-60">
                   Todos los productos están sobre el mínimo.
                 </p>
               )}
-            {(inventario.resumen?.bajoMinimo.lista ?? []).map((p) => {
+            {(inventario.resumen?.bajoMinimo?.lista ?? []).map((p) => {
               const stock = p.stock;
               const target = Math.max(p.minStock, 1) * 2; // punto de reorden
               const pct = Math.min(100, Math.round((stock / target) * 100));

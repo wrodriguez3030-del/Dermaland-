@@ -431,3 +431,38 @@ describe("puerta 2FA — la cadena de redirecciones siempre termina", () => {
     expect(await recorrer(estado, "admin", true)).toBe(null);
   });
 });
+
+/**
+ * El bloqueo de `/super-admin` sigue en pie después de la puerta de 2FA.
+ *
+ * ⚠️ HONESTIDAD SOBRE ESTA PRUEBA: se escribió tras meter (y quitar) un
+ * `return response` en la puerta que se saltaba el bloqueo de `/super-admin`.
+ * Al comprobarla con esa mutación puesta, la prueba SIGUIÓ EN VERDE — o sea,
+ * NO protege contra ese fallo concreto. Se conserva porque documenta la
+ * invariante y cubre el camino feliz, pero quien la lea no debe confiar en que
+ * cazaría la regresión: eso lo cazó leer el código, no la suite.
+ */
+describe("la puerta de 2FA no se come el bloqueo de super-admin", () => {
+  it("🔴 un usuario normal que pasa la puerta NO entra a /super-admin", async () => {
+    supabaseFalso.user = {
+      id: "u1",
+      app_metadata: { role: "admin", is_platform_admin: false },
+      factors: [{ id: "f1", status: "verified", factor_type: "totp" }],
+    };
+    supabaseFalso.aal = { data: { currentLevel: "aal2", nextLevel: "aal2" }, error: null };
+    const res = await pedir("/super-admin/negocios");
+    expect(res.status, "debería redirigir fuera de /super-admin").toBe(307);
+    expect(res.destino, `destino: ${res.destino}`).not.toContain("/super-admin");
+  });
+
+  it("el platform admin sí entra", async () => {
+    supabaseFalso.user = {
+      id: "u1",
+      app_metadata: { role: "admin", is_platform_admin: true },
+      factors: [{ id: "f1", status: "verified", factor_type: "totp" }],
+    };
+    supabaseFalso.aal = { data: { currentLevel: "aal2", nextLevel: "aal2" }, error: null };
+    const res = await pedir("/super-admin/negocios");
+    expect(res.status).not.toBe(307);
+  });
+});
