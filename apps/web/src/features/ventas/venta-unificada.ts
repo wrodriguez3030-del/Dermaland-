@@ -271,6 +271,8 @@ export const DIMENSIONES_DESGLOSE = [
   "producto",
   "sucursal",
   "mes",
+  "cliente",
+  "comprobante",
 ] as const;
 export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
 
@@ -288,6 +290,13 @@ export type DimensionDesglose = (typeof DIMENSIONES_DESGLOSE)[number];
  *    sobre las ventas que la pantalla tiene filtradas.
  *  - `mes`: SOLO Alegra. La mitad del sistema es `monthlyTrend`, que arma los
  *    mismos cubos de mes en el navegador.
+ *  - `cliente`: SOLO Alegra. La mitad del sistema es `topCustomers`
+ *    (features/sales/sales-report.ts), que ya aplica todos los filtros del
+ *    reporte de ventas.
+ *  - `comprobante`: SOLO Alegra. La mitad del sistema es `byComprobante`
+ *    (features/sales/sales-report.ts) — clasifica por el MISMO criterio
+ *    (`ComprobanteKey`/`COMPROBANTE_LABEL`) que la rama SQL de Alegra, para
+ *    que una fila no se llame distinto según de qué fuente venga.
  *
  * Esto NO es documentación: viaja en la respuesta de
  * `GET /api/ventas?vista=desglose` (campo `fuentes`). Hoy `proformas` está
@@ -302,6 +311,8 @@ export const FUENTES_DESGLOSE: Record<DimensionDesglose, readonly OrigenVenta[]>
   producto: ["alegra"],
   sucursal: ["alegra"],
   mes: ["alegra"],
+  cliente: ["alegra"],
+  comprobante: ["alegra"],
 };
 
 /**

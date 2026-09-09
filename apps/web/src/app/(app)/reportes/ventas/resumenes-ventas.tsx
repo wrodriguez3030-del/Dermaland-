@@ -26,12 +26,7 @@ import {
 } from "@/features/sales/sales-report";
 import { METODO_ETIQUETA } from "@/features/alegra/sales-report";
 import { useDesgloseVentas } from "@/features/ventas/ventas-api";
-import {
-  AvisoSoloSistema,
-  combinarDesglose,
-  TarjetaDesglose,
-  type FilaTarjeta,
-} from "./desglose-tarjetas";
+import { combinarDesglose, TarjetaDesglose, type FilaTarjeta } from "./desglose-tarjetas";
 import type { Proforma } from "@/types";
 
 /**
@@ -89,6 +84,13 @@ export function ResumenesVentas({
   // `20260907120000`, así que esta gráfica deja de decir «Sin datos para el
   // rango» teniendo 44 meses de historia detrás.
   const desgloseMes = useDesgloseVentas("mes", filtros, historicoParticipa);
+  // «Clientes principales» y «Comprobantes»: desde
+  // `20260909150000_desglose_ventas_cliente_comprobante.sql` la base también
+  // sabe agrupar el histórico migrado por estas dos dimensiones, así que
+  // dejan de ser tarjetas SOLO del sistema (ver el porqué largo en
+  // `desglose-tarjetas.tsx`).
+  const desgloseCliente = useDesgloseVentas("cliente", filtros, historicoParticipa);
+  const desgloseComprobante = useDesgloseVentas("comprobante", filtros, historicoParticipa);
 
   // La mitad del sistema sale del reporte ya filtrado (ver el porqué en
   // `desglose-tarjetas.tsx`), no de la base.
@@ -161,6 +163,40 @@ export function ResumenesVentas({
     // en este bloque cada fila va suelta con su etiqueta de origen —es lo que
     // hacen las otras tres tablas— y fundirlas escondería de qué lado viene
     // cada cifra, que es justo lo que este reporte existe para enseñar.
+  });
+
+  // La mitad del sistema de «Clientes principales» y «Comprobantes» sale de
+  // `report.customers`/`report.comprobantes` (topCustomers/byComprobante),
+  // igual que las otras tarjetas: ese cálculo ya tiene TODOS los filtros del
+  // reporte aplicados, cosa que el desglose de la base no sabe hacer.
+  const clientesSistema: FilaTarjeta[] = report.customers.map((c) => ({
+    clave: c.name,
+    etiqueta: c.name,
+    origen: "sistema",
+    cantidad: c.purchases,
+    total: c.total,
+  }));
+  const comprobantesSistema: FilaTarjeta[] = report.comprobantes.map((c) => ({
+    clave: c.key,
+    etiqueta: c.label,
+    origen: "sistema",
+    cantidad: c.count,
+    total: c.total,
+  }));
+
+  const tarjetaCliente = combinarDesglose({
+    sistema: clientesSistema,
+    historicoParticipa,
+    historicoCargando,
+    historicoAviso,
+    estado: desgloseCliente,
+  });
+  const tarjetaComprobante = combinarDesglose({
+    sistema: comprobantesSistema,
+    historicoParticipa,
+    historicoCargando,
+    historicoAviso,
+    estado: desgloseComprobante,
   });
 
   /**
@@ -343,72 +379,21 @@ export function ResumenesVentas({
             : undefined
         }
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>Clientes principales</CardTitle>
-          <AvisoSoloSistema mostrar={historicoParticipa} />
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <THead>
-              <TR>
-                <TH>Cliente</TH>
-                <TH className="text-right">Compras</TH>
-                <TH className="text-right">Total</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {report.customers.slice(0, 10).map((c, i) => (
-                <TR key={`${c.name}-${i}`}>
-                  <TD className="text-sm">{c.name}</TD>
-                  <TD className="text-right tabular-nums">{c.purchases}</TD>
-                  <TD className="text-right tabular-nums">{formatCurrency(c.total)}</TD>
-                </TR>
-              ))}
-              {!report.customers.length && (
-                <TR>
-                  <TD colSpan={3} className="py-6 text-center text-sm opacity-60">
-                    Sin clientes.
-                  </TD>
-                </TR>
-              )}
-            </TBody>
-          </Table>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Comprobantes</CardTitle>
-          <AvisoSoloSistema mostrar={historicoParticipa} />
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <THead>
-              <TR>
-                <TH>Tipo</TH>
-                <TH className="text-right">Cant.</TH>
-                <TH className="text-right">Total</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {report.comprobantes.map((c) => (
-                <TR key={c.key}>
-                  <TD className="text-sm">{c.label}</TD>
-                  <TD className="text-right tabular-nums">{c.count}</TD>
-                  <TD className="text-right tabular-nums">{formatCurrency(c.total)}</TD>
-                </TR>
-              ))}
-              {!report.comprobantes.length && (
-                <TR>
-                  <TD colSpan={3} className="py-6 text-center text-sm opacity-60">
-                    Sin comprobantes.
-                  </TD>
-                </TR>
-              )}
-            </TBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <TarjetaDesglose
+        titulo="Clientes principales"
+        estado={tarjetaCliente}
+        encabezadoClave="Cliente"
+        encabezadoCantidad="Compras"
+        vacio="Sin clientes."
+        tope={10}
+      />
+      <TarjetaDesglose
+        titulo="Comprobantes"
+        estado={tarjetaComprobante}
+        encabezadoClave="Tipo"
+        encabezadoCantidad="Cant."
+        vacio="Sin comprobantes."
+      />
     </div>
     </>
   );

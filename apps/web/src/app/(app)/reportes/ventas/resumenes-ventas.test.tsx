@@ -6,14 +6,17 @@ import { buildSalesReport, EMPTY_FILTERS } from "@/features/sales/sales-report";
 import type { Proforma } from "@/types";
 import type { DesgloseVentasApi, EstadoVentas } from "@/features/ventas/ventas-api";
 import type { DimensionDesglose, FilaDesglose } from "@/features/ventas/venta-unificada";
+import { AvisoSoloSistema } from "./desglose-tarjetas";
 
 /**
  * 🔴 Qué tarjeta lleva el histórico migrado y cuál no, y que cada una lo DIGA.
  *
- * Tres de ellas —vendedor, forma de pago y producto— ya lo desglosan, porque
- * la base sabe agruparlo (migración `20260906140000_…`). Las otras cinco no:
- * la base no sabe desglosar el histórico por sucursal, cajero, cliente ni
- * comprobante, así que conservan el aviso.
+ * Las seis —vendedor, forma de pago, producto, sucursal, cliente y
+ * comprobante— ya lo desglosan, porque la base sabe agruparlas (migraciones
+ * `20260906140000_…`, `20260907120000_…` y `20260909150000_…`). «Top
+ * cajeros» y «Tendencia de ventas» no llevan el aviso GENÉRICO porque
+ * explican su propio motivo (ver `CON_MOTIVO_PROPIO`), no porque les falte el
+ * histórico.
  *
  * Sin esa distinción, el dueño lee arriba «Total facturado RD$48 454 899,08 ·
  * 14 743 transacciones» y abajo tarjetas que cuentan otra cosa, sin nada que
@@ -47,8 +50,15 @@ vi.mock("@/features/ventas/ventas-api", async (original) => ({
 
 const { ResumenesVentas } = await import("./resumenes-ventas");
 
-/** Las que la base NO sabe desglosar: el aviso se queda en ellas. */
-const CON_AVISO = ["Clientes principales", "Comprobantes"];
+/**
+ * Las que la base NO sabe desglosar: el aviso se queda en ellas. Hoy
+ * ninguna — «Clientes principales» y «Comprobantes» se mudaron a
+ * `CON_HISTORICO` desde `20260909150000_desglose_ventas_cliente_comprobante.sql`.
+ * El array se queda vacío (y no se borra) para que la prueba de abajo
+ * («el aviso queda SOLO en las que no desglosan») siga afirmando algo el día
+ * que una tarjeta nueva se quede sin su dimensión en la base.
+ */
+const CON_AVISO: string[] = [];
 /**
  * Tarjetas que existen pero NO llevan el aviso genérico porque explican su
  * propio motivo: «Top cajeros» dice que las facturas migradas no pasaron por la
@@ -61,6 +71,8 @@ const CON_HISTORICO = [
   "Ventas por vendedor",
   "Productos más vendidos",
   "Ventas por sucursal",
+  "Clientes principales",
+  "Comprobantes",
 ];
 
 const reporteVacio = () => buildSalesReport([], EMPTY_FILTERS);
@@ -136,20 +148,28 @@ describe("resúmenes del reporte de ventas", () => {
 
   it("🔴 el aviso «Solo ventas del sistema» queda SOLO en las que no desglosan el histórico", () => {
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa />);
-    expect(screen.getAllByText(/Solo ventas del sistema/i)).toHaveLength(CON_AVISO.length);
+    expect(screen.queryAllByText(/Solo ventas del sistema/i)).toHaveLength(CON_AVISO.length);
   });
 
-  it("🔴 las cuatro tarjetas nuevas enseñan de verdad el histórico migrado", () => {
+  it("🔴 las seis tarjetas nuevas enseñan de verdad el histórico migrado", () => {
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa />);
-    // Una fila por tarjeta que lo pida: cuatro tarjetas, mismo dato falso.
-    // Las cuatro tablas más la barra de la tendencia, que usa la misma fila falsa.
+    // Una fila por tarjeta que lo pida: seis tarjetas, mismo dato falso.
+    // Las seis tablas más la barra de la tendencia, que usa la misma fila falsa.
     expect(screen.getAllByText("DESTENY REYNOSO").length).toBe(CON_HISTORICO.length + 1);
     expect(screen.getAllByText(/Migrada de Alegra/i).length).toBe(CON_HISTORICO.length * 2);
   });
 
-  it("🔴 pide las cinco dimensiones, ni una más ni una menos", () => {
+  it("🔴 pide las siete dimensiones, ni una más ni una menos", () => {
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa />);
-    expect([...new Set(pedidas)].sort()).toEqual(["forma_pago", "mes", "producto", "sucursal", "vendedor"]);
+    expect([...new Set(pedidas)].sort()).toEqual([
+      "cliente",
+      "comprobante",
+      "forma_pago",
+      "mes",
+      "producto",
+      "sucursal",
+      "vendedor",
+    ]);
   });
 
   it("🔴 sin histórico en los KPIs NO se pide el desglose: sumaría un total sin filtrar", () => {
@@ -157,14 +177,20 @@ describe("resúmenes del reporte de ventas", () => {
     // histórico no sabe aplicar (o que la casilla está desmarcada). Pedirlo
     // igual traería RD$48 millones sin filtrar a una tabla que sí lo está.
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa={false} />);
-    // Cinco: las cuatro tablas más la serie mensual de la tendencia.
-    expect(activoVisto).toEqual([false, false, false, false, false]);
+    // Siete: las seis tablas más la serie mensual de la tendencia.
+    expect(activoVisto).toEqual([false, false, false, false, false, false, false]);
     expect(screen.queryByText(/Solo ventas del sistema/i)).not.toBeInTheDocument();
     expect(screen.queryByText("DESTENY REYNOSO")).not.toBeInTheDocument();
   });
 
   it("el aviso dice dónde SÍ está el histórico, no solo que falta", () => {
-    render(<ResumenesVentas report={reporteVacio()} historicoParticipa />);
+    // 🔴 Ya no hay ningún escenario de ResumenesVentas en el que se vea: con
+    // las siete dimensiones respondidas, `combinarDesglose` nunca devuelve
+    // `soloSistema:true` sin estar también `cargando` o en `error` —y esos dos
+    // casos pintan SU PROPIO mensaje, no éste (ver `TarjetaDesglose`)—. El
+    // texto sigue vivo para el día que una tarjeta nueva se quede sin su
+    // dimensión en la base, así que se prueba el componente solo.
+    render(<AvisoSoloSistema mostrar />);
     expect(screen.getAllByText(/su total está arriba y sus facturas, más abajo/i).length)
       .toBeGreaterThan(0);
   });
@@ -175,13 +201,13 @@ describe("resúmenes del reporte de ventas", () => {
     expect(screen.getByText(/no un fallo/i)).toBeInTheDocument();
   });
 
-  it("mientras el histórico viaja, las cuatro tarjetas lo dicen en vez de enseñar la tabla a medias", () => {
+  it("mientras el histórico viaja, las seis tarjetas lo dicen en vez de enseñar la tabla a medias", () => {
     estadoDesglose = { tipo: "cargando" };
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa />);
     expect(screen.getAllByText(/Cargando el histórico migrado/i)).toHaveLength(CON_HISTORICO.length + 1);
   });
 
-  it("si el histórico falla, las cuatro avisan en vez de enseñar ceros", () => {
+  it("si el histórico falla, las seis avisan en vez de enseñar ceros", () => {
     estadoDesglose = { tipo: "error", mensaje: "No se pudo cargar el histórico migrado de Alegra." };
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa />);
     expect(screen.getAllByText(/No se pudo cargar el histórico migrado/i))
@@ -190,7 +216,7 @@ describe("resúmenes del reporte de ventas", () => {
     // el genérico no se repite encima: se queda en una por tarjeta.
     expect(screen.getAllByText(/Se enseñan solo las ventas del sistema/i))
       .toHaveLength(CON_HISTORICO.length);
-    expect(screen.getAllByText(/Solo ventas del sistema/i)).toHaveLength(CON_AVISO.length);
+    expect(screen.queryAllByText(/Solo ventas del sistema/i)).toHaveLength(CON_AVISO.length);
   });
 });
 
@@ -258,22 +284,22 @@ describe("medios de pago — con ventas de verdad en el reporte", () => {
  *
  * `resolverHistorico` devuelve `participa: false` tanto mientras carga como
  * cuando falla o cuando hay un filtro que el histórico no sabe aplicar. En esos
- * tres casos las cuatro tarjetas enseñan solo lo del sistema; antes lo hacían sin
+ * tres casos las seis tarjetas enseñan solo lo del sistema; antes lo hacían sin
  * decir nada, y quien avisaba era la leyenda de los KPIs, arriba.
  */
 describe("mientras el KPI del histórico carga o falla", () => {
-  it("🔴 las cuatro tarjetas dicen que el histórico viene en camino", () => {
+  it("🔴 las seis tarjetas dicen que el histórico viene en camino", () => {
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa={false} historicoCargando />);
     expect(screen.getAllByText(/Cargando el histórico migrado/i)).toHaveLength(CON_HISTORICO.length + 1);
   });
 
-  it("🔴 las cuatro repiten el motivo por el que el histórico no entra", () => {
+  it("🔴 las seis repiten el motivo por el que el histórico no entra", () => {
     const aviso =
       "El histórico migrado no se puede filtrar por Método de pago: estos totales son solo del sistema.";
     render(
       <ResumenesVentas report={reporteVacio()} historicoParticipa={false} historicoAviso={aviso} />,
     );
-    // Cuatro tablas más la tendencia: la gráfica repite el motivo igual que ellas.
+    // Seis tablas más la tendencia: la gráfica repite el motivo igual que ellas.
     expect(screen.getAllByText(aviso)).toHaveLength(CON_HISTORICO.length + 1);
   });
 

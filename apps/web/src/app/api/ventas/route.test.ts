@@ -131,7 +131,7 @@ describe("GET /api/ventas?vista=desglose", () => {
     },
   );
 
-  it("🔴 las cinco dimensiones del modelo pasan por aquí, no tres", () => {
+  it("🔴 las siete dimensiones del modelo pasan por aquí, no cinco", () => {
     // Si alguien añade un nombre a `DIMENSIONES_DESGLOSE` sin su rama en el
     // SQL, la tarjeta enseñaría un desglose VACÍO —indistinguible de «no hubo
     // ventas»— en vez de un 400. `migracion-desglose.test.ts` ata el otro
@@ -142,6 +142,8 @@ describe("GET /api/ventas?vista=desglose", () => {
       "producto",
       "sucursal",
       "mes",
+      "cliente",
+      "comprobante",
     ]);
   });
 
