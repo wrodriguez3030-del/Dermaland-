@@ -15,13 +15,36 @@ const intFormatter = new Intl.NumberFormat("es-DO");
  * helpers; la prueba de al lado impide que vuelva, y el guardián del final de
  * ese archivo impide que alguien lo sortee con un `toLocaleDateString` suelto.
  */
+/**
+ * 🔴 LA ZONA VA FIJADA. No es un detalle de pruebas.
+ *
+ * Sin `timeZone`, `Intl` usa la del proceso que formatea, y ahí hay TRES
+ * distintas para el mismo dato:
+ *
+ *   · el navegador de la clínica → Santo Domingo (AST, UTC-4);
+ *   · el servidor de Vercel      → **UTC**, que va 4 horas por delante;
+ *   · el runner de la CI         → UTC también.
+ *
+ * Con lo que una venta de las 21:00 del día 7 sale «08/09» en el HTML que pinta
+ * el servidor y «07/09» cuando el navegador hidrata: la misma fila cambia de
+ * día delante de quien la mira. Y en la CI la prueba de esta misma conversión
+ * llevaba fallando desde el 08/09/2026 en TODOS los empujones, en verde en la
+ * máquina de quien la escribió.
+ *
+ * El negocio está en República Dominicana y no tiene horario de verano: la
+ * fecha correcta es siempre la de Santo Domingo, la mire quien la mire.
+ */
+const ZONA = "America/Santo_Domingo";
+
 const dateFormatter = new Intl.DateTimeFormat("es-DO", {
+  timeZone: ZONA,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
 });
 
 const dateTimeFormatter = new Intl.DateTimeFormat("es-DO", {
+  timeZone: ZONA,
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
@@ -30,6 +53,7 @@ const dateTimeFormatter = new Intl.DateTimeFormat("es-DO", {
 });
 
 const timeFormatter = new Intl.DateTimeFormat("es-DO", {
+  timeZone: ZONA,
   hour: "2-digit",
   minute: "2-digit",
 });

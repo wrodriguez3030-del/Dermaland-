@@ -44,7 +44,7 @@ import { loadEnv, makeRest } from "./lib/supabase-rest.mts";
 import { B, BUSINESS_ID, aplicarPlan, fuentesPlan, loadDb, verificar } from "./lib/stock-apply.mts";
 
 // ─── Constantes ───────────────────────────────────────────────────────────
-const OWNER_USER_ID = "2f707d5c-65c2-4388-b2b9-592693414b9f"; // Dario (admin)
+const OWNER_USER_ID = "2f707d5c-65c2-4388-b2b9-592693414b9f"; // Willian R. (super_admin)
 const USER_NAME = "Sincronizador Alegra";
 const LOTE_ESCRITURA = 200;
 /** categoryId del parser → nombre real en `product_categories`. */
