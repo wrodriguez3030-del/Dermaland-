@@ -43,6 +43,7 @@ import {
 import {
   formatCurrency,
   formatDate,
+  formatNumber,
   relativeTime,
   isSameCalendarMonth,
 } from "@/lib/utils/format";
@@ -167,12 +168,19 @@ function ClientesContent() {
         description="CRM dermatológico — perfil completo con compras, recomendaciones y conversaciones WhatsApp."
         breadcrumbs={[{ label: "Clientes" }]}
         actions={
-          <Link href="/clientes/nuevo">
-            <Button size="sm">
-              <Plus className="h-4 w-4" />
-              Nuevo cliente
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium opacity-70">
+              {consulta.cargando
+                ? "Cargando…"
+                : `${formatNumber(consulta.total)} cliente${consulta.total === 1 ? "" : "s"}`}
+            </span>
+            <Link href="/clientes/nuevo">
+              <Button size="sm">
+                <Plus className="h-4 w-4" />
+                Nuevo cliente
+              </Button>
+            </Link>
+          </div>
         }
       />
 
