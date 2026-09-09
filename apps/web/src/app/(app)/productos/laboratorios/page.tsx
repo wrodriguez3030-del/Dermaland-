@@ -108,7 +108,13 @@ export default function LaboratoriosPage() {
   const summary = React.useMemo(() => summarizeLabSales(rows), [rows]);
 
   const displayed = React.useMemo(() => {
-    let r = rows;
+    // Un laboratorio sin ventas en el rango (0 dinero y 0 unidades) no aporta
+    // nada a un ranking "¿quién vende más?" — y con el catálogo pasando de 80
+    // a 103 laboratorios (importación de Excel del 09/09) la mayoría de los
+    // nuevos todavía no tiene ventas medidas, así que se veían la mitad de
+    // filas en 0. `computeLabSales`/`summarizeLabSales` SIGUEN contando todos
+    // (Excel/CSV, StatCards): esto solo oculta filas de la lista en pantalla.
+    let r = rows.filter((x) => x.totalMoney > 0 || x.units > 0);
     if (q.trim()) {
       const term = q.trim().toLowerCase();
       r = r.filter((x) => x.lab.name.toLowerCase().includes(term));
