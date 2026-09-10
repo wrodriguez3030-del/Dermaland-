@@ -1,11 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Badge, Button, Input, Label, Modal, Select, Textarea } from "@/components/ui";
-import { AlertTriangle, HandCoins } from "lucide-react";
+import { Badge, Button, Input, Label, Modal, Textarea } from "@/components/ui";
+import { AlertTriangle, Banknote, CreditCard, FileText, HandCoins, Receipt, Wallet } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { useRefetchOnFocus } from "@/components/ui/use-refetch-on-focus";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
+import {
+  last4FieldLabel,
+  last4HelpText,
+  sanitizeLast4,
+  validateLast4,
+} from "@/features/pos/payment-validation";
 import { AGING_CLASS, AGING_LABEL, AGING_TONE, type AgingBucket } from "./aging";
 import { arApi, money, type ReceivableRow } from "./receivables-client";
 
@@ -45,13 +51,31 @@ export function usePendingReceivables() {
   return { rows, error, loading: rows === null && !error, reload };
 }
 
-const METHOD_OPTIONS = [
+/** Método de cobro de CxC: mismo patrón visual que "Cobrar venta" del POS,
+ * pero con dos opciones propias de CxC que el POS no tiene (`other`=Cheque,
+ * `manual`=Nota de crédito / otro), así que no reutiliza el `CheckoutMethod`
+ * del POS tal cual — solo sus funciones puras para tarjeta/transferencia. */
+type ArMethod = "cash" | "card" | "transfer" | "other" | "manual";
+
+function isCardOrTransfer(m: ArMethod): m is "card" | "transfer" {
+  return m === "card" || m === "transfer";
+}
+
+const AR_METHOD_OPTIONS: ReadonlyArray<{ value: ArMethod; label: string }> = [
   { value: "cash", label: "Efectivo" },
   { value: "card", label: "Tarjeta" },
   { value: "transfer", label: "Transferencia" },
   { value: "other", label: "Cheque" },
   { value: "manual", label: "Nota de crédito / otro" },
-] as const;
+];
+
+const AR_METHOD_ICONS: Record<ArMethod, React.ComponentType<{ className?: string }>> = {
+  cash: Banknote,
+  card: CreditCard,
+  transfer: Wallet,
+  other: Receipt,
+  manual: FileText,
+};
 
 export const METHOD_LABEL: Record<string, string> = {
   cash: "Efectivo",
@@ -90,7 +114,9 @@ export function CollectModal({
 }) {
   const toast = useToast();
   const [amounts, setAmounts] = React.useState<Record<string, string>>({});
-  const [method, setMethod] = React.useState("cash");
+  const [method, setMethod] = React.useState<ArMethod>("cash");
+  const [last4, setLast4] = React.useState("");
+  const [last4Touched, setLast4Touched] = React.useState(false);
   const [reference, setReference] = React.useState("");
   const [bank, setBank] = React.useState("");
   const [comments, setComments] = React.useState("");
@@ -103,6 +129,9 @@ export function CollectModal({
           invoices.filter((i) => i.cobrable).map((i) => [i.id, i.balance.toFixed(2)]),
         ),
       );
+      setMethod("cash");
+      setLast4("");
+      setLast4Touched(false);
       setReference("");
       setBank("");
       setComments("");
@@ -117,10 +146,27 @@ export function CollectModal({
     .filter((i) => i.amount > 0);
   const total = items.reduce((s, i) => s + i.amount, 0);
 
+  const last4Error =
+    isCardOrTransfer(method) && last4Touched ? (validateLast4(last4, method).error ?? null) : null;
+  const canSubmit =
+    items.length > 0 && (!isCardOrTransfer(method) || validateLast4(last4, method).ok);
+
+  function selectMethod(next: ArMethod) {
+    setMethod(next);
+    setLast4("");
+    setLast4Touched(false);
+  }
+
   async function submit() {
+    if (isCardOrTransfer(method)) setLast4Touched(true);
+    if (!canSubmit) return;
+    // No hay columna `last4` en el servidor (solo `p_reference`): para
+    // tarjeta/transferencia los 4 dígitos viajan como referencia, igual que
+    // hace el POS con su propio `reference`.
+    const effectiveReference = isCardOrTransfer(method) ? sanitizeLast4(last4) : reference;
     setBusy(true);
     try {
-      await arApi.collect({ items, method, reference, bank, comments });
+      await arApi.collect({ items, method, reference: effectiveReference, bank, comments });
       toast.success(`Cobro registrado: ${money(total)}.`);
       onDone();
       onClose();
@@ -143,7 +189,7 @@ export function CollectModal({
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button>
-            <Button onClick={submit} disabled={busy || items.length === 0}>
+            <Button onClick={submit} disabled={busy || !canSubmit}>
               {busy ? "Registrando…" : "Registrar cobro"}
             </Button>
           </div>
@@ -194,26 +240,87 @@ export function CollectModal({
             ))}
           </div>
         )}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-3">
           <div>
-            <Label htmlFor="ar-method">Método</Label>
-            <Select id="ar-method" value={method} onChange={(e) => setMethod(e.target.value)}>
-              {METHOD_OPTIONS.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </Select>
+            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide opacity-60">
+              Método de pago
+            </div>
+            <div
+              className="grid grid-cols-2 gap-2 sm:grid-cols-5"
+              role="radiogroup"
+              aria-label="Método de pago"
+            >
+              {AR_METHOD_OPTIONS.map(({ value, label }) => {
+                const Icon = AR_METHOD_ICONS[value];
+                const active = method === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => selectMethod(value)}
+                    className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-3 text-xs font-medium transition ${
+                      active
+                        ? "border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/10 text-[color:var(--brand-primary)] shadow-sm"
+                        : "border-black/10 bg-white text-black/60 hover:border-black/25 hover:text-black/80"
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div>
-            <Label htmlFor="ar-ref">Referencia / No. cheque</Label>
-            <Input id="ar-ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Opcional" />
-          </div>
-          <div>
-            <Label htmlFor="ar-bank">Banco</Label>
-            <Input id="ar-bank" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Opcional" />
-          </div>
-          <div className="sm:col-span-2">
-            <Label htmlFor="ar-comments">Comentarios</Label>
-            <Textarea id="ar-comments" rows={2} value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Opcional" />
+
+          {isCardOrTransfer(method) && (
+            <div className="rounded-xl border-2 border-[color:var(--brand-primary)]/40 bg-[color:var(--brand-primary)]/[0.06] p-4">
+              <label htmlFor="ar-last4" className="block text-sm font-semibold">
+                {last4FieldLabel(method)} <span className="text-rose-600">*</span>
+              </label>
+              <input
+                id="ar-last4"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                placeholder="1234"
+                value={last4}
+                onChange={(e) => setLast4(sanitizeLast4(e.target.value))}
+                onBlur={() => setLast4Touched(true)}
+                aria-label={last4FieldLabel(method)}
+                aria-invalid={last4Error != null}
+                className={`mt-1.5 h-11 w-40 rounded-lg border px-3 text-lg tracking-[0.4em] tabular-nums focus:outline-none focus:ring-2 ${
+                  last4Error
+                    ? "border-rose-400 focus:ring-rose-200"
+                    : "border-black/15 focus:border-[color:var(--brand-primary)] focus:ring-[color:var(--brand-primary)]/20"
+                }`}
+              />
+              {last4Error ? (
+                <p className="mt-1 text-xs font-medium text-rose-600">{last4Error}</p>
+              ) : (
+                <p className="mt-1 text-xs opacity-60">{last4HelpText(method)}</p>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(method === "other" || method === "manual") && (
+              <div>
+                <Label htmlFor="ar-ref">{method === "other" ? "No. de cheque" : "Referencia"}</Label>
+                <Input id="ar-ref" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Opcional" />
+              </div>
+            )}
+            {(method === "transfer" || method === "other") && (
+              <div>
+                <Label htmlFor="ar-bank">Banco</Label>
+                <Input id="ar-bank" value={bank} onChange={(e) => setBank(e.target.value)} placeholder="Opcional" />
+              </div>
+            )}
+            <div className="sm:col-span-2">
+              <Label htmlFor="ar-comments">Comentarios</Label>
+              <Textarea id="ar-comments" rows={2} value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Opcional" />
+            </div>
           </div>
         </div>
         <p className="text-xs opacity-60">

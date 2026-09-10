@@ -10,6 +10,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.161.0] - 2026-09-10
+
+### Cambiado
+
+- **El modal "Registrar cobro" de Cuentas por cobrar ahora se ve y se
+  comporta igual que "Cobrar venta" del POS.** Pedido del dueño: el método
+  de pago se elige con tarjetas por icono (`role="radiogroup"`), no con un
+  `<select>`; Tarjeta y Transferencia exigen los últimos 4 dígitos con la
+  misma validación del POS (reutiliza `features/pos/payment-validation.ts`,
+  sin duplicar la lógica) y bloquean "Registrar cobro" hasta que sean 4
+  dígitos válidos. Se conservan las dos opciones propias de CxC que el POS
+  no tiene: "Cheque" (pide No. de cheque + Banco) y "Nota de crédito / otro".
+  El servidor no tiene columna `last4`: los 4 dígitos viajan en el mismo
+  campo `reference` que ya usa `ar_apply_payments`, sin tocar el backend.
+
 ## [0.160.0] - 2026-09-10
 
 ### Corregido

@@ -107,3 +107,51 @@ describe("modal de cobro con facturas migradas de Alegra", () => {
     expect(collect).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * 🔴 "Al registrar un cobro el modal debe ser igual al de cobro de venta"
+ * (pedido del dueño, 10/09/2026): mismo patrón de tarjetas por método que
+ * `ChargeSaleModal` del POS, y la MISMA validación de últimos 4 dígitos para
+ * tarjeta/transferencia — reutilizando `features/pos/payment-validation.ts`,
+ * no una copia.
+ */
+describe("modal de cobro — mismo patrón que «Cobrar venta» del POS", () => {
+  it("el método se elige con tarjetas (radiogroup), no con un <select>", () => {
+    render(<CollectModal open invoices={[fila({})]} onClose={() => {}} onDone={() => {}} />);
+    const grupo = screen.getByRole("radiogroup", { name: /Método de pago/i });
+    expect(grupo).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Efectivo/i })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: /Tarjeta/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Transferencia/i })).toBeInTheDocument();
+  });
+
+  it("al elegir Tarjeta, pide los últimos 4 dígitos y bloquea «Registrar cobro» hasta que sean válidos", () => {
+    render(<CollectModal open invoices={[fila({})]} onClose={() => {}} onDone={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Tarjeta/i }));
+    const boton = screen.getByRole("button", { name: /Registrar cobro/i });
+    expect(boton).toBeDisabled();
+
+    const last4 = screen.getByLabelText(/Últimos 4 números/i);
+    fireEvent.change(last4, { target: { value: "12" } });
+    expect(boton).toBeDisabled();
+
+    fireEvent.change(last4, { target: { value: "1234" } });
+    expect(boton).not.toBeDisabled();
+  });
+
+  it("con Tarjeta y últimos 4 válidos, el cobro viaja con esos 4 dígitos como referencia", () => {
+    render(<CollectModal open invoices={[fila({})]} onClose={() => {}} onDone={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Tarjeta/i }));
+    fireEvent.change(screen.getByLabelText(/Últimos 4 números/i), { target: { value: "4242" } });
+    fireEvent.click(screen.getByRole("button", { name: /Registrar cobro/i }));
+    expect(collect).toHaveBeenCalledTimes(1);
+    const enviado = collect.mock.calls[0]![0] as EnvioCobro & { reference?: string };
+    expect(enviado.method).toBe("card");
+    expect(enviado.reference).toBe("4242");
+  });
+
+  it("con Efectivo (no exige últimos 4), «Registrar cobro» sigue habilitado", () => {
+    render(<CollectModal open invoices={[fila({})]} onClose={() => {}} onDone={() => {}} />);
+    expect(screen.getByRole("button", { name: /Registrar cobro/i })).not.toBeDisabled();
+  });
+});
