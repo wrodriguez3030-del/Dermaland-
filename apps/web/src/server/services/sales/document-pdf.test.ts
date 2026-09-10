@@ -15,6 +15,7 @@ const business: Business = {
   legalName: "DermaLand SRL",
   commercialName: "DermaLand",
   rnc: "1-32-59077-5",
+  accountNumber: 1,
   country: "República Dominicana",
   phone: "+1 809-226-5252",
   whatsapp: "+1 809-226-5252",
