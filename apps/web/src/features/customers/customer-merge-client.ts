@@ -4,9 +4,21 @@ import type { Customer } from "@/types";
 import type { DuplicateConfidence } from "./utils/duplicate-detection";
 import type { MergeImpact } from "@/server/services/customers/merge-clients";
 
+/**
+ * Lo que `/api/customers/duplicates` manda por cliente: lo que la fila pinta
+ * (nombre, compras) + lo que el buscador necesita (`coincideCliente`, mismo
+ * criterio que `/clientes`). NO manda `Customer` completo — con 1000+ pares
+ * reales, tags/consents/notes/dirección/etc. pesaban de más sin usarse; ver
+ * el comentario de la ruta.
+ */
+export type DuplicatePairCustomer = Pick<
+  Customer,
+  "id" | "firstName" | "lastName" | "totalOrders" | "customerNumber" | "documentNumber" | "phone" | "whatsapp" | "email"
+>;
+
 export interface DuplicatePairDto {
-  a: Customer;
-  b: Customer;
+  a: DuplicatePairCustomer;
+  b: DuplicatePairCustomer;
   confidence: DuplicateConfidence;
   reasons: string[];
 }

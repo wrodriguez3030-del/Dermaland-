@@ -10,6 +10,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.150.0] - 2026-09-09
+
+### Corregido
+
+- **Unificar clientes lenta: reprodujo un `select("*")` ya conocido.**
+  `GET /api/customers/duplicates` traía TODAS las columnas de `clients` para
+  6 544 filas (4,9 MB), el mismo problema que ya se había cerrado una vez en
+  `customer.list`. Ahora trae solo las 11 columnas que el matcher y la
+  pantalla usan (1,8 MB, -63%) y la respuesta al navegador manda solo
+  id/nombre/compras/documento/teléfono/email por cliente, no el `Customer`
+  completo (445 KB para 1015 pares, antes ~1,6 MB, -72%). `scanAllDuplicates`
+  en sí tarda 50ms — nunca fue el cuello de botella. `findPotentialDuplicateClients`
+  y `DuplicateMatch`/`DuplicateDetectionResult` ahora son genéricos (por
+  defecto `Customer`, compatible con los 3 usos existentes) para que un
+  caller con columnas livianas no tenga que fingir tener un `Customer`
+  entero.
+
 ## [0.149.0] - 2026-09-09
 
 ### Agregado

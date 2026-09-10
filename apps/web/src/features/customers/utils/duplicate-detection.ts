@@ -62,15 +62,38 @@ export interface CustomerFormCandidate {
 
 export type DuplicateConfidence = "high" | "medium" | "low";
 
-export interface DuplicateMatch {
-  customer: Customer;
+/**
+ * Los únicos campos que el matcher LEE de cada "existing". Genérico sobre
+ * esto (no sobre `Customer` completo) para que un caller que solo trajo
+ * columnas livianas de la base (p.ej. el escaneo masivo de "Unificar
+ * clientes", que NO puede pagar traer las ~25 columnas de `clients` para
+ * 6 500+ filas) pueda usar el mismo criterio sin fingir tener un `Customer`
+ * entero. Ver [[dermaland-panel-lentitud-medida]]: `select("*")` sobre esta
+ * tabla ya causó un problema de rendimiento real una vez (`customer.list`);
+ * este genérico existe para que no se repita.
+ */
+export type MatchableCustomerFields = Pick<
+  Customer,
+  | "id"
+  | "businessId"
+  | "firstName"
+  | "lastName"
+  | "phone"
+  | "whatsapp"
+  | "email"
+  | "documentNumber"
+  | "birthDate"
+>;
+
+export interface DuplicateMatch<T extends MatchableCustomerFields = Customer> {
+  customer: T;
   reasons: string[];
   confidence: DuplicateConfidence;
 }
 
-export interface DuplicateDetectionResult {
+export interface DuplicateDetectionResult<T extends MatchableCustomerFields = Customer> {
   isDuplicate: boolean;
-  matches: DuplicateMatch[];
+  matches: DuplicateMatch<T>[];
   /** Confianza máxima encontrada — útil para decidir UI (block vs warn). */
   topConfidence: DuplicateConfidence | null;
 }
@@ -115,11 +138,11 @@ export interface FindDuplicatesOptions {
  * filtrando ya por business_id (multitenancy). Si `excludeClientId`
  * está presente, ese cliente se omite (caso edición).
  */
-export function findPotentialDuplicateClients(
+export function findPotentialDuplicateClients<T extends MatchableCustomerFields = Customer>(
   candidate: CustomerFormCandidate,
-  existing: Customer[],
+  existing: T[],
   options: FindDuplicatesOptions = {},
-): DuplicateDetectionResult {
+): DuplicateDetectionResult<T> {
   const cFirst = normalizeName(candidate.firstName);
   const cLast = normalizeName(candidate.lastName);
   const cFull = normalizeFullName(candidate.firstName, candidate.lastName);
@@ -129,7 +152,7 @@ export function findPotentialDuplicateClients(
   const cDoc = normalizeDocument(candidate.documentNumber);
   const cDob = normalizeDate(candidate.birthDate);
 
-  const matches: DuplicateMatch[] = [];
+  const matches: DuplicateMatch<T>[] = [];
 
   for (const e of existing) {
     if (e.businessId !== candidate.businessId) continue; // aislamiento multi-tenant
@@ -299,9 +322,22 @@ export function duplicateMessage(
 
 // ─── Escaneo masivo (Unificar clientes) ─────────────────────────────────────
 
+/**
+ * Lo mínimo que el escaneo masivo necesita por cliente: los campos que
+ * `findPotentialDuplicateClients` compara + `totalOrders` (que usa la
+ * pantalla para preseleccionar quién recibe). A propósito NO es `Customer`
+ * completo — con 6 500+ clientes, traer las ~25 columnas de la tabla
+ * (`select("*")`) ya causó una vez un problema real de rendimiento
+ * (`customer.list`, ver `dermaland-panel-lentitud-medida`); este tipo es lo
+ * que el caller (la ruta `/api/customers/duplicates`) debe seleccionar de la
+ * base, ni una columna más.
+ */
+export type DuplicateScanCandidate = MatchableCustomerFields &
+  Pick<Customer, "totalOrders">;
+
 export interface DuplicatePair {
-  a: Customer;
-  b: Customer;
+  a: DuplicateScanCandidate;
+  b: DuplicateScanCandidate;
   confidence: DuplicateConfidence;
   reasons: string[];
 }
@@ -318,9 +354,9 @@ export interface DuplicatePair {
  * solo email no aparece aquí, aunque `findPotentialDuplicateClients` sí lo
  * detectaría comparando UN candidato a la vez (como al crear un cliente).
  */
-export function scanAllDuplicates(clients: Customer[]): DuplicatePair[] {
-  const buckets = new Map<string, Customer[]>();
-  const addToBucket = (key: string, c: Customer) => {
+export function scanAllDuplicates(clients: DuplicateScanCandidate[]): DuplicatePair[] {
+  const buckets = new Map<string, DuplicateScanCandidate[]>();
+  const addToBucket = (key: string, c: DuplicateScanCandidate) => {
     if (!key) return;
     const list = buckets.get(key);
     if (list) list.push(c);
@@ -352,7 +388,7 @@ export function scanAllDuplicates(clients: Customer[]): DuplicatePair[] {
         birthDate: candidate.birthDate,
         businessId: candidate.businessId,
       };
-      const { matches } = findPotentialDuplicateClients(input, bucket, {
+      const { matches } = findPotentialDuplicateClients<DuplicateScanCandidate>(input, bucket, {
         excludeClientId: candidate.id,
       });
       for (const match of matches) {

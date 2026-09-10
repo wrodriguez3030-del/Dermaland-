@@ -9,7 +9,6 @@ import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
 import { useToast } from "@/components/ui/toast";
-import type { Customer } from "@/types";
 import { coincideCliente } from "@/features/customers/customer-search";
 import {
   fetchDuplicatePairs,
@@ -17,10 +16,11 @@ import {
   mergeCustomers,
   describeMergeImpact,
   type DuplicatePairDto,
+  type DuplicatePairCustomer,
 } from "@/features/customers/customer-merge-client";
 import type { MergeImpact } from "@/server/services/customers/merge-clients";
 
-const nombreCompleto = (c: Customer) => `${c.firstName} ${c.lastName}`.trim();
+const nombreCompleto = (c: DuplicatePairCustomer) => `${c.firstName} ${c.lastName}`.trim();
 
 /** Preselección: el que tiene más compras registradas; empate → el primero. */
 function sobrevivientePorDefecto(par: DuplicatePairDto): string {
@@ -43,7 +43,7 @@ function ClientCheckbox({
   seleccionado,
   onSeleccionar,
 }: {
-  cliente: Customer;
+  cliente: DuplicatePairCustomer;
   seleccionado: boolean;
   onSeleccionar: () => void;
 }) {
