@@ -15,7 +15,7 @@ import type { UserRole } from "@/types";
  */
 
 /** Roles que pueden ejecutar acciones de riesgo. */
-const ROLES_CON_RIESGO: ReadonlyArray<UserRole> = ["super_admin", "admin"];
+export const ROLES_CON_RIESGO: ReadonlyArray<UserRole> = ["super_admin", "admin"];
 
 /**
  * ¿Este rol puede borrar, anular o editar algo que otro ya usó?
