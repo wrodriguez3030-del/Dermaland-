@@ -10,6 +10,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.160.0] - 2026-09-10
+
+### Corregido
+
+- 🔴 **Una venta a crédito no aparecía en Cuentas por cobrar hasta recargar
+  la página a mano.** Reportado por el dueño: hizo una venta, salió en
+  "Ventas" pero no en "Cuentas por cobrar". Verificado en producción: el
+  dato SÍ estaba bien guardado y la consulta del servidor SÍ lo incluía
+  (`listPending`/`summary`) — el problema era que la pestaña de Cuentas por
+  cobrar, si ya estaba abierta de antes, nunca volvía a pedirle datos al
+  servidor (el `useEffect` que carga solo corre al montar). Nuevo
+  `useRefetchOnFocus` (`components/ui/`): vuelve a pedir cuando la pestaña
+  recupera el foco o deja de estar oculta — cubre tanto "cambié de pestaña y
+  volví" como el `bfcache` del navegador (volver con "Atrás" sin que React
+  vuelva a montar nada). Aplicado al dashboard de Cuentas por cobrar y a
+  "Facturas pendientes".
+
 ## [0.159.0] - 2026-09-10
 
 ### Corregido

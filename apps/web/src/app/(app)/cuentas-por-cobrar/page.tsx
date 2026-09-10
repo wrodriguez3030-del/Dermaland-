@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { AGING_LABEL, AGING_ORDER } from "@/features/receivables/aging";
 import { arApi, money, type ArSummary } from "@/features/receivables/receivables-client";
+import { useRefetchOnFocus } from "@/components/ui/use-refetch-on-focus";
 
 /**
  * Desglose del total por cobrar: cuánto es del sistema y cuánto viene del
@@ -52,10 +53,16 @@ function hintPendiente(s: ArSummary): string {
 export default function CxcDashboardPage() {
   const [s, setS] = React.useState<ArSummary | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [nonce, setNonce] = React.useState(0);
 
   React.useEffect(() => {
     arApi.summary().then(setS).catch((e) => setError(e instanceof Error ? e.message : "Error"));
-  }, []);
+  }, [nonce]);
+
+  // 🔴 Sin esto, una venta a crédito hecha en el POS no cambiaba "Total por
+  // cobrar" hasta recargar la página a mano: esta pestaña, ya abierta, nunca
+  // volvía a preguntarle al servidor (visto en vivo el 10/09/2026).
+  useRefetchOnFocus(() => setNonce((n) => n + 1));
 
   return (
     <>

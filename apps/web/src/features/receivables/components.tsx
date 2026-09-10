@@ -4,6 +4,7 @@ import * as React from "react";
 import { Badge, Button, Input, Label, Modal, Select, Textarea } from "@/components/ui";
 import { AlertTriangle, HandCoins } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { useRefetchOnFocus } from "@/components/ui/use-refetch-on-focus";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { AGING_CLASS, AGING_LABEL, AGING_TONE, type AgingBucket } from "./aging";
 import { arApi, money, type ReceivableRow } from "./receivables-client";
@@ -17,7 +18,14 @@ export function AgingBadge({ bucket }: { bucket: AgingBucket }) {
   );
 }
 
-/** Carga de facturas pendientes con estado de UI (loading / error / datos). */
+/**
+ * Carga de facturas pendientes con estado de UI (loading / error / datos).
+ *
+ * 🔴 Vuelve a pedir sola al recuperar el foco (`useRefetchOnFocus`): sin
+ * esto, una venta a crédito hecha en el POS no aparecía aquí hasta recargar
+ * la página a mano — la pestaña ya abierta de Cuentas por cobrar nunca
+ * volvía a preguntarle al servidor (visto en vivo el 10/09/2026).
+ */
 export function usePendingReceivables() {
   const [rows, setRows] = React.useState<ReceivableRow[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -32,7 +40,9 @@ export function usePendingReceivables() {
       alive = false;
     };
   }, [nonce]);
-  return { rows, error, loading: rows === null && !error, reload: () => setNonce((n) => n + 1) };
+  const reload = () => setNonce((n) => n + 1);
+  useRefetchOnFocus(reload);
+  return { rows, error, loading: rows === null && !error, reload };
 }
 
 const METHOD_OPTIONS = [
