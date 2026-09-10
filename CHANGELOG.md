@@ -10,6 +10,20 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.151.0] - 2026-09-10
+
+### Corregido
+
+- **Unificar clientes decía «0 compras» a clientes con historial real.**
+  La preselección de quién recibe usaba `clients.total_orders`, columna que
+  solo cuenta ventas del POS propio — 0 para casi todos los 6 544 clientes
+  migrados de Alegra. Nueva función `client_purchase_counts()` cuenta
+  POS + Alegra combinados con el MISMO criterio de exclusión que
+  `resumen_ventas_unificadas`/`desglose_ventas_unificadas` (no se reinventa).
+- **El buscador se sentía lento al escribir.** Filtraba 1000+ pares en cada
+  tecla, bloqueando el repintado del carácter nuevo. `useDebounce` (200ms)
+  retrasa el filtro, no el `<input>`.
+
 ## [0.150.0] - 2026-09-09
 
 ### Corregido

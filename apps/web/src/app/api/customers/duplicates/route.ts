@@ -8,6 +8,7 @@ import {
   scanAllDuplicates,
   type DuplicateScanCandidate,
 } from "@/features/customers/utils/duplicate-detection";
+import { getClientPurchaseCounts } from "@/server/services/customers/purchase-counts";
 
 /**
  * GET /api/customers/duplicates — escaneo COMPLETO de posibles duplicados
@@ -57,8 +58,13 @@ function rowToScanCandidate(row: ClientMatchRow): DuplicateScanCandidate {
  * Lo que viaja al navegador: lo que la fila pinta (nombre, compras) + lo que
  * el buscador necesita (mismo criterio que `/clientes`). NO manda
  * `businessId`/`birthDate` — el matcher ya los usó en el servidor.
+ *
+ * 🔴 `totalOrders` NO es `row.total_orders` (esa columna solo cuenta ventas
+ * del POS propio y queda en 0 para casi todos los clientes migrados de
+ * Alegra) — es el conteo combinado de `purchasesById`, mismo criterio que
+ * `resumen_ventas_unificadas`/`desglose_ventas_unificadas`.
  */
-function toWireCustomer(row: ClientMatchRow) {
+function toWireCustomer(row: ClientMatchRow, purchasesById: Map<string, number>) {
   return {
     id: row.id,
     customerNumber: row.customer_number,
@@ -68,7 +74,7 @@ function toWireCustomer(row: ClientMatchRow) {
     phone: row.phone ?? undefined,
     whatsapp: row.whatsapp ?? undefined,
     email: row.email ?? undefined,
-    totalOrders: Number(row.total_orders),
+    totalOrders: purchasesById.get(row.id) ?? 0,
   };
 }
 
@@ -102,11 +108,18 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     return data ?? [];
   });
 
+  let purchasesById: Map<string, number>;
+  try {
+    purchasesById = await getClientPurchaseCounts(sb);
+  } catch {
+    return NextResponse.json({ error: "No se pudo calcular las compras por cliente." }, { status: 502 });
+  }
+
   const rowById = new Map(rows.map((r) => [r.id, r]));
   const candidates = rows.map(rowToScanCandidate);
   const pairs = scanAllDuplicates(candidates).map((p) => ({
-    a: toWireCustomer(rowById.get(p.a.id)!),
-    b: toWireCustomer(rowById.get(p.b.id)!),
+    a: toWireCustomer(rowById.get(p.a.id)!, purchasesById),
+    b: toWireCustomer(rowById.get(p.b.id)!, purchasesById),
     confidence: p.confidence,
     reasons: p.reasons,
   }));

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const authorizeRole = vi.fn();
+const getClientPurchaseCounts = vi.fn();
 const env = { DATA_SOURCE: "supabase" };
 
 function fakeClientsBuilder(rows: unknown[]) {
@@ -17,6 +18,7 @@ function fakeClientsBuilder(rows: unknown[]) {
 
 vi.mock("@/lib/env", () => ({ env }));
 vi.mock("@/server/auth/require-role", () => ({ authorizeRole }));
+vi.mock("@/server/services/customers/purchase-counts", () => ({ getClientPurchaseCounts }));
 
 const ROW = (over: Record<string, unknown>) => ({
   id: "id",
@@ -59,6 +61,7 @@ const pedir = () => GET(new NextRequest("http://localhost/api/customers/duplicat
 beforeEach(() => {
   env.DATA_SOURCE = "supabase";
   authorizeRole.mockReset().mockResolvedValue({ ok: true, session: { businessId: "biz-1" } });
+  getClientPurchaseCounts.mockReset().mockResolvedValue(new Map());
   rows = [];
 });
 
@@ -89,5 +92,23 @@ describe("GET /api/customers/duplicates", () => {
     env.DATA_SOURCE = "mock";
     const res = await pedir();
     expect(res.status).toBe(409);
+  });
+
+  it("🔴 «compras» viene del conteo combinado (POS + Alegra), NO de total_orders crudo", async () => {
+    // Migrado de Alegra: total_orders (columna del POS propio) queda en 0
+    // aunque el cliente tenga historial real — el mismo silencio que ya se
+    // cerró en el panel y los reportes.
+    rows = [
+      ROW({ id: "a", document_number: "00111111111", total_orders: 0 }),
+      ROW({ id: "b", document_number: "00111111111", total_orders: 0 }),
+    ];
+    getClientPurchaseCounts.mockResolvedValue(new Map([["a", 42]]));
+    const res = await pedir();
+    const body = await res.json();
+    const byId: Record<string, { totalOrders: number }> = Object.fromEntries(
+      [body.pairs[0].a, body.pairs[0].b].map((c: { id: string; totalOrders: number }) => [c.id, c]),
+    );
+    expect(byId.a!.totalOrders).toBe(42);
+    expect(byId.b!.totalOrders).toBe(0); // sin fila en el Map = 0, no undefined
   });
 });
