@@ -11,6 +11,15 @@ import {
 } from "@/features/incentives/incentive-store";
 import type { IncentiveRuleType } from "@/features/incentives/incentive-engine";
 import { useLaboratoriesList } from "@/features/products/catalog-store";
+import { PAYMENT_GROUP_LABEL, type PaymentGroup } from "@/features/sales/sales-report";
+
+const PAYMENT_GROUP_ORDER: PaymentGroup[] = ["cash", "transfer", "card", "other"];
+const EMPTY_PAYMENT_GROUPS: Record<PaymentGroup, boolean> = {
+  cash: false,
+  transfer: false,
+  card: false,
+  other: false,
+};
 
 interface Props {
   open: boolean;
@@ -38,6 +47,8 @@ export function IncentiveRuleModal({ open, rule, onClose }: Props) {
   const [endsAt, setEndsAt] = React.useState("");
   const [active, setActive] = React.useState(true);
   const [note, setNote] = React.useState("");
+  const [paymentGroups, setPaymentGroups] =
+    React.useState<Record<PaymentGroup, boolean>>(EMPTY_PAYMENT_GROUPS);
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
 
@@ -53,6 +64,11 @@ export function IncentiveRuleModal({ open, rule, onClose }: Props) {
     setEndsAt(rule?.endsAt ?? "");
     setActive(rule?.active ?? true);
     setNote(rule?.note ?? "");
+    const groups = { ...EMPTY_PAYMENT_GROUPS };
+    for (const g of rule?.paymentGroups ?? []) {
+      if (g in groups) groups[g as PaymentGroup] = true;
+    }
+    setPaymentGroups(groups);
     setError(null);
   }, [open, rule]);
 
@@ -84,6 +100,7 @@ export function IncentiveRuleModal({ open, rule, onClose }: Props) {
         endsAt: endsAt || null,
         active,
         note: note || null,
+        paymentGroups: PAYMENT_GROUP_ORDER.filter((g) => paymentGroups[g]),
       },
       rule?.id,
     );
@@ -208,6 +225,31 @@ export function IncentiveRuleModal({ open, rule, onClose }: Props) {
               />
             </div>
           )}
+
+          <div className="sm:col-span-2">
+            <Label>Método de pago al que aplica</Label>
+            <div className="flex flex-wrap gap-3">
+              {PAYMENT_GROUP_ORDER.map((g) => (
+                <label key={g} className="flex items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={paymentGroups[g]}
+                    onChange={(e) =>
+                      setPaymentGroups((p) => ({ ...p, [g]: e.target.checked }))
+                    }
+                  />
+                  {PAYMENT_GROUP_LABEL[g]}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs opacity-60">
+              Sin selección = aplica a cualquier método de pago. 🔴 Si vas a tener otra
+              regla para otro método (ej. "Efectivo" y "Tarjeta" por separado), marca
+              cada una con SU método — dos reglas activas sin esto se suman las dos a
+              la misma venta.
+            </p>
+          </div>
 
           <div>
             <Label>Vigente desde</Label>

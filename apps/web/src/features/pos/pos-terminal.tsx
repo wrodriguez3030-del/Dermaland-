@@ -25,7 +25,7 @@ import { Badge, Button, Select } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { formatDominicanPhone } from "@/lib/utils/formatters";
-import { useCustomers } from "@/features/customers/customer-store";
+import { fetchCustomerById } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
 import { ProductCard } from "./product-card";
 import { CondicionCards } from "./components/condition-cards";
@@ -67,7 +67,7 @@ import {
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import { reserveNextPreferredAnywhere } from "@/features/dgii/numbering-store";
 import { reserveProformaNumber } from "@/features/sales/proforma-number";
-import type { DefaultBillingType, Proforma } from "@/types";
+import type { Customer, DefaultBillingType, Proforma } from "@/types";
 import { billingTypeLabel } from "@/features/customers/billing";
 import {
   ChargeSaleModal,
@@ -277,12 +277,11 @@ export function PosTerminal({
    */
   pedidoWebId?: string;
 } = {}) {
-  const customers = useCustomers();
   const billingSettings = useBillingSettings();
   const toast = useToast();
   const [search, setSearch] = React.useState("");
   const [cart, setCart] = React.useState<CartLine[]>([]);
-  const [customerId, setCustomerId] = React.useState<string | "">("");
+  const [customer, setCustomer] = React.useState<Customer | null>(null);
   // Cliente OBLIGATORIO para facturar: marca el selector en rojo y muestra
   // el mensaje cuando se intenta cobrar sin cliente.
   const [customerRequired, setCustomerRequired] = React.useState(false);
@@ -406,13 +405,8 @@ export function PosTerminal({
   // por defecto (consumo / credito_fiscal). Si no se especifica → consumo.
   // Mapea a e-CF tipo 32 / 31 cuando DGII esté activo.
   React.useEffect(() => {
-    if (!customerId) {
-      setBillingType("consumo");
-      return;
-    }
-    const c = customers.find((x) => x.id === customerId);
-    setBillingType(c?.defaultBillingType ?? "consumo");
-  }, [customerId, customers]);
+    setBillingType(customer?.defaultBillingType ?? "consumo");
+  }, [customer]);
 
   const products = useProducts();
   const { favorites, isFavorite, toggle: toggleFavorite } = useFavorites();
@@ -717,7 +711,13 @@ export function PosTerminal({
         setCart(lineas);
         setCartBranchId(sucursalUsada);
       }
-      if (pedido.clientId) setCustomerId(pedido.clientId);
+      if (pedido.clientId) {
+        // Solo se tiene el id: el pedido no trae el cliente completo, y ya
+        // no hay una lista entera en memoria de la que sacarlo.
+        void fetchCustomerById(pedido.clientId).then((c) => {
+          if (c) setCustomer(c);
+        });
+      }
     })();
   }, [
     pedidoWebId,
@@ -771,7 +771,6 @@ export function PosTerminal({
   const globalDiscountAmount = totals.globalDiscount;
   const scaledItbis = totals.itbis;
   const total = totals.total;
-  const customer = customers.find((c) => c.id === customerId);
 
   // ── Descuento por línea (mini-modal) ─────────────────────────────────────────
   const [discountLot, setDiscountLot] = React.useState<string | null>(null);
@@ -1227,7 +1226,7 @@ export function PosTerminal({
     setCart([]);
     setCartBranchId("");
     setDiscountGlobalPercent(0);
-    setCustomerId("");
+    setCustomer(null);
     setSeller(null);
     setSellerRequired(false);
     setChargeOpen(false);
@@ -1522,18 +1521,13 @@ export function PosTerminal({
             )}
           </div>
           <div className="mt-3">
-            {/* No se pasa `businessId`: los clientes ya vienen scopeados por
-                business_id (RLS en Supabase, single-tenant en mock). Pasar la
-                constante mock "biz_dermaland" excluía a TODOS los clientes
-                reales (cuyo businessId es el UUID), por eso WILLIAN no aparecía. */}
             <CustomerSearchSelect
               ref={customerSelectRef}
-              clients={customers}
-              value={customer ?? null}
+              value={customer}
               allowWalkIn={false}
               invalid={customerRequired}
               onChange={(c) => {
-                setCustomerId(c?.id ?? "");
+                setCustomer(c);
                 if (c) setCustomerRequired(false);
               }}
               onCreateNew={() => setQuickCreateOpen(true)}
@@ -1990,7 +1984,7 @@ export function PosTerminal({
         open={quickCreateOpen}
         onClose={() => setQuickCreateOpen(false)}
         onCreated={(c) => {
-          setCustomerId(c.id);
+          setCustomer(c);
           setCustomerRequired(false);
         }}
       />

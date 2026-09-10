@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import {
   ChevronDown,
+  Loader2,
   Search,
   User,
   UserPlus,
@@ -11,17 +12,20 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { Customer } from "@/types";
-import { searchClients } from "@/features/customers/utils/search-clients";
+import { fetchCustomersFromServer } from "@/features/customers/customer-store";
 import { billingTypeLabel } from "@/features/customers/billing";
+import { useDebounce } from "@/components/ui/use-debounce";
+
+/** Tope de resultados del desplegable — nunca la base entera. */
+const LIMITE_RESULTADOS = 10;
+/** Menos de esto no busca: dos letras evitan traer medio catálogo por azar. */
+const MIN_CARACTERES = 2;
 
 interface CustomerSearchSelectProps {
-  clients: Customer[];
   value?: Customer | null;
   onChange: (customer: Customer | null) => void;
   /** Permite "walk-in / consumidor final" como opción explícita. Default true. */
   allowWalkIn?: boolean;
-  /** Filtra por business_id (multi-tenancy). */
-  businessId?: string;
   /** Path para "Crear nuevo cliente". Default `/clientes/nuevo`. */
   createHref?: string;
   /** Callback alternativo si se prefiere abrir modal en lugar de navegar. */
@@ -40,12 +44,20 @@ export interface CustomerSearchSelectHandle {
 }
 
 /**
- * Selector con búsqueda contra varios campos: nombre, teléfono, WhatsApp,
- * documento, email, customer number. Reutilizable en POS, proformas y
+ * Selector con búsqueda EN EL SERVIDOR (nombre, teléfono, documento) contra
+ * `GET /api/customers?search=…&limit=…`. Reutilizable en POS, proformas y
  * cualquier flujo de facturación.
  *
+ * 🔴 Antes traía la base ENTERA (`useCustomers()`, ~2,8 MB / 6 500+ clientes,
+ * 2-3 s) solo para filtrarla en el navegador dentro de un cuadro que muestra
+ * 10 resultados — medido en vivo el 10/09/2026 al abrir el POS. Ahora no pide
+ * nada hasta que el cajero escribe ≥2 caracteres, y cada búsqueda trae como
+ * máximo `LIMITE_RESULTADOS` filas. A cambio se pierde el listado de
+ * "recientes" al abrir vacío (la base no expone esa vista sin descargarla
+ * entera): se pide escribir, como cualquier buscador de un catálogo grande.
+ *
  * - Cuando no hay valor seleccionado, muestra "Cliente: walk-in".
- * - Click → dropdown con input + lista filtrada (max 10).
+ * - Click → dropdown con input + resultados del servidor (debounce 300 ms).
  * - Sin resultados → CTA "Crear nuevo cliente".
  * - Selección → cierra y emite `onChange(customer)`.
  * - Botón ✕ para volver a walk-in.
@@ -55,11 +67,9 @@ export const CustomerSearchSelect = React.forwardRef<
   CustomerSearchSelectProps
 >(function CustomerSearchSelect(
   {
-    clients,
     value,
     onChange,
     allowWalkIn = true,
-    businessId,
     createHref = "/clientes/nuevo",
     onCreateNew,
     size = "md",
@@ -70,6 +80,10 @@ export const CustomerSearchSelect = React.forwardRef<
 ) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const debouncedQuery = useDebounce(query, 300);
+  const [results, setResults] = React.useState<Customer[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -113,13 +127,39 @@ export const CustomerSearchSelect = React.forwardRef<
       requestAnimationFrame(() => inputRef.current?.focus());
     } else {
       setQuery("");
+      setResults([]);
+      setError(null);
     }
   }, [open]);
 
-  const results = React.useMemo(
-    () => searchClients(query, clients, { businessId, limit: 10 }),
-    [query, clients, businessId],
-  );
+  // Busca en el servidor cuando hay suficiente texto — nunca al abrir vacío.
+  React.useEffect(() => {
+    const q = debouncedQuery.trim();
+    if (q.length < MIN_CARACTERES) {
+      setResults([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    setError(null);
+    fetchCustomersFromServer({ search: q, limit: LIMITE_RESULTADOS })
+      .then((customers) => {
+        if (!alive) return;
+        setResults(customers);
+        setLoading(false);
+      })
+      .catch((e: unknown) => {
+        if (!alive) return;
+        setError(e instanceof Error ? e.message : "No se pudo buscar clientes.");
+        setResults([]);
+        setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [debouncedQuery]);
 
   const handleSelect = (c: Customer | null) => {
     onChange(c);
@@ -128,6 +168,7 @@ export const CustomerSearchSelect = React.forwardRef<
   };
 
   const triggerHeight = size === "sm" ? "h-9" : "h-10";
+  const queryTrimmed = query.trim();
 
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
@@ -198,6 +239,9 @@ export const CustomerSearchSelect = React.forwardRef<
               className="h-10 w-full bg-transparent pl-9 pr-3 text-sm focus:outline-none"
               autoComplete="off"
             />
+            {loading && (
+              <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin opacity-50" />
+            )}
           </div>
 
           <ul
@@ -227,12 +271,22 @@ export const CustomerSearchSelect = React.forwardRef<
               </li>
             )}
 
-            {results.length > 0 && (
+            {queryTrimmed.length < MIN_CARACTERES && (
+              <li className="px-4 py-6 text-center text-sm opacity-60">
+                Escribe para buscar por nombre, teléfono, cédula o email.
+              </li>
+            )}
+
+            {error && (
+              <li className="px-4 py-4 text-center text-sm text-rose-700">{error}</li>
+            )}
+
+            {!error && queryTrimmed.length >= MIN_CARACTERES && results.length > 0 && (
               <li
                 aria-hidden
                 className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider opacity-50"
               >
-                {query.trim().length === 0 ? "Recientes" : "Resultados"}
+                Resultados
               </li>
             )}
 
@@ -274,11 +328,14 @@ export const CustomerSearchSelect = React.forwardRef<
               </li>
             ))}
 
-            {query.trim().length >= 2 && results.length === 0 && (
-              <li className="px-4 py-6 text-center text-sm">
-                <div className="opacity-60">No se encontraron clientes.</div>
-              </li>
-            )}
+            {!error &&
+              !loading &&
+              queryTrimmed.length >= MIN_CARACTERES &&
+              results.length === 0 && (
+                <li className="px-4 py-6 text-center text-sm">
+                  <div className="opacity-60">No se encontraron clientes.</div>
+                </li>
+              )}
           </ul>
 
           <div className="border-t border-black/5">
@@ -293,7 +350,7 @@ export const CustomerSearchSelect = React.forwardRef<
               >
                 <UserPlus className="h-4 w-4" />
                 Crear nuevo cliente
-                {query.trim().length >= 2 && (
+                {queryTrimmed.length >= MIN_CARACTERES && (
                   <span className="opacity-60"> · "{query}"</span>
                 )}
               </button>
@@ -305,7 +362,7 @@ export const CustomerSearchSelect = React.forwardRef<
               >
                 <UserPlus className="h-4 w-4" />
                 Crear nuevo cliente
-                {query.trim().length >= 2 && (
+                {queryTrimmed.length >= MIN_CARACTERES && (
                   <span className="opacity-60"> · "{query}"</span>
                 )}
               </Link>

@@ -31,6 +31,13 @@ export interface IncentiveRule {
   startsAt?: string | null; // YYYY-MM-DD
   endsAt?: string | null;
   active: boolean;
+  /**
+   * Grupos de método de pago a los que aplica ("cash", "card", "transfer",
+   * "other" — ver `PaymentGroup` en `features/sales/sales-report.ts`, no
+   * importado aquí a propósito: este motor no depende de ningún otro
+   * feature). Vacío o `null`/`undefined` = aplica a cualquier método.
+   */
+  paymentGroups?: string[] | null;
 }
 
 /** Datos del producto necesarios para reglas de lab/categoría/margen. */
@@ -63,6 +70,15 @@ export interface SaleForIncentive {
    * caller solo necesita mandar `discount > 0`.
    */
   hasDiscount: boolean;
+  /**
+   * Grupos de método de pago con los que se pagó de verdad esta venta —
+   * `["cash"]`, `["card"]`, o los dos si fue mixta. 🔴🔴 Encontrado en
+   * producción el 10/09/2026: sin este campo, una regla "Efectivo 3%" y otra
+   * "Tarjeta 1%" aplicaban LAS DOS a cualquier venta (nunca se filtraba por
+   * cómo se pagó), comisionando de más. Una venta con pago mixto puede
+   * calificar para más de una regla de método — no se prorratea por monto.
+   */
+  paymentGroups: string[];
   items: SaleItemForIncentive[];
 }
 
@@ -101,6 +117,17 @@ function fixed(rule: IncentiveRule): number {
 }
 
 /**
+ * ¿La regla acepta el método con el que se pagó esta venta? Sin
+ * `paymentGroups` (o vacío) la regla aplica a cualquier método — así
+ * siguen funcionando las reglas de por producto/laboratorio/categoría que
+ * nunca quisieron restringirse por forma de pago.
+ */
+function ruleAppliesToPaymentMethod(rule: IncentiveRule, sale: SaleForIncentive): boolean {
+  if (!rule.paymentGroups || rule.paymentGroups.length === 0) return true;
+  return sale.paymentGroups.some((g) => rule.paymentGroups!.includes(g));
+}
+
+/**
  * Calcula el/los incentivo(s) que UNA regla genera para UNA venta.
  * Devuelve [] si la regla no aplica o el incentivo es 0.
  * `per_goal` NO se resuelve aquí (es periódico) → siempre [].
@@ -110,6 +137,7 @@ export function computeRuleForSale(
   sale: SaleForIncentive,
   products: Map<string, ProductInfo>,
 ): IncentiveSnapshot[] {
+  if (!ruleAppliesToPaymentMethod(rule, sale)) return [];
   const netTotal = sale.items.reduce((s, it) => s + it.subtotal, 0);
 
   const base = (productId: string | null, amount: number): IncentiveSnapshot => ({

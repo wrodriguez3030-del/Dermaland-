@@ -205,6 +205,7 @@ export async function saveIncentiveRule(
     endsAt: input.endsAt ?? null,
     active: input.active ?? true,
     note: input.note ?? null,
+    paymentGroups: input.paymentGroups ?? null,
   };
   writeLocalRules([...list, rule]);
   return { ok: true, rule };

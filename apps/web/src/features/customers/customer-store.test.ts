@@ -6,6 +6,7 @@ import {
   STORAGE_KEY,
   clearLocalCustomers,
   createCustomer,
+  fetchCustomerById,
   getCustomerByIdFromStore,
   listAllCustomers,
   preferredSendPhone,
@@ -56,6 +57,26 @@ describe("customer-store (localStorage)", () => {
       expect(contact.email).toBe("ana@correo.com");
       expect(contact.phone).toBe("809-111-1111");
     }
+  });
+
+  it("fetchCustomerById devuelve el cliente completo por id", async () => {
+    const r = createCustomer({
+      firstName: "Luis",
+      lastName: "Ureña",
+      phone: "809-222-2222",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const found = await fetchCustomerById(r.customer.id);
+      expect(found?.firstName).toBe("Luis");
+      expect(found?.lastName).toBe("Ureña");
+    }
+  });
+
+  it("fetchCustomerById devuelve null si el id no existe", async () => {
+    expect(await fetchCustomerById("no-existe")).toBeNull();
   });
 
   it("listAllCustomers incluye seed mock", () => {

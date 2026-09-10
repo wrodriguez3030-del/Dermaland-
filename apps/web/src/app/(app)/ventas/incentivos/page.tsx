@@ -46,6 +46,14 @@ import { downloadBlob } from "@/lib/utils/download";
 import { useBranches } from "@/features/tenancy/branch-store";
 import { FileSpreadsheet } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { PAYMENT_GROUP_LABEL, type PaymentGroup } from "@/features/sales/sales-report";
+
+function paymentGroupsLabel(groups?: string[] | null): string | null {
+  if (!groups || groups.length === 0) return null;
+  return groups
+    .map((g) => PAYMENT_GROUP_LABEL[g as PaymentGroup] ?? g)
+    .join(", ");
+}
 
 const STATUS_TONE: Record<IncentiveStatus, "warning" | "info" | "success" | "neutral" | "danger"> = {
   pending: "warning",
@@ -302,7 +310,14 @@ export default function IncentivosPage() {
                 {rules.map((r) => (
                   <TR key={r.id}>
                     <TD className="font-medium">{r.name}</TD>
-                    <TD className="text-sm">{RULE_TYPE_LABEL[r.ruleType]}</TD>
+                    <TD className="text-sm">
+                      {RULE_TYPE_LABEL[r.ruleType]}
+                      {paymentGroupsLabel(r.paymentGroups) && (
+                        <div className="mt-0.5 text-[11px] opacity-60">
+                          Solo: {paymentGroupsLabel(r.paymentGroups)}
+                        </div>
+                      )}
+                    </TD>
                     <TD className="text-right tabular-nums text-sm">
                       {r.percentage != null ? `${r.percentage}%` : ""}
                       {r.percentage != null && r.fixedAmount != null ? " / " : ""}

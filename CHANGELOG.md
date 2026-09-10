@@ -10,6 +10,35 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.158.0] - 2026-09-10
+
+### Corregido
+
+- 🔴🔴 **Búsqueda de cliente en el POS bajaba la base ENTERA — medido en vivo:
+  2,8 MB / 2-3 s en cada apertura del POS.** `CustomerSearchSelect` recibía
+  `useCustomers()` (~6 547 clientes) solo para filtrar 10 resultados en el
+  navegador. Ahora busca en el servidor (`GET /api/customers?search=&limit=10`),
+  debounce 300 ms, mínimo 2 caracteres — igual que cualquier buscador de un
+  catálogo grande. Se pierde el listado de "recientes" al abrir vacío (ahora
+  dice "Escribe para buscar"); a cambio, abrir el POS no descarga nada hasta
+  que el cajero escribe. `fetchCustomersFromServer` ahora acepta
+  `{ search, limit }`; nuevo `fetchCustomerById` para resolver un cliente
+  completo por id sin la lista entera (lo usa la carga de pedidos web).
+- 🔴🔴 **Las reglas de incentivo por método de pago se aplicaban a CUALQUIER
+  venta — nunca se comprobó cómo se pagó.** Las dos reglas reales activas
+  ("Efectivo y transferencia 3%", "Tarjeta/crédito 1%") habrían comisionado
+  el 4% completo en la primera venta real con vendedor (0 incentivos "en
+  vivo" existían hasta hoy — no había disparado todavía, pero lo iba a
+  hacer). Causa: `payment_groups` existe en la base desde antes pero nunca
+  se leía ni se aplicaba en el motor (`incentive-engine.ts`) — los tipos de
+  Supabase generados (`database.types.ts`) tampoco lo tenían, señal de que
+  esa columna se creó fuera de la app. Ahora el motor recibe con qué
+  método(s) se pagó la venta y filtra cada regla por su `paymentGroups`; una
+  regla sin método configurado sigue aplicando a cualquiera (compatibilidad).
+  El admin de "Reglas de incentivo" (`/ventas/incentivos`) ahora MUESTRA el
+  método de cada regla en la tabla y permite EDITARLO (antes solo se podía
+  fijar por SQL directo, que es como llegaron estas dos).
+
 ## [0.157.0] - 2026-09-10
 
 ### Añadido

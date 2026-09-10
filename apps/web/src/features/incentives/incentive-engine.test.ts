@@ -23,6 +23,7 @@ function sale(overrides: Partial<SaleForIncentive> = {}): SaleForIncentive {
     createdAt: "2026-07-04T10:00:00Z",
     status: "paid",
     hasDiscount: false,
+    paymentGroups: ["cash"],
     items: [
       { productId: "p1", quantity: 2, subtotal: 2000 }, // neto 2000
       { productId: "p2", quantity: 1, subtotal: 500 }, // neto 500
@@ -157,6 +158,50 @@ describe("computeIncentivesForSale", () => {
     // Con descuento (global O de línea — el motor no distingue el origen,
     // solo que hubo alguno): NINGUNA regla genera incentivo.
     expect(computeIncentivesForSale(sale({ hasDiscount: true }), rules, products)).toHaveLength(0);
+  });
+
+  it("🔴🔴 una regla de EFECTIVO no debe comisionar una venta pagada con TARJETA (y viceversa)", () => {
+    // Bug real encontrado en producción el 10/09/2026: las dos reglas activas
+    // de verdad («Efectivo y transferencia 3%», «Tarjeta/crédito 1%») son
+    // ambas `percent_on_sale` y el motor no filtraba por `paymentGroups` —
+    // las dos aplicaban a CUALQUIER venta, comisionando el 4% en vez del 3%
+    // o el 1% que correspondía. Nunca se disparó en vivo (0 incentivos
+    // generados por venta real hasta hoy) pero habría empezado a pasar con
+    // la primera venta pagada real.
+    const efectivo = rule({ id: "cash", ruleType: "percent_on_sale", percentage: 3, paymentGroups: ["cash", "transfer"] });
+    const tarjeta = rule({ id: "card", ruleType: "percent_on_sale", percentage: 1, paymentGroups: ["card"] });
+    const rules = [efectivo, tarjeta];
+
+    const ventaEnEfectivo = sale({ paymentGroups: ["cash"] });
+    const out = computeIncentivesForSale(ventaEnEfectivo, rules, products);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.ruleId).toBe("cash");
+
+    const ventaConTarjeta = sale({ paymentGroups: ["card"] });
+    const out2 = computeIncentivesForSale(ventaConTarjeta, rules, products);
+    expect(out2).toHaveLength(1);
+    expect(out2[0]?.ruleId).toBe("card");
+  });
+
+  it("una regla SIN `paymentGroups` (o vacío) aplica a cualquier método — compatibilidad con las reglas existentes", () => {
+    const cualquiera = rule({ ruleType: "percent_on_sale", percentage: 5, paymentGroups: undefined });
+    expect(computeIncentivesForSale(sale({ paymentGroups: ["cash"] }), [cualquiera], products)).toHaveLength(1);
+    expect(computeIncentivesForSale(sale({ paymentGroups: ["card"] }), [cualquiera], products)).toHaveLength(1);
+  });
+
+  it("una venta con pago MIXTO (efectivo + tarjeta) puede calificar para las dos reglas de método", () => {
+    // Comportamiento aceptado, no ideal: no se prorratea por método, cada
+    // regla que coincida con AL MENOS uno de los métodos usados aplica
+    // completa. Las ventas mixtas son el caso raro; el caso común (un solo
+    // método) queda exacto.
+    const efectivo = rule({ id: "cash", ruleType: "percent_on_sale", percentage: 3, paymentGroups: ["cash"] });
+    const tarjeta = rule({ id: "card", ruleType: "percent_on_sale", percentage: 1, paymentGroups: ["card"] });
+    const out = computeIncentivesForSale(
+      sale({ paymentGroups: ["cash", "card"] }),
+      [efectivo, tarjeta],
+      products,
+    );
+    expect(out.map((i) => i.ruleId).sort()).toEqual(["card", "cash"]);
   });
 });
 

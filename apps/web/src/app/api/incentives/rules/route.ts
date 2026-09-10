@@ -81,6 +81,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ends_at: (body.endsAt as string) || null,
       active: body.active !== false,
       note: (body.note as string) || null,
+      // Grupos de método de pago a los que aplica ("cash"/"card"/"transfer"/
+      // "other"). Vacío o ausente = aplica a cualquier método.
+      payment_groups: Array.isArray(body.paymentGroups) && body.paymentGroups.length > 0
+        ? body.paymentGroups
+        : null,
       created_by: session.user.id,
     })
     .select("*")

@@ -1538,6 +1538,7 @@ export type Database = {
           min_sales_amount: number | null
           name: string
           note: string | null
+          payment_groups: string[] | null
           percentage: number | null
           product_id: string | null
           rule_type: string
@@ -1558,6 +1559,7 @@ export type Database = {
           min_sales_amount?: number | null
           name: string
           note?: string | null
+          payment_groups?: string[] | null
           percentage?: number | null
           product_id?: string | null
           rule_type: string
@@ -1578,6 +1580,7 @@ export type Database = {
           min_sales_amount?: number | null
           name?: string
           note?: string | null
+          payment_groups?: string[] | null
           percentage?: number | null
           product_id?: string | null
           rule_type?: string

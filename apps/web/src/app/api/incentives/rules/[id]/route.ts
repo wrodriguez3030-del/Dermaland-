@@ -35,6 +35,7 @@ const FIELD_MAP: Record<string, string> = {
   endsAt: "ends_at",
   active: "active",
   note: "note",
+  paymentGroups: "payment_groups",
 };
 
 export async function PATCH(req: NextRequest, ctx: Params): Promise<NextResponse> {

@@ -7,6 +7,8 @@ import {
   type ProductInfo,
   type SaleForIncentive,
 } from "@/features/incentives/incentive-engine";
+import { paymentMethodGroup } from "@/features/sales/sales-report";
+import type { PaymentMethod } from "@/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = any;
@@ -26,6 +28,7 @@ export function ruleRowToClient(row: Row) {
     endsAt: (row.ends_at as string | null) ?? null,
     active: Boolean(row.active),
     note: (row.note as string | null) ?? null,
+    paymentGroups: (row.payment_groups as string[] | null) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -45,7 +48,31 @@ export function ruleRowToEngine(row: Row): IncentiveRule {
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     active: row.active,
+    paymentGroups: row.payment_groups ?? null,
   };
+}
+
+/**
+ * Grupos de método de pago con los que se pagó de verdad la venta — para que
+ * el motor sepa si una regla "Efectivo"/"Tarjeta" le aplica. 🔴🔴 Sin esto
+ * (bug real hasta el 10/09/2026) las reglas por método de pago se aplicaban
+ * a CUALQUIER venta: nunca se comprobaba cómo se había pagado.
+ */
+export async function paymentGroupsForSale(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any,
+  saleId: string,
+): Promise<string[]> {
+  const { data } = await sb
+    .from("proforma_payments")
+    .select("method_code, amount")
+    .eq("proforma_id", saleId);
+  const groups = new Set<string>();
+  for (const p of (data ?? []) as Row[]) {
+    if (!(Number(p.amount) > 0)) continue;
+    groups.add(paymentMethodGroup(p.method_code as PaymentMethod));
+  }
+  return [...groups];
 }
 
 export function incentiveRowToClient(row: Row) {
@@ -187,6 +214,8 @@ export async function generateIncentivesForSaleServer(
     .select("product_id, quantity, subtotal")
     .eq("proforma_id", saleId);
 
+  const paymentGroups = await paymentGroupsForSale(sb, saleId);
+
   const { data: rules } = await sb
     .from("sales_incentive_rules")
     .select("*")
@@ -224,6 +253,7 @@ export async function generateIncentivesForSaleServer(
     // Decisión del dueño (10/09/2026): con descuento, ninguna regla genera
     // incentivo. `discount` ya suma línea + global (ver invoice-edit.ts).
     hasDiscount: Number(sale.discount ?? 0) > 0,
+    paymentGroups,
     items: (items ?? []).map((i: Row) => ({
       productId: i.product_id ?? "",
       quantity: i.quantity,

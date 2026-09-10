@@ -425,16 +425,39 @@ function notifyCustomersChanged() {
  * Úsalo cuando `CUSTOMER_BACKEND === "supabase"`. En modo local seguir con
  * `listAllCustomers()`.
  */
-export async function fetchCustomersFromServer(search?: string): Promise<Customer[]> {
-  const url = search
-    ? `/api/customers?search=${encodeURIComponent(search)}`
-    : "/api/customers";
+export async function fetchCustomersFromServer(
+  opts: { search?: string; limit?: number } = {},
+): Promise<Customer[]> {
+  const params = new URLSearchParams();
+  if (opts.search) params.set("search", opts.search);
+  if (opts.limit) params.set("limit", String(opts.limit));
+  const qs = params.toString();
+  const url = qs ? `/api/customers?${qs}` : "/api/customers";
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
   return ((await res.json()) as { customers: Customer[] }).customers;
+}
+
+/**
+ * Un cliente por id — para resolver el objeto completo cuando solo se tiene
+ * el id (p. ej. `clientId` de un pedido web) y no conviene traer la base
+ * entera solo para buscar uno. `null` si no existe o si la petición falla.
+ */
+export async function fetchCustomerById(id: string): Promise<Customer | null> {
+  if (CUSTOMER_BACKEND !== "supabase") {
+    return getCustomerByIdFromStore(id) ?? null;
+  }
+  try {
+    const res = await fetch(`/api/customers/${id}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => ({}))) as { customer?: Customer };
+    return body.customer ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
