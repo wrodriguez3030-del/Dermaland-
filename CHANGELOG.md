@@ -10,6 +10,42 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.156.0] - 2026-09-10
+
+### Añadido
+
+- **Panel de filtros completo en Ventas / Facturas**, el mismo que ya tenía
+  Reportes → Ventas (rango rápido Hoy/Ayer/Últimos 7 días/Este mes/Mes
+  anterior/Todo, Desde/Hasta, Sucursal, Método de pago, Tipo de comprobante,
+  Estado, Cajero, Vendedor, Cliente, Producto) más la casilla "Incluir
+  facturas migradas de Alegra". Por defecto arranca en **Hoy**, igual que
+  antes. Reutiliza tal cual `filterSales`/`quickRange`/`SalesReportFilters`
+  de `sales-report.ts` — cero lógica de filtrado nueva.
+- El botón único "Ver todas las ventas" ↔ "Ver solo hoy" (navegación por
+  `?period=all`) se retira: el pellizco "Todo" del panel hace lo mismo, sin
+  recargar la página. `?period=all` se sigue honrando al ENTRAR a la
+  pantalla (los enlaces del panel y del dashboard no cambiaron).
+- El histórico migrado de Alegra ahora se desconecta correctamente cuando
+  cualquiera de los filtros nuevos (método, comprobante, estado, cajero,
+  cliente, producto) está activo — antes solo lo hacía el filtro de
+  vendedor. Reutiliza `filtrosDelReporteSinHistorico`, el mismo cálculo del
+  reporte, en vez de repetirlo a mano con una sola condición.
+- "Tipo de comprobante" no ofrece la opción "Proforma" en esta pantalla: la
+  lista aquí son solo documentos fiscales emitidos (las proformas viven en
+  /proformas), y ofrecer un filtro que siempre da cero es peor que no
+  ofrecerlo.
+
+### Corregido
+
+- 🔴 **Filas viejas de Alegra sobrevivían a un filtro que las descalifica.**
+  Encontrado probando en vivo: al poner un filtro que `/api/ventas` no sabe
+  aplicar (Método de pago, Estado, Cajero…), el aviso decía correctamente
+  "el histórico no participa", pero la tabla seguía enseñando las filas de
+  Alegra que ya tenía cargadas de ANTES del filtro — el hook deja de pedir
+  pero no vacía su última respuesta. Ya existía antes con el único filtro de
+  Vendedor; el panel nuevo lo hacía mucho más fácil de tropezar. Ahora la
+  tabla también se vacía cuando el histórico no participa.
+
 ## [0.155.0] - 2026-09-10
 
 ### Cambiado
@@ -23,11 +59,12 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
   generador de comisiones históricas de Alegra
   (`scripts/alegra/generar-comisiones-historico.mjs`), mismo criterio en
   los dos lados.
-- 🔴 **Pendiente del dueño:** de los RD$128,260.02 en comisiones YA
-  generadas del histórico de Alegra y aún pendientes de pago, RD$25,297.91
-  (284 de 2,051 facturas) corresponden a ventas con descuento — generadas
-  ANTES de esta regla. El código ya no genera casos nuevos así, pero estos
-  ya existen. Decidir si se dejan como están o se anulan.
+- ✅ **Resuelto (10/09/2026):** de los RD$128,260.02 en comisiones YA
+  generadas del histórico de Alegra y pendientes de pago, RD$25,297.91
+  (284 de 2,051 facturas) correspondían a ventas con descuento — generadas
+  ANTES de esta regla. El dueño decidió aplicar la regla nueva también a
+  esas: las 284 se anularon (`status` `pending` → `voided`) directamente en
+  la base, con nota explicativa. Es un cambio de DATOS, no de código.
 
 ## [0.154.0] - 2026-09-10
 

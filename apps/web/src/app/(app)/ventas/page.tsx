@@ -11,6 +11,8 @@ import {
   Button,
   Card,
   CardContent,
+  Input,
+  Label,
   Select,
   Table,
   THead,
@@ -19,11 +21,11 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { FilterBar } from "@/components/ui/filter-bar";
 import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast";
-import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Mail, Trash2, Pencil, Plus, X } from "lucide-react";
+import { Coins, Receipt, ShoppingCart, TrendingUp, Printer, Send, Mail, Trash2, Pencil, Plus } from "lucide-react";
 import { useProformas } from "@/features/sales/proforma-store";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
 import { SendInvoiceModal } from "@/features/sales/components/send-invoice-modal";
 import {
   isInvoiceDocument,
@@ -41,33 +43,52 @@ import {
   type VentaUnificada,
 } from "@/features/ventas/venta-unificada";
 import {
-  filtrosSinHistorico,
+  CasillaIncluirAlegra,
+  filtrosDelReporteSinHistorico,
   LeyendaHistorico,
   useHistoricoAlegra,
 } from "@/app/(app)/reportes/ventas/historico-alegra";
-import type { Proforma } from "@/types";
 import {
-  formatCurrency,
-  formatDate,
-  formatDateTime,
-  formatNumber,
-  isToday,
-} from "@/lib/utils/format";
+  EMPTY_FILTERS,
+  filterSales,
+  quickRange,
+  COMPROBANTE_LABEL,
+  SALE_METHOD_LABEL,
+  SALE_STATUS_LABEL,
+  type ComprobanteKey,
+  type QuickRangeKey,
+  type SaleMethodSummary,
+  type SaleStatusKey,
+  type SalesReportFilters,
+} from "@/features/sales/sales-report";
+import type { Proforma } from "@/types";
+import { formatCurrency, formatDate, formatDateTime, formatNumber } from "@/lib/utils/format";
 
 const NO_SELLER = "__none__";
 
-/**
- * Hoy en `YYYY-MM-DD`, con la MISMA noción de «hoy» que `isToday` (hora local
- * del navegador). Es lo que se le manda a `/api/ventas` cuando el periodo es
- * «hoy»: si una mitad contara el día en hora local y la otra en otra zona, el
- * KPI y la tabla dejarían de cuadrar justo a medianoche.
- */
-function hoyLocal(): string {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
+const QUICK_RANGES: { key: QuickRangeKey; label: string }[] = [
+  { key: "today", label: "Hoy" },
+  { key: "yesterday", label: "Ayer" },
+  { key: "last7", label: "Últimos 7 días" },
+  { key: "thisMonth", label: "Este mes" },
+  { key: "lastMonth", label: "Mes anterior" },
+  { key: "all", label: "Todo" },
+];
+
+// Sin "proforma": esta pantalla solo lista documentos fiscales emitidos
+// (`isInvoiceDocument`). Las proformas pendientes viven en /proformas.
+const COMPROBANTE_OPTIONS: ComprobanteKey[] = [
+  "b02",
+  "b01",
+  "e32",
+  "e31",
+  "nota_credito",
+  "nota_debito",
+];
+
+const METHOD_OPTIONS: SaleMethodSummary[] = ["cash", "card", "transfer", "other", "mixed"];
+
+const STATUS_OPTIONS: SaleStatusKey[] = ["paid", "pending", "cancelled", "returned", "partial"];
 
 /**
  * Una fila de la tabla. O es una venta del sistema —y entonces lleva su
@@ -88,41 +109,55 @@ function VentasContent() {
   const allDocuments = useProformas();
   const allSales = allDocuments.filter(isInvoiceDocument);
 
+  const branches = useActiveBranches();
+
   // Por DEFECTO esta pantalla muestra solo las ventas de HOY (operación diaria).
-  // Para ver el histórico completo: `?period=all` (o el botón "Ver todas"). La
-  // definición de "hoy" (isInvoiceDocument + isToday) coincide con el KPI
-  // "Ventas hoy" del dashboard.
+  // El panel/dashboard enlaza con `?period=all` para pedir el histórico
+  // completo; se lee UNA vez al montar — de ahí en adelante manda el panel de
+  // filtros (los pellizcos rápidos hacen exactamente lo mismo, en la propia
+  // pantalla, sin navegar).
   const params = useSearchParams();
-  const period = params.get("period") === "all" ? "all" : "today";
-  const scopedSales = React.useMemo(
-    () =>
-      period === "today"
-        ? allSales.filter((s) => isToday(s.createdAt))
-        : allSales,
-    [allSales, period],
-  );
+  const [filters, setFilters] = React.useState<SalesReportFilters>(() => {
+    const inicial: QuickRangeKey = params.get("period") === "all" ? "all" : "today";
+    const { from, to } = quickRange(inicial);
+    return { ...EMPTY_FILTERS, from, to };
+  });
 
-  const [sellerFilter, setSellerFilter] = React.useState<string>("all");
+  const set = <K extends keyof SalesReportFilters>(
+    key: K,
+    value: SalesReportFilters[K],
+  ) => setFilters((f) => ({ ...f, [key]: value }));
 
-  // Vendedores presentes en las ventas (para el filtro), por id → nombre.
+  const applyQuick = (key: QuickRangeKey) => {
+    const { from, to } = quickRange(key);
+    setFilters((f) => ({ ...f, from, to }));
+  };
+
+  const clearFilters = () => setFilters(EMPTY_FILTERS);
+
+  const todayRange = quickRange("today");
+  const esHoy = filters.from === todayRange.from && filters.to === todayRange.to;
+
+  // Vendedores y cajeros con ventas (para los filtros), sobre TODAS las
+  // facturas — no solo las del rango activo — para que el Select no pierda
+  // opciones al acotar la fecha.
   const sellerOptions = React.useMemo(() => {
     const map = new Map<string, string>();
-    let hasUnassigned = false;
-    for (const s of scopedSales) {
+    for (const s of allSales) {
       if (s.sellerId) map.set(s.sellerId, s.sellerName || "Vendedor");
-      else hasUnassigned = true;
     }
-    return {
-      list: [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es")),
-      hasUnassigned,
-    };
-  }, [scopedSales]);
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
+  }, [allSales]);
 
-  const sales = React.useMemo(() => {
-    if (sellerFilter === "all") return scopedSales;
-    if (sellerFilter === NO_SELLER) return scopedSales.filter((s) => !s.sellerId);
-    return scopedSales.filter((s) => s.sellerId === sellerFilter);
-  }, [scopedSales, sellerFilter]);
+  const cashierOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of allSales) {
+      if (s.cashierId) map.set(s.cashierId, s.cashierName || "Cajero");
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "es"));
+  }, [allSales]);
+
+  const sales = React.useMemo(() => filterSales(allSales, filters), [allSales, filters]);
 
   /**
    * 🔴 Las anuladas no suman — restricción dura del proyecto.
@@ -160,24 +195,35 @@ function VentasContent() {
   // Se reutiliza TAL CUAL lo que ya usa el reporte de ventas: el total lo
   // calcula la base (`?vista=resumen`) y aquí no se suma una sola fila; la
   // tabla pide UNA página de `?vista=listado` (tope de 200 del servidor).
-  const rango: { desde?: string; hasta?: string } =
-    period === "today" ? { desde: hoyLocal(), hasta: hoyLocal() } : {};
-  // `/api/ventas` sabe filtrar por fecha, sucursal y cliente — por vendedor NO.
-  // Sumar el histórico SIN filtrar a un total del sistema que sí está filtrado
-  // por vendedora daría un número que nadie podría cuadrar: con ese filtro
-  // puesto el histórico se queda fuera y la leyenda lo dice.
-  const filtrosNoAplicables = filtrosSinHistorico([
-    { etiqueta: "Vendedor", activo: sellerFilter !== "all" },
-  ]);
-  const historicoParticipa = filtrosNoAplicables.length === 0;
+  // `incluirAlegra` — marcada por defecto, igual que en Reportes → Ventas.
+  const [incluirAlegra, setIncluirAlegra] = React.useState(true);
+  // `/api/ventas` solo sabe filtrar por fecha, sucursal y cliente. Cualquier
+  // otro filtro del panel (método, comprobante, estado, cajero, vendedor,
+  // producto) deja al histórico SIN filtrar, y sumar un total sin filtrar a
+  // otro filtrado da un número que nadie podría cuadrar: en ese caso el
+  // histórico no se suma y la leyenda lo dice.
+  const filtrosNoAplicables = React.useMemo(
+    () => filtrosDelReporteSinHistorico(filters),
+    [filters],
+  );
+  const historicoParticipa = incluirAlegra && filtrosNoAplicables.length === 0;
   const historico = useHistoricoAlegra({
-    desde: rango.desde,
-    hasta: rango.hasta,
+    desde: filters.from || undefined,
+    hasta: filters.to || undefined,
+    sucursalId: filters.branchId || undefined,
     cantidadSistema: ventasContadas.length,
-    incluir: true,
+    incluir: incluirAlegra,
     filtrosNoAplicables,
   });
-  const listado = useListadoVentas({ ...rango, limite: 200 }, historicoParticipa);
+  const listado = useListadoVentas(
+    {
+      desde: filters.from || undefined,
+      hasta: filters.to || undefined,
+      sucursalId: filters.branchId || undefined,
+      limite: 200,
+    },
+    historicoParticipa,
+  );
 
   /**
    * 🔴 Qué decir cuando no hay ni una fila. Esta pantalla arranca en HOY, y el
@@ -186,15 +232,23 @@ function VentasContent() {
    * como «el sistema no tiene mis datos» cuando lo que pasa es que hoy no se ha
    * vendido. Decirlo, y ofrecer el histórico, cuesta dos líneas.
    */
-  const vacioTexto =
-    period === "today"
-      ? "No hay ventas registradas hoy."
-      : "No hay ventas en el período seleccionado.";
+  const vacioTexto = esHoy
+    ? "No hay ventas registradas hoy."
+    : "No hay ventas en el período seleccionado.";
+  /**
+   * 🔴 `historicoParticipa` en `false` no vacía `listado`: el hook deja de
+   * pedir (`activo=false`), pero conserva la ÚLTIMA respuesta que tenía —
+   * las de ANTES de poner el filtro que las descalifica. Sin esta guarda, la
+   * tabla seguiría enseñando esas filas viejas de Alegra bajo un aviso que
+   * dice «no se puede filtrar por X», una contradicción entre lo que se dice
+   * arriba y lo que se ve abajo.
+   */
   const ventasAlegra =
-    listado.tipo === "listo"
+    historicoParticipa && listado.tipo === "listo"
       ? listado.datos.ventas.filter((v) => v.origen === "alegra")
       : [];
-  const hayMasAlegra = listado.tipo === "listo" && listado.datos.hayMas;
+  const hayMasAlegra =
+    historicoParticipa && listado.tipo === "listo" && listado.datos.hayMas;
 
   const filas = React.useMemo<FilaVenta[]>(() => {
     const delSistema: FilaVenta[] = sales.map((p) => ({
@@ -218,7 +272,7 @@ function VentasContent() {
   }, [sales, listado]);
 
   const pag = usePagination(filas, {
-    resetKey: `${period}|${sellerFilter}|${historicoParticipa}`,
+    resetKey: `${JSON.stringify(filters)}|${incluirAlegra}|${historicoParticipa}`,
   });
 
   // Qué le falta a la TABLA (los KPIs los explica `LeyendaHistorico`): una
@@ -257,24 +311,17 @@ function VentasContent() {
           </Link>
         }
       />
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/5 px-4 py-2.5 text-sm">
         <span>
           Mostrando:{" "}
-          <strong>{period === "today" ? "ventas de hoy" : "todas las ventas"}</strong>
+          <strong>
+            {esHoy
+              ? "ventas de hoy"
+              : !filters.from && !filters.to
+                ? "todas las ventas"
+                : `ventas del ${filters.from || "inicio"} al ${filters.to || "hoy"}`}
+          </strong>
         </span>
-        {period === "today" ? (
-          <Link href="/ventas?period=all">
-            <Button variant="ghost" size="sm">
-              Ver todas las ventas
-            </Button>
-          </Link>
-        ) : (
-          <Link href="/ventas">
-            <Button variant="ghost" size="sm">
-              <X className="h-4 w-4" /> Ver solo hoy
-            </Button>
-          </Link>
-        )}
       </div>
 
       {/* Mientras el histórico está en camino NO hay número fiable que enseñar:
@@ -283,7 +330,7 @@ function VentasContent() {
           el panel y que el reporte de ventas. */}
       <div className="mb-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label={period === "today" ? "Ventas hoy" : "Ventas totales"}
+          label={esHoy ? "Ventas hoy" : "Ventas totales"}
           value={historico.cargando ? "Cargando…" : formatCurrency(total)}
           icon={Coins}
           tone="primary"
@@ -318,23 +365,149 @@ function VentasContent() {
         <LeyendaHistorico leyenda={historico.leyenda} />
       </div>
 
-      <FilterBar className="mb-4">
-        <Select
-          value={sellerFilter}
-          onChange={(e) => setSellerFilter(e.target.value)}
-          aria-label="Filtrar por vendedor"
-        >
-          <option value="all">Todos los vendedores</option>
-          {sellerOptions.list.map(([id, name]) => (
-            <option key={id} value={id}>
-              {name}
-            </option>
-          ))}
-          {sellerOptions.hasUnassigned && (
-            <option value={NO_SELLER}>No asignado</option>
-          )}
-        </Select>
-      </FilterBar>
+      <Card className="mb-4">
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {QUICK_RANGES.map((q) => (
+              <Button key={q.key} size="sm" variant="outline" onClick={() => applyQuick(q.key)}>
+                {q.label}
+              </Button>
+            ))}
+            <Button size="sm" variant="ghost" onClick={clearFilters}>
+              Limpiar filtros
+            </Button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <Label>Desde</Label>
+              <Input
+                type="date"
+                value={filters.from ?? ""}
+                onChange={(e) => set("from", e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Hasta</Label>
+              <Input
+                type="date"
+                value={filters.to ?? ""}
+                onChange={(e) => set("to", e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Sucursal / Local</Label>
+              <Select
+                aria-label="Sucursal / Local"
+                value={filters.branchId ?? ""}
+                onChange={(e) => set("branchId", e.target.value)}
+              >
+                <option value="">Todas las sucursales</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Método de pago</Label>
+              <Select
+                aria-label="Método de pago"
+                value={filters.method ?? ""}
+                onChange={(e) => set("method", e.target.value as SaleMethodSummary | "")}
+              >
+                <option value="">Todos</option>
+                {METHOD_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {SALE_METHOD_LABEL[m]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Tipo de comprobante</Label>
+              <Select
+                aria-label="Tipo de comprobante"
+                value={filters.comprobante ?? ""}
+                onChange={(e) => set("comprobante", e.target.value as ComprobanteKey | "")}
+              >
+                <option value="">Todos</option>
+                {COMPROBANTE_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {COMPROBANTE_LABEL[c]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Estado</Label>
+              <Select
+                aria-label="Estado"
+                value={filters.status ?? ""}
+                onChange={(e) => set("status", e.target.value as SaleStatusKey | "")}
+              >
+                <option value="">Todos</option>
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {SALE_STATUS_LABEL[s]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Cajero</Label>
+              <Select
+                aria-label="Cajero"
+                value={filters.cashierId ?? ""}
+                onChange={(e) => set("cashierId", e.target.value)}
+              >
+                <option value="">Todos</option>
+                {cashierOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label>Vendedor</Label>
+              <Select
+                aria-label="Vendedor"
+                value={filters.sellerId ?? ""}
+                onChange={(e) => set("sellerId", e.target.value)}
+              >
+                <option value="">Todos</option>
+                {sellerOptions.map(([id, name]) => (
+                  <option key={id} value={id}>
+                    {name}
+                  </option>
+                ))}
+                <option value={NO_SELLER}>No asignado</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Cliente</Label>
+              <Input
+                placeholder="Nombre, teléfono, cédula/RNC…"
+                value={filters.customerQuery ?? ""}
+                onChange={(e) => set("customerQuery", e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Producto / servicio</Label>
+              <Input
+                placeholder="Nombre o SKU del producto…"
+                value={filters.productQuery ?? ""}
+                onChange={(e) => set("productQuery", e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <CasillaIncluirAlegra checked={incluirAlegra} onChange={setIncluirAlegra} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {avisoTabla && (
         <p className="mb-3 flex items-start gap-1.5 text-xs font-medium text-amber-700">
@@ -356,13 +529,14 @@ function VentasContent() {
             {pag.pageItems.length === 0 && (
               <div className="px-4 py-10 text-center text-sm">
                 <p className="opacity-60">{vacioTexto}</p>
-                {period === "today" && (
-                  <Link
-                    href="/ventas?period=all"
+                {esHoy && (
+                  <button
+                    type="button"
+                    onClick={() => applyQuick("all")}
                     className="mt-2 inline-block font-medium text-[color:var(--brand-accent)] hover:underline"
                   >
                     Ver todo el histórico →
-                  </Link>
+                  </button>
                 )}
               </div>
             )}
@@ -470,13 +644,14 @@ function VentasContent() {
                 <TR>
                   <TD colSpan={9} className="py-10 text-center text-sm">
                     <span className="opacity-60">{vacioTexto}</span>
-                    {period === "today" && (
-                      <Link
-                        href="/ventas?period=all"
+                    {esHoy && (
+                      <button
+                        type="button"
+                        onClick={() => applyQuick("all")}
                         className="ml-2 font-medium text-[color:var(--brand-accent)] hover:underline"
                       >
                         Ver todo el histórico →
-                      </Link>
+                      </button>
                     )}
                   </TD>
                 </TR>

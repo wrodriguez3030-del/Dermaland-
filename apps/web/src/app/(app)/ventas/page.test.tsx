@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/react";
 import { formatCurrency } from "@/lib/utils/format";
 import type { Proforma } from "@/types";
 
@@ -167,8 +167,10 @@ describe("Ventas / Facturas — el histórico migrado de Alegra", () => {
     for (const el of importes) {
       expect(el.className, "el importe de un borrador sale tachado").not.toContain("line-through");
     }
-    // Y no hay ninguna anulada en los datos, así que esa palabra no aparece.
-    expect(screen.queryByText("Anulada")).toBeNull();
+    // Y no hay ninguna anulada en los datos, así que esa palabra no aparece
+    // en ninguna fila — el filtro «Estado» sí trae la opción en su lista
+    // estática, y esa no cuenta: no es una afirmación sobre esta venta.
+    expect(screen.queryByText("Anulada", { ignore: "option" })).toBeNull();
   });
 
   it("🔴 una venta ANULADA del sistema no suma al total (restricción dura)", async () => {
@@ -225,5 +227,61 @@ describe("Ventas / Facturas — acceso al POS", () => {
     expect(link).not.toBeNull();
     expect(link).toHaveAttribute("href", "/pos");
     expect(link).toHaveAttribute("aria-label", "Ir a POS / Nueva venta");
+  });
+});
+
+describe("Ventas / Facturas — panel de filtros", () => {
+  afterEach(() => {
+    proformas = [];
+    vi.unstubAllGlobals();
+  });
+
+  it("arranca con el rango en HOY (Desde y Hasta con la fecha de hoy)", () => {
+    const d = new Date();
+    const hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate(),
+    ).padStart(2, "0")}`;
+    render(<VentasPage />);
+    expect(screen.getAllByDisplayValue(hoy)).toHaveLength(2);
+  });
+
+  it("🔴 el pellizco «Todo» quita el rango de hoy y trae el histórico completo", async () => {
+    vi.stubGlobal("fetch", fetchOk());
+    render(<VentasPage />);
+    fireEvent.click(screen.getByText("Todo"));
+    await waitFor(() =>
+      expect(screen.getByText(formatCurrency(48454899.08))).toBeInTheDocument(),
+    );
+  });
+
+  it("🔴 un filtro que /api/ventas no sabe aplicar excluye el histórico y lo dice", async () => {
+    vi.stubGlobal("fetch", fetchOk());
+    render(<VentasPage />);
+    fireEvent.click(screen.getByText("Todo"));
+    await waitFor(() =>
+      expect(screen.getByText(/todas migradas de Alegra/)).toBeInTheDocument(),
+    );
+    // Con el histórico participando, sus filas SÍ están en la tabla.
+    await waitFor(() =>
+      expect(screen.getAllByText("Migrada de Alegra").length).toBeGreaterThan(0),
+    );
+
+    // "Cliente" es uno de los filtros que la ruta `/api/ventas` no sabe
+    // aplicar (solo filtra por fecha, sucursal y cliente por ID, no por texto
+    // libre) — sumar el histórico SIN filtrar a un sistema filtrado daría un
+    // número que nadie podría cuadrar.
+    fireEvent.change(screen.getByPlaceholderText(/Nombre, teléfono, cédula/), {
+      target: { value: "cualquiera" },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/El histórico migrado no se puede filtrar por Cliente/),
+      ).toBeInTheDocument(),
+    );
+    // 🔴 El hook deja de pedir pero conserva su última respuesta: sin una
+    // guarda explícita, la tabla seguiría enseñando esas filas VIEJAS de
+    // Alegra justo debajo del aviso que dice que no participan.
+    expect(screen.queryByText("Migrada de Alegra")).toBeNull();
   });
 });
