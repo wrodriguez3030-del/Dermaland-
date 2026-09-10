@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Users, ArrowRight } from "lucide-react";
+import { Users } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge, Button, Card, CardContent } from "@/components/ui";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import type { Customer } from "@/types";
@@ -20,8 +21,8 @@ import type { MergeImpact } from "@/server/services/customers/merge-clients";
 const nombreCompleto = (c: Customer) => `${c.firstName} ${c.lastName}`.trim();
 
 /** Preselección: el que tiene más compras registradas; empate → el primero. */
-function sobrevivientePorDefecto(par: DuplicatePairDto): Customer {
-  return par.b.totalOrders > par.a.totalOrders ? par.b : par.a;
+function sobrevivientePorDefecto(par: DuplicatePairDto): string {
+  return par.b.totalOrders > par.a.totalOrders ? par.b.id : par.a.id;
 }
 
 const CONFIDENCE_LABEL: Record<DuplicatePairDto["confidence"], string> = {
@@ -35,39 +36,54 @@ const CONFIDENCE_TONE: Record<DuplicatePairDto["confidence"], "danger" | "warnin
   low: "neutral",
 };
 
-function PairDetail({
-  par,
-  onDone,
-  onCancel,
+function ClientCheckbox({
+  cliente,
+  seleccionado,
+  onSeleccionar,
 }: {
-  par: DuplicatePairDto;
-  onDone: () => void;
-  onCancel: () => void;
+  cliente: Customer;
+  seleccionado: boolean;
+  onSeleccionar: () => void;
 }) {
+  return (
+    <label
+      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+        seleccionado
+          ? "border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/5"
+          : "border-black/10"
+      }`}
+    >
+      <input type="checkbox" checked={seleccionado} onChange={onSeleccionar} />
+      <span>
+        <span className="font-medium">{nombreCompleto(cliente)}</span>{" "}
+        <span className="opacity-60">· {cliente.totalOrders} compras</span>
+      </span>
+    </label>
+  );
+}
+
+function PairRow({ par, onDone }: { par: DuplicatePairDto; onDone: () => void }) {
   const toast = useToast();
-  const [survivorId, setSurvivorId] = React.useState(sobrevivientePorDefecto(par).id);
+  const [survivorId, setSurvivorId] = React.useState(() => sobrevivientePorDefecto(par));
+  const [calculando, setCalculando] = React.useState(false);
   const [impacto, setImpacto] = React.useState<MergeImpact[] | null>(null);
-  const [cargandoImpacto, setCargandoImpacto] = React.useState(true);
   const [confirmando, setConfirmando] = React.useState(false);
   const [fusionando, setFusionando] = React.useState(false);
 
   const survivor = survivorId === par.a.id ? par.a : par.b;
   const loser = survivorId === par.a.id ? par.b : par.a;
 
-  React.useEffect(() => {
-    let vivo = true;
-    setCargandoImpacto(true);
-    mergeCustomersDryRun(survivor.id, loser.id).then((r) => {
-      if (!vivo) return;
-      setCargandoImpacto(false);
-      if (r.ok) setImpacto(r.moved);
-      else toast.error(r.error);
-    });
-    return () => {
-      vivo = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [survivor.id, loser.id]);
+  const iniciarUnificacion = async () => {
+    setCalculando(true);
+    const r = await mergeCustomersDryRun(survivor.id, loser.id);
+    setCalculando(false);
+    if (!r.ok) {
+      toast.error(r.error);
+      return;
+    }
+    setImpacto(r.moved);
+    setConfirmando(true);
+  };
 
   const confirmarFusion = async () => {
     setFusionando(true);
@@ -84,48 +100,25 @@ function PairDetail({
 
   return (
     <Card>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          {[par.a, par.b].map((c) => (
-            <label
-              key={c.id}
-              className={`flex cursor-pointer flex-col gap-1 rounded-xl border p-3 text-sm ${
-                survivorId === c.id
-                  ? "border-[color:var(--brand-primary)] bg-[color:var(--brand-primary)]/5"
-                  : "border-black/10"
-              }`}
-            >
-              <span className="flex items-center gap-2 font-medium">
-                <input
-                  type="radio"
-                  name={`survivor-${par.a.id}-${par.b.id}`}
-                  checked={survivorId === c.id}
-                  onChange={() => setSurvivorId(c.id)}
-                />
-                {nombreCompleto(c)} {survivorId === c.id && <Badge tone="success">Sobrevive</Badge>}
-              </span>
-              <span className="opacity-70">Documento: {c.documentNumber || "—"}</span>
-              <span className="opacity-70">
-                Teléfono: {c.phone || "—"} · WhatsApp: {c.whatsapp || "—"}
-              </span>
-              <span className="opacity-70">Email: {c.email || "—"}</span>
-              <span className="opacity-70">Compras: {c.totalOrders}</span>
-            </label>
-          ))}
+      <toast.Toast />
+      <CardContent className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <ClientCheckbox
+            cliente={par.a}
+            seleccionado={survivorId === par.a.id}
+            onSeleccionar={() => setSurvivorId(par.a.id)}
+          />
+          <ClientCheckbox
+            cliente={par.b}
+            seleccionado={survivorId === par.b.id}
+            onSeleccionar={() => setSurvivorId(par.b.id)}
+          />
+          <Badge tone={CONFIDENCE_TONE[par.confidence]}>{CONFIDENCE_LABEL[par.confidence]}</Badge>
+          <span className="text-sm opacity-60">Coincide por: {par.reasons.join(", ")}</span>
         </div>
-
-        <div className="rounded-lg bg-black/[0.03] p-3 text-sm">
-          {cargandoImpacto ? "Calculando cuánto se mueve…" : impacto ? describeMergeImpact(impacto) : "—"}
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button size="sm" disabled={cargandoImpacto} onClick={() => setConfirmando(true)}>
-            Unificar
-          </Button>
-        </div>
+        <Button size="sm" disabled={calculando} onClick={iniciarUnificacion}>
+          {calculando ? "Calculando…" : "Unificar"}
+        </Button>
       </CardContent>
 
       <ConfirmDialog
@@ -135,10 +128,10 @@ function PairDetail({
           <>
             <strong>{nombreCompleto(loser)}</strong> se traspasa a <strong>{nombreCompleto(survivor)}</strong> y
             queda eliminado.
-            {impacto && <div className="mt-2">{describeMergeImpact(impacto)}</div>}
+            <div className="mt-2">{impacto ? describeMergeImpact(impacto) : "—"}</div>
           </>
         }
-        confirmLabel={fusionando ? "Unificando…" : "Unificar"}
+        confirmLabel={fusionando ? "Unificando…" : "Confirmar unificación"}
         onConfirm={confirmarFusion}
         onCancel={() => setConfirmando(false)}
       />
@@ -147,10 +140,8 @@ function PairDetail({
 }
 
 export function MergeClientsView() {
-  const toast = useToast();
   const [pairs, setPairs] = React.useState<DuplicatePairDto[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [abierto, setAbierto] = React.useState<string | null>(null);
 
   const cargar = React.useCallback(async () => {
     setError(null);
@@ -167,17 +158,17 @@ export function MergeClientsView() {
 
   const quitarPar = (key: string) => {
     setPairs((prev) => (prev ?? []).filter((p) => parKey(p) !== key));
-    setAbierto(null);
   };
+
+  const pagination = usePagination(pairs ?? []);
 
   return (
     <>
       <PageHeader
         title="Unificar clientes"
-        description="Posibles duplicados detectados en toda la base — comparar y fusionar de a un par."
+        description="Posibles duplicados detectados en toda la base — marca quién recibe y unifica."
         breadcrumbs={[{ label: "Clientes", href: "/clientes" }, { label: "Unificar" }]}
       />
-      <toast.Toast />
 
       {error && <div className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
 
@@ -188,33 +179,22 @@ export function MergeClientsView() {
       )}
 
       <div className="space-y-3">
-        {(pairs ?? []).map((par) => {
+        {pagination.pageItems.map((par) => {
           const key = parKey(par);
-          return (
-            <div key={key}>
-              <Card>
-                <CardContent className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium">{nombreCompleto(par.a)}</span>
-                    <ArrowRight className="h-4 w-4 opacity-40" />
-                    <span className="font-medium">{nombreCompleto(par.b)}</span>
-                    <Badge tone={CONFIDENCE_TONE[par.confidence]}>{CONFIDENCE_LABEL[par.confidence]}</Badge>
-                    <span className="opacity-60">Coincide por: {par.reasons.join(", ")}</span>
-                  </div>
-                  <Button size="sm" variant="outline" onClick={() => setAbierto(abierto === key ? null : key)}>
-                    Comparar
-                  </Button>
-                </CardContent>
-              </Card>
-              {abierto === key && (
-                <div className="mt-2">
-                  <PairDetail par={par} onDone={() => quitarPar(key)} onCancel={() => setAbierto(null)} />
-                </div>
-              )}
-            </div>
-          );
+          return <PairRow key={key} par={par} onDone={() => quitarPar(key)} />;
         })}
       </div>
+
+      {pairs !== null && pairs.length > 0 && (
+        <DataPagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+          className="mt-4"
+        />
+      )}
     </>
   );
 }

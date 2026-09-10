@@ -26,72 +26,115 @@ const cliente = (over: Partial<Customer>): Customer =>
     ...over,
   }) as Customer;
 
-const PAR = {
-  a: cliente({ id: "a", firstName: "Ana", lastName: "Perez", totalOrders: 5 }),
-  b: cliente({ id: "b", firstName: "Ana", lastName: "Perez", totalOrders: 1 }),
+const par = (over: { a?: Partial<Customer>; b?: Partial<Customer> } = {}) => ({
+  a: cliente({ id: "a", firstName: "Ana", lastName: "Perez", totalOrders: 5, ...over.a }),
+  b: cliente({ id: "b", firstName: "Beatriz", lastName: "Gomez", totalOrders: 1, ...over.b }),
   confidence: "high" as const,
   reasons: ["documento"],
-};
+});
 
-function mockFetchSequence(responses: Array<{ url: string; body: unknown }>) {
-  const fetchMock = vi.fn((url: string) => {
-    const hit = responses.find((r) => url.includes(r.url));
-    return Promise.resolve({ ok: true, json: async () => hit?.body ?? {} });
+function mockFetch(handlers: {
+  duplicates?: unknown;
+  merge?: (body: { primaryId: string; duplicateId: string; dryRun?: boolean }) => unknown;
+}) {
+  const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+    if (url.includes("/api/customers/duplicates")) {
+      return Promise.resolve({ ok: true, json: async () => handlers.duplicates ?? { pairs: [] } });
+    }
+    if (url.includes("/api/customers/merge")) {
+      const body = JSON.parse((init?.body as string) ?? "{}");
+      return Promise.resolve({ ok: true, json: async () => handlers.merge?.(body) ?? { moved: [] } });
+    }
+    return Promise.resolve({ ok: true, json: async () => ({}) });
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
 
 describe("MergeClientsView", () => {
-  it("muestra los pares detectados", async () => {
-    mockFetchSequence([{ url: "/api/customers/duplicates", body: { pairs: [PAR] } }]);
+  it("muestra cada par en una fila con dos checkboxes y un botón Unificar, sin pasos intermedios", async () => {
+    mockFetch({ duplicates: { pairs: [par()] } });
     render(<MergeClientsView />);
     await waitFor(() => expect(screen.getAllByText(/Ana Perez/i).length).toBeGreaterThan(0));
+    expect(screen.getByRole("checkbox", { name: /Ana Perez/i })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Beatriz Gomez/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^unificar$/i })).toBeInTheDocument();
+    // Sin "Comparar": la fila ya trae todo lo necesario.
+    expect(screen.queryByRole("button", { name: /comparar/i })).not.toBeInTheDocument();
+  });
+
+  it("preselecciona como receptor al que tiene más compras", async () => {
+    mockFetch({ duplicates: { pairs: [par()] } });
+    render(<MergeClientsView />);
+    await waitFor(() => expect(screen.getAllByText(/Ana Perez/i).length).toBeGreaterThan(0));
+    expect(screen.getByRole("checkbox", { name: /Ana Perez/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Beatriz Gomez/i })).not.toBeChecked();
+  });
+
+  it("marcar el otro checkbox cambia quién recibe", async () => {
+    mockFetch({ duplicates: { pairs: [par()] } });
+    render(<MergeClientsView />);
+    await waitFor(() => expect(screen.getAllByText(/Ana Perez/i).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Beatriz Gomez/i }));
+    expect(screen.getByRole("checkbox", { name: /Beatriz Gomez/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Ana Perez/i })).not.toBeChecked();
+  });
+
+  it("al pulsar Unificar calcula el impacto y pide confirmación antes de fusionar de verdad", async () => {
+    let mergePosts = 0;
+    mockFetch({
+      duplicates: { pairs: [par()] },
+      merge: (body) => {
+        if (body.dryRun) return { moved: [{ table: "ar_promises", count: 3 }] };
+        mergePosts++;
+        return { moved: [{ table: "ar_promises", count: 3 }] };
+      },
+    });
+    render(<MergeClientsView />);
+    await waitFor(() => expect(screen.getAllByText(/Ana Perez/i).length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole("button", { name: /^unificar$/i }));
+    await waitFor(() => expect(screen.getByText(/3 promesas de pago/i)).toBeInTheDocument());
+    expect(mergePosts).toBe(0); // todavía no fusionó de verdad
+
+    fireEvent.click(screen.getByRole("button", { name: /confirmar unificación/i }));
+    await waitFor(() => expect(mergePosts).toBe(1));
+    await waitFor(() => expect(screen.queryByText(/Ana Perez/i)).not.toBeInTheDocument());
+  });
+
+  it("respeta el receptor elegido por el usuario (no siempre el default)", async () => {
+    const bodies: Array<{ primaryId: string; duplicateId: string; dryRun?: boolean }> = [];
+    mockFetch({
+      duplicates: { pairs: [par()] },
+      merge: (body) => {
+        bodies.push(body);
+        return { moved: [] };
+      },
+    });
+    render(<MergeClientsView />);
+    await waitFor(() => expect(screen.getAllByText(/Ana Perez/i).length).toBeGreaterThan(0));
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Beatriz Gomez/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^unificar$/i }));
+    await waitFor(() => expect(bodies.some((b) => b.dryRun)).toBe(true));
+    const dryRunBody = bodies.find((b) => b.dryRun)!;
+    expect(dryRunBody.primaryId).toBe("b");
+    expect(dryRunBody.duplicateId).toBe("a");
   });
 
   it("sin pares, muestra el estado vacío", async () => {
-    mockFetchSequence([{ url: "/api/customers/duplicates", body: { pairs: [] } }]);
+    mockFetch({ duplicates: { pairs: [] } });
     render(<MergeClientsView />);
     await waitFor(() => expect(screen.getByText(/no se encontraron posibles duplicados/i)).toBeInTheDocument());
   });
 
-  it("al abrir un par, pide el dry-run y muestra el resumen de impacto", async () => {
-    mockFetchSequence([
-      { url: "/api/customers/duplicates", body: { pairs: [PAR] } },
-      { url: "/api/customers/merge", body: { moved: [{ table: "ar_promises", count: 3 }] } },
-    ]);
+  it("pagina la lista cuando hay más pares de los que caben en una página", async () => {
+    const muchos = Array.from({ length: 30 }, (_, i) =>
+      par({ a: { id: `a${i}`, firstName: `Cliente${i}` } }),
+    );
+    mockFetch({ duplicates: { pairs: muchos } });
     render(<MergeClientsView />);
-    await waitFor(() => expect(screen.getAllByText(/Ana Perez/i).length).toBeGreaterThan(0));
-    fireEvent.click(screen.getByRole("button", { name: /comparar/i }));
-    await waitFor(() => expect(screen.getByText(/3 promesas de pago/i)).toBeInTheDocument());
-  });
-
-  it("al confirmar, fusiona y el par desaparece de la lista", async () => {
-    let mergePosts = 0;
-    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
-      if (url.includes("/api/customers/duplicates")) {
-        return Promise.resolve({ ok: true, json: async () => ({ pairs: [PAR] }) });
-      }
-      if (url.includes("/api/customers/merge")) {
-        const body = JSON.parse((init?.body as string) ?? "{}");
-        if (body.dryRun) return Promise.resolve({ ok: true, json: async () => ({ moved: [{ table: "ar_promises", count: 3 }] }) });
-        mergePosts++;
-        return Promise.resolve({ ok: true, json: async () => ({ moved: [{ table: "ar_promises", count: 3 }] }) });
-      }
-      return Promise.resolve({ ok: true, json: async () => ({}) });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(<MergeClientsView />);
-    await waitFor(() => expect(screen.getAllByText(/Ana Perez/i).length).toBeGreaterThan(0));
-    fireEvent.click(screen.getByRole("button", { name: /comparar/i }));
-    await waitFor(() => screen.getByText(/3 promesas de pago/i));
-    const unificarButtons = () => screen.getAllByRole("button", { name: /^unificar$/i });
-    expect(unificarButtons()).toHaveLength(1);
-    fireEvent.click(unificarButtons()[0]!);
-    await waitFor(() => expect(unificarButtons().length).toBeGreaterThan(1));
-    fireEvent.click(unificarButtons().slice(-1)[0]!);
-    await waitFor(() => expect(mergePosts).toBe(1));
-    await waitFor(() => expect(screen.queryByText(/Ana Perez/i)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^unificar$/i }).length).toBe(25));
+    expect(screen.getByText(/mostrando/i)).toBeInTheDocument();
   });
 });

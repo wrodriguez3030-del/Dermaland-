@@ -10,6 +10,18 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.148.0] - 2026-09-09
+
+### Cambiado
+
+- **Unificar clientes — flujo simplificado.** El dueño lo probó (1015 pares
+  reales detectados) y lo encontró complejo: había que abrir "Comparar" antes
+  de poder hacer nada. Ahora cada par es UNA fila con dos checkboxes (marcan
+  quién recibe, preseleccionado el de más compras) y un botón "Unificar"
+  directo — sin paso intermedio. El cálculo de impacto se pide al pulsar
+  "Unificar" y se muestra dentro de la confirmación. Se agregó paginación
+  (25 por página) porque en producción hay más de mil pares.
+
 ## [0.147.0] - 2026-09-09
 
 ### Agregado
