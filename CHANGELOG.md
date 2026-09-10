@@ -10,6 +10,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.153.0] - 2026-09-10
+
+### Agregado
+
+- **Clientes de prueba con limpieza automática nocturna.** Creados Willian
+  Rodriguez, Alan Rodriguez y Rodrigo Rodriguez (`CLI-TEST-*`, tag `prueba`)
+  para probar transacciones del POS sin ensuciar la reconciliación con
+  Alegra. `pg_cron` (recién habilitado en el proyecto) corre
+  `limpiar_ventas_prueba_diarias()` cada noche a las 03:00 AST: revierte el
+  stock que sus ventas de prueba consumieron (mismo criterio que
+  `void_sale_atomic`) y borra la venta por completo — no queda "cancelada",
+  desaparece, porque Alegra nunca la vio. Los 3 clientes SÍ quedan
+  permanentes para seguir probando al día siguiente. Identificados por ID
+  fijo, no por nombre, para que un cliente real futuro con el mismo nombre
+  nunca pueda caer en la limpieza. Verificado en vivo con una venta de
+  prueba real (creada y limpiada en la misma verificación): stock
+  restaurado, venta y movimiento borrados.
+
 ## [0.152.0] - 2026-09-10
 
 ### Corregido
