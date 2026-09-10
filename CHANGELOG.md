@@ -10,6 +10,23 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.163.0] - 2026-09-10
+
+### Corregido
+
+- 🔴 **Clientes: un error del servidor se veía igual que "no hay clientes".**
+  El propio hook `usePaginaClientes` ya distinguía `error` de una lista
+  realmente vacía (con un comentario explícito advirtiendo del riesgo: "no
+  hay clientes" invita a crear un cliente que ya existe), pero la pantalla
+  nunca leía ese campo. Además no había ningún indicador de carga en el
+  cuerpo de la pantalla al buscar, filtrar, ordenar o cambiar de página
+  (solo la palabra "Cargando…" en el encabezado), y el mensaje de vacío se
+  duplicaba en el DOM (una copia para móvil, otra para escritorio). Ahora:
+  `Skeleton` mientras carga, aviso de error explícito si falla, y un único
+  `EmptyState` (con mensaje distinto si hay filtros activos) cuando de
+  verdad no hay clientes — mismo patrón ya usado en
+  Cuentas por Cobrar → Pendientes.
+
 ## [0.162.0] - 2026-09-10
 
 ### Corregido

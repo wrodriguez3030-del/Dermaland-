@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   CardContent,
+  Skeleton,
   Table,
   THead,
   TBody,
@@ -16,7 +17,8 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Merge, Plus, X } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Merge, Plus, Users, X } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
@@ -160,6 +162,7 @@ function ClientesContent() {
     setPage: (n: number) => setPagina(Math.max(0, n - 1)),
     setPageSize: (n: number) => setPorPagina(n),
   };
+  const hayFiltros = Boolean(busqueda || fuente || tipoPiel || createdFilter === "this_month");
 
   return (
     <>
@@ -242,15 +245,28 @@ function ClientesContent() {
           un número en esta fila y otro en la ficha, a un clic de distancia. */}
       <p className="mb-3 text-xs opacity-60">{ALCANCE_TOTAL_GASTADO}</p>
 
+      {consulta.cargando && <Skeleton className="h-64 rounded-xl" />}
+      {consulta.error && (
+        <Card>
+          <CardContent className="py-6 text-sm text-rose-700">{consulta.error}</CardContent>
+        </Card>
+      )}
+
+      {!consulta.cargando && !consulta.error && (pag.pageItems.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={hayFiltros ? "Sin resultados con estos filtros" : "Sin clientes aún"}
+          description={
+            hayFiltros
+              ? "Ajusta la búsqueda o los filtros para ver más clientes."
+              : "Cuando registres un cliente, aparecerá aquí."
+          }
+        />
+      ) : (
       <Card>
         <CardContent className="p-0">
           {/* Móvil: tarjetas */}
           <div className="divide-y divide-slate-100 md:hidden">
-            {pag.pageItems.length === 0 && (
-              <div className="px-4 py-8 text-center text-sm opacity-60">
-                Sin clientes que coincidan.
-              </div>
-            )}
             {pag.pageItems.map(({ customer: c, stats }) => (
               <Link
                 key={c.id}
@@ -336,13 +352,6 @@ function ClientesContent() {
               </TR>
             </THead>
             <TBody>
-              {!consulta.cargando && consulta.filas.length === 0 && (
-                <TR>
-                  <TD colSpan={9} className="py-8 text-center text-sm opacity-60">
-                    Sin clientes aún.
-                  </TD>
-                </TR>
-              )}
               {pag.pageItems.map(({ customer: c, stats }) => (
                 <TR
                   key={c.id}
@@ -454,6 +463,7 @@ function ClientesContent() {
           )}
         </CardContent>
       </Card>
+      ))}
       <toast.Toast />
     </>
   );

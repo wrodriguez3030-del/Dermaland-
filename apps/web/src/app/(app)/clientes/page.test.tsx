@@ -72,18 +72,24 @@ const FILAS: CustomerMetricsRow[] = [
  * Una prueba que pasa con el código cambiado por debajo no protege nada. La
  * cazó comprobar a mano quién consume qué, no la suite.
  */
+/** Cada prueba puede pisar esto para simular carga / error / vacío real. */
+let respuestaClientes: {
+  filas: CustomerMetricsRow[];
+  total: number;
+  cargando: boolean;
+  error: string | null;
+} = { filas: FILAS, total: FILAS.length, cargando: false, error: null };
+
 vi.mock("@/features/customers/use-pagina-clientes", () => ({
-  usePaginaClientes: () => ({
-    filas: FILAS,
-    total: FILAS.length,
-    cargando: false,
-    error: null,
-  }),
+  usePaginaClientes: () => respuestaClientes,
 }));
 
 import ClientesPage from "./page";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  respuestaClientes = { filas: FILAS, total: FILAS.length, cargando: false, error: null };
+});
 
 describe("Clientes — qué cuenta «Total gastado»", () => {
   it("🔴 dice en pantalla qué cuenta el «Total gastado»", () => {
@@ -126,6 +132,43 @@ describe("Clientes — la tabla pinta lo que manda el servidor", () => {
   it("🔴 no dice «sin clientes» cuando el servidor devolvió filas", () => {
     render(<ClientesPage />);
     expect(screen.queryByText(/no hay clientes|sin clientes/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * 🔴 "AGREGAR ESTADO DE CARGA, ERROR Y CONTENIDO VACÍO" (pedido del dueño,
+ * 10/09/2026): la pantalla ignoraba `consulta.error` por completo — si la
+ * petición al servidor fallaba, se veía IGUAL que "no hay clientes" (mismo
+ * texto), justo lo que el propio hook `usePaginaClientes` advierte en su
+ * comentario que hay que evitar. Tampoco había ningún indicador de carga en
+ * el cuerpo de la pantalla (solo la palabra "Cargando…" en el encabezado).
+ */
+describe("Clientes — estados de carga, error y vacío", () => {
+  it("mientras carga, no dice «sin clientes»", () => {
+    respuestaClientes = { filas: [], total: 0, cargando: true, error: null };
+    render(<ClientesPage />);
+    expect(screen.queryByText(/sin clientes/i)).not.toBeInTheDocument();
+  });
+
+  it("con error del servidor, enseña el error — no «sin clientes»", () => {
+    respuestaClientes = {
+      filas: [],
+      total: 0,
+      cargando: false,
+      error: "No se pudieron cargar los clientes.",
+    };
+    render(<ClientesPage />);
+    expect(screen.getByText("No se pudieron cargar los clientes.")).toBeInTheDocument();
+    expect(screen.queryByText(/^sin clientes/i)).not.toBeInTheDocument();
+  });
+
+  it("sin carga, sin error y sin filas, enseña el vacío real (no el mensaje de error)", () => {
+    respuestaClientes = { filas: [], total: 0, cargando: false, error: null };
+    render(<ClientesPage />);
+    expect(screen.getByText(/sin clientes/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no se pudieron cargar/i),
+    ).not.toBeInTheDocument();
   });
 });
 
