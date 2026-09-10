@@ -94,25 +94,30 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "No se pudo conectar con la base." }, { status: 502 });
   }
 
-  const rows = await fetchAllPages<ClientMatchRow>(async (from, to) => {
-    const { data, error } = await sb
-      .from("clients")
-      .select(
-        "id,business_id,customer_number,first_name,last_name,document_number,phone,whatsapp,email,birth_date,total_orders",
-      )
-      .eq("business_id", businessId)
-      .is("deleted_at", null)
-      .order("id", { ascending: true })
-      .range(from, to);
-    if (error) throw error;
-    return data ?? [];
-  });
-
+  // Clientes y compras se piden EN PARALELO — son independientes, y cada uno
+  // ya paginaba 6-7 llamadas secuenciales por su cuenta; encadenarlos
+  // duplicaría el tiempo de espera sin necesidad.
+  let rows: ClientMatchRow[];
   let purchasesById: Map<string, number>;
   try {
-    purchasesById = await getClientPurchaseCounts(sb);
+    [rows, purchasesById] = await Promise.all([
+      fetchAllPages<ClientMatchRow>(async (from, to) => {
+        const { data, error } = await sb
+          .from("clients")
+          .select(
+            "id,business_id,customer_number,first_name,last_name,document_number,phone,whatsapp,email,birth_date,total_orders",
+          )
+          .eq("business_id", businessId)
+          .is("deleted_at", null)
+          .order("id", { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        return data ?? [];
+      }),
+      getClientPurchaseCounts(sb),
+    ]);
   } catch {
-    return NextResponse.json({ error: "No se pudo calcular las compras por cliente." }, { status: 502 });
+    return NextResponse.json({ error: "No se pudo cargar la información de clientes." }, { status: 502 });
   }
 
   const rowById = new Map(rows.map((r) => [r.id, r]));

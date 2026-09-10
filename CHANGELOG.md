@@ -10,6 +10,20 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.152.0] - 2026-09-10
+
+### Corregido
+
+- **`0.151.0` seguía mostrando «0 compras» de verdad — reprodujo el tope de
+  1000 filas de PostgREST.** `client_purchase_counts()` sin `.range()`
+  devolvía exactamente 1000 filas de las ~6017 reales; casi todos los
+  clientes migrados de Alegra caían al `?? 0` en silencio (mismo patrón que
+  `dermaland-postgrest-1000-cap` ya documentó en otras rutas — verificado en
+  vivo contra el negocio real, no solo con datos sintéticos). Ahora pagina con
+  `fetchAllPages`, el mismo helper que ya usa `customer.list`. De paso, la
+  consulta de clientes y la de compras corren en PARALELO (eran secuenciales)
+  para no duplicar el tiempo de espera.
+
 ## [0.151.0] - 2026-09-10
 
 ### Corregido
