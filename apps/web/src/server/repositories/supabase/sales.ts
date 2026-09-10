@@ -413,6 +413,44 @@ export const proformaRepository: ProformaRepository = {
       ? String(proforma.branchId)
       : requireUuid(ctx.branchId, "La sucursal");
 
+    // 🔴 Reportado 10/09/2026: ventas del día no aparecían en el cierre de
+    // caja. Causa: el POS nunca adjuntaba `cash_register_session_id` — el
+    // campo simplemente no se llenaba en ningún punto del código, así que la
+    // venta quedaba invisible para SIEMPRE en cualquier cierre (pasado o
+    // futuro), sin un solo error. Ya estaba anotado como pendiente en
+    // `docs/agents/pos-ventas.md` ("si no hay sesión de caja abierta, la
+    // emisión se bloquea con mensaje claro").
+    //
+    // "Una sola caja abierta por sucursal" (ver `cashRegisterRepository.open`
+    // más abajo): la sesión es de la SUCURSAL, no del cajero que la abrió —
+    // cualquiera que cobre en esa sucursal usa la caja ya abierta, exista o
+    // no una sesión propia. El servidor decide esto SIEMPRE (nunca el body):
+    // mismo criterio que `cashierId`/`cashier_name` arriba.
+    //
+    // Solo aplica a una emisión real (no a un borrador/cotización, que no
+    // mueve caja) — mismo criterio que la validación de crédito de abajo.
+    let cashRegisterSessionId: string | null = null;
+    if (proforma.status !== "draft") {
+      const { data: sesionAbierta, error: sesionError } = await sb
+        .from("cash_register_sessions")
+        .select("id")
+        .eq("business_id", ctx.businessId)
+        .eq("branch_id", branchId)
+        .eq("status", "open")
+        .order("opened_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (sesionError) {
+        throw new SupabaseRepositoryError("proforma.create:sesionAbierta", sesionError);
+      }
+      if (!sesionAbierta) {
+        throw new UserFacingRepositoryError(
+          "No hay una caja abierta en esta sucursal. Abre un turno de caja antes de cobrar.",
+        );
+      }
+      cashRegisterSessionId = sesionAbierta.id;
+    }
+
     // SEGURIDAD (SEC-002): el servidor es la ÚNICA fuente de verdad de los
     // montos también al EMITIR (antes solo la edición recalculaba). Recalculamos
     // subtotal/descuento/ITBIS/total/pagado/balance y los ítems con el MISMO
@@ -500,7 +538,7 @@ export const proformaRepository: ProformaRepository = {
       ...(dueDate ? { due_date: dueDate } : {}),
       notes: proforma.notes ?? null,
       ecf_number: proforma.ecfNumber ?? null,
-      cash_register_session_id: nullableUuid(proforma.cashRegisterSessionId),
+      cash_register_session_id: cashRegisterSessionId,
       discount_percent: toDbMoneyNullable(recomputed.discountPercent, "% de descuento"),
       discount_amount: toDbMoneyNullable(proforma.discountAmount, "descuento"),
       billing_type: proforma.billingType ?? null,

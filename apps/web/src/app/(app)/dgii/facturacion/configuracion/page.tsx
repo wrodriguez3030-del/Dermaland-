@@ -41,10 +41,18 @@ export default function BillingConfigPage() {
   const [saved, setSaved] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Sincroniza el borrador cuando llega la config del store (hidratación).
-  React.useEffect(() => setDraft(settings), [settings]);
+  // 🔴 Reportado 10/09/2026: "seleccioné NCF y se cambia a Ambos solo". La
+  // hidratación del servidor (abajo) es asíncrona; si el admin elige un valor
+  // ANTES de que responda, la respuesta tardía pisaba `draft` sin preguntar.
+  // `editando` marca que hay una edición local sin guardar: mientras esté en
+  // true, este efecto NO debe sincronizar `draft` con lo que traiga el store.
+  const editando = React.useRef(false);
+  React.useEffect(() => {
+    if (!editando.current) setDraft(settings);
+  }, [settings]);
 
   function set<K extends keyof BillingSettings>(key: K, value: BillingSettings[K]) {
+    editando.current = true;
     setDraft((d) => ({ ...d, [key]: value }));
     setSaved(null);
   }
@@ -65,6 +73,10 @@ export default function BillingConfigPage() {
     // fuera de producción— el valor vuelve atrás y se dice el motivo.
     const res = await guardarEnServidor({
       defaultBillingMode: draft.defaultBillingMode,
+      // 🔴 Se perdía en silencio: había un Select editable para esto (línea
+      // ~140) pero nunca viajaba al servidor — el admin lo cambiaba, la
+      // pantalla decía "Configuración guardada", y el valor real no se movía.
+      defaultCustomerBillingType: draft.defaultCustomerBillingType,
       usageMode: draft.usageMode,
       ecfEnvironment: draft.ecfEnvironment,
       cardEcfImmediateEnabled: draft.cardEcfImmediateEnabled,
@@ -74,8 +86,14 @@ export default function BillingConfigPage() {
     });
     setGuardando(false);
     if (res.ok) {
+      // A partir de aquí, `draft` YA es lo guardado — puede volver a seguir al
+      // store si otra pestaña/hidratación trae algo nuevo.
+      editando.current = false;
       setSaved(formatTime(new Date()));
     } else {
+      // Falló: `draft` sigue teniendo el cambio SIN guardar. No sueltes la
+      // bandera — si se soltara, una hidratación en vuelo podría pisarlo justo
+      // cuando el admin va a reintentar.
       setError(res.error);
     }
   };

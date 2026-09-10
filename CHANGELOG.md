@@ -10,6 +10,28 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.154.0] - 2026-09-10
+
+### Corregido
+
+- **"Seleccioné NCF tradicional y se cambia a Ambos solo."** Carrera de
+  estados en Configuración de facturación: la hidratación desde el servidor
+  (asíncrona) pisaba sin preguntar cualquier selección que el admin hiciera
+  mientras esa respuesta viajaba. Ahora una bandera `editando` protege el
+  borrador local hasta que se guarda de verdad.
+- **De paso, en la misma pantalla:** "Tipo de facturación por defecto
+  (clientes nuevos)" tenía un Select editable que nunca viajaba al
+  guardar — se perdía en silencio. Ya se manda.
+- **Ventas del día no aparecían en ningún cierre de caja.** El POS nunca
+  adjuntaba `cash_register_session_id` a la venta — el campo no se llenaba
+  en ningún punto del código (ya estaba anotado como pendiente en
+  `docs/agents/pos-ventas.md`). Ahora el servidor busca la caja abierta de
+  la SUCURSAL (no del cajero — una sola caja por sucursal, la puede usar
+  cualquiera) y la adjunta siempre; si no hay ninguna abierta, bloquea el
+  cobro con un mensaje claro en vez de dejar la venta huérfana para
+  siempre. 🔴 Cambio de comportamiento real: antes se podía cobrar sin caja
+  abierta (en silencio); ahora no.
+
 ## [0.153.0] - 2026-09-10
 
 ### Agregado
