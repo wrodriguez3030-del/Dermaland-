@@ -137,4 +137,22 @@ describe("CustomerSearchSelect — búsqueda en el servidor", () => {
     expect(screen.getByText("Juan Gómez")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("🔴 con un cliente seleccionado (botón «Quitar»), no anida un <button> dentro de otro <button>", () => {
+    // Visto en vivo el 10/09/2026: <button> dentro de <button> es HTML
+    // inválido y React lo deja pasar en el cliente, pero revienta la
+    // hidratación en el servidor ("Console Error: In HTML, <button> cannot
+    // be a descendant of <button>"). Solo se ve con `value` puesto, porque
+    // el botón "Quitar cliente" (✕) solo existe entonces.
+    const { container } = render(
+      <CustomerSearchSelect
+        value={cliente({ firstName: "Juan", lastName: "Gómez" })}
+        onChange={() => {}}
+        allowWalkIn={false}
+      />,
+    );
+    for (const btn of container.querySelectorAll("button")) {
+      expect(btn.parentElement?.closest("button") ?? null).toBeNull();
+    }
+  });
 });

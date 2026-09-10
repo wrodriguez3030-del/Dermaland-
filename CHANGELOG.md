@@ -10,6 +10,37 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.159.0] - 2026-09-10
+
+### Corregido
+
+- 🔴 **Error de hidratación real, encontrado probando el POS en vivo:**
+  `<button>` dentro de `<button>` en `CustomerSearchSelect` (selector de
+  cliente) y `SellerSelect` (selector de vendedor) — el botón "Quitar" (✕)
+  vivía anidado dentro del botón que abre el desplegable. HTML inválido:
+  React lo deja pasar al pintar en el cliente pero revienta la hidratación
+  ("In HTML, `<button>` cannot be a descendant of `<button>`"). Los dos
+  triggers pasan a `<div role="button" tabIndex={0}>` con teclado (Enter/
+  Espacio) — mismo patrón ya usado en `ProductCard`. Nuevas pruebas que
+  recorren el DOM real y comprueban que ningún `<button>` quede anidado.
+- 🔴🔴 **El catálogo del POS no se enteraba de que una venta bajó el stock
+  — probado en vivo con una venta real hasta agotar el último lote.** En
+  modo Supabase (producción) el descuento de inventario ocurre del lado del
+  servidor, sin pasar por ninguna función de `lot-store.ts`; nada avisaba a
+  `useAllLots`/`useProductLots` que debían refrescar. Resultado: tras
+  cobrar, la tarjeta del producto seguía diciendo "1 unid. aquí" el resto de
+  la sesión, y una segunda venta del mismo lote la rechazaba el servidor con
+  "stock insuficiente… refresca el inventario". `notifyInventoryChanged`
+  (ya existía, usada por las otras 11 mutaciones de este store) ahora
+  también se exporta y el POS la llama justo después de cobrar. Verificado
+  en vivo: la tarjeta pasa a "Sin stock aquí" al instante, sin recargar la
+  página.
+- ✅ **El fix de reglas de incentivo por método de pago (v0.158.0),
+  verificado con ventas reales end-to-end:** una venta en efectivo generó
+  SOLO la comisión de 3% (RD$28,73 y RD$31,53 en dos pruebas distintas); una
+  venta con tarjeta generó SOLO la de 1% (RD$8,64). Antes del fix, las dos
+  habrían aplicado a cualquier venta.
+
 ## [0.158.0] - 2026-09-10
 
 ### Corregido

@@ -84,6 +84,7 @@ import {
   stockByBranchForProduct,
   fefoLotsForBranch,
   decrementLotStock,
+  notifyInventoryChanged,
   type LotBlockReason,
 } from "@/features/inventory/lot-store";
 import {
@@ -1207,6 +1208,15 @@ export function PosTerminal({
         );
       }
     }
+
+    // 🔴 En modo supabase el descuento de stock ocurrió del lado del
+    // servidor (arriba), sin pasar por ninguna función de `lot-store.ts` —
+    // así que nadie avisaba a `useAllLots`/`useProductLots` que había que
+    // refrescar. Sin esto, el catálogo del POS seguía enseñando el stock de
+    // ANTES de esta venta hasta recargar la página entera: una segunda
+    // venta del último lote no se veía como "Agotado" y el servidor la
+    // rechazaba con un error confuso (visto en vivo el 10/09/2026).
+    notifyInventoryChanged();
 
     // Si esta venta venía de un pedido web, se deja el documento enlazado. Va
     // aquí y no antes: el pedido no puede quedar marcado como facturado por una

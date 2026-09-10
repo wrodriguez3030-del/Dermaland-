@@ -172,12 +172,24 @@ export const CustomerSearchSelect = React.forwardRef<
 
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
-      {/* Trigger */}
-      <button
-        type="button"
+      {/* Trigger — `<div role="button">`, no `<button>`: lleva DENTRO el botón
+          "Quitar cliente" (✕), y un <button> no puede anidar otro <button>
+          en HTML — React lo dejaba pasar en el cliente pero reventaba la
+          hidratación (visto en vivo el 10/09/2026). Mismo patrón accesible
+          que la tarjeta de producto del POS (`ProductCard`): div clickable +
+          rol y teclado, no botón anidado. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-left text-sm transition hover:border-[color:var(--brand-primary)]/40",
+          "flex w-full cursor-pointer items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-left text-sm transition hover:border-[color:var(--brand-primary)]/40",
           triggerHeight,
           open && "border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/20",
           invalid && !value && "border-rose-400 ring-2 ring-rose-200",
@@ -224,7 +236,7 @@ export const CustomerSearchSelect = React.forwardRef<
             open && "rotate-180",
           )}
         />
-      </button>
+      </div>
 
       {/* Dropdown */}
       {open && (

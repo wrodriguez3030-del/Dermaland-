@@ -31,6 +31,7 @@ import {
   updateLotNoteLocal,
   validateLot,
   expiryError,
+  notifyInventoryChanged,
   type LotBlockReason,
 } from "./lot-store";
 
@@ -258,6 +259,28 @@ describe("producto sin lote", () => {
 });
 
 // ─── Capa cliente gated (LOT_BACKEND, addLotAnywhere, adjustStockAnywhere, summarizeLotsByBranch) ───
+
+describe("notifyInventoryChanged", () => {
+  it("dispara el evento que escuchan useAllLots/useProductLots para refrescar", () => {
+    // 🔴 Sin esto, una venta del POS en modo supabase (el stock se descuenta
+    // del lado del servidor, sin pasar por ninguna función de este store)
+    // no avisaba a nadie: el catálogo del POS seguía mostrando el stock de
+    // ANTES de la venta hasta recargar la página. Visto en vivo el
+    // 10/09/2026: una segunda venta del último lote, rechazada por el
+    // servidor mientras la tarjeta seguía diciendo "1 unid. aquí".
+    let veces = 0;
+    const oyente = () => {
+      veces += 1;
+    };
+    window.addEventListener("dermaland:inventory-changed", oyente);
+    try {
+      notifyInventoryChanged();
+      expect(veces).toBe(1);
+    } finally {
+      window.removeEventListener("dermaland:inventory-changed", oyente);
+    }
+  });
+});
 
 describe("LOT_BACKEND", () => {
   it('es "local" cuando NEXT_PUBLIC_DATA_SOURCE no es supabase', () => {

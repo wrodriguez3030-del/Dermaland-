@@ -82,11 +82,22 @@ export function SellerSelect({
 
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
-      <button
-        type="button"
+      {/* `<div role="button">`, no `<button>`: lleva dentro el botón "Quitar
+          vendedor" (✕), y un <button> no puede anidar otro <button> en HTML
+          — reventaba la hidratación (visto en vivo el 10/09/2026, mismo bug
+          que `CustomerSearchSelect`). */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((v) => !v);
+          }
+        }}
         className={cn(
-          "flex h-9 w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-left text-sm transition hover:border-[color:var(--brand-primary)]/40",
+          "flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-left text-sm transition hover:border-[color:var(--brand-primary)]/40",
           open &&
             "border-[color:var(--brand-primary)] ring-2 ring-[color:var(--brand-primary)]/20",
           invalid && !value && "border-rose-400 ring-2 ring-rose-200",
@@ -128,7 +139,7 @@ export function SellerSelect({
             open && "rotate-180",
           )}
         />
-      </button>
+      </div>
 
       {open && (
         <div className="absolute left-0 right-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-black/5 bg-white shadow-lg">

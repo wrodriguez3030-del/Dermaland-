@@ -632,7 +632,19 @@ export const LOT_BACKEND: "local" | "supabase" =
     ? "supabase"
     : "local";
 
-function notifyInventoryChanged() {
+/**
+ * Avisa a todos los `useAllLots`/`useProductLots` que el stock cambió en el
+ * servidor y deben refrescar. Se usa dentro de este store tras cada
+ * mutación propia — pero una venta del POS cambia el stock por OTRO camino
+ * (crea la proforma vía su propio endpoint, que descuenta el lote del lado
+ * del servidor) sin pasar nunca por una función de aquí, así que nadie
+ * avisaba: el catálogo del POS seguía mostrando el stock de ANTES de la
+ * venta hasta recargar la página entera. Exportada para que el POS la
+ * llame directamente al terminar de cobrar (visto en vivo el 10/09/2026:
+ * una segunda venta del último lote rechazada por el servidor —
+ * correctamente— mientras la tarjeta seguía diciendo "1 unid. aquí").
+ */
+export function notifyInventoryChanged() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
   }
