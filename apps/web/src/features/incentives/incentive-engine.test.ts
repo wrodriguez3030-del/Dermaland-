@@ -22,6 +22,7 @@ function sale(overrides: Partial<SaleForIncentive> = {}): SaleForIncentive {
     sellerName: "Ana",
     createdAt: "2026-07-04T10:00:00Z",
     status: "paid",
+    hasDiscount: false,
     items: [
       { productId: "p1", quantity: 2, subtotal: 2000 }, // neto 2000
       { productId: "p2", quantity: 1, subtotal: 500 }, // neto 500
@@ -141,6 +142,21 @@ describe("computeIncentivesForSale", () => {
     ];
     // venta 2026-07-04 < inicio de la regla → sin incentivo
     expect(computeIncentivesForSale(sale(), rules, products)).toHaveLength(0);
+  });
+
+  it("🔴 venta CON descuento no genera NINGÚN incentivo, para NINGUNA regla (decisión del dueño 10/09)", () => {
+    const rules = [
+      rule({ id: "a", ruleType: "percent_on_sale", percentage: 5 }),
+      rule({ id: "b", ruleType: "fixed_per_product", productId: "p1", fixedAmount: 50 }),
+      rule({ id: "c", ruleType: "percent_on_margin", percentage: 10 }),
+      rule({ id: "d", ruleType: "per_laboratory", laboratoryId: "lab_isdin", percentage: 5 }),
+      rule({ id: "e", ruleType: "per_category", categoryId: "cat_solar", percentage: 5 }),
+    ];
+    // Sin descuento: las 5 reglas generan incentivo.
+    expect(computeIncentivesForSale(sale({ hasDiscount: false }), rules, products)).toHaveLength(5);
+    // Con descuento (global O de línea — el motor no distingue el origen,
+    // solo que hubo alguno): NINGUNA regla genera incentivo.
+    expect(computeIncentivesForSale(sale({ hasDiscount: true }), rules, products)).toHaveLength(0);
   });
 });
 

@@ -10,6 +10,25 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.155.0] - 2026-09-10
+
+### Cambiado
+
+- **Venta con descuento no genera incentivo — decisión del dueño.** Si una
+  venta tiene CUALQUIER descuento (de línea o global), ninguna regla de
+  incentivo aplica a esa venta completa (no solo a la línea descontada). La
+  base del incentivo ya era neta sin ITBIS post-descuento; esto es nuevo:
+  antes el descuento solo reducía la base, ahora la anula. Aplicado tanto al
+  motor en vivo (`incentive-engine.ts`, venta por venta al pagar) como al
+  generador de comisiones históricas de Alegra
+  (`scripts/alegra/generar-comisiones-historico.mjs`), mismo criterio en
+  los dos lados.
+- 🔴 **Pendiente del dueño:** de los RD$128,260.02 en comisiones YA
+  generadas del histórico de Alegra y aún pendientes de pago, RD$25,297.91
+  (284 de 2,051 facturas) corresponden a ventas con descuento — generadas
+  ANTES de esta regla. El código ya no genera casos nuevos así, pero estos
+  ya existen. Decidir si se dejan como están o se anulan.
+
 ## [0.154.0] - 2026-09-10
 
 ### Corregido

@@ -92,7 +92,7 @@ try {
 
   const facturas = (
     await c.query(
-      `select ai.id, ai.ncf, ai.date, ai.total, ai.payment_method, ai.seller_id,
+      `select ai.id, ai.ncf, ai.date, ai.total, ai.discount, ai.payment_method, ai.seller_id,
               u.full_name as vendedor
          from public.alegra_invoices ai
          left join public.users u on u.id = ai.seller_id
@@ -117,7 +117,7 @@ try {
 
   const porVendedor = new Map();
   const nuevas = [];
-  const saltadas = { sinVendedor: 0, sinRegla: 0, yaHecha: 0 };
+  const saltadas = { sinVendedor: 0, sinRegla: 0, yaHecha: 0, conDescuento: 0 };
 
   for (const f of facturas) {
     const grupo = GRUPO[f.payment_method ?? ""];
@@ -126,6 +126,10 @@ try {
     // 🔴 Sin vendedor no se genera: una comisión tiene que tener dueño. Estas
     // facturas se atan solas en la siguiente corrida del sync y entonces sí.
     if (!f.seller_id) { saltadas.sinVendedor++; continue; }
+    // 🔴 Decisión del dueño (10/09/2026): con descuento, no se comisiona esta
+    // venta — igual que la regla que ahora aplica el motor en vivo
+    // (`incentive-engine.ts`). Mismo criterio, dos generadores distintos.
+    if (Number(f.discount) > 0) { saltadas.conDescuento++; continue; }
     if (yaHechas.has(`${f.id}|${regla.id}`)) { saltadas.yaHecha++; continue; }
 
     const monto = aDos((Number(f.total) * Number(regla.percentage)) / 100);
@@ -137,7 +141,7 @@ try {
 
   console.log(`\n  facturas en el tramo : ${facturas.length}`);
   console.log(`  se generarían        : ${nuevas.length}`);
-  console.log(`  saltadas             : ${saltadas.sinRegla} sin forma de pago con regla · ${saltadas.sinVendedor} sin vendedor · ${saltadas.yaHecha} ya generadas\n`);
+  console.log(`  saltadas             : ${saltadas.sinRegla} sin forma de pago con regla · ${saltadas.sinVendedor} sin vendedor · ${saltadas.conDescuento} con descuento · ${saltadas.yaHecha} ya generadas\n`);
 
   let total = 0;
   for (const [v, d] of [...porVendedor.entries()].sort((a, b) => b[1].com - a[1].com)) {

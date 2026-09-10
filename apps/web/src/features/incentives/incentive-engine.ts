@@ -54,6 +54,15 @@ export interface SaleForIncentive {
   sellerName?: string | null;
   createdAt: string;
   status: string;
+  /**
+   * ¿Esta venta tiene algún descuento — de línea o global, da igual el
+   * origen? Decisión del dueño (10/09/2026): con descuento, NINGUNA regla
+   * genera incentivo para esta venta (ni siquiera sobre las líneas sin
+   * descontar). `proformas.discount` ya es la suma de ambos orígenes
+   * (`descuentos de línea + global`, ver `invoice-edit.ts`), así que el
+   * caller solo necesita mandar `discount > 0`.
+   */
+  hasDiscount: boolean;
   items: SaleItemForIncentive[];
 }
 
@@ -196,6 +205,7 @@ export function computeIncentivesForSale(
 ): IncentiveSnapshot[] {
   if (!sale.sellerId) return [];
   if (!PAID_STATUSES.has(sale.status)) return [];
+  if (sale.hasDiscount) return [];
   const out: IncentiveSnapshot[] = [];
   for (const rule of rules) {
     if (!isRuleActiveOn(rule, sale.createdAt)) continue;

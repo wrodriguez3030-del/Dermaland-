@@ -176,7 +176,7 @@ export async function generateIncentivesForSaleServer(
 
   const { data: sale, error: saleErr } = await sb
     .from("proformas")
-    .select("id, seller_id, seller_name, status, created_at")
+    .select("id, seller_id, seller_name, status, created_at, discount")
     .eq("id", saleId)
     .maybeSingle();
   if (saleErr) throw new Error(saleErr.message);
@@ -221,6 +221,9 @@ export async function generateIncentivesForSaleServer(
     sellerName: sale.seller_name,
     createdAt: sale.created_at,
     status: sale.status,
+    // Decisión del dueño (10/09/2026): con descuento, ninguna regla genera
+    // incentivo. `discount` ya suma línea + global (ver invoice-edit.ts).
+    hasDiscount: Number(sale.discount ?? 0) > 0,
     items: (items ?? []).map((i: Row) => ({
       productId: i.product_id ?? "",
       quantity: i.quantity,
