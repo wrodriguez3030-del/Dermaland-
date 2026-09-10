@@ -10,6 +10,16 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.149.0] - 2026-09-09
+
+### Agregado
+
+- **Buscador en Unificar clientes.** Con más de mil pares reales, encontrar
+  uno específico exigía pasar páginas a mano. El buscador filtra por nombre,
+  documento o teléfono (cualquiera de los dos clientes del par), reutilizando
+  el mismo criterio de `coincideCliente` que ya usa `/clientes`. Distingue
+  "no hay duplicados" de "ningún par coincide con tu búsqueda".
+
 ## [0.148.0] - 2026-09-09
 
 ### Cambiado

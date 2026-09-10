@@ -137,4 +137,39 @@ describe("MergeClientsView", () => {
     await waitFor(() => expect(screen.getAllByRole("button", { name: /^unificar$/i }).length).toBe(25));
     expect(screen.getByText(/mostrando/i)).toBeInTheDocument();
   });
+
+  it("el buscador filtra los pares por nombre, en cualquiera de los dos lados", async () => {
+    const pares = [
+      par({ a: { id: "a1", firstName: "Ana", lastName: "Perez" }, b: { id: "b1", firstName: "Ana", lastName: "Rodriguez" } }),
+      par({ a: { id: "a2", firstName: "Juan", lastName: "Diaz" }, b: { id: "b2", firstName: "Juan", lastName: "Mejia" } }),
+    ];
+    mockFetch({ duplicates: { pairs: pares } });
+    render(<MergeClientsView />);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^unificar$/i }).length).toBe(2));
+
+    fireEvent.change(screen.getByPlaceholderText(/buscar/i), { target: { value: "diaz" } });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^unificar$/i }).length).toBe(1));
+    expect(screen.getByText(/Juan Diaz/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Ana Perez/i)).not.toBeInTheDocument();
+  });
+
+  it("el buscador ignora tildes/mayúsculas y busca por documento o teléfono", async () => {
+    const pares = [par({ a: { id: "a1", documentNumber: "001-2345678-9" } })];
+    mockFetch({ duplicates: { pairs: pares } });
+    render(<MergeClientsView />);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^unificar$/i }).length).toBe(1));
+
+    fireEvent.change(screen.getByPlaceholderText(/buscar/i), { target: { value: "0012345678" } });
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^unificar$/i }).length).toBe(1));
+  });
+
+  it("sin resultados de búsqueda (habiendo pares) lo dice distinto de «sin duplicados»", async () => {
+    mockFetch({ duplicates: { pairs: [par()] } });
+    render(<MergeClientsView />);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /^unificar$/i }).length).toBe(1));
+
+    fireEvent.change(screen.getByPlaceholderText(/buscar/i), { target: { value: "zzzznadie" } });
+    await waitFor(() => expect(screen.getByText(/ning[uú]n par coincide/i)).toBeInTheDocument());
+    expect(screen.queryByText(/no se encontraron posibles duplicados/i)).not.toBeInTheDocument();
+  });
 });

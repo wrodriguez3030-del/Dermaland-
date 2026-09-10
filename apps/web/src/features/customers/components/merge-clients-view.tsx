@@ -7,8 +7,10 @@ import { Badge, Button, Card, CardContent } from "@/components/ui";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SearchInput } from "@/components/ui/search-input";
 import { useToast } from "@/components/ui/toast";
 import type { Customer } from "@/types";
+import { coincideCliente } from "@/features/customers/customer-search";
 import {
   fetchDuplicatePairs,
   mergeCustomersDryRun,
@@ -142,6 +144,7 @@ function PairRow({ par, onDone }: { par: DuplicatePairDto; onDone: () => void })
 export function MergeClientsView() {
   const [pairs, setPairs] = React.useState<DuplicatePairDto[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [busqueda, setBusqueda] = React.useState("");
 
   const cargar = React.useCallback(async () => {
     setError(null);
@@ -160,7 +163,13 @@ export function MergeClientsView() {
     setPairs((prev) => (prev ?? []).filter((p) => parKey(p) !== key));
   };
 
-  const pagination = usePagination(pairs ?? []);
+  const filtrados = React.useMemo(() => {
+    if (!pairs) return [];
+    if (!busqueda.trim()) return pairs;
+    return pairs.filter((p) => coincideCliente(p.a, busqueda) || coincideCliente(p.b, busqueda));
+  }, [pairs, busqueda]);
+
+  const pagination = usePagination(filtrados, { resetKey: busqueda });
 
   return (
     <>
@@ -174,8 +183,21 @@ export function MergeClientsView() {
 
       {pairs === null && !error && <p className="opacity-70">Escaneando la base…</p>}
 
+      {pairs !== null && pairs.length > 0 && (
+        <SearchInput
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, documento, teléfono…"
+          containerClassName="mb-4 max-w-md"
+        />
+      )}
+
       {pairs !== null && pairs.length === 0 && (
         <EmptyState icon={Users} title="No se encontraron posibles duplicados" />
+      )}
+
+      {pairs !== null && pairs.length > 0 && filtrados.length === 0 && (
+        <EmptyState icon={Users} title="Ningún par coincide con tu búsqueda" />
       )}
 
       <div className="space-y-3">
@@ -185,7 +207,7 @@ export function MergeClientsView() {
         })}
       </div>
 
-      {pairs !== null && pairs.length > 0 && (
+      {filtrados.length > 0 && (
         <DataPagination
           page={pagination.page}
           pageSize={pagination.pageSize}
