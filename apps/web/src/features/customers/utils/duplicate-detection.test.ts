@@ -249,9 +249,9 @@ describe("scanAllDuplicates — escaneo masivo (Unificar clientes)", () => {
     const b = stubCustomer({ id: "b", documentNumber: "0011111111" });
     const pairs = scanAllDuplicates([a, b]);
     expect(pairs).toHaveLength(1);
-    expect([pairs[0].a.id, pairs[0].b.id].sort()).toEqual(["a", "b"]);
-    expect(pairs[0].confidence).toBe("high");
-    expect(pairs[0].reasons).toContain("documento");
+    expect([pairs[0]!.a.id, pairs[0]!.b.id].sort()).toEqual(["a", "b"]);
+    expect(pairs[0]!.confidence).toBe("high");
+    expect(pairs[0]!.reasons).toContain("documento");
   });
 
   it("reporta cada par UNA sola vez, sin importar el orden de entrada", () => {
@@ -276,7 +276,7 @@ describe("scanAllDuplicates — escaneo masivo (Unificar clientes)", () => {
     const b = stubCustomer({ id: "b", phone: "", whatsapp: "8095550000" });
     const pairs = scanAllDuplicates([a, b]);
     expect(pairs).toHaveLength(1);
-    expect(pairs[0].reasons.join(",")).toContain("teléfono/WhatsApp");
+    expect(pairs[0]!.reasons.join(",")).toContain("teléfono/WhatsApp");
   });
 
   it("NO cruza clientes de negocios distintos aunque compartan documento", () => {
@@ -304,8 +304,8 @@ describe("scanAllDuplicates — escaneo masivo (Unificar clientes)", () => {
     const med2 = stubCustomer({ id: "m2", firstName: "Juan", lastName: "Diaz", phone: "8095551111" });
     const med3 = stubCustomer({ id: "m3", phone: "8095551111" });
     const pairs = scanAllDuplicates([med1, high1, med2, high2, med3]);
-    expect(pairs[0].confidence).toBe("high");
-    expect(pairs.every((p, i) => i === 0 || rank(pairs[i - 1].confidence) >= rank(p.confidence))).toBe(true);
+    expect(pairs[0]!.confidence).toBe("high");
+    expect(pairs.every((p, i) => i === 0 || rank(pairs[i - 1]!.confidence) >= rank(p.confidence))).toBe(true);
     function rank(c: string) {
       return { high: 3, medium: 2, low: 1 }[c as "high" | "medium" | "low"];
     }
