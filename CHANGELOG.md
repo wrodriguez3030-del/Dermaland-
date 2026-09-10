@@ -10,6 +10,21 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.147.0] - 2026-09-09
+
+### Agregado
+
+- **Unificar clientes.** Botón admin-only en `/clientes` → pantalla
+  `/clientes/unificar`: escanea TODA la base (documento, teléfono y
+  WhatsApp normalizados) y muestra los pares sospechosos, ordenados por
+  confianza. Al abrir un par, un dry-run cuenta cuánto se movería (facturas
+  migradas, promesas de pago, ventas del sistema, pedidos web…) antes de
+  confirmar. Al unificar: las 7 tablas con historial del cliente se
+  reasignan al sobreviviente en una transacción (`merge_clients`), los
+  campos vacíos del sobreviviente se rellenan con los del duplicado sin
+  sobreescribir nada, y el duplicado queda eliminado (soft-delete, igual
+  que "Eliminar cliente"). Queda auditado (`customer.merge`).
+
 ## [0.146.0] - 2026-09-06
 
 ### Agregado

@@ -172,6 +172,7 @@ Detalle completo en `docs/estado-actual.md` (entrada `2026-08-06`) y
 
 | Fecha | Item |
 |---|---|
+| 2026-09-09 | **Unificar clientes.** Pantalla admin-only para fusionar duplicados detectados en los 6 525 clientes migrados: escaneo masivo, comparación con dry-run de impacto, fusión atómica de 7 tablas + soft-delete del duplicado. |
 | 2026-08-06 | **B-04 cerrado en código: 2FA obligatorio para admin/super_admin/is_platform_admin.** Enrolamiento, desafío en login, enforcement en middleware, break-glass de emergencia probado 16/16 contra Supabase real. Se cerraron un bypass completo del 2FA y tres formas de encierro. **Sin desplegar** — pendiente activación del dueño (spec §6.2). Detalle en `docs/estado-actual.md`. |
 | 2026-08-05/06 | **B-01 cerrado: simulacro de recuperación de un solo comando.** `scripts/backup/dr-drill.mjs` restaura producción real en un arenero efímero y compara 7 dimensiones — PASA, 0 diferencias, 0 errores (`docs/dr-drill-20260805.md`). Verificado con 5 sabotajes distintos y con un `SIGKILL` real del proceso local. |
 | 2026-08-05 | **B-07 cerrado: el repositorio vuelve a reconstruir el esquema completo.** `scripts/audit-migrations.mjs` recuperó 4 migraciones fuera del repo y corrigió 5 nombres que la CLI de Supabase saltaba en silencio. Hoy 51 archivos, 0 saltados, reconstrucción delta cero (83/83 tablas) (`docs/migration-audit-20260805.md`). |

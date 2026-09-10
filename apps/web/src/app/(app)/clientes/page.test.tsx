@@ -128,3 +128,11 @@ describe("Clientes — la tabla pinta lo que manda el servidor", () => {
     expect(screen.queryByText(/no hay clientes|sin clientes/i)).not.toBeInTheDocument();
   });
 });
+
+describe("Clientes — entrada a Unificar clientes", () => {
+  it("el botón «Unificar clientes» aparece para un admin y enlaza a /clientes/unificar", () => {
+    render(<ClientesPage />);
+    const link = screen.getByRole("link", { name: /unificar clientes/i });
+    expect(link).toHaveAttribute("href", "/clientes/unificar");
+  });
+});

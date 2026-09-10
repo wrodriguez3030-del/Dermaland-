@@ -16,7 +16,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { Plus, X } from "lucide-react";
+import { Merge, Plus, X } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
@@ -174,6 +174,14 @@ function ClientesContent() {
                 ? "Cargando…"
                 : `${formatNumber(consulta.total)} cliente${consulta.total === 1 ? "" : "s"}`}
             </span>
+            {puedeRiesgo && (
+              <Link href="/clientes/unificar">
+                <Button size="sm" variant="outline">
+                  <Merge className="h-4 w-4" />
+                  Unificar clientes
+                </Button>
+              </Link>
+            )}
             <Link href="/clientes/nuevo">
               <Button size="sm">
                 <Plus className="h-4 w-4" />
