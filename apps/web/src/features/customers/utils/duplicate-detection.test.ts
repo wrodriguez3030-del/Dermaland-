@@ -5,6 +5,7 @@ import {
   normalizeEmail,
   normalizeName,
   normalizePhone,
+  scanAllDuplicates,
 } from "./duplicate-detection";
 import { mockCustomers } from "@/lib/mock-data/customers";
 import type { Customer } from "@/types";
@@ -239,5 +240,74 @@ describe("Detección de duplicados (R-CRM-01)", () => {
     const m = r.matches.find((x) => x.customer.id === base.id);
     expect(m).toBeTruthy();
     expect(m!.reasons.some((rr) => rr.startsWith("nombre"))).toBe(true);
+  });
+});
+
+describe("scanAllDuplicates — escaneo masivo (Unificar clientes)", () => {
+  it("detecta un par por documento compartido", () => {
+    const a = stubCustomer({ id: "a", documentNumber: "001-1111111" });
+    const b = stubCustomer({ id: "b", documentNumber: "0011111111" });
+    const pairs = scanAllDuplicates([a, b]);
+    expect(pairs).toHaveLength(1);
+    expect([pairs[0].a.id, pairs[0].b.id].sort()).toEqual(["a", "b"]);
+    expect(pairs[0].confidence).toBe("high");
+    expect(pairs[0].reasons).toContain("documento");
+  });
+
+  it("reporta cada par UNA sola vez, sin importar el orden de entrada", () => {
+    const a = stubCustomer({ id: "a", phone: "8095550000" });
+    const b = stubCustomer({ id: "b", phone: "8095550000" });
+    expect(scanAllDuplicates([a, b])).toHaveLength(1);
+    expect(scanAllDuplicates([b, a])).toHaveLength(1);
+  });
+
+  it("un cubo de 3 clientes con el mismo teléfono da 3 pares (todas las combinaciones)", () => {
+    const a = stubCustomer({ id: "a", phone: "8095550000" });
+    const b = stubCustomer({ id: "b", phone: "8095550000" });
+    const c = stubCustomer({ id: "c", phone: "8095550000" });
+    const pairs = scanAllDuplicates([a, b, c]);
+    expect(pairs).toHaveLength(3);
+    const keys = new Set(pairs.map((p) => [p.a.id, p.b.id].sort().join("|")));
+    expect(keys).toEqual(new Set(["a|b", "a|c", "b|c"]));
+  });
+
+  it("cruza teléfono de uno contra WhatsApp del otro (mismo cubo)", () => {
+    const a = stubCustomer({ id: "a", phone: "8095550000", whatsapp: "" });
+    const b = stubCustomer({ id: "b", phone: "", whatsapp: "8095550000" });
+    const pairs = scanAllDuplicates([a, b]);
+    expect(pairs).toHaveLength(1);
+    expect(pairs[0].reasons.join(",")).toContain("teléfono/WhatsApp");
+  });
+
+  it("NO cruza clientes de negocios distintos aunque compartan documento", () => {
+    const a = stubCustomer({ id: "a", businessId: "biz_1", documentNumber: "00111111111" });
+    const b = stubCustomer({ id: "b", businessId: "biz_2", documentNumber: "00111111111" });
+    expect(scanAllDuplicates([a, b])).toHaveLength(0);
+  });
+
+  it("clientes sin documento/teléfono/WhatsApp no generan pares aunque compartan nombre", () => {
+    const a = stubCustomer({ id: "a", firstName: "Ana", lastName: "Perez" });
+    const b = stubCustomer({ id: "b", firstName: "Ana", lastName: "Perez" });
+    expect(scanAllDuplicates([a, b])).toHaveLength(0);
+  });
+
+  it("clientes sin nada en común no generan pares", () => {
+    const a = stubCustomer({ id: "a", documentNumber: "001", phone: "1", whatsapp: "" });
+    const b = stubCustomer({ id: "b", documentNumber: "002", phone: "2", whatsapp: "" });
+    expect(scanAllDuplicates([a, b])).toHaveLength(0);
+  });
+
+  it("ordena los pares por confianza descendente", () => {
+    const high1 = stubCustomer({ id: "h1", documentNumber: "11111111111" });
+    const high2 = stubCustomer({ id: "h2", documentNumber: "11111111111" });
+    const med1 = stubCustomer({ id: "m1", firstName: "Juan", lastName: "Diaz" });
+    const med2 = stubCustomer({ id: "m2", firstName: "Juan", lastName: "Diaz", phone: "8095551111" });
+    const med3 = stubCustomer({ id: "m3", phone: "8095551111" });
+    const pairs = scanAllDuplicates([med1, high1, med2, high2, med3]);
+    expect(pairs[0].confidence).toBe("high");
+    expect(pairs.every((p, i) => i === 0 || rank(pairs[i - 1].confidence) >= rank(p.confidence))).toBe(true);
+    function rank(c: string) {
+      return { high: 3, medium: 2, low: 1 }[c as "high" | "medium" | "low"];
+    }
   });
 });

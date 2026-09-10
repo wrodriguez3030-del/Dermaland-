@@ -296,3 +296,78 @@ export function duplicateMessage(
       return "";
   }
 }
+
+// ─── Escaneo masivo (Unificar clientes) ─────────────────────────────────────
+
+export interface DuplicatePair {
+  a: Customer;
+  b: Customer;
+  confidence: DuplicateConfidence;
+  reasons: string[];
+}
+
+/**
+ * Escanea TODA la base entre sí sin O(n²): agrupa en "cubos" por documento
+ * normalizado y teléfono/WhatsApp normalizado (mismo cubo para ambos campos,
+ * así se detecta el cruce teléfono↔WhatsApp), y dentro de cada cubo (2-5
+ * fichas en la práctica) corre `findPotentialDuplicateClients` — mismas
+ * reglas de confianza, sin reinventar el criterio.
+ *
+ * 🔴 A propósito NO hay cubo por nombre ni por email (el diseño aprobado solo
+ * pide documento/teléfono/WhatsApp): un duplicado que solo comparta nombre o
+ * solo email no aparece aquí, aunque `findPotentialDuplicateClients` sí lo
+ * detectaría comparando UN candidato a la vez (como al crear un cliente).
+ */
+export function scanAllDuplicates(clients: Customer[]): DuplicatePair[] {
+  const buckets = new Map<string, Customer[]>();
+  const addToBucket = (key: string, c: Customer) => {
+    if (!key) return;
+    const list = buckets.get(key);
+    if (list) list.push(c);
+    else buckets.set(key, [c]);
+  };
+
+  for (const c of clients) {
+    const doc = normalizeDocument(c.documentNumber);
+    const phone = normalizePhone(c.phone);
+    const wa = normalizePhone(c.whatsapp);
+    if (doc) addToBucket(`doc:${doc}`, c);
+    if (phone) addToBucket(`phone:${phone}`, c);
+    if (wa) addToBucket(`phone:${wa}`, c);
+  }
+
+  const seen = new Set<string>();
+  const pairs: DuplicatePair[] = [];
+
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2) continue;
+    for (const candidate of bucket) {
+      const input: CustomerFormCandidate = {
+        firstName: candidate.firstName,
+        lastName: candidate.lastName,
+        phone: candidate.phone,
+        whatsapp: candidate.whatsapp,
+        email: candidate.email,
+        documentNumber: candidate.documentNumber,
+        birthDate: candidate.birthDate,
+        businessId: candidate.businessId,
+      };
+      const { matches } = findPotentialDuplicateClients(input, bucket, {
+        excludeClientId: candidate.id,
+      });
+      for (const match of matches) {
+        const [idA, idB] = [candidate.id, match.customer.id].sort();
+        const key = `${idA}|${idB}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const a = idA === candidate.id ? candidate : match.customer;
+        const b = idA === candidate.id ? match.customer : candidate;
+        pairs.push({ a, b, confidence: match.confidence, reasons: match.reasons });
+      }
+    }
+  }
+
+  const rank: Record<DuplicateConfidence, number> = { high: 3, medium: 2, low: 1 };
+  pairs.sort((x, y) => rank[y.confidence] - rank[x.confidence]);
+  return pairs;
+}
