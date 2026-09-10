@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
+import { useDebounce } from "@/components/ui/use-debounce";
 import { useToast } from "@/components/ui/toast";
 import { coincideCliente } from "@/features/customers/customer-search";
 import {
@@ -163,13 +164,20 @@ export function MergeClientsView() {
     setPairs((prev) => (prev ?? []).filter((p) => parKey(p) !== key));
   };
 
+  // El <input> responde al instante (controlado por `busqueda`); lo que
+  // dispara el filtro caro (hasta 1000+ pares) es el valor CON RETRASO, para
+  // que escribir no se sienta lento.
+  const busquedaDebounced = useDebounce(busqueda, 200);
+
   const filtrados = React.useMemo(() => {
     if (!pairs) return [];
-    if (!busqueda.trim()) return pairs;
-    return pairs.filter((p) => coincideCliente(p.a, busqueda) || coincideCliente(p.b, busqueda));
-  }, [pairs, busqueda]);
+    if (!busquedaDebounced.trim()) return pairs;
+    return pairs.filter(
+      (p) => coincideCliente(p.a, busquedaDebounced) || coincideCliente(p.b, busquedaDebounced),
+    );
+  }, [pairs, busquedaDebounced]);
 
-  const pagination = usePagination(filtrados, { resetKey: busqueda });
+  const pagination = usePagination(filtrados, { resetKey: busquedaDebounced });
 
   return (
     <>
