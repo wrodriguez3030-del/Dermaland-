@@ -82,19 +82,29 @@ function consulta(tabla: string) {
   return q;
 }
 
+/** Lo que devuelve el RPC `ar_apply_payments`: cada prueba lo puede fijar. */
+let rpcRespuesta: { data: unknown; error: { message: string } | null } = { data: [], error: null };
+
 vi.mock("@/server/repositories/supabase/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/repositories/supabase/client")>()),
   getClient: async () => ({
     from: (tabla: string) => consulta(tabla),
     rpc: (...args: unknown[]) => {
       rpcLlamado(...args);
-      return Promise.resolve({ data: [], error: null });
+      return Promise.resolve(rpcRespuesta);
     },
   }),
 }));
 
 vi.mock("@/server/services/alegra/queries", () => ({
   facturasConSaldo: async () => facturasAlegra,
+}));
+
+/** Ventas para las que se generaron incentivos tras un cobro: (businessId, saleId). */
+const generarIncentivos = vi.fn(async (_businessId: string, _saleId: string) => ({ generated: 0 }));
+vi.mock("@/server/services/incentives/incentive-admin", () => ({
+  generateIncentivesForSaleServer: (businessId: string, saleId: string) =>
+    generarIncentivos(businessId, saleId),
 }));
 
 let facturasAlegra: unknown[] = [];
@@ -128,6 +138,8 @@ beforeEach(() => {
   facturasAlegra = [];
   filtrosIn.length = 0;
   rpcLlamado.mockClear();
+  rpcRespuesta = { data: [], error: null };
+  generarIncentivos.mockClear();
 });
 
 describe("facturas pendientes: sistema + Alegra", () => {
@@ -384,5 +396,68 @@ describe("aplicar un cobro", () => {
     tablas.alegra_invoices = { data: [] };
     await collect(ctx, { items: [{ proformaId: "p1", amount: 100 }], method: "cash" });
     expect(rpcLlamado).toHaveBeenCalledWith("ar_apply_payments", expect.anything());
+  });
+});
+
+/**
+ * 🔴 "LA FACTURA A CREDITO CREAN PROFORMA / NO PAGAN INCENTIVOS / SOLO CUANDO
+ * SE HACE EL COBRO" (pedido del dueño, 10/09/2026): una venta a crédito no
+ * tiene pagos en `proforma_payments` al emitirse, así que
+ * `paymentGroupsForSale` no encuentra ningún grupo y ninguna regla de
+ * incentivo aplica — el vendedor nunca cobraba su comisión de esa venta,
+ * NI SIQUIERA cuando el cliente terminaba pagando por Cuentas por Cobrar. El
+ * cobro es justo el momento en que SÍ hay un método de pago real: aquí se
+ * dispara (de nuevo) el mismo generador idempotente que usa el POS.
+ */
+describe("cobro → genera los incentivos que la venta a crédito no generó al emitirse", () => {
+  it("al aplicar el cobro de una factura, se generan sus incentivos", async () => {
+    tablas.alegra_invoices = { data: [] };
+    rpcRespuesta = {
+      data: [{ proforma_id: "p1", number: "FAC-1", amount: 100, new_balance: 0, new_status: "paid" }],
+      error: null,
+    };
+    await collect(ctx, { items: [{ proformaId: "p1", amount: 100 }], method: "cash" });
+    expect(generarIncentivos).toHaveBeenCalledWith("b1", "p1");
+  });
+
+  it("un cobro de varias facturas genera incentivos para CADA una, sin duplicar", async () => {
+    tablas.alegra_invoices = { data: [] };
+    rpcRespuesta = {
+      data: [
+        { proforma_id: "p1", number: "FAC-1", amount: 100, new_balance: 0, new_status: "paid" },
+        { proforma_id: "p2", number: "FAC-2", amount: 50, new_balance: 0, new_status: "paid" },
+      ],
+      error: null,
+    };
+    await collect(ctx, {
+      items: [
+        { proformaId: "p1", amount: 100 },
+        { proformaId: "p2", amount: 50 },
+      ],
+      method: "cash",
+    });
+    expect(generarIncentivos).toHaveBeenCalledTimes(2);
+    expect(generarIncentivos).toHaveBeenCalledWith("b1", "p1");
+    expect(generarIncentivos).toHaveBeenCalledWith("b1", "p2");
+  });
+
+  it("🔴 si falla generar incentivos, el cobro ya aplicado NO se reporta como fallido", async () => {
+    // El dinero ya se aplicó vía RPC (atómico en la base); la comisión es
+    // best-effort, igual que en el POS ("no bloquea la venta").
+    tablas.alegra_invoices = { data: [] };
+    rpcRespuesta = {
+      data: [{ proforma_id: "p1", number: "FAC-1", amount: 100, new_balance: 0, new_status: "paid" }],
+      error: null,
+    };
+    generarIncentivos.mockRejectedValueOnce(new Error("boom"));
+    const resultado = await collect(ctx, { items: [{ proformaId: "p1", amount: 100 }], method: "cash" });
+    expect(resultado.totalApplied).toBe(100);
+  });
+
+  it("un cobro sin facturas migradas y SIN aplicar nada (RPC vacío) no dispara incentivos", async () => {
+    tablas.alegra_invoices = { data: [] };
+    rpcRespuesta = { data: [], error: null };
+    await collect(ctx, { items: [{ proformaId: "p1", amount: 100 }], method: "cash" });
+    expect(generarIncentivos).not.toHaveBeenCalled();
   });
 });

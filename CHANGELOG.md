@@ -10,6 +10,24 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.162.0] - 2026-09-10
+
+### Corregido
+
+- 🔴 **Una venta a crédito nunca generaba comisión, ni siquiera cuando el
+  cliente terminaba pagando.** Reportado por el dueño: "la factura a crédito
+  crea proforma, no pagan incentivos, [deben pagar] solo cuando se hace el
+  cobro". Causa: al emitir una venta a crédito no hay ningún pago en
+  `proforma_payments` todavía, así que `paymentGroupsForSale` no encontraba
+  ningún método y ninguna regla de incentivo aplicaba — y como nada volvía a
+  generar incentivos después, quedaba así para siempre aunque el cliente
+  pagara semanas más tarde por Cuentas por Cobrar. Fix: `collect()` ahora
+  dispara (best-effort, no bloquea el cobro si falla) el mismo generador
+  idempotente de incentivos que usa el POS, una vez por cada factura tocada
+  en el cobro — el método de pago real ya usado en ese cobro entra a
+  `paymentGroupsForSale` y las reglas aplican igual que en una venta pagada
+  de contado.
+
 ## [0.161.0] - 2026-09-10
 
 ### Cambiado

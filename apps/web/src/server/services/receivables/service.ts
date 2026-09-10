@@ -6,6 +6,7 @@ import { fetchAllPages } from "@/server/repositories/supabase/pagination";
 import { facturasConSaldo } from "@/server/services/alegra/queries";
 import { cuentaParaTotales } from "@/features/alegra/sales-report";
 import type { OrigenVenta } from "@/features/ventas/venta-unificada";
+import { generateIncentivesForSaleServer } from "@/server/services/incentives/incentive-admin";
 
 /**
  * Cuentas por Cobrar — servicio central (fuente única para pantallas, reportes
@@ -431,6 +432,21 @@ export async function collect(ctx: RepoContext, input: CollectInput): Promise<Co
     throw new SupabaseRepositoryError("receivables.collect", error);
   }
   const applied = (data ?? []) as CollectResult["applied"];
+
+  // 🔴 Una venta a crédito no tiene pagos al emitirse: `paymentGroupsForSale`
+  // no encuentra ningún método y ninguna regla de incentivo aplica, así que
+  // el vendedor nunca cobraba su comisión — NI SIQUIERA cuando el cliente
+  // terminaba pagando por aquí. El cobro es el momento en que SÍ hay un
+  // método de pago real: se dispara el mismo generador idempotente que usa
+  // el POS, una vez por factura tocada. Best-effort: si falla, el cobro (ya
+  // aplicado de forma atómica en la base) no se reporta como fallido.
+  const ventasTocadas = [...new Set(applied.map((a) => a.proforma_id))];
+  await Promise.all(
+    ventasTocadas.map((proformaId) =>
+      generateIncentivesForSaleServer(ctx.businessId, proformaId).catch(() => {}),
+    ),
+  );
+
   return { applied, totalApplied: round2(applied.reduce((s, a) => s + Number(a.amount), 0)) };
 }
 
