@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   "branch.create": "Sucursal creada",
   cancel: "Anulación",
   "cash_register.open": "Caja abierta",
+  "customer.merge": "Clientes unificados",
   consultar_estado: "Consulta de estado en DGII",
   "dgii.sequence_reserved": "Secuencia e-NCF reservada",
   dgii_certificate_upload: "Certificado digital subido",
