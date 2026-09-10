@@ -505,6 +505,7 @@ export type Database = {
       }
       businesses: {
         Row: {
+          account_number: number
           address: string | null
           city: string | null
           commercial_name: string
@@ -529,6 +530,7 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          account_number?: number
           address?: string | null
           city?: string | null
           commercial_name: string
@@ -553,6 +555,7 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          account_number?: number
           address?: string | null
           city?: string | null
           commercial_name?: string

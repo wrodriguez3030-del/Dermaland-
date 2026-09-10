@@ -2,6 +2,7 @@ import type { Branch, Business, Warehouse } from "@/types";
 
 export const mockBusiness: Business = {
   id: "biz_dermaland",
+  accountNumber: 1001,
   legalName: "DermaLand SRL",
   commercialName: "DermaLand",
   rnc: "1-32-59077-5",

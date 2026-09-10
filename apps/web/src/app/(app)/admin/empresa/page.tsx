@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui";
+import { Badge, Card, CardContent } from "@/components/ui";
 import { FormSection } from "@/components/ui/filter-bar";
 import { BusinessForm } from "@/features/tenancy/business-form";
 import { getRepoContext } from "@/server/auth/context";
@@ -23,6 +23,13 @@ export default async function EmpresaPage() {
     <>
       <PageHeader
         title="Empresa"
+        titleBadge={
+          business ? (
+            <Badge tone="neutral" className="font-mono">
+              Cuenta #{business.accountNumber}
+            </Badge>
+          ) : undefined
+        }
         description="Datos del negocio. Estos campos se usan en facturas, recibos y comprobantes."
         breadcrumbs={[{ label: "Administración" }, { label: "Empresa" }]}
       />

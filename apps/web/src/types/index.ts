@@ -8,6 +8,8 @@ import type { Audited, BranchScoped, BusinessScoped, ID, SoftDeletable } from ".
 
 export interface Business extends Audited, SoftDeletable {
   id: ID;
+  /** Número de cuenta del tenant — corto, autogenerado, arranca en 1001. */
+  accountNumber: number;
   legalName: string;
   commercialName: string;
   rnc: string;

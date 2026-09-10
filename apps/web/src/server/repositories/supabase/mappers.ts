@@ -50,6 +50,7 @@ type Tables = Database["public"]["Tables"];
 export function businessRowToTs(row: Tables["businesses"]["Row"]): Business {
   return {
     id: row.id,
+    accountNumber: row.account_number,
     legalName: row.legal_name,
     commercialName: row.commercial_name,
     rnc: row.rnc,
