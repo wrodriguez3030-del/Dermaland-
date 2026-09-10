@@ -28,6 +28,8 @@ import { formatDominicanPhone } from "@/lib/utils/formatters";
 import { useCustomers } from "@/features/customers/customer-store";
 import { useProducts } from "@/features/products/product-store";
 import { ProductCard } from "./product-card";
+import { CondicionCards } from "./components/condition-cards";
+import { CONDICIONES_POS, productosPorCondicion } from "./pos-condiciones";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { findByBarcodeOrSku } from "@/features/products/barcode-match";
 import { useFavorites } from "./favorites-store";
@@ -415,11 +417,16 @@ export function PosTerminal({
   const products = useProducts();
   const { favorites, isFavorite, toggle: toggleFavorite } = useFavorites();
   const [onlyFavorites, setOnlyFavorites] = React.useState(false);
+  // "El cliente dice el problema" — Manchas, Acné, Caspa… Un clic filtra el
+  // catálogo por esa necesidad (`pos-condiciones.ts`) sin que el cajero tenga
+  // que saber qué marca lo resuelve. Se combina con la búsqueda de texto y
+  // con "Solo favoritos", igual que ya se combinan esas dos entre sí.
+  const [condicion, setCondicion] = React.useState<string | null>(null);
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-    let list = products;
+    let list = condicion ? productosPorCondicion(products, condicion) : products;
     if (q) {
-      list = products.filter(
+      list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.sku.toLowerCase().includes(q) ||
@@ -430,8 +437,8 @@ export function PosTerminal({
     // Favoritos PRIMERO (estable), luego el resto — para vender más rápido.
     const fav = list.filter((p) => favorites.has(p.id));
     const rest = list.filter((p) => !favorites.has(p.id));
-    return [...fav, ...rest].slice(0, q || onlyFavorites ? 48 : 24);
-  }, [search, products, onlyFavorites, favorites]);
+    return [...fav, ...rest].slice(0, q || onlyFavorites || condicion ? 48 : 24);
+  }, [search, products, onlyFavorites, favorites, condicion]);
 
   // ── Banner: sucursal sin stock ────────────────────────────────────────────
   // Calculado sobre los productos filtrados para no iterar todo el catálogo.
@@ -1386,6 +1393,12 @@ export function PosTerminal({
           </Button>
         </div>
 
+        <CondicionCards
+          activa={condicion}
+          onSeleccionar={setCondicion}
+          onLimpiar={() => setCondicion(null)}
+        />
+
         {/* ── Banner: sin stock en esta sucursal ──────────────────────────── */}
         {noBranchStock && (
           <div className="mx-4 mt-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
@@ -1435,7 +1448,6 @@ export function PosTerminal({
               <ProductCard
                 key={p.id}
                 name={p.name}
-                sku={p.sku}
                 price={p.price}
                 imageUrl={p.imageUrl ?? undefined}
                 imageAlt={p.imageAlt ?? undefined}
@@ -1456,9 +1468,11 @@ export function PosTerminal({
           })}
           {filtered.length === 0 && (
             <div className="col-span-full py-12 text-center text-sm opacity-60">
-              {onlyFavorites
-                ? "Todavía no tienes productos favoritos. Marca productos con ⭐ para vender más rápido."
-                : "Sin productos coincidentes."}
+              {condicion
+                ? `No hay productos para «${CONDICIONES_POS.find((c) => c.key === condicion)?.label}» en este catálogo.`
+                : onlyFavorites
+                  ? "Todavía no tienes productos favoritos. Marca productos con ⭐ para vender más rápido."
+                  : "Sin productos coincidentes."}
             </div>
           )}
         </div>

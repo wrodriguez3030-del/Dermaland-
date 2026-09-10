@@ -10,6 +10,29 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.157.0] - 2026-09-10
+
+### Añadido
+
+- **Tarjetas de "el cliente dice el problema" en el POS.** Seis botones tipo
+  tarjeta arriba del catálogo — Manchas, Acné, Caspa, Caída de cabello,
+  Filtro solar piel seca, Filtro solar piel grasa — que filtran el catálogo
+  sin que el cajero tenga que saber qué marca resuelve qué. Reutiliza el
+  mismo mapa de sinónimos de la tienda en línea (`features/storefront/synonyms.ts`):
+  "Acné" encuentra Cleanance/Effaclar/Sebium aunque el producto nunca diga
+  "acné" en su nombre. Los dos filtros solares prefieren el `skinType` del
+  producto cuando existe, pero nunca dejan la lista vacía si no lo tiene —
+  probado en vivo contra el catálogo real: encuentra correctamente variantes
+  con SPF de líneas que no son "de sol" por nombre (p. ej. "ACM Depiwhite S
+  Crema Fotoprotectora SPF 50", "A-derma Epitheliale A.H SPF 50"). Se
+  combina con la búsqueda de texto y con "Solo favoritos", igual que ya se
+  combinaban esas dos entre sí. Nuevo `features/pos/pos-condiciones.ts`
+  (lógica pura) + `features/pos/components/condition-cards.tsx` (UI).
+- **Se oculta el código de producto (SKU) en las tarjetas del POS.** No es
+  información para quien está frente a la pantalla — el carrito nunca lo
+  mostró; el catálogo del POS sí, justo debajo del nombre ("DERM-…"), y ya
+  no.
+
 ## [0.156.0] - 2026-09-10
 
 ### Añadido

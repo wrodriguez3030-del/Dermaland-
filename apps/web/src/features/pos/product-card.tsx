@@ -8,7 +8,6 @@ import { formatCurrency, formatDate, daysUntil } from "@/lib/utils/format";
 
 export interface ProductCardProps {
   name: string;
-  sku: string;
   price: number;
   imageUrl?: string;
   imageAlt?: string;
@@ -36,11 +35,11 @@ export interface ProductCardProps {
  * Tarjeta de producto del POS. La tarjeta entera es clickable Y expone un botón
  * "Agregar" visible (ambos hacen lo mismo). Si hay stock aquí → Agregar; si hay
  * en otra sucursal → Ver stock; si no hay en ninguna → desactivado con razón.
- * Nunca muestra UUID/almacén.
+ * Nunca muestra UUID/almacén/SKU: son códigos internos, no información para
+ * quien está frente a la pantalla.
  */
 export function ProductCard({
   name,
-  sku,
   price,
   imageUrl,
   imageAlt,
@@ -147,7 +146,6 @@ export function ProductCard({
       </div>
       <div className="flex flex-1 flex-col p-3">
         <div className="line-clamp-2 text-sm font-medium leading-tight">{name}</div>
-        <div className="mt-1 font-mono text-[10px] opacity-50">{sku}</div>
         <div className="mt-auto pt-2 text-base font-bold tabular-nums text-[color:var(--brand-accent)]">
           {formatCurrency(price)}
         </div>

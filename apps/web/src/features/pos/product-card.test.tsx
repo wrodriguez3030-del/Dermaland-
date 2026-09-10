@@ -8,7 +8,6 @@ afterEach(cleanup);
 
 const BASE = {
   name: "A-derma Crema DE Ducha Hidratante 500 ML",
-  sku: "DERM-I00059",
   price: 850,
   minStock: 5,
   onAdd: () => {},
@@ -130,5 +129,10 @@ describe("ProductCard — POS", () => {
     expect(txt).not.toMatch(/almac[eé]n/i);
     expect(txt).not.toMatch(/warehouse/i);
     expect(txt).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i);
+  });
+
+  it("no muestra el código de producto (SKU) en la tarjeta — no es información para el cliente", () => {
+    render(<ProductCard {...BASE} stockHere={130} availableElsewhere={false} />);
+    expect(screen.queryByText("DERM-I00059")).toBeNull();
   });
 });
