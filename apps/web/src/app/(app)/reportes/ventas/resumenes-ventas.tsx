@@ -26,7 +26,7 @@ import {
 } from "@/features/sales/sales-report";
 import { METODO_ETIQUETA } from "@/features/alegra/sales-report";
 import { useDesgloseVentas } from "@/features/ventas/ventas-api";
-import { combinarDesglose, TarjetaDesglose, type FilaTarjeta } from "./desglose-tarjetas";
+import { combinarDesglose, fundirTarjeta, TarjetaDesglose, type FilaTarjeta } from "./desglose-tarjetas";
 import type { Proforma } from "@/types";
 
 /**
@@ -125,13 +125,25 @@ export function ResumenesVentas({
     total: p.total,
   }));
 
-  const tarjetaVendedor = combinarDesglose({
-    sistema: vendedoresSistema,
-    historicoParticipa,
-    historicoCargando,
-    historicoAviso,
-    estado: desgloseVendedor,
-  });
+  // 🔴 «TODO DEBE ESTAR UNIFICADO... NO DIVIDIR LOS PROCESOS Y LA INFORMACIÓN»
+  // (pedido del dueño, 10/09/2026, con captura de pantalla: «Desteny Reynoso»
+  // salía en DOS filas —19 ventas migradas, 2 del sistema— como si fueran dos
+  // personas distintas). Es seguro fundirlas aquí porque la base ya unifica la
+  // clave: una vendedora vinculada (`vincular-vendedores.mjs`) sale con el
+  // MISMO `users.id` en las dos mitades (ver
+  // `20260906140000_desglose_ventas_unificadas.sql`), así que `fundirTarjeta`
+  // solo junta lo que de verdad es la misma persona — a un vendedor SIN
+  // vincular (clave = nombre normalizado) no le inventa una fusión que no le
+  // corresponde.
+  const tarjetaVendedor = fundirTarjeta(
+    combinarDesglose({
+      sistema: vendedoresSistema,
+      historicoParticipa,
+      historicoCargando,
+      historicoAviso,
+      estado: desgloseVendedor,
+    }),
+  );
   const tarjetaPago = combinarDesglose({
     sistema: pagosSistema,
     historicoParticipa,
@@ -146,24 +158,34 @@ export function ResumenesVentas({
     etiquetaMigrada: (f) => (f.clave ? (METODO_ETIQUETA[f.clave] ?? f.etiqueta) : f.etiqueta),
   });
   const sucursalesSistema: FilaTarjeta[] = report.branches.map((b) => ({
-    clave: b.id,
+    // `byBranch` (sales-report.ts) usa el placeholder "—" cuando no hay
+    // sucursal; la base usa "" (`coalesce(ai.branch_id::text, '')`). Se
+    // normalizan a la MISMA clave vacía para que «Sin sucursal» —si algún día
+    // existe una venta sin sede— caiga en una sola fila y no en dos.
+    clave: b.id === "—" ? "" : b.id,
     etiqueta: b.name,
     origen: "sistema",
     cantidad: b.transactions,
     total: b.total,
   }));
 
-  const tarjetaSucursal = combinarDesglose({
-    sistema: sucursalesSistema,
-    historicoParticipa,
-    historicoCargando,
-    historicoAviso,
-    estado: desgloseSucursal,
-    // Aquí NO se reclava para fundir las dos mitades, al revés que en el panel:
-    // en este bloque cada fila va suelta con su etiqueta de origen —es lo que
-    // hacen las otras tres tablas— y fundirlas escondería de qué lado viene
-    // cada cifra, que es justo lo que este reporte existe para enseñar.
-  });
+  // 🔴 «LAS VENTAS Y PROCESO DE ALEGRA SALEN APARTE... HICE UNA VENTA Y SALE
+  // LA SUC REPETIDA» (pedido del dueño, 10/09/2026, con captura: «DermaLand
+  // Principal» salía en DOS filas —10 ventas migradas, 7 del sistema— como si
+  // fueran dos sucursales). Se funden aquí, al revés que antes: la clave
+  // migrada YA es `branches.id` (`alegra_invoices.branch_id` referencia
+  // `public.branches`, ver `20260907120000_desglose_ventas_sucursal_mes.sql`),
+  // el MISMO espacio que usa `sucursalesSistema` arriba — no hay ninguna
+  // sucursal real que pueda fundirse por error con otra.
+  const tarjetaSucursal = fundirTarjeta(
+    combinarDesglose({
+      sistema: sucursalesSistema,
+      historicoParticipa,
+      historicoCargando,
+      historicoAviso,
+      estado: desgloseSucursal,
+    }),
+  );
 
   // La mitad del sistema de «Clientes principales» y «Comprobantes» sale de
   // `report.customers`/`report.comprobantes` (topCustomers/byComprobante),
@@ -184,6 +206,12 @@ export function ResumenesVentas({
     total: c.total,
   }));
 
+  // «Clientes principales» NO se funde: la mitad del sistema clava por NOMBRE
+  // y la migrada por `alegra_invoices.client_id` (el contacto de Alegra, un
+  // espacio de ids distinto) — dos clientes reales con el mismo nombre común
+  // en RD fundirían sus compras en una sola fila, que es peor que la
+  // separación actual. Fundir esto de verdad exige resolver identidad (p. ej.
+  // por documento) entre las dos fuentes, no una coincidencia de texto.
   const tarjetaCliente = combinarDesglose({
     sistema: clientesSistema,
     historicoParticipa,
@@ -191,13 +219,20 @@ export function ResumenesVentas({
     historicoAviso,
     estado: desgloseCliente,
   });
-  const tarjetaComprobante = combinarDesglose({
-    sistema: comprobantesSistema,
-    historicoParticipa,
-    historicoCargando,
-    historicoAviso,
-    estado: desgloseComprobante,
-  });
+  // Comprobante SÍ se funde: las dos mitades ya comparten la MISMA clave
+  // (`ComprobanteKey`: b02/b01/e32/e31/other — ver
+  // `20260909150000_desglose_ventas_cliente_comprobante.sql`), así que un
+  // «Factura de consumo (B02)» con ventas de las dos fuentes es una sola fila,
+  // no dos.
+  const tarjetaComprobante = fundirTarjeta(
+    combinarDesglose({
+      sistema: comprobantesSistema,
+      historicoParticipa,
+      historicoCargando,
+      historicoAviso,
+      estado: desgloseComprobante,
+    }),
+  );
 
   /**
    * La serie mensual, con las dos mitades sumadas por mes.

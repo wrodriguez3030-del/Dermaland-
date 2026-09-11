@@ -42,112 +42,23 @@ import {
   type LabeledValue,
   type TopProductRow,
 } from "./dashboard-metrics";
-
-/** Un grupo del panel, ya fundido: puede venir de una fuente o de las dos. */
-export interface FilaPanel {
-  clave: string;
-  etiqueta: string;
-  /** Las fuentes que aportan a ESTE grupo, en orden estable. Nunca vacío. */
-  origenes: OrigenVenta[];
-  /** Ventas / unidades del grupo, según la tarjeta. */
-  cantidad: number;
-  total: number;
-}
-
-/** Lo que necesita una tarjeta del panel para pintarse. */
-export interface TarjetaPanel {
-  filas: FilaPanel[];
-  /** `true` mientras el histórico está en camino: falta media tarjeta y hay que decirlo. */
-  cargando: boolean;
-  /** Mensaje de fallo visible, o `null`. Nunca se enseñan ceros en su lugar. */
-  error: string | null;
-  /** Las fuentes que aportan algo a la tarjeta ENTERA. */
-  origenes: OrigenVenta[];
-}
-
-/** Orden estable de los orígenes: primero el sistema, después lo migrado. */
-const ORDEN_ORIGEN: OrigenVenta[] = ["sistema", "alegra"];
-
 /**
- * Qué fuentes aportan DE VERDAD a un conjunto de filas. Un grupo con todo a
- * cero no cuenta: anunciar «histórico migrado» por una fila vacía sería tan
- * falso como callarlo cuando sí trae dinero.
+ * `FilaPanel`/`TarjetaPanel`/`origenesDe`/`fundirPorClave`/`tarjetaDePanel`
+ * vivían aquí (fueron su primer consumidor) y se movieron al modelo
+ * compartido (`features/ventas/desglose-tarjeta.ts`) el 10/09/2026, cuando el
+ * reporte de ventas también empezó a fundir sus tarjetas de sucursal,
+ * vendedor y comprobante — mismo motivo que ya llevó a `combinarDesglose`
+ * allí: dos copias se habrían separado. Se reexportan para que este archivo y
+ * sus pruebas no tengan que cambiar de nombre.
  */
-export function origenesDe(
-  filas: readonly { origen: OrigenVenta; cantidad: number; total: number }[],
-): OrigenVenta[] {
-  const vistos = new Set<OrigenVenta>();
-  for (const f of filas) {
-    if (f.cantidad === 0 && f.total === 0) continue;
-    vistos.add(f.origen);
-  }
-  return ORDEN_ORIGEN.filter((o) => vistos.has(o));
-}
-
-/**
- * Funde por clave las filas que `combinarDesglose` dejó sueltas (una por
- * origen) y ordena por importe. La etiqueta que gana es la de la fila de MAYOR
- * importe del grupo: si el sistema y Alegra escriben el nombre de un producto
- * distinto, manda el que representa más dinero.
- */
-export function fundirPorClave(filas: FilaTarjeta[]): FilaPanel[] {
-  const acc = new Map<string, FilaPanel & { mayor: number }>();
-  for (const f of filas) {
-    const previo = acc.get(f.clave);
-    if (!previo) {
-      acc.set(f.clave, {
-        clave: f.clave,
-        etiqueta: f.etiqueta,
-        origenes: [f.origen],
-        cantidad: f.cantidad,
-        total: f.total,
-        mayor: f.total,
-      });
-      continue;
-    }
-    previo.cantidad += f.cantidad;
-    previo.total += f.total;
-    if (!previo.origenes.includes(f.origen)) {
-      previo.origenes = ORDEN_ORIGEN.filter((o) => o === f.origen || previo.origenes.includes(o));
-    }
-    if (f.total > previo.mayor) {
-      previo.mayor = f.total;
-      previo.etiqueta = f.etiqueta;
-    }
-  }
-  return [...acc.values()]
-    .map(({ mayor: _mayor, ...fila }) => fila)
-    // Desempate por etiqueta: sin él, dos grupos del mismo importe podrían
-    // cambiar de orden entre renders y la gráfica parpadearía.
-    .sort((a, b) => b.total - a.total || a.etiqueta.localeCompare(b.etiqueta, "es"));
-}
-
-/**
- * Convierte un `EstadoTarjeta` (filas sueltas por origen) en una tarjeta del
- * panel, fundiendo por clave.
- *
- * `reclavarMigrada` se aplica SOLO a las filas del histórico, antes de fundir,
- * y puede cambiar su CLAVE además de su etiqueta. Existe por la forma de pago:
- * Alegra agrupa por `cash` y el sistema por «Efectivo», así que sin reclavar
- * la dona enseñaría dos porciones «Efectivo» con la mitad del dinero cada una.
- * `combinarDesglose` no sirve para esto —su `etiquetaMigrada` sólo cambia el
- * texto, no la clave— y ampliarlo rompería al reporte, que necesita las claves
- * separadas por origen.
- */
-export function tarjetaDePanel(
-  estado: EstadoTarjeta,
-  reclavarMigrada?: (fila: FilaTarjeta) => FilaTarjeta,
-): TarjetaPanel {
-  const filas = reclavarMigrada
-    ? estado.filas.map((f) => (f.origen === "alegra" ? reclavarMigrada(f) : f))
-    : estado.filas;
-  return {
-    filas: fundirPorClave(filas),
-    cargando: estado.cargando,
-    error: estado.error,
-    origenes: origenesDe(filas),
-  };
-}
+import {
+  fundirPorClave,
+  origenesDe,
+  tarjetaDePanel,
+  type FilaPanel,
+  type TarjetaPanel,
+} from "@/features/ventas/desglose-tarjeta";
+export { fundirPorClave, origenesDe, tarjetaDePanel, type FilaPanel, type TarjetaPanel };
 
 // ── Las mitades del sistema, traducidas al formato común ────────────────────
 // `combinarDesglose` espera `FilaTarjeta[]`; lo que el panel ya tiene

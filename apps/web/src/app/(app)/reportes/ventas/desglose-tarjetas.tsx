@@ -14,8 +14,9 @@ import {
 } from "@/components/ui";
 import { AlertTriangle } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/utils/format";
-import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
-import type { EstadoTarjeta } from "@/features/ventas/desglose-tarjeta";
+import { EtiquetaOrigenes } from "@/features/ventas/etiqueta-origen";
+import type { OrigenVenta } from "@/features/ventas/venta-unificada";
+import type { EstadoTarjeta, EstadoTarjetaFundida, FilaTarjeta, FilaPanel } from "@/features/ventas/desglose-tarjeta";
 
 /**
  * Las tarjetas del reporte de ventas que SÍ saben desglosar el histórico
@@ -54,9 +55,16 @@ import type { EstadoTarjeta } from "@/features/ventas/desglose-tarjeta";
  */
 export {
   combinarDesglose,
+  fundirTarjeta,
   type EstadoTarjeta,
+  type EstadoTarjetaFundida,
   type FilaTarjeta,
 } from "@/features/ventas/desglose-tarjeta";
+
+/** Fila del origen que sea: la suelta de `combinarDesglose` o la ya fundida. */
+function origenesDeFila(f: FilaTarjeta | FilaPanel): readonly OrigenVenta[] {
+  return "origenes" in f ? f.origenes : [f.origen];
+}
 
 /**
  * 🔴 Aviso de las tarjetas que todavía son SOLO del sistema.
@@ -91,7 +99,8 @@ export function TarjetaDesglose({
   tope,
 }: {
   titulo: string;
-  estado: EstadoTarjeta;
+  /** Sueltas (`combinarDesglose`) o ya fundidas por clave (`fundirTarjeta`). */
+  estado: EstadoTarjeta | EstadoTarjetaFundida;
   encabezadoClave: string;
   encabezadoCantidad: string;
   vacio: string;
@@ -129,21 +138,24 @@ export function TarjetaDesglose({
             </TR>
           </THead>
           <TBody>
-            {filas.map((f) => (
-              <TR key={`${f.origen}-${f.clave}-${f.etiqueta}`}>
-                <TD className="text-sm">{f.etiqueta}</TD>
-                <TD className="text-right tabular-nums">{formatNumber(f.cantidad)}</TD>
-                <TD className="text-right tabular-nums font-medium">{formatCurrency(f.total)}</TD>
-                {mostrarPromedio && (
-                  <TD className="text-right tabular-nums">
-                    {formatCurrency(f.cantidad ? f.total / f.cantidad : 0)}
+            {filas.map((f) => {
+              const origenes = origenesDeFila(f);
+              return (
+                <TR key={`${origenes.join(",")}-${f.clave}-${f.etiqueta}`}>
+                  <TD className="text-sm">{f.etiqueta}</TD>
+                  <TD className="text-right tabular-nums">{formatNumber(f.cantidad)}</TD>
+                  <TD className="text-right tabular-nums font-medium">{formatCurrency(f.total)}</TD>
+                  {mostrarPromedio && (
+                    <TD className="text-right tabular-nums">
+                      {formatCurrency(f.cantidad ? f.total / f.cantidad : 0)}
+                    </TD>
+                  )}
+                  <TD className="pr-4">
+                    <EtiquetaOrigenes origenes={origenes} />
                   </TD>
-                )}
-                <TD className="pr-4">
-                  <EtiquetaOrigen origen={f.origen} />
-                </TD>
-              </TR>
-            ))}
+                </TR>
+              );
+            })}
             {filas.length === 0 && (
               <TR>
                 <TD colSpan={columnas} className="py-6 text-center text-sm opacity-60">

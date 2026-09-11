@@ -10,6 +10,31 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.164.0] - 2026-09-10
+
+### Corregido
+
+- 🔴 **Reportes → Ventas: una sucursal o un vendedor con ventas en el sistema
+  Y en el histórico de Alegra salían en DOS filas, como si fueran dos cosas
+  distintas.** Reportado por el dueño con captura de pantalla real: "DermaLand
+  Principal" aparecía dos veces en "Ventas por sucursal" (10 ventas migradas +
+  7 del sistema) y "Desteny Reynoso" dos veces en "Ventas por vendedor" (19 +
+  2). Pedido explícito: "TODO DEBE ESTAR UNIFICADO Y SOLO UN LETRERO PARA
+  IDENTIFICAR QUE VINO DE ALEGRA, NO DIVIDIR LOS PROCESOS Y LA INFORMACIÓN".
+  Las tablas de **sucursal**, **vendedor** y **comprobante** ahora funden por
+  clave (reutilizando `fundirPorClave`, ya probado en el panel principal)
+  porque las dos fuentes comparten el mismo espacio de identidad
+  (`branches.id`, `users.id` una vez vinculado el vendedor, y
+  `ComprobanteKey`): una sucursal o un vendedor reales son una fila, con un
+  único letrero "Incluye histórico de Alegra" cuando el total suma las dos
+  fuentes (y "Migrada de Alegra" cuando la fila es 100% histórica, como
+  antes). **Medios de pago**, **Productos más vendidos** y **Clientes
+  principales** siguen mostrando cada fuente por separado a propósito: son
+  casos donde las claves NO viven en el mismo espacio o donde fundir
+  inventaría una precisión que los datos no tienen (tarjeta vs. tarjeta de
+  crédito/débito, unidades vs. renglones de factura, nombre vs. id de contacto
+  de Alegra).
+
 ## [0.163.0] - 2026-09-10
 
 ### Corregido

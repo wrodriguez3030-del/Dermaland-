@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, afterEach, vi, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { buildSalesReport, EMPTY_FILTERS } from "@/features/sales/sales-report";
+import { formatCurrency } from "@/lib/utils/format";
 import type { Proforma } from "@/types";
 import type { DesgloseVentasApi, EstadoVentas } from "@/features/ventas/ventas-api";
 import type { DimensionDesglose, FilaDesglose } from "@/features/ventas/venta-unificada";
@@ -287,6 +288,112 @@ describe("medios de pago — con ventas de verdad en el reporte", () => {
  * tres casos las seis tarjetas enseñan solo lo del sistema; antes lo hacían sin
  * decir nada, y quien avisaba era la leyenda de los KPIs, arriba.
  */
+/**
+ * 🔴 «LAS VENTAS Y PROCESO DE ALEGRA SALEN APARTE, HICE UNA VENTA Y SALE LA
+ * SUC REPETIDA. TODO DEBE ESTAR UNIFICADO Y SOLO UN LETRERO PARA IDENTIFICAR
+ * QUE VINO DE ALEGRA, NO DIVIDIR LOS PROCESOS Y LA INFORMACIÓN» (pedido del
+ * dueño, 10/09/2026, con captura de pantalla real de producción: «DermaLand
+ * Principal» salía dos veces en «Ventas por sucursal» —una migrada, otra del
+ * sistema— y lo mismo con «Desteny Reynoso» en «Ventas por vendedor»).
+ *
+ * Sucursal, vendedor y comprobante comparten el mismo espacio de claves entre
+ * las dos fuentes (branches.id / users.id / ComprobanteKey), así que una
+ * sucursal, un vendedor o un tipo de comprobante reales tienen que ser UNA
+ * fila con un solo letrero, no dos.
+ */
+function ventaDelDia(): Proforma {
+  return {
+    id: "prof_unificada",
+    businessId: "biz_1",
+    branchId: "br_1",
+    number: "B0200000001",
+    documentKind: "invoice",
+    ecfNumber: "B0200000001",
+    customerId: "cust_1",
+    customerName: "Ana",
+    status: "paid",
+    items: [],
+    payments: [{ method: "cash", amount: 7470 }],
+    subtotal: 6330.51,
+    itbis: 1139.49,
+    discount: 0,
+    total: 7470,
+    sellerId: "seller_1",
+    sellerName: "Desteny Reynoso",
+    createdAt: "2026-09-10T10:00:00Z",
+  } as unknown as Proforma;
+}
+
+const reporteDelDia = () =>
+  buildSalesReport([ventaDelDia()], EMPTY_FILTERS, {
+    branchNames: new Map([["br_1", "DermaLand Principal"]]),
+  });
+
+describe("unificación de sucursal, vendedor y comprobante (pedido del dueño 10/09/2026)", () => {
+  beforeEach(() => {
+    estadoPorDimension = {
+      sucursal: {
+        tipo: "listo",
+        datos: {
+          filas: [
+            { clave: "br_1", etiqueta: "DermaLand Principal", origen: "alegra", cantidad: 10, total: 42_675.51 },
+          ],
+          fuentes: ["alegra"],
+        },
+      },
+      vendedor: {
+        tipo: "listo",
+        datos: {
+          filas: [
+            { clave: "seller_1", etiqueta: "Desteny Reynoso", origen: "alegra", cantidad: 19, total: 65_255.51 },
+          ],
+          fuentes: ["alegra"],
+        },
+      },
+      comprobante: {
+        tipo: "listo",
+        datos: {
+          filas: [
+            { clave: "b02", etiqueta: "Factura de consumo (B02)", origen: "alegra", cantidad: 5, total: 10_000 },
+          ],
+          fuentes: ["alegra"],
+        },
+      },
+    };
+  });
+
+  it("🔴 una sucursal con ventas en las dos fuentes sale en UNA fila con el total sumado", () => {
+    render(<ResumenesVentas report={reporteDelDia()} historicoParticipa />);
+    expect(screen.getAllByText("DermaLand Principal")).toHaveLength(1);
+    expect(screen.getByText(formatCurrency(7470 + 42_675.51))).toBeInTheDocument();
+  });
+
+  it("🔴 un vendedor con ventas en las dos fuentes sale en UNA fila con el total sumado", () => {
+    render(<ResumenesVentas report={reporteDelDia()} historicoParticipa />);
+    expect(screen.getAllByText("Desteny Reynoso")).toHaveLength(1);
+    expect(screen.getByText(formatCurrency(7470 + 65_255.51))).toBeInTheDocument();
+  });
+
+  it("🔴 un comprobante con ventas en las dos fuentes sale en UNA fila con el total sumado", () => {
+    render(<ResumenesVentas report={reporteDelDia()} historicoParticipa />);
+    expect(screen.getAllByText("Factura de consumo (B02)")).toHaveLength(1);
+    expect(screen.getByText(formatCurrency(7470 + 10_000))).toBeInTheDocument();
+  });
+
+  it("la fila fundida lleva UN SOLO letrero («Incluye histórico de Alegra»), no «Migrada de Alegra»", () => {
+    // «Migrada de Alegra» diría que TODA la fila es histórico y no se puede
+    // editar, que es falso: parte de esos RD$50 145,51 es una venta del
+    // sistema, editable. El letrero tiene que decir que es una MEZCLA.
+    render(<ResumenesVentas report={reporteDelDia()} historicoParticipa />);
+    expect(screen.getAllByText(/Incluye histórico de Alegra/i).length).toBeGreaterThan(0);
+  });
+
+  it("una sucursal / vendedor SOLO del sistema no lleva ningún letrero de Alegra", () => {
+    render(<ResumenesVentas report={reporteDelDia()} historicoParticipa={false} />);
+    expect(screen.queryByText(/Alegra/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("mientras el KPI del histórico carga o falla", () => {
   it("🔴 las seis tarjetas dicen que el histórico viene en camino", () => {
     render(<ResumenesVentas report={reporteVacio()} historicoParticipa={false} historicoCargando />);
