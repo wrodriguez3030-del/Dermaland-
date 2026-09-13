@@ -74,6 +74,7 @@ import { ensureServerCount } from "@/features/inventory-counts/ensure-server-cou
 import { hydrateSessionFromServer } from "@/features/inventory-counts/hydrate-session";
 import { BarcodeScanModal } from "@/features/products/components/barcode-scan-modal";
 import { buildPhysicalCountReport } from "@/features/inventory/physical-count-report";
+import { withMissingItems } from "@/features/inventory-counts/missing-items";
 // El módulo de exportación arrastra xlsx (~100 kB gz): se carga on-demand al exportar.
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -108,7 +109,14 @@ export default function EscanearPage() {
   // secuenciales (~4 s por fibra, más en celular). Hasta que llegue, la lista
   // está vacía y hay que decirlo — antes se veía un campo listo para escanear
   // que respondía "no encontrado" a códigos que sí existen.
-  const catalogoCargando = products.length === 0;
+  //
+  // También cuenta `lots`: `systemQtyFor` depende de los lotes para calcular
+  // el stock esperado, así que con lotes vacíos TODO faltante calculado da 0
+  // por error, no porque no falte nada (Codex, revisión 13/09/2026). Si el
+  // fetch de productos falla una vez, `useProducts()` no reintenta solo y
+  // esto queda "cargando" para siempre en esta pestaña — recargar la página
+  // sí reintenta, por eso el aviso lo menciona.
+  const catalogoCargando = products.length === 0 || lots.length === 0;
 
   const inputRef = React.useRef<HTMLInputElement>(null);
   // Ritmo de tecleo del campo: distingue el lector (ráfaga) del tecleo humano.
@@ -357,8 +365,20 @@ export default function EscanearPage() {
   const totalCounted = session.items.reduce((s, it) => s + it.countedQuantity, 0);
   const notFoundCount = session.scans.filter((s) => s.result === "not_found" && !s.recoveredAt).length;
 
+  // Escaneados/agregados a mano + productos del alcance del conteo (sucursal +
+  // categoría/marca/laboratorio si se filtró) con stock de sistema > 0 que
+  // NADIE escaneó. Antes esos faltantes eran invisibles: ni tabla, ni resumen
+  // de aprobación, ni Excel/PDF los mencionaban. No aplica a "spot check".
+  const scannedIds = new Set(session.items.map((it) => it.productId));
+  const effectiveItems = withMissingItems(session, products, systemQtyFor);
+  const missingCount = effectiveItems.length - session.items.length;
+  // Sesión "vista" con los faltantes incluidos — la comparten el reporte
+  // (Excel/PDF) y el payload que se persiste a Supabase al aprobar, para que
+  // el conteo GUARDADO no calle lo que la pantalla ya muestra.
+  const sessionWithMissing: CountSession = { ...session, items: effectiveItems };
+
   // Filas con stock de sistema y diferencia.
-  const rows = session.items
+  const rows = effectiveItems
     .map((it) => {
       const sys = systemQtyFor(it.productId);
       const product = productById.get(it.productId);
@@ -366,6 +386,7 @@ export default function EscanearPage() {
         ...it,
         system: sys,
         difference: it.countedQuantity - sys,
+        notScanned: !scannedIds.has(it.productId),
         lab: product?.laboratoryId ? labById.get(product.laboratoryId) ?? "—" : "—",
         category: product?.categoryId ? catById.get(product.categoryId) ?? "—" : "—",
       };
@@ -380,7 +401,9 @@ export default function EscanearPage() {
     });
 
   const buildReport = () => {
-    const { count, items, scans } = sessionToCountData(session, { systemQuantityFor: systemQtyFor });
+    const { count, items, scans } = sessionToCountData(sessionWithMissing, {
+      systemQuantityFor: systemQtyFor,
+    });
     return buildPhysicalCountReport({
       count,
       items,
@@ -413,8 +436,10 @@ export default function EscanearPage() {
     }
   };
 
-  // Resumen para aprobar.
-  const summary = session.items.reduce(
+  // Resumen para aprobar. Incluye los faltantes (nunca escaneados dentro del
+  // alcance), no solo lo escaneado — si no, "Aprobar" mentía diciendo que el
+  // conteo cuadraba cuando en realidad ni se había tocado la mitad del stock.
+  const summary = effectiveItems.reduce(
     (acc, it) => {
       const diff = it.countedQuantity - systemQtyFor(it.productId);
       const cost = productById.get(it.productId)?.cost ?? 0;
@@ -432,6 +457,16 @@ export default function EscanearPage() {
   );
 
   const approve = async (withAdjustments: boolean) => {
+    // Defensa en profundidad: con el catálogo vacío, `withMissingItems` no
+    // detecta nada y el conteo se aprobaría como si no faltara ningún
+    // producto por escanear. El botón que abre este modal ya se deshabilita
+    // mientras carga, pero no confiamos solo en eso.
+    if (catalogoCargando) {
+      toast.error(
+        "El catálogo todavía está cargando. Espera unos segundos e intenta de nuevo; si tarda demasiado, recarga la página.",
+      );
+      return;
+    }
     if (withAdjustments) {
       let applied = 0;
       let failed = 0;
@@ -457,18 +492,26 @@ export default function EscanearPage() {
         if (r.ok) applied += 1;
         else failed += 1;
       }
-      setSessionStatus(session.id, "approved", { approvedAt: new Date().toISOString(), approvedWithAdjustments: true, closedAt: new Date().toISOString() });
+      // `items: effectiveItems` (no solo status/fechas): si la persistencia a
+      // Supabase de abajo falla (mock/offline), la sesión LOCAL debe quedar
+      // con los faltantes ya incluidos — si no, cualquier otra pantalla que
+      // relea esta sesión después vería menos de lo que ya se mostró y
+      // aprobó aquí (Codex, revisión 13/09/2026).
+      setSessionStatus(session.id, "approved", { approvedAt: new Date().toISOString(), approvedWithAdjustments: true, closedAt: new Date().toISOString(), items: effectiveItems });
       toast.success(`Inventario aprobado. Ajustes aplicados: ${applied}${failed ? `, sin lote: ${failed}` : ""}.`);
     } else {
-      setSessionStatus(session.id, "approved", { approvedAt: new Date().toISOString(), closedAt: new Date().toISOString() });
+      setSessionStatus(session.id, "approved", { approvedAt: new Date().toISOString(), closedAt: new Date().toISOString(), items: effectiveItems });
       toast.success("Inventario aprobado sin ajustar el stock.");
     }
     // Persiste a Supabase (best-effort; no bloquea el flujo local si el backend
     // está en modo mock —409— o hay red intermitente). Si la cabecera ya nació
     // al empezar a escanear, se consolida sobre ella: un conteo es una sola
     // fila, nunca una provisional vacía más otra aprobada.
+    // `sessionWithMissing` (no `session`): el conteo guardado en la nube debe
+    // traer también las filas nunca escaneadas, o el reporte que se genere
+    // después desde Supabase volvería a callarlas (Codex, revisión 13/09/2026).
     const payload = buildCountCreatePayload(
-      session,
+      sessionWithMissing,
       systemQtyFor,
       withAdjustments ? "adjusted" : "approved",
     );
@@ -518,8 +561,17 @@ export default function EscanearPage() {
               </Button>
             )}
             {!readonly && (
-              <Button size="sm" onClick={() => setApproveOpen(true)}>
-                Aprobar inventario
+              <Button
+                size="sm"
+                onClick={() => setApproveOpen(true)}
+                disabled={catalogoCargando}
+                title={
+                  catalogoCargando
+                    ? "Espera a que termine de cargar el catálogo y el stock: si apruebas antes, los productos nunca escaneados no se detectan como faltantes. Si tarda demasiado, recarga la página."
+                    : undefined
+                }
+              >
+                {catalogoCargando ? "Cargando catálogo…" : "Aprobar inventario"}
               </Button>
             )}
           </div>
@@ -577,11 +629,16 @@ export default function EscanearPage() {
             </div>
 
             {/* Contadores grandes */}
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
               <Counter label="Productos" value={session.items.length} />
               <Counter label="Unidades contadas" value={totalCounted} />
               <Counter label="Escaneos" value={session.scans.length} />
               <Counter label="No encontrados" value={notFoundCount} tone={notFoundCount ? "danger" : "neutral"} />
+              <Counter
+                label="Sin escanear (en alcance)"
+                value={missingCount}
+                tone={missingCount ? "danger" : "neutral"}
+              />
             </div>
 
             {notFoundCount > 0 && (
@@ -659,9 +716,14 @@ export default function EscanearPage() {
               </THead>
               <TBody>
                 {rows.map((r) => (
-                  <TR key={r.productId}>
+                  <TR key={r.productId} className={r.notScanned ? "bg-rose-50/40" : undefined}>
                     <TD>
                       <div className="font-medium">{r.productName}</div>
+                      {r.notScanned && (
+                        <div className="mt-0.5">
+                          <Badge tone="danger">No escaneado — falta en el conteo</Badge>
+                        </div>
+                      )}
                       {r.barcode && <div className="text-xs opacity-50 font-mono">{r.barcode}</div>}
                     </TD>
                     <TD className="font-mono text-xs">{r.sku}</TD>
@@ -675,7 +737,10 @@ export default function EscanearPage() {
                     </TD>
                     <TD className="pr-4">
                       <div className="flex items-center justify-end gap-1">
-                        {!readonly && (
+                        {r.notScanned && (
+                          <span className="text-xs opacity-50">Escanéalo para contarlo</span>
+                        )}
+                        {!readonly && !r.notScanned && (
                           <>
                             <button
                               type="button"
@@ -778,8 +843,14 @@ export default function EscanearPage() {
         }
       >
         <div className="space-y-2 text-sm">
-          <Row label="Productos revisados" value={session.items.length} />
+          <Row label="Productos revisados (escaneados o agregados)" value={session.items.length} />
           <Row label="Total escaneos" value={session.scans.length} />
+          {missingCount > 0 && (
+            <Row
+              label="Nunca escaneados (dentro del alcance, con stock en sistema)"
+              value={missingCount}
+            />
+          )}
           <Row label="Productos sin diferencia" value={summary.match} />
           <Row label="Productos con faltante" value={summary.shortage} />
           <Row label="Productos con sobrante" value={summary.overage} />
@@ -787,6 +858,14 @@ export default function EscanearPage() {
           <p className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">
             Al aprobar, el sistema puede generar ajustes de inventario para igualar el stock físico con el del sistema.
           </p>
+          {missingCount > 0 && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <strong>{missingCount}</strong> producto(s) del alcance de este conteo nunca se
+              escanearon y quedan marcados como faltante. "Aprobar y generar ajustes" NO les toca
+              el stock (nadie los verificó de verdad): escanéalos o revísalos a mano antes de
+              cerrar si quieres que el sistema los ajuste también.
+            </p>
+          )}
         </div>
       </Modal>
 

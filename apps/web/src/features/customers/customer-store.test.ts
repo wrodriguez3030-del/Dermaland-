@@ -11,6 +11,7 @@ import {
   listAllCustomers,
   preferredSendPhone,
   resolveCustomerContact,
+  updateCustomer,
 } from "./customer-store";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 
@@ -157,6 +158,47 @@ describe("customer-store (localStorage)", () => {
     const parsed = JSON.parse(stored!);
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed[0].firstName).toBe("Test");
+  });
+
+  it("createCustomer guarda referralSource (texto libre, p. ej. un médico)", () => {
+    const r = createCustomer({
+      firstName: "Marta",
+      lastName: "Núñez",
+      phone: "+1 809-333-4444",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+      referralSource: "Dra. Fernández",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.customer.referralSource).toBe("Dra. Fernández");
+  });
+
+  it("createCustomer sin referralSource lo deja undefined (no obligatorio)", () => {
+    const r = createCustomer({
+      firstName: "Sin",
+      lastName: "Origen",
+      phone: "+1 809-555-6666",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.customer.referralSource).toBeUndefined();
+  });
+
+  it("updateCustomer cambia el referralSource de un cliente existente", () => {
+    const created = createCustomer({
+      firstName: "Cambia",
+      lastName: "Origen",
+      phone: "+1 809-777-8888",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+      referralSource: "Instagram",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const r = updateCustomer(created.customer.id, { referralSource: "Facebook" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.customer.referralSource).toBe("Facebook");
   });
 
   it("createCustomer con force:true bypassea duplicados", () => {

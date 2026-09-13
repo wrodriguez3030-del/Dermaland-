@@ -68,7 +68,7 @@ export const customerRepository: CustomerRepository = {
       // una sola fila.
       .select(
         "id,business_id,customer_number,first_name,last_name,document_type,document_number," +
-          "phone,whatsapp,email,source,tags,skin_type,created_at,updated_at",
+          "phone,whatsapp,email,source,tags,skin_type,referral_source,created_at,updated_at",
       )
       .eq("business_id", ctx.businessId)
       .is("deleted_at", null);
@@ -171,6 +171,7 @@ export const customerRepository: CustomerRepository = {
       city: customer.city ?? null,
       province: customer.province ?? null,
       source: customer.source,
+      referral_source: customer.referralSource?.trim() || null,
       tags: customer.tags ?? [],
       default_billing_type: customer.defaultBillingType,
       skin_type: customer.skinType,
@@ -205,6 +206,7 @@ export const customerRepository: CustomerRepository = {
     if (patch.city !== undefined) row.city = patch.city ?? null;
     if (patch.province !== undefined) row.province = patch.province ?? null;
     if (patch.source !== undefined) row.source = patch.source;
+    if (patch.referralSource !== undefined) row.referral_source = patch.referralSource?.trim() || null;
     if (patch.tags !== undefined) row.tags = patch.tags ?? [];
     if (patch.defaultBillingType !== undefined) row.default_billing_type = patch.defaultBillingType;
     if (patch.skinType !== undefined) row.skin_type = patch.skinType;

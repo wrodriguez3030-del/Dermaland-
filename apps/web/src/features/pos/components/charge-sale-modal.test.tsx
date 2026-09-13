@@ -90,6 +90,70 @@ describe("ChargeSaleModal — validación de últimos 4", () => {
   });
 });
 
+describe("ChargeSaleModal — no permite ventas parciales", () => {
+  it("Cobrar venta queda deshabilitado si el monto no cubre el total", () => {
+    render(<ChargeSaleModal {...baseProps} />);
+    selectMethod("Efectivo");
+    setAmount("500"); // total es 1700
+    expect(
+      screen.getByRole("button", { name: "Cobrar venta" }),
+    ).toBeDisabled();
+  });
+
+  it("Cobrar venta se habilita solo cuando el pago cubre el total completo", () => {
+    render(<ChargeSaleModal {...baseProps} />);
+    selectMethod("Efectivo");
+    setAmount("1700");
+    expect(
+      screen.getByRole("button", { name: "Cobrar venta" }),
+    ).toBeEnabled();
+  });
+
+  it("varios pagos parciales que no llegan al total mantienen Cobrar venta deshabilitado", () => {
+    render(<ChargeSaleModal {...baseProps} />);
+    selectMethod("Efectivo");
+    setAmount("500");
+    fireEvent.click(screen.getByRole("button", { name: /Agregar pago/ }));
+    expect(
+      screen.getByRole("button", { name: "Cobrar venta" }),
+    ).toBeDisabled();
+  });
+
+  it("con cliente de crédito, escribir un monto parcial oculta «Emitir a crédito» y no habilita Cobrar venta", () => {
+    render(
+      <ChargeSaleModal {...baseProps} creditCustomerName="Ana Pérez" />,
+    );
+    expect(
+      screen.getByRole("button", { name: /Emitir a crédito/ }),
+    ).toBeInTheDocument();
+    selectMethod("Efectivo");
+    setAmount("500");
+    expect(
+      screen.queryByRole("button", { name: /Emitir a crédito/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Cobrar venta" }),
+    ).toBeDisabled();
+  });
+
+  it("«Emitir a crédito» sigue funcionando sin pago inicial (venta completa a CxC)", () => {
+    const onConfirm = vi.fn();
+    render(
+      <ChargeSaleModal
+        {...baseProps}
+        creditCustomerName="Ana Pérez"
+        onConfirm={onConfirm}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Emitir a crédito/ }));
+    expect(onConfirm).toHaveBeenCalledWith({
+      payments: [],
+      amountReceived: 0,
+      changeAmount: 0,
+    });
+  });
+});
+
 describe("ChargeSaleModal — múltiples pagos", () => {
   it("8. permite varios pagos con diferentes últimos 4 y los confirma", () => {
     const onConfirm = vi.fn();

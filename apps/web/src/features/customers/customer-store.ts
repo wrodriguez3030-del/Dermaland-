@@ -109,6 +109,7 @@ export interface CreateCustomerInput {
   province?: string;
   source?: Customer["source"];
   skinType: CustomerSkinType;
+  referralSource?: string;
   notes?: string;
   tags?: string[];
   consents?: { templateId: string; grantedAt: string }[];
@@ -208,6 +209,7 @@ export function createCustomer(
     tags: input.tags ?? [],
     defaultBillingType: input.defaultBillingType,
     skinType: input.skinType,
+    referralSource: input.referralSource?.trim() || undefined,
     totalSpent: 0,
     totalOrders: 0,
     notes: input.notes?.trim() || undefined,
@@ -240,6 +242,7 @@ export interface UpdateCustomerInput {
   province?: string;
   source?: Customer["source"];
   skinType?: CustomerSkinType;
+  referralSource?: string;
   notes?: string;
   tags?: string[];
   consents?: { templateId: string; grantedAt: string }[];
@@ -303,6 +306,7 @@ export function updateCustomer(
     ...(patch.province !== undefined ? { province: t(patch.province) } : {}),
     ...(patch.source !== undefined ? { source: patch.source } : {}),
     ...(patch.skinType !== undefined ? { skinType: patch.skinType } : {}),
+    ...(patch.referralSource !== undefined ? { referralSource: t(patch.referralSource) } : {}),
     ...(patch.notes !== undefined ? { notes: t(patch.notes) } : {}),
     ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
     ...(patch.consents !== undefined ? { consents: patch.consents } : {}),
@@ -605,6 +609,7 @@ async function createCustomerOnServer(
       tags: input.tags ?? [],
       defaultBillingType: input.defaultBillingType,
       skinType: input.skinType,
+      referralSource: input.referralSource?.trim() || undefined,
       totalSpent: 0,
       totalOrders: 0,
       notes: input.notes?.trim() || undefined,

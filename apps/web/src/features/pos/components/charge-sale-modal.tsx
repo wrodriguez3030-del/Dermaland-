@@ -155,7 +155,13 @@ export function ChargeSaleModal({
   const effectivePayments = draftValid
     ? [...payments, buildPayment(draft!)]
     : payments;
-  const canConfirm = canFinalizeCheckout(effectivePayments);
+  // No se puede "Cobrar venta" con saldo pendiente: o se paga completo, o la
+  // venta se emite a crédito (0 pagos, botón dedicado) cuando hay cliente. Un
+  // pago parcial por esta vía dejaba facturas de consumo en `partially_paid`
+  // sin pasar por Cuentas por cobrar (venta real 12/09/2026).
+  const canConfirm =
+    canFinalizeCheckout(effectivePayments) &&
+    paymentsSummary(effectivePayments, total).settled;
 
   // Decisión de facturación CONFIG-AWARE (reglas automáticas + mixtos).
   // Refleja la Configuración de facturación: tarjeta → e-CF inmediato,
@@ -235,6 +241,14 @@ export function ChargeSaleModal({
       return;
     }
     const s = paymentsSummary(finalPayments, total);
+    if (!s.settled) {
+      setError(
+        creditCustomerName
+          ? `Falta ${formatCurrency(s.balance)} para completar el pago. Cóbralo completo o usa «Emitir a crédito» para dejarlo como cuenta por cobrar de ${creditCustomerName}.`
+          : `Falta ${formatCurrency(s.balance)} para completar el pago. El sistema no permite ventas parciales.`,
+      );
+      return;
+    }
     onConfirm({
       payments: finalPayments,
       amountReceived: s.paid,

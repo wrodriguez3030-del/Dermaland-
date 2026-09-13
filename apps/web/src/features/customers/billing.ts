@@ -26,3 +26,20 @@ export const skinTypeOptions: { value: CustomerSkinType; label: string }[] = [
 
 export const skinTypeLabel = (t: CustomerSkinType): string =>
   skinTypeOptions.find((o) => o.value === t)?.label ?? t;
+
+/**
+ * "¿Cómo nos conoció?" — texto libre, no un enum fijo como `skinType`: un
+ * médico referente nuevo se agrega escribiéndolo en "Otro", sin tocar código.
+ * Esta lista es solo la sugerencia inicial en el <select>.
+ */
+export const referralSourceOptions: string[] = [
+  "Instagram",
+  "Facebook",
+  "Google",
+  "TikTok",
+  "Recomendación de un cliente",
+  "Dra. Loria",
+];
+
+/** Sentinel del <select>: nunca se guarda, solo decide si se muestra el campo de texto libre. */
+export const OTHER_REFERRAL_SOURCE = "__otro__";

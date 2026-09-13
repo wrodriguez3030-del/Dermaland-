@@ -388,6 +388,9 @@ export function clientRowToTs(row: Tables["clients"]["Row"]): Customer {
     lastVisitAt: row.last_visit_at ?? undefined,
     notes: row.notes ?? undefined,
     consents,
+    // "Cómo nos conoció" — cast defensivo mientras database.types no se regenere.
+    referralSource:
+      (row as { referral_source?: string | null }).referral_source ?? undefined,
     // Crédito CxC (mig 0031) — cast defensivo mientras database.types no se regenere.
     creditLimit: ((): number | undefined => {
       const v = (row as { credit_limit?: number | string | null }).credit_limit;

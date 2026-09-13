@@ -414,6 +414,14 @@ export interface Customer extends Audited, SoftDeletable, BusinessScoped {
   defaultBillingType: DefaultBillingType;
   /** Tipo de piel registrado en el perfil. Input para recomendaciones. */
   skinType: CustomerSkinType;
+  /**
+   * Cómo nos conoció (marketing/atribución) — distinto de `source`, que es de
+   * dónde salió el REGISTRO en el sistema. Texto libre: la lista visible en
+   * el formulario trae opciones comunes (Instagram, Facebook, un médico
+   * referente…) más "Otro", así que se puede sumar cualquier médico nuevo sin
+   * tocar código.
+   */
+  referralSource?: string;
   totalSpent: number;
   totalOrders: number;
   lastVisitAt?: string;

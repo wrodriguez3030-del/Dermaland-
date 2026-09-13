@@ -17,6 +17,8 @@ import { FormSection } from "@/components/ui/filter-bar";
 import {
   billingTypeOptions,
   skinTypeOptions,
+  referralSourceOptions,
+  OTHER_REFERRAL_SOURCE,
 } from "@/features/customers/billing";
 import { useBillingSettings } from "@/features/billing/billing-settings-store";
 import { billingComprobanteLabel } from "@/features/billing/auto-billing-rules";
@@ -65,6 +67,7 @@ interface FormState {
   city: string;
   province: string;
   skinType: CustomerSkinType;
+  referralSource: string;
   notes: string;
   consentPrivacy: boolean;
   consentMarketing: boolean;
@@ -86,6 +89,7 @@ const emptyState: FormState = {
   city: "",
   province: "",
   skinType: "not_specified",
+  referralSource: "",
   notes: "",
   consentPrivacy: true,
   consentMarketing: false,
@@ -109,6 +113,7 @@ function stateFromCustomer(c: Customer): FormState {
     city: c.city ?? "",
     province: c.province ?? "",
     skinType: c.skinType,
+    referralSource: c.referralSource ?? "",
     notes: c.notes ?? "",
     consentPrivacy: consentSet.has("privacy"),
     consentMarketing: consentSet.has("marketing"),
@@ -165,6 +170,18 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
   const [skinType, setSkinType] = React.useState<CustomerSkinType>(
     baseState.skinType,
   );
+  const [referralSource, setReferralSource] = React.useState(
+    baseState.referralSource,
+  );
+  // "Otro" queda pegado en el <select> mientras se escribe el texto libre:
+  // sin este modo explícito, cada tecleo recalcularía "no coincide con
+  // ninguna opción conocida" y el <select> saltaría de vuelta a "Otro" solo
+  // en apariencia — sirve para decidir qué mostrar, no basta con derivarlo.
+  const isCustomReferral = (v: string) =>
+    v !== "" && !referralSourceOptions.includes(v);
+  const [referralCustomMode, setReferralCustomMode] = React.useState(() =>
+    isCustomReferral(baseState.referralSource),
+  );
   const [notes, setNotes] = React.useState(baseState.notes);
   const [consentPrivacy, setConsentPrivacy] = React.useState(
     baseState.consentPrivacy,
@@ -203,6 +220,8 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
     setCity(baseState.city);
     setProvince(baseState.province);
     setSkinType(baseState.skinType);
+    setReferralSource(baseState.referralSource);
+    setReferralCustomMode(isCustomReferral(baseState.referralSource));
     setNotes(baseState.notes);
     setConsentPrivacy(baseState.consentPrivacy);
     setConsentMarketing(baseState.consentMarketing);
@@ -319,6 +338,7 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
       province,
       source,
       skinType,
+      referralSource: referralSource.trim(),
       notes,
       tags: initial?.tags ?? [],
       consents: buildConsents(),
@@ -693,6 +713,49 @@ export function CustomerForm({ mode, initial }: CustomerFormProps) {
               <HelpText>
                 Campo estructurado — alimenta el módulo de Recomendaciones
                 dermatológicas.
+              </HelpText>
+            </div>
+            <div>
+              <Label>¿Cómo nos conoció?</Label>
+              <Select
+                value={referralCustomMode ? OTHER_REFERRAL_SOURCE : referralSource}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === OTHER_REFERRAL_SOURCE) {
+                    setReferralCustomMode(true);
+                    // Si ya traía un valor conocido, se limpia para escribir el nuevo;
+                    // si ya era un texto libre (editar), se conserva.
+                    setReferralSource((prev) =>
+                      referralSourceOptions.includes(prev) ? "" : prev,
+                    );
+                  } else {
+                    setReferralCustomMode(false);
+                    setReferralSource(v);
+                  }
+                }}
+              >
+                <option value="">— Selecciona —</option>
+                {referralSourceOptions.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+                <option value={OTHER_REFERRAL_SOURCE}>
+                  Otro médico / origen (especificar)…
+                </option>
+              </Select>
+              {referralCustomMode && (
+                <Input
+                  className="mt-2"
+                  value={referralSource}
+                  onChange={(e) => setReferralSource(e.target.value)}
+                  placeholder="Ej. Dra. Fernández, feria de salud…"
+                  autoFocus
+                />
+              )}
+              <HelpText>
+                Marketing/atribución. ¿No está en la lista? Elige "Otro" y
+                escríbelo — queda guardado tal cual, sin límite de médicos.
               </HelpText>
             </div>
             <div>
