@@ -18,11 +18,16 @@ import type { MonthFilter, YearFilter } from "./dashboard-filters";
 export function useClientesNuevos(
   month: MonthFilter,
   year: YearFilter,
+  activo = true,
 ): { total: number | null; error: string | null } {
   const [total, setTotal] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    // `activo` en false = todavía no hay período que contar (el Dashboard fija
+    // el mes en curso al montar). No se pide nada y la tarjeta se queda en
+    // `null`, que ya significa «aún no se sabe» — no un cero con cara de dato.
+    if (!activo) return;
     const control = new AbortController();
     let vigente = true;
     setError(null);
@@ -51,7 +56,7 @@ export function useClientesNuevos(
       vigente = false;
       control.abort();
     };
-  }, [month, year]);
+  }, [month, year, activo]);
 
   return { total, error };
 }

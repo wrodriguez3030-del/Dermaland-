@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { matchesPeriod, availableYears, mesSinAnio, rangoDelPeriodo } from "./dashboard-filters";
+import {
+  matchesPeriod,
+  availableYears,
+  mesSinAnio,
+  rangoDelPeriodo,
+  periodoActual,
+  etiquetaDelPeriodo,
+} from "./dashboard-filters";
 
 const d = (s: string) => new Date(s).toISOString();
 
@@ -65,5 +72,36 @@ describe("rango de fechas del filtro de periodo", () => {
     expect(mesSinAnio("7", "all")).toBe(true);
     expect(mesSinAnio("all", "all")).toBe(false);
     expect(mesSinAnio("7", "2026")).toBe(false);
+  });
+});
+
+describe("periodoActual", () => {
+  it("da el mes (1–12) y el año en curso, en hora local", () => {
+    // Mes 8 del constructor = septiembre; el filtro los cuenta desde 1.
+    expect(periodoActual(new Date(2026, 8, 14))).toEqual({ month: "9", year: "2026" });
+  });
+
+  it("los bordes del año no se desplazan", () => {
+    expect(periodoActual(new Date(2026, 0, 1))).toEqual({ month: "1", year: "2026" });
+    expect(periodoActual(new Date(2026, 11, 31))).toEqual({ month: "12", year: "2026" });
+  });
+
+  it("🔴 su salida alimenta a rangoDelPeriodo sin traducción extra", () => {
+    // Es lo que hacen el Dashboard y el índice de Reportes: mismo mes, mismo
+    // rango, misma cifra en las dos pantallas.
+    const { month, year } = periodoActual(new Date(2026, 8, 14));
+    expect(rangoDelPeriodo(month, year)).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
+  });
+});
+
+describe("etiquetaDelPeriodo", () => {
+  it("un mes concreto se lee con su nombre", () => {
+    expect(etiquetaDelPeriodo("9", "2026")).toBe("Septiembre 2026");
+  });
+
+  it("distingue el año entero del histórico completo", () => {
+    expect(etiquetaDelPeriodo("all", "2026")).toBe("Todos los meses de 2026");
+    expect(etiquetaDelPeriodo("all", "all")).toBe("Todo el histórico");
+    expect(etiquetaDelPeriodo("9", "all")).toBe("Todo el histórico");
   });
 });

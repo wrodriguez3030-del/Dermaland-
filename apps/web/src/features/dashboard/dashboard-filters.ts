@@ -10,6 +10,37 @@ export const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ] as const;
 
+/**
+ * Mes y año EN CURSO, en hora local del navegador — la misma convención que
+ * `mesesDeLaTendencia`, `quickRange` y `saleDateKey`. Es la ÚNICA definición de
+ * "este mes" para el Dashboard y el índice de Reportes. Quien lo use en un
+ * componente debe llamarlo DESPUÉS de montar (patrón `mounted`): el servidor
+ * corre en UTC y de noche puede estar ya en otro mes.
+ *
+ * 🔴 LOCAL a propósito, no UTC. En RD (AST, UTC-4) el 30 a las 9 p. m. ya es
+ * día 1 en UTC: con UTC el panel abriría diciendo "Octubre" mientras el
+ * calendario del dueño marca 30 de septiembre — la etiqueta equivocada cuatro
+ * horas cada noche, justo en el cierre de mes.
+ *
+ * Queda en pie una diferencia ANTERIOR a esto y ajena a esta función: para
+ * clasificar cada venta, `matchesPeriod` (panel) usa UTC mientras `saleDateKey`
+ * (Reportes) usa local, así que una venta de esa franja nocturna cae en meses
+ * distintos según la pantalla. Pasa igual eligiendo el mes a mano; unificarlo
+ * cambia lo que cuentan TODOS los filtros de mes y además `/api/customers/
+ * nuevos` compara en UTC del lado del servidor, así que es decisión aparte.
+ */
+export function periodoActual(ref: Date = new Date()): { month: MonthFilter; year: YearFilter } {
+  return { month: String(ref.getMonth() + 1), year: String(ref.getFullYear()) };
+}
+
+/** Texto legible del período elegido, para decir en pantalla qué se está mirando. */
+export function etiquetaDelPeriodo(month: MonthFilter, year: YearFilter): string {
+  if (year === "all") return "Todo el histórico";
+  if (month === "all") return `Todos los meses de ${year}`;
+  const nombre = MONTH_NAMES[Number(month) - 1] ?? month;
+  return `${nombre} ${year}`;
+}
+
 /** ¿La fecha cae dentro del mes/año elegidos? `"all"` no restringe. */
 export function matchesPeriod(
   dateIso: string,

@@ -47,6 +47,7 @@ import {
   availableYears,
   mesSinAnio,
   rangoDelPeriodo,
+  periodoActual,
   MONTH_NAMES,
   type MonthFilter,
   type YearFilter,
@@ -92,14 +93,39 @@ export default function DashboardPage() {
     [activeBranches],
   );
 
-  // ── Filtros del dashboard: sucursal / mes / año (Todos por defecto) ──────────
+  // ── Filtros del dashboard: sucursal / mes / año (MES EN CURSO por defecto) ──
+  //
+  // El estado nace en "all" y el mes en curso se fija en un efecto de montaje,
+  // NO en el estado inicial: el servidor renderiza en UTC y de noche ya está en
+  // otro mes que el navegador (AST), así que calcular la fecha en el render
+  // rompería la hidratación (regla dura nº 6). El efecto corre una sola vez, así
+  // que nunca pisa un cambio manual posterior del usuario.
+  //
+  // Antes el panel abría en "Todos los meses / Todos los años" y "Ventas del
+  // período" enseñaba los RD$48M del histórico migrado de Alegra en vez de lo
+  // que el negocio lleva este mes.
   const [branchFilter, setBranchFilter] = React.useState(ALL_BRANCHES);
   const [monthFilter, setMonthFilter] = React.useState<MonthFilter>("all");
   const [yearFilter, setYearFilter] = React.useState<YearFilter>("all");
-  const years = React.useMemo(
-    () => availableYears(proformas.map((p) => p.createdAt)),
-    [proformas],
-  );
+  const [periodoListo, setPeriodoListo] = React.useState(false);
+  const [anioActual, setAnioActual] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    const { month, year } = periodoActual();
+    setMonthFilter(month);
+    setYearFilter(year);
+    setAnioActual(year);
+    setPeriodoListo(true);
+  }, []);
+  // La lista de años sale de las proformas propias y hoy están en cero (todo el
+  // histórico vive en Alegra). Se añaden SIEMPRE el año en curso y el elegido:
+  // sin el año en curso, pasar a "Todos los años" borraba 2026 de las opciones
+  // y ya no había forma de volver a él sin recargar la página.
+  const years = React.useMemo(() => {
+    const vistos = new Set(availableYears(proformas.map((p) => p.createdAt)));
+    if (anioActual) vistos.add(Number(anioActual));
+    if (yearFilter !== "all") vistos.add(Number(yearFilter));
+    return [...vistos].sort((a, b) => b - a);
+  }, [proformas, yearFilter, anioActual]);
   // Sucursales dentro del alcance del filtro (para las métricas de inventario,
   // que son "ahora" y solo dependen de la sucursal, no del mes/año).
   const scopedBranchIds = React.useMemo(() => {
@@ -166,7 +192,10 @@ export default function DashboardPage() {
       sucursalId: sucursalIdResumen,
       limite: VISIBLES,
     },
-    !mesSinAnioNoSoportado,
+    // `periodoListo`: no pedir el histórico ENTERO en el frame previo a que el
+    // efecto de montaje fije el mes en curso. Sería una consulta cara cuyo
+    // resultado se descarta de inmediato.
+    periodoListo && !mesSinAnioNoSoportado,
   );
   const resumenAlegra = panelVentas.resumen;
 
@@ -176,12 +205,15 @@ export default function DashboardPage() {
   // no se habían migrado. Se enseña un indicador de carga, nunca un cero que
   // parezca un dato. En el combo sin soporte o si la carga falla, se cae a lo
   // que ya se tenía (el sistema) con un aviso — nunca en silencio.
-  const cargandoAlegra = !mesSinAnioNoSoportado && resumenAlegra.tipo === "cargando";
+  const cargandoAlegra =
+    !periodoListo || (!mesSinAnioNoSoportado && resumenAlegra.tipo === "cargando");
   const alegraDesglose =
     !mesSinAnioNoSoportado && resumenAlegra.tipo === "listo" ? resumenAlegra.datos.porOrigen.alegra : null;
   const ventasTotal = salesToday + (alegraDesglose?.total ?? 0);
   const ventasCantidad = transactionsToday + (alegraDesglose?.cantidad ?? 0);
-  const ventasCaption: { aviso: boolean; texto: string } = mesSinAnioNoSoportado
+  const ventasCaption: { aviso: boolean; texto: string } = !periodoListo
+    ? { aviso: false, texto: "Cargando el histórico migrado de Alegra…" }
+    : mesSinAnioNoSoportado
     ? {
         aviso: true,
         texto:
@@ -219,7 +251,7 @@ export default function DashboardPage() {
   // el panel se descargaba los 6 525 clientes (2,6 MB de JSON, medidos) para
   // contar unos pocos. Esa sola tarjeta era casi la mitad de lo que pesaba
   // abrir el panel.
-  const clientesNuevos = useClientesNuevos(monthFilter, yearFilter);
+  const clientesNuevos = useClientesNuevos(monthFilter, yearFilter, periodoListo);
   const newCustomersThisMonth = clientesNuevos.total;
 
   // Inventarios pendientes (borrador + en progreso) — MISMO predicado que
@@ -303,7 +335,7 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Filtros: sucursal / mes / año (Todos por defecto). */}
+      {/* Filtros: sucursal / mes / año (mes en curso por defecto; "Todos" sigue disponible). */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-sm opacity-70">Filtros:</span>
         <BranchFilter value={branchFilter} onChange={setBranchFilter} />

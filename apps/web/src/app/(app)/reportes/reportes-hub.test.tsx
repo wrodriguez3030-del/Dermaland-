@@ -17,8 +17,12 @@ import type { EstadoVentas, ResumenVentasApi } from "@/features/ventas/ventas-ap
 
 let estadoResumen: EstadoVentas<ResumenVentasApi>;
 
+const useResumenVentasMock = vi.fn(
+  (_filtros: { desde?: string; hasta?: string }, _activo?: boolean) => estadoResumen,
+);
 vi.mock("@/features/ventas/ventas-api", () => ({
-  useResumenVentas: () => estadoResumen,
+  useResumenVentas: (filtros: { desde?: string; hasta?: string }, activo?: boolean) =>
+    useResumenVentasMock(filtros, activo),
 }));
 vi.mock("@/features/sales/proforma-store", () => ({ useProformas: () => [] }));
 
@@ -40,8 +44,16 @@ const HISTORICO: ResumenVentasApi = {
 
 beforeEach(() => {
   estadoResumen = { tipo: "listo", datos: HISTORICO };
+  useResumenVentasMock.mockClear();
+  // Reloj fijo: el índice arranca en el mes en curso y sin esto la aserción
+  // del rango cambiaría de mes en mes.
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 8, 14, 10, 0, 0));
 });
-afterEach(cleanup);
+afterEach(() => {
+  vi.useRealTimers();
+  cleanup();
+});
 
 describe("índice de Reportes", () => {
   it("🔴 las cuatro cifras cuentan el histórico migrado, no solo el sistema", () => {
@@ -60,6 +72,25 @@ describe("índice de Reportes", () => {
     render(<ReportesHub />);
     expect(screen.getAllByText("Cargando…")).toHaveLength(4);
     expect(screen.queryByText("RD$0.00")).not.toBeInTheDocument();
+  });
+
+  it("🔴 las cifras cuentan SOLO el mes en curso, y la pantalla lo dice", () => {
+    render(<ReportesHub />);
+    // El período se fija al montar (no en el render, por la hidratación), así
+    // que la última llamada es la que lleva el rango — la primera aún no.
+    const ultima = useResumenVentasMock.mock.calls.at(-1);
+    expect(ultima?.[0]).toEqual({ desde: "2026-09-01", hasta: "2026-09-30" });
+    expect(ultima?.[1]).toBe(true);
+    expect(screen.getByText(/Mes en curso · Septiembre 2026/)).toBeInTheDocument();
+  });
+
+  it("🔴 antes de fijar el período no pide nada: el histórico entero no se pide para tirarlo", () => {
+    render(<ReportesHub />);
+    // La PRIMERA llamada (render inicial, antes del efecto) va desactivada y
+    // sin rango. Si fuera `activo: true` sin fechas, se pediría todo el
+    // histórico —14 965 facturas— para descartarlo un frame después.
+    const primera = useResumenVentasMock.mock.calls[0];
+    expect(primera?.[1]).toBe(false);
   });
 
   it("🔴 si el histórico falla lo dice, en vez de pasar el cero por el total", () => {

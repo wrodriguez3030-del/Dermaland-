@@ -28,6 +28,11 @@ import {
 import { useProformas } from "@/features/sales/proforma-store";
 import { useResumenVentas } from "@/features/ventas/ventas-api";
 import { buildSalesReport, EMPTY_FILTERS } from "@/features/sales/sales-report";
+import {
+  periodoActual,
+  rangoDelPeriodo,
+  etiquetaDelPeriodo,
+} from "@/features/dashboard/dashboard-filters";
 import { formatCurrency } from "@/lib/utils/format";
 
 interface ReportItem {
@@ -141,13 +146,33 @@ function useFavorites() {
 export default function ReportesHub() {
   const { favs, toggle } = useFavorites();
 
-  // KPIs REALES del negocio, agregando TODAS las sucursales (sin filtro de
-  // sucursal/fecha). Misma fuente que el Resumen de ventas (`buildSalesReport`),
-  // que excluye anuladas y cuenta solo ventas válidas.
+  // ── Período: MES EN CURSO (todas las sucursales) ────────────────────────────
+  //
+  // Antes este índice miraba TODO el histórico y las cuatro cifras enseñaban los
+  // RD$48M migrados de Alegra, que no dicen nada de cómo va el negocio este mes.
+  // El período se fija en un efecto de montaje, no en el render: el servidor
+  // corre en UTC y de noche ya está en otro mes que el navegador, así que
+  // calcularlo al renderizar rompería la hidratación (regla dura nº 6).
+  // `periodoActual` es la MISMA definición de "este mes" que usa el Dashboard.
+  const [periodo, setPeriodo] = React.useState<{ desde: string; hasta: string } | null>(null);
+  const [etiqueta, setEtiqueta] = React.useState("");
+  React.useEffect(() => {
+    const { month, year } = periodoActual();
+    setPeriodo(rangoDelPeriodo(month, year));
+    setEtiqueta(etiquetaDelPeriodo(month, year));
+  }, []);
+
+  // KPIs REALES del negocio, agregando TODAS las sucursales, acotados al mes en
+  // curso. Misma fuente que el Resumen de ventas (`buildSalesReport`), que
+  // excluye anuladas y cuenta solo ventas válidas.
   const all = useProformas();
+  const filtrosDelMes = React.useMemo(
+    () => (periodo ? { ...EMPTY_FILTERS, from: periodo.desde, to: periodo.hasta } : EMPTY_FILTERS),
+    [periodo],
+  );
   const report = React.useMemo(
-    () => buildSalesReport(all, EMPTY_FILTERS),
-    [all],
+    () => buildSalesReport(all, filtrosDelMes),
+    [all, filtrosDelMes],
   );
   const k = report.kpis;
 
@@ -155,9 +180,13 @@ export default function ReportesHub() {
   // tiene 0 filas porque el punto de venta propio aún no ha cobrado nada, así
   // que estas cuatro cifras salían en RD$0.00 con RD$48 millones detrás. Los
   // totales llegan calculados de la base (`resumen_ventas_unificadas`), sin
-  // traer ni una fila para sumarla. Sin filtros: este índice mira TODO el
-  // negocio, igual que `EMPTY_FILTERS` en la mitad del sistema.
-  const resumenAlegra = useResumenVentas({});
+  // traer ni una fila para sumarla — ahora acotados al mismo mes en curso que
+  // la mitad del sistema. Con `activo` en false el hook no pide nada y se queda
+  // en "cargando", así que el frame previo al montaje no enseña un cero.
+  const resumenAlegra = useResumenVentas(
+    { desde: periodo?.desde, hasta: periodo?.hasta },
+    periodo !== null,
+  );
   const historico = resumenAlegra.tipo === "listo" ? resumenAlegra.datos : null;
   const cargandoHistorico = resumenAlegra.tipo === "cargando";
   const falloHistorico = resumenAlegra.tipo === "error" ? resumenAlegra.mensaje : null;
@@ -180,6 +209,12 @@ export default function ReportesHub() {
         description="Consulta el desempeño de tu negocio y obtén información para tomar mejores decisiones."
         breadcrumbs={[{ label: "Reportes" }]}
       />
+
+      {/* Qué período cuentan las cuatro cifras. Sin esto se leerían como el
+          total histórico del negocio, que es lo que enseñaban antes. */}
+      <p className="mb-2 text-sm opacity-70">
+        Mes en curso{etiqueta ? ` · ${etiqueta}` : ""}
+      </p>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Ventas" value={cifra(formatCurrency(totalSales))} icon={Coins} tone="primary" />
