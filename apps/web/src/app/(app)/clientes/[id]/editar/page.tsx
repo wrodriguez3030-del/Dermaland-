@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui";
-import { useCustomer } from "@/features/customers/customer-store";
+import { useCustomerState } from "@/features/customers/customer-store";
 import { CustomerForm } from "@/features/customers/customer-form";
 
 /**
@@ -34,14 +34,43 @@ export default function EditarClientePage() {
     setMounted(true);
   }, []);
 
-  const c = useCustomer(id);
+  const { customer: c, loading, error } = useCustomerState(id);
 
-  if (!mounted) {
+  if (!mounted || loading) {
     return (
       <div className="mx-auto w-full max-w-5xl">
         <div className="rounded-2xl border bg-white p-6 text-center">
           <p className="text-sm opacity-70">Cargando cliente...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Falló la carga (red/servidor) — DISTINTO de "no existe": no decir "no
+  // encontrado" ante un simple corte de red, o parece un cliente borrado.
+  if (error) {
+    return (
+      <div className="mx-auto w-full max-w-5xl">
+        <PageHeader
+          title="No se pudo cargar el cliente"
+          breadcrumbs={[
+            { label: "Clientes", href: "/clientes" },
+            { label: id },
+            { label: "Editar" },
+          ]}
+        />
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-sm opacity-70">{error}</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-4 inline-block text-sm text-[color:var(--brand-accent)] hover:underline"
+            >
+              Reintentar
+            </button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

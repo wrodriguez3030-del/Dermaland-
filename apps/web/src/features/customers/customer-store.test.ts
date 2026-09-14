@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
 import {
   STORAGE_KEY,
   clearLocalCustomers,
@@ -12,6 +13,8 @@ import {
   preferredSendPhone,
   resolveCustomerContact,
   updateCustomer,
+  useCustomer,
+  useCustomerState,
 } from "./customer-store";
 import { mockBusiness } from "@/lib/mock-data/tenancy";
 
@@ -275,5 +278,73 @@ describe("deleteCustomer", () => {
     deleteCustomer(seed.id);
     expect(isSoftDeleted(seed.id)).toBe(true);
     expect(listAllCustomers().some((c) => c.id === seed.id)).toBe(false);
+  });
+});
+
+describe("useCustomerState / useCustomer", () => {
+  it("modo local: resuelve el cliente recién creado con TODOS sus campos, sin quedarse cargando", async () => {
+    const r = createCustomer({
+      firstName: "Ficha",
+      lastName: "Completa",
+      phone: "+1 809-222-3333",
+      address: "Calle Falsa 123",
+      city: "Santiago",
+      province: "Santiago",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+      notes: "Nota interna",
+    });
+    if (!r.ok) throw new Error("setup");
+    const { result } = renderHook(() => useCustomerState(r.customer.id));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.customer?.address).toBe("Calle Falsa 123");
+    expect(result.current.customer?.city).toBe("Santiago");
+    expect(result.current.customer?.notes).toBe("Nota interna");
+  });
+
+  it("modo local: id inexistente termina en not-found (loading=false, sin cliente)", async () => {
+    const { result } = renderHook(() => useCustomerState("no-existe"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.customer).toBeUndefined();
+  });
+
+  it("useCustomer conserva el contrato viejo (Customer | undefined)", async () => {
+    const r = createCustomer({
+      firstName: "Contrato",
+      lastName: "Viejo",
+      phone: "+1 809-444-5555",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+    });
+    if (!r.ok) throw new Error("setup");
+    const { result } = renderHook(() => useCustomer(r.customer.id));
+    await waitFor(() => expect(result.current?.lastName).toBe("Viejo"));
+  });
+
+  it("cambiar de id resuelve al cliente NUEVO, no se queda en el anterior", async () => {
+    const a = createCustomer({
+      firstName: "Cliente",
+      lastName: "A",
+      phone: "+1 809-111-1111",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+    });
+    const b = createCustomer({
+      firstName: "Cliente",
+      lastName: "B",
+      phone: "+1 809-222-2222",
+      defaultBillingType: "consumo",
+      skinType: "not_specified",
+    });
+    if (!a.ok || !b.ok) throw new Error("setup");
+    const { result, rerender } = renderHook(
+      ({ id }) => useCustomerState(id),
+      { initialProps: { id: a.customer.id } },
+    );
+    await waitFor(() => expect(result.current.customer?.lastName).toBe("A"));
+
+    rerender({ id: b.customer.id });
+    await waitFor(() => expect(result.current.customer?.lastName).toBe("B"));
+    expect(result.current.error).toBeNull();
   });
 });

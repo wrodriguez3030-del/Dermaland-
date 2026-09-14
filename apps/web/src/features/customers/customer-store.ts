@@ -789,11 +789,109 @@ export function useCustomers(): Customer[] {
   return list;
 }
 
-/** Hook puntual para el detalle. */
+export interface CustomerState {
+  customer: Customer | undefined;
+  /** true mientras el fetch por id está en vuelo (solo backend supabase). */
+  loading: boolean;
+  /**
+   * Mensaje si la carga FALLÓ (red/servidor) — distinto de "no existe"
+   * (`customer: undefined, error: null`, 404 real). Sin esta distinción la
+   * ficha mostraría "Cliente no encontrado" ante un simple corte de red
+   * (Codex, revisión 13/09/2026).
+   */
+  error: string | null;
+}
+
+/**
+ * Lee UN cliente por id directo del servidor. A diferencia de
+ * `fetchCustomerById` (que otros callers ya usan asumiendo que SIEMPRE
+ * resuelve, nunca rechaza), esta variante LANZA en errores de red/servidor
+ * para que `useCustomerState` pueda distinguirlos de un 404 real.
+ */
+async function fetchCustomerByIdStrict(id: string): Promise<Customer | null> {
+  const res = await fetch(`/api/customers/${id}`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  return ((await res.json()) as { customer: Customer }).customer;
+}
+
+/**
+ * Cliente por id CON estado de carga.
+ *
+ * En supabase lee por id directo (`GET /api/customers/[id]`, `select("*")`)
+ * en vez de derivar de la lista paginada de `useCustomers()`. Esa lista
+ * recorta a 15 columnas por rendimiento (ver el comentario en
+ * `server/repositories/supabase/customer.ts`, `customer.list`) y NO trae
+ * dirección, ciudad, provincia, fecha de nacimiento, tipo de facturación,
+ * notas, consentimientos ni totales. La ficha de EDICIÓN los necesitaba
+ * completos: al guardar, el formulario reenvía todos los campos siempre, así
+ * que los que llegaban `undefined` por el recorte se guardaban vacíos,
+ * borrando datos reales de clientes en producción (hallazgo Codex,
+ * 13/09/2026). Mismo patrón que `useProductState` en
+ * `features/products/product-store.ts`, que resolvió el mismo problema para
+ * productos.
+ */
+function initialCustomerState(id: string | null | undefined): CustomerState {
+  if (!id) return { customer: undefined, loading: false, error: null };
+  return CUSTOMER_BACKEND === "supabase"
+    ? { customer: undefined, loading: true, error: null }
+    : { customer: getCustomerByIdFromStore(id), loading: false, error: null };
+}
+
+export function useCustomerState(id: string | null | undefined): CustomerState {
+  const [state, setState] = React.useState<CustomerState>(() => initialCustomerState(id));
+  // Rastrea para qué id es válido `state`. Sin esto, al navegar de una ficha
+  // de cliente a otra SIN que el componente se desmonte (misma ruta
+  // `[id]/editar`, React reutiliza la instancia), el primer render tras el
+  // cambio de `id` pintaría el cliente ANTERIOR con `loading: false` — el
+  // `useEffect` de abajo corre DESPUÉS de ese render. Ajustar el estado aquí,
+  // durante el render, es el patrón oficial de React para esto: el `setState`
+  // se descarta y React repite el render de inmediato con el valor correcto,
+  // antes de pintar nada (Codex, revisión 13/09/2026, segunda pasada).
+  const [stateId, setStateId] = React.useState(id);
+  if (id !== stateId) {
+    setStateId(id);
+    setState(initialCustomerState(id));
+  }
+  React.useEffect(() => {
+    if (!id) return;
+    let alive = true;
+    const refresh = () => {
+      if (CUSTOMER_BACKEND === "supabase") {
+        fetchCustomerByIdStrict(id)
+          .then((c) => {
+            if (alive) setState({ customer: c ?? undefined, loading: false, error: null });
+          })
+          .catch((e: unknown) => {
+            if (!alive) return;
+            setState((s) => ({
+              customer: s.customer,
+              loading: false,
+              error: e instanceof Error ? e.message : "No se pudo cargar el cliente.",
+            }));
+          });
+      } else {
+        setState({ customer: getCustomerByIdFromStore(id), loading: false, error: null });
+      }
+    };
+    window.addEventListener(CHANGE_EVENT, refresh);
+    window.addEventListener("storage", refresh);
+    refresh();
+    return () => {
+      alive = false;
+      window.removeEventListener(CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [id]);
+  return state;
+}
+
+/** Hook puntual para el detalle. Contrato viejo: `Customer | undefined`. */
 export function useCustomer(id: string | null | undefined): Customer | undefined {
-  const all = useCustomers();
-  if (!id) return undefined;
-  return all.find((c) => c.id === id);
+  return useCustomerState(id).customer;
 }
 
 // ─── Aliases (terminología "client" pedida en la guía del proyecto) ────────
