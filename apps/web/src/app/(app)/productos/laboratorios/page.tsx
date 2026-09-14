@@ -1,14 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Trophy, FlaskConical, X, FileSpreadsheet, FileText, AlertTriangle } from "lucide-react";
+import { Plus, Trophy, FlaskConical, FileSpreadsheet, FileText, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import {
   Button,
   Card,
   CardContent,
   Select,
-  Input,
   Table,
   THead,
   TBody,
@@ -16,8 +15,8 @@ import {
   TH,
   TD,
 } from "@/components/ui";
-import { FilterBar } from "@/components/ui/filter-bar";
 import { SearchInput } from "@/components/ui/search-input";
+import { CampoDeFiltro, PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
 import { StatCard } from "@/components/ui/stat-card";
 import { RowActions } from "@/components/ui/row-actions";
 import { useToast } from "@/components/ui/toast";
@@ -69,8 +68,6 @@ export default function LaboratoriosPage() {
   const [to, setTo] = React.useState("");
   const [topN, setTopN] = React.useState("all");
 
-  const hasFilters =
-    q.trim() !== "" || branch !== "" || from !== "" || to !== "" || topN !== "all";
   const clear = () => {
     setQ("");
     setBranch("");
@@ -284,47 +281,36 @@ export default function LaboratoriosPage() {
         </Card>
       )}
 
-      <FilterBar className="mb-4">
-        <SearchInput
-          placeholder="Buscar laboratorio…"
-          containerClassName="flex-1 min-w-[200px]"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
-          <option value="">Todas las sucursales</option>
-          {activeBranches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </Select>
-        <Input
-          type="date"
-          aria-label="Desde"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          className="w-auto"
-        />
-        <Input
-          type="date"
-          aria-label="Hasta"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          className="w-auto"
-        />
-        <Select value={topN} onChange={(e) => setTopN(e.target.value)}>
-          <option value="all">Todos</option>
-          <option value="3">Top 3</option>
-          <option value="5">Top 5</option>
-          <option value="10">Top 10</option>
-        </Select>
-        {hasFilters && (
-          <Button variant="ghost" size="sm" onClick={clear}>
-            <X className="h-4 w-4" /> Limpiar filtros
-          </Button>
-        )}
-      </FilterBar>
+      <PanelDeFiltros
+        desde={from}
+        hasta={to}
+        onRango={(r) => {
+          setFrom(r.from);
+          setTo(r.to);
+        }}
+        sucursales={branch ? [branch] : []}
+        onSucursales={(ids) => setBranch(ids[0] ?? "")}
+        opcionesSucursales={activeBranches}
+        multipleSucursales={false}
+        onLimpiar={clear}
+        className="mb-4"
+      >
+        <CampoDeFiltro etiqueta="Buscar">
+          <SearchInput
+            placeholder="Buscar laboratorio…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Mostrar">
+          <Select value={topN} onChange={(e) => setTopN(e.target.value)}>
+            <option value="all">Todos</option>
+            <option value="3">Top 3</option>
+            <option value="5">Top 5</option>
+            <option value="10">Top 10</option>
+          </Select>
+        </CampoDeFiltro>
+      </PanelDeFiltros>
 
       <Card>
         <CardContent className="p-0">

@@ -124,6 +124,30 @@ describe("consulta que se le manda a /api/ventas", () => {
   it("un cliente vacío no viaja: pedir «de nadie» no es pedir «de todos»", () => {
     expect(consultaVentas("listado", { clienteId: "" })).not.toContain("clienteId");
   });
+
+  it("una sola sucursal viaja como sucursalId (idéntico a hoy)", () => {
+    const q = consultaVentas("listado", { sucursalIds: ["b-1"] });
+    expect(q).toContain("sucursalId=b-1");
+    expect(q).not.toContain("sucursales=");
+  });
+
+  it("dos o más sucursales viajan como sucursales=, ORDENADAS", () => {
+    const q = consultaVentas("listado", { sucursalIds: ["b-2", "b-1"] });
+    expect(q).toContain("sucursales=b-1%2Cb-2");
+    expect(q).not.toContain("sucursalId=");
+  });
+
+  it("sucursalIds de una sola id GANA sobre un sucursalId suelto que quedó en el objeto", () => {
+    const q = consultaVentas("listado", { sucursalId: "b-viejo", sucursalIds: ["b-2", "b-1"] });
+    expect(q).toContain("sucursales=b-1%2Cb-2");
+    expect(q).not.toContain("sucursalId=b-viejo");
+  });
+
+  it("sucursalIds vacío no viaja: se cae al sucursalId de siempre", () => {
+    expect(consultaVentas("listado", { sucursalId: "b-1", sucursalIds: [] })).toContain(
+      "sucursalId=b-1",
+    );
+  });
 });
 
 describe("texto del desglose por origen", () => {

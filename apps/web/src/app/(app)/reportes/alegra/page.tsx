@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Select, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
 import { env } from "@/lib/env";
 import { formatCurrency } from "@/lib/utils/format";
@@ -8,6 +8,8 @@ import { getRepoContext, getSession } from "@/server/auth/context";
 import { getRepositories } from "@/server/repositories";
 import { facturasEnRango, lineasDeFacturas } from "@/server/services/alegra/queries";
 import { ALEGRA_READ_ROLES, permiteAlegra } from "@/features/alegra/roles";
+import { rangoPorDefecto } from "@/features/alegra/rango-por-defecto";
+import { FiltrosAlegra } from "./filtros-alegra";
 import {
   productosVendidos,
   totalesDeVentas,
@@ -21,11 +23,6 @@ export const dynamic = "force-dynamic";
 /** Fecha de hoy en calendario dominicano, no UTC. */
 function hoyRD(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santo_Domingo" }).format(new Date());
-}
-function menosDias(iso: string, dias: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - dias);
-  return d.toISOString().slice(0, 10);
 }
 const ES_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -43,7 +40,7 @@ export default async function ReporteAlegraPage({
   const q = await searchParams;
   const hoy = hoyRD();
   const hasta = ES_FECHA.test(q.hasta ?? "") ? q.hasta! : hoy;
-  const desde = ES_FECHA.test(q.desde ?? "") ? q.desde! : menosDias(hasta, 29);
+  const desde = ES_FECHA.test(q.desde ?? "") ? q.desde! : rangoPorDefecto(hasta).desde;
   const sucursal = q.sucursal || "";
 
   if (env.DATA_SOURCE !== "supabase") {
@@ -85,32 +82,12 @@ export default async function ReporteAlegraPage({
         breadcrumbs={[{ label: "Reportes" }, { label: "Ventas en Alegra" }]}
       />
 
-      <Card className="mb-4">
-        <CardContent className="py-4">
-          <form method="get" className="flex flex-wrap items-end gap-3">
-            <div>
-              <Label htmlFor="desde">Desde</Label>
-              <Input id="desde" name="desde" type="date" defaultValue={desde} />
-            </div>
-            <div>
-              <Label htmlFor="hasta">Hasta</Label>
-              <Input id="hasta" name="hasta" type="date" defaultValue={hasta} />
-            </div>
-            <div>
-              <Label htmlFor="sucursal">Sucursal</Label>
-              <Select id="sucursal" name="sucursal" defaultValue={sucursal}>
-                <option value="">Todas</option>
-                {sucursales.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <Button type="submit">Ver</Button>
-          </form>
-        </CardContent>
-      </Card>
+      <FiltrosAlegra
+        desde={desde}
+        hasta={hasta}
+        sucursal={sucursal}
+        sucursales={sucursales.map((s) => ({ id: s.id, name: s.name }))}
+      />
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard label="Facturas" value={totales.facturas.toLocaleString("es-DO")} hint={`${totales.anuladas} anuladas`} />

@@ -3,6 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
+import { CampoDeFiltro, PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
+import { useFiltrosEnUrl } from "@/features/filtros/use-filtros-en-url";
+import type { CodecFiltrosUrl } from "@/features/filtros/filtros-en-url";
 import {
   Badge,
   Button,
@@ -17,7 +20,6 @@ import {
   TD,
 } from "@/components/ui";
 import { StatCard } from "@/components/ui/stat-card";
-import { FilterBar } from "@/components/ui/filter-bar";
 import { RowActions } from "@/components/ui/row-actions";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -64,15 +66,65 @@ const STATUS_TONE: Record<IncentiveStatus, "warning" | "info" | "success" | "neu
   void: "neutral",
 };
 
-export default function IncentivosPage() {
+/** Filtros de esta pantalla, en la URL. Mismas claves que ya usa el enlace
+ * heredado hacia Reportes → Comisión (`?seller=&from=&to=`), para que ir y
+ * volver entre las dos no traduzca nada. */
+interface FiltrosIncentivos {
+  sellerId: string;
+  status: IncentiveStatus | "all";
+  from: string;
+  to: string;
+}
+const FILTROS_INCENTIVOS_VACIOS: FiltrosIncentivos = {
+  sellerId: "",
+  status: "all",
+  from: "",
+  to: "",
+};
+const CODEC_INCENTIVOS: CodecFiltrosUrl<FiltrosIncentivos> = {
+  leer(params) {
+    if (!["seller", "estado", "from", "to"].some((k) => params.has(k))) return null;
+    return {
+      sellerId: params.get("seller") ?? "",
+      status: (params.get("estado") as IncentiveStatus | null) ?? "all",
+      from: params.get("from") ?? "",
+      to: params.get("to") ?? "",
+    };
+  },
+  escribir(f) {
+    const p = new URLSearchParams();
+    if (f.sellerId) p.set("seller", f.sellerId);
+    if (f.status !== "all") p.set("estado", f.status);
+    if (f.from) p.set("from", f.from);
+    if (f.to) p.set("to", f.to);
+    return p;
+  },
+};
+
+/** Query string hacia Reportes → Comisión, con el rango de fecha vigente y
+ * (opcionalmente) un vendedor concreto — mismas claves que su codec lee. */
+function enlaceComisionQs(f: FiltrosIncentivos, sellerId?: string): string {
+  const p = new URLSearchParams();
+  const vendedor = sellerId ?? f.sellerId;
+  if (vendedor) p.set("seller", vendedor);
+  if (f.from) p.set("from", f.from);
+  if (f.to) p.set("to", f.to);
+  const qs = p.toString();
+  return qs ? `?${qs}` : "";
+}
+
+function IncentivosContent() {
   const currentUser = useCurrentUser();
   const toast = useToast();
   const { rules, loading: rulesLoading } = useIncentiveRules();
-  const [sellerFilter, setSellerFilter] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState<IncentiveStatus | "all">("all");
+  const [filtros, setFiltros] = useFiltrosEnUrl(CODEC_INCENTIVOS, () => FILTROS_INCENTIVOS_VACIOS);
+  const sellerFilter = filtros.sellerId;
+  const statusFilter = filtros.status;
   const { incentives, loading: incLoading } = useIncentives({
     sellerId: sellerFilter || undefined,
     status: statusFilter,
+    from: filtros.from || undefined,
+    to: filtros.to || undefined,
   });
   const [modal, setModal] = React.useState<{ open: boolean; rule?: IncentiveRuleRecord | null }>({
     open: false,
@@ -103,7 +155,7 @@ export default function IncentivosPage() {
       const bytes = incentivesXlsxBytes(incentives, {
         businessName: "DermaLand",
         generatedAt: new Date().toISOString(),
-        rangeLabel: "Todo",
+        rangeLabel: filtros.from || filtros.to ? `${filtros.from || "inicio"} a ${filtros.to || "hoy"}` : "Todo",
         filtersLabel:
           (sellerFilter ? "Vendedor filtrado · " : "") +
           (statusFilter !== "all" ? `Estado: ${statusFilter}` : "Todos"),
@@ -165,9 +217,9 @@ export default function IncentivosPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             {/* Flujo único: abre el reporte completo de Comisión ventas,
-                preservando el vendedor filtrado (§3). */}
+                preservando el vendedor y el rango de fecha filtrados (§3). */}
             <Link
-              href={`/reportes/comision-ventas${sellerFilter ? `?seller=${encodeURIComponent(sellerFilter)}` : ""}`}
+              href={`/reportes/comision-ventas${enlaceComisionQs(filtros)}`}
               aria-label="Ver reporte completo de comisión de ventas"
             >
               <Button variant="outline" size="sm">
@@ -247,7 +299,7 @@ export default function IncentivosPage() {
                     <TD className="font-medium">
                       {r.sellerId && r.sellerId !== "__none__" ? (
                         <Link
-                          href={`/reportes/comision-ventas?seller=${encodeURIComponent(r.sellerId)}`}
+                          href={`/reportes/comision-ventas${enlaceComisionQs(filtros, r.sellerId)}`}
                           className="hover:text-[color:var(--brand-accent)] hover:underline"
                           aria-label={`Ver comisión de ${r.sellerName} en el reporte`}
                         >
@@ -362,33 +414,49 @@ export default function IncentivosPage() {
       </Card>
 
       {/* ── Incentivos generados ── */}
-      <FilterBar className="mb-4">
-        <Select value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)}>
-          <option value="">Todos los vendedores</option>
-          {sellerOptions.map(([id, name]) => (
-            <option key={id} value={id}>
-              {name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as IncentiveStatus | "all")}
-        >
-          <option value="all">Todos los estados</option>
-          <option value="pending">Pendientes</option>
-          <option value="approved">Aprobados</option>
-          <option value="paid">Pagados</option>
-        </Select>
-        {canPay && payableSelected.length > 0 && (
+      {canPay && payableSelected.length > 0 && (
+        <div className="mb-4 flex justify-end">
           <Button size="sm" onClick={handlePay} disabled={paying}>
             <CheckCircle2 className="h-4 w-4" />
-            {paying
-              ? "Registrando…"
-              : `Marcar ${payableSelected.length} como pagado(s)`}
+            {paying ? "Registrando…" : `Marcar ${payableSelected.length} como pagado(s)`}
           </Button>
-        )}
-      </FilterBar>
+        </div>
+      )}
+
+      <PanelDeFiltros
+        desde={filtros.from}
+        hasta={filtros.to}
+        onRango={(r) => setFiltros((f) => ({ ...f, from: r.from, to: r.to }))}
+        onLimpiar={() => setFiltros(FILTROS_INCENTIVOS_VACIOS)}
+        className="mb-4"
+      >
+        <CampoDeFiltro etiqueta="Vendedor">
+          <Select
+            value={sellerFilter}
+            onChange={(e) => setFiltros((f) => ({ ...f, sellerId: e.target.value }))}
+          >
+            <option value="">Todos los vendedores</option>
+            {sellerOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Estado">
+          <Select
+            value={statusFilter}
+            onChange={(e) =>
+              setFiltros((f) => ({ ...f, status: e.target.value as IncentiveStatus | "all" }))
+            }
+          >
+            <option value="all">Todos los estados</option>
+            <option value="pending">Pendientes</option>
+            <option value="approved">Aprobados</option>
+            <option value="paid">Pagados</option>
+          </Select>
+        </CampoDeFiltro>
+      </PanelDeFiltros>
 
       <Card>
         <CardContent className="p-0">
@@ -458,5 +526,15 @@ export default function IncentivosPage() {
       />
       <toast.Toast />
     </>
+  );
+}
+
+// `IncentivosContent` usa `useFiltrosEnUrl` (→ `useSearchParams`), que exige
+// un límite de Suspense — mismo patrón que ya usan las demás pantallas.
+export default function IncentivosPage() {
+  return (
+    <React.Suspense fallback={<div className="p-6 text-sm opacity-60">Cargando incentivos…</div>}>
+      <IncentivosContent />
+    </React.Suspense>
   );
 }

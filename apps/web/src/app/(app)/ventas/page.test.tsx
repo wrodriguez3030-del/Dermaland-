@@ -5,8 +5,9 @@ import { render, screen, cleanup, waitFor, fireEvent } from "@testing-library/re
 import { formatCurrency } from "@/lib/utils/format";
 import type { Proforma } from "@/types";
 
-// La pantalla lee `?period=` con useSearchParams: sin router montado hay que
-// mockear next/navigation en el entorno de test.
+// La pantalla lee `?period=` (o los filtros canónicos) con useSearchParams,
+// y `useFiltrosEnUrl` necesita también `usePathname`: sin router montado hay
+// que mockear next/navigation en el entorno de test.
 const searchParams = new URLSearchParams("");
 vi.mock("@/features/auth/current-user", () => ({
   useCurrentUser: () => ({ id: "u1", fullName: "Admin", role: "admin", avatarColor: "#000", isPlatformAdmin: false }),
@@ -15,6 +16,7 @@ vi.mock("@/features/auth/current-user", () => ({
 }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
+  usePathname: () => "/ventas",
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
 }));
 // Por defecto, cero proformas: es el estado REAL de producción (`proformas`

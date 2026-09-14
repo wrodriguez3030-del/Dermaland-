@@ -5,6 +5,49 @@ riesgo se cierra, mover la entrada al final con `[CERRADO YYYY-MM-DD]`.
 
 ---
 
+## R-FILTROS-02 · Sin huso horario dominicano en los atajos de fecha (Hoy/Ayer/…)
+
+**Fecha:** 2026-09-14
+**Severidad:** Baja
+**Dueño:** sin asignar.
+
+`quickRange`/`detectarAtajo` (`features/sales/sales-report.ts`,
+`features/filtros/atajos-de-fecha.ts`) usan el calendario LOCAL del
+navegador (`new Date()`), no `America/Santo_Domingo`. Un usuario con el reloj
+del sistema en otro huso vería "Hoy" desplazado. Limitación heredada de antes
+de este cambio (`sales-report.ts` nunca tuvo el ajuste); no se introdujo ahora
+a propósito, para no mezclar un cambio de semántica de fechas con la
+migración visual del panel de filtros.
+
+## R-FILTROS-03 · `/api/customers/metrics` sin `.range()`: tope de 1000 filas silencioso
+
+**Fecha:** 2026-09-14
+**Severidad:** Baja hoy (0 proformas en producción), crece con el punto de venta
+**Dueño:** sin asignar.
+
+`server/repositories/supabase/sales.ts` → `proforma.listHeaders`, detrás de
+`/api/customers/metrics` (usado por `/reportes/clientes`, ahora con el panel
+de filtros y "Todo" como rango por defecto), no pagina con `fetchHasta` como
+sí hace `ventas-unificadas.ts`. Invisible mientras `proformas` esté vacía;
+el día que el POS facture de verdad y pase de 1000 filas, "Todo" empezaría a
+contar de menos sin avisar — el mismo patrón de fallo silencioso que motivó
+`dermaland-postgrest-1000-cap`. Mitigación: paginar `listHeaders` con
+`fetchHasta` antes de que `proformas` supere las 1000 filas.
+
+## R-FILTROS-04 · `/api/laboratorios/ventas?nivel=producto` sin tope de página
+
+**Fecha:** 2026-09-14
+**Severidad:** Baja
+**Dueño:** sin asignar.
+
+`server/services/alegra/laboratorios.ts` (RPC del nivel `producto`, usado por
+la exportación a Excel de `/productos/laboratorios`) no pagina. El nivel
+`laboratorio` (≤103 filas) no corre riesgo; `producto` sí, si el catálogo
+crece mucho más allá de 1000 líneas distintas vendidas. Mitigación: paginar
+esa RPC si el nivel `producto` empieza a acercarse al límite.
+
+---
+
 ## R-FIS-03 · Al aplicar la fase 2, el módulo DGII viejo se queda a oscuras hasta la fase 3
 
 **Fecha:** 2026-09-06
@@ -691,3 +734,16 @@ riesgo original ("ninguna cuenta admin tiene 2FA") sigue siendo cierto en
 producción hoy: `auth.mfa_factors` está vacía. Pendientes exactos y en orden
 no negociable (spec §6.2) en `docs/proximos-pasos.md`. Riesgos nuevos que
 aparecieron al construirlo: `R-SEC-02` a `R-SEC-07`, arriba.
+
+## R-FILTROS-01 · Multi-sucursal (2+) en `/ventas` no funcionaba hasta aplicar la migración `[CERRADO 2026-09-14]`
+
+**Fecha de apertura:** 2026-09-14 (mismo día).
+**Cierre:** el dueño autorizó aplicar
+`supabase/migrations/20260914100000_ventas_unificadas_varias_sucursales.sql`
+vía `node scripts/apply-migration.mjs`. Verificado en vivo contra producción:
+`resumen_ventas_unificadas` con las dos sucursales reales por separado
+(RD$35 007 222,28 / 11 076 facturas + RD$13 830 808,05 / 3 780 facturas) suma
+EXACTO con la llamada nueva de `p_sucursal_ids` con las dos juntas
+(RD$48 838 030,33 / 14 856 facturas) y con el total sin filtro. Las tres
+funciones quedaron con una sola firma cada una — sin duplicados, sin riesgo
+de `PGRST203`.

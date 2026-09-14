@@ -36,6 +36,17 @@ vi.mock("@/features/inventory/lot-store", () => ({
 vi.mock("@/features/auth/current-user", () => ({
   useCurrentUser: () => ({ fullName: "Dario" }),
 }));
+vi.mock("@/features/tenancy/branch-store", () => ({
+  useActiveBranches: () => [],
+}));
+// La pantalla ahora tiene panel de filtros con `useFiltrosEnUrl`
+// (→ `useSearchParams`/`usePathname`/`useRouter`): sin router montado hay que
+// mockear next/navigation en el entorno de test.
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(""),
+  usePathname: () => "/reportes/productos",
+  useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: vi.fn() }),
+}));
 
 const { default: ReporteProductos } = await import("./page");
 

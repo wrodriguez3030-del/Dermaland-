@@ -54,7 +54,7 @@ export function ResumenesVentas({
   historicoAviso = null,
   desde,
   hasta,
-  sucursalId,
+  sucursalIds,
 }: {
   report: SalesReport;
   /**
@@ -71,11 +71,11 @@ export function ResumenesVentas({
   /** Los tres filtros que el histórico sabe aplicar. `YYYY-MM-DD` los dos primeros. */
   desde?: string | undefined;
   hasta?: string | undefined;
-  sucursalId?: string | undefined;
+  sucursalIds?: string[] | undefined;
 }) {
   // Un desglose por tarjeta: tres consultas de agregado, decenas de bytes cada
   // una. Ninguna descarga filas para contarlas.
-  const filtros = { desde, hasta, sucursalId };
+  const filtros = { desde, hasta, sucursalIds };
   const desgloseVendedor = useDesgloseVentas("vendedor", filtros, historicoParticipa);
   const desglosePago = useDesgloseVentas("forma_pago", filtros, historicoParticipa);
   const desgloseProducto = useDesgloseVentas("producto", filtros, historicoParticipa);

@@ -218,7 +218,7 @@ export function resolverHistorico(entrada: {
 export function useHistoricoAlegra(opciones: {
   desde?: string | undefined;
   hasta?: string | undefined;
-  sucursalId?: string | undefined;
+  sucursalIds?: string[] | undefined;
   /** Ventas del sistema que ya cuentan los KPIs, para la línea del desglose. */
   cantidadSistema: number;
   incluir: boolean;
@@ -229,7 +229,7 @@ export function useHistoricoAlegra(opciones: {
   const filtros: FiltrosVentasApi = {
     desde: opciones.desde,
     hasta: opciones.hasta,
-    sucursalId: opciones.sucursalId,
+    sucursalIds: opciones.sucursalIds,
   };
   const estado = useResumenVentas(filtros, activo);
   return resolverHistorico({
@@ -289,18 +289,20 @@ export function CasillaIncluirAlegra({
 export function TablaHistoricoAlegra({
   desde,
   hasta,
-  sucursalId,
+  sucursalIds,
   activo,
 }: {
   desde?: string | undefined;
   hasta?: string | undefined;
-  sucursalId?: string | undefined;
+  sucursalIds?: string[] | undefined;
   activo: boolean;
 }) {
   const [pagina, setPagina] = React.useState(0);
   // Cambiar de filtro vuelve a la primera página: mantenerse en la 4ª de un
   // rango que ya no existe enseñaría una página vacía como si no hubiera datos.
-  const clave = `${desde ?? ""}|${hasta ?? ""}|${sucursalId ?? ""}|${activo}`;
+  // Las sucursales entran ORDENADAS: la MISMA selección marcada en otro orden
+  // no debe verse como un filtro distinto y reiniciar la página.
+  const clave = `${desde ?? ""}|${hasta ?? ""}|${[...(sucursalIds ?? [])].sort().join(",")}|${activo}`;
   const claveAnterior = React.useRef(clave);
   if (claveAnterior.current !== clave) {
     claveAnterior.current = clave;
@@ -308,7 +310,7 @@ export function TablaHistoricoAlegra({
   }
 
   const estado = useListadoVentas(
-    { desde, hasta, sucursalId, limite: POR_PAGINA, desplazamiento: pagina * POR_PAGINA },
+    { desde, hasta, sucursalIds, limite: POR_PAGINA, desplazamiento: pagina * POR_PAGINA },
     activo,
   );
 

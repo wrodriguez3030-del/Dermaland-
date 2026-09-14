@@ -3,7 +3,44 @@
 > Snapshot de qué está hecho. Actualizar al cerrar cada cambio
 > importante. Léelo después de `CLAUDE.md` y `PROJECT_MEMORY.md`.
 
-**Última actualización:** 2026-09-08
+**Última actualización:** 2026-09-14
+
+## 2026-09-14 · Panel de filtros unificado (v0.165.0)
+
+- **El pedido.** Captura del panel de agendapp (`/facturar/historial`):
+  cabecera "FILTROS", pastillas de atajo con la activa resaltada, y un
+  selector de "Locales / Sucursales" de selección MÚLTIPLE. Aplicarlo "en
+  todo el sistema donde aplique".
+- **Componente compartido** `apps/web/src/features/filtros/`: `PanelDeFiltros`
+  (+ `MarcoFiltros` para pantallas sin rango libre) unifica lo que antes eran
+  tres copias a mano de `QUICK_RANGES` + Card + grid, sin resaltar el atajo
+  activo y con sucursal de UNA sola.
+- **Multi-sucursal real** en `/ventas`, `/reportes/ventas` y
+  `/reportes/comision-ventas`: `sucursales=id1,id2` en `/api/ventas`, migración
+  SQL `20260914100000_ventas_unificadas_varias_sucursales.sql` (escrita, sin
+  aplicar — ver `docs/riesgos.md` R-FILTROS-01). Con 0-1 sucursal, la petición
+  es byte a byte idéntica a antes.
+- **Extendido a 7 pantallas más** (selección única en todas, sus backends
+  solo admiten una sucursal): `/reportes/productos` (filtro nuevo, no
+  existía), `/reportes/clientes`, `/reportes/alegra` (isla cliente sobre la
+  página servidor, default cambiado de "últimos 30 días" a "Este mes"),
+  `/ventas/incentivos` (ahora filtra por fecha, el backend ya lo soportaba),
+  `/productos/laboratorios`, `/dgii/reportes`. El panel principal (`/`) se
+  restyleó a la misma cáscara manteniendo Mes/Año.
+- **Filtros en la URL** (`useFiltrosEnUrl`, debounced 250 ms) en las 8
+  pantallas cliente; los enlaces heredados `?period=all`, `?from=&to=`,
+  `?seller=` se siguen honrando como alias.
+- **Verificado:** `pnpm typecheck` limpio, `pnpm test` 4789/4789 (132 skips
+  preexistentes), `pnpm build` sin errores, Codex read-only sin hallazgos.
+- **Migración aplicada el mismo día**, autorizada por el dueño: las tres
+  funciones quedaron con `p_sucursal_ids uuid[]` en producción, verificado en
+  vivo (dos sucursales reales por separado suman exacto con la llamada
+  multi-sucursal y con el total sin filtro — ver `docs/riesgos.md`
+  R-FILTROS-01 `[CERRADO]`).
+- **Fase 2, pendiente** (documentada en `docs/proximos-pasos.md`): las ~15
+  pantallas cuyo filtro exige tocar backend (caja, CxC, movimientos,
+  transferencias, conteos, compras, pedidos-web, auditoría) y las 4 barras de
+  filtro decorativas (sin conectar) que ya existían antes de este cambio.
 
 ## 2026-09-08 · El panel, medido de verdad (peticiones 13 → 7)
 

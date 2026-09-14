@@ -11,6 +11,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Select,
   Table,
   THead,
   TBody,
@@ -18,6 +19,7 @@ import {
   TH,
   TD,
 } from "@/components/ui";
+import { CampoDeFiltro, PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   AlertTriangle,
@@ -169,65 +171,34 @@ export default function DgiiReportesPage() {
       </div>
 
       {/* ─── Filtros ─── */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <FilterInput
-              label="Desde"
-              type="date"
-              value={filters.dateFrom}
-              onChange={(v) => setFilters((f) => ({ ...f, dateFrom: v }))}
-            />
-            <FilterInput
-              label="Hasta"
-              type="date"
-              value={filters.dateTo}
-              onChange={(v) => setFilters((f) => ({ ...f, dateTo: v }))}
-            />
-            <FilterSelect
-              label="Tipo e-CF"
-              value={filters.tipo}
-              onChange={(v) => setFilters((f) => ({ ...f, tipo: v }))}
-              options={[
-                { value: "", label: "Todos" },
-                ...Object.entries(TIPO_LABELS).map(([v, l]) => ({
-                  value: v,
-                  label: `${v} · ${l}`,
-                })),
-              ]}
-            />
-            <FilterSelect
-              label="Estado DGII"
-              value={filters.estado}
-              onChange={(v) => setFilters((f) => ({ ...f, estado: v }))}
-              options={[
-                { value: "", label: "Todos" },
-                ...Object.entries(STATUS_LABELS).map(([v, l]) => ({
-                  value: v,
-                  label: l,
-                })),
-              ]}
-            />
-            <div className="flex items-end">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() =>
-                  setFilters({
-                    dateFrom: "",
-                    dateTo: "",
-                    tipo: "",
-                    estado: "",
-                  })
-                }
-              >
-                Limpiar filtros
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <PanelDeFiltros
+        desde={filters.dateFrom}
+        hasta={filters.dateTo}
+        onRango={(r) => setFilters((f) => ({ ...f, dateFrom: r.from, dateTo: r.to }))}
+        onLimpiar={() => setFilters({ dateFrom: "", dateTo: "", tipo: "", estado: "" })}
+        className="mb-6"
+      >
+        <CampoDeFiltro etiqueta="Tipo e-CF">
+          <Select value={filters.tipo} onChange={(e) => setFilters((f) => ({ ...f, tipo: e.target.value }))}>
+            <option value="">Todos</option>
+            {Object.entries(TIPO_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {v} · {l}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Estado DGII">
+          <Select value={filters.estado} onChange={(e) => setFilters((f) => ({ ...f, estado: e.target.value }))}>
+            <option value="">Todos</option>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+      </PanelDeFiltros>
 
       {/* ─── Stats ─── */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -558,62 +529,6 @@ function groupBy<T, K extends string>(
   return out;
 }
 
-function FilterInput({
-  label,
-  type,
-  value,
-  onChange,
-}: {
-  label: string;
-  type: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="block">
-      <span className="text-[10px] uppercase tracking-wider opacity-60">
-        {label}
-      </span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 h-9 w-full rounded-md border border-black/15 bg-white px-2 text-sm"
-      />
-    </label>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <label className="block">
-      <span className="text-[10px] uppercase tracking-wider opacity-60">
-        {label}
-      </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 h-9 w-full rounded-md border border-black/15 bg-white px-2 text-sm"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (

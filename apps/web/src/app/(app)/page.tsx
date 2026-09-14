@@ -53,6 +53,7 @@ import {
   type YearFilter,
 } from "@/features/dashboard/dashboard-filters";
 import { Select } from "@/components/ui";
+import { CampoDeFiltro, MarcoFiltros } from "@/features/filtros/panel-de-filtros";
 import { mockAuditLogs } from "@/lib/mock-data/users";
 import {
   mockInventoryCounts,
@@ -335,37 +336,43 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Filtros: sucursal / mes / año (mes en curso por defecto; "Todos" sigue disponible). */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-sm opacity-70">Filtros:</span>
-        <BranchFilter value={branchFilter} onChange={setBranchFilter} />
-        <Select
-          value={monthFilter}
-          onChange={(e) => setMonthFilter(e.target.value)}
-          aria-label="Mes"
-          className="w-auto"
-        >
-          <option value="all">Todos los meses</option>
-          {MONTH_NAMES.map((name, i) => (
-            <option key={i} value={String(i + 1)}>
-              {name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={yearFilter}
-          onChange={(e) => setYearFilter(e.target.value)}
-          aria-label="Año"
-          className="w-auto"
-        >
-          <option value="all">Todos los años</option>
-          {years.map((y) => (
-            <option key={y} value={String(y)}>
-              {y}
-            </option>
-          ))}
-        </Select>
-      </div>
+      {/* Filtros: sucursal / mes / año (mes en curso por defecto; "Todos" sigue disponible).
+          Se queda en Mes/Año (no en el rango libre del resto del sistema):
+          `/api/customers/nuevos` solo admite `mes`/`anio`, y el resto de las
+          tarjetas también hablan ese mismo período — ver `dashboard-filters.ts`. */}
+      <MarcoFiltros
+        onLimpiar={() => {
+          setBranchFilter(ALL_BRANCHES);
+          const { month, year } = periodoActual();
+          setMonthFilter(month);
+          setYearFilter(year);
+        }}
+        className="mb-4"
+      >
+        <CampoDeFiltro etiqueta="Sucursal">
+          <BranchFilter value={branchFilter} onChange={setBranchFilter} />
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Mes">
+          <Select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} aria-label="Mes">
+            <option value="all">Todos los meses</option>
+            {MONTH_NAMES.map((name, i) => (
+              <option key={i} value={String(i + 1)}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Año">
+          <Select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} aria-label="Año">
+            <option value="all">Todos los años</option>
+            {years.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+      </MarcoFiltros>
 
       <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1.5">

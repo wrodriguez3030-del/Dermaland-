@@ -105,7 +105,7 @@ describe("filterSales", () => {
       makeSale({ branchId: "branch-1" }),
       makeSale({ branchId: "branch-2" }),
     ];
-    expect(filterSales(all, { branchId: "branch-2" })).toHaveLength(1);
+    expect(filterSales(all, { branchIds: ["branch-2"] })).toHaveLength(1);
   });
 
   it("3. filtra por método de pago usando pagos reales", () => {

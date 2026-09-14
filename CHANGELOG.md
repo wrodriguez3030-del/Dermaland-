@@ -10,6 +10,41 @@ y el proyecto usa [Versionado Semántico (SemVer)](https://semver.org/lang/es/).
 
 ## [Unreleased]
 <!-- Agrega aquí lo que estés trabajando. Al publicar, muévelo a una versión nueva con fecha. -->
+## [0.165.0] - 2026-09-14
+
+### Añadido
+
+- **Panel de filtros unificado (modelo agendapp), en todo el sistema donde
+  aplica.** Componente compartido `features/filtros/` (cabecera "FILTROS" +
+  seis pastillas de atajo — Hoy · Ayer · Últimos 7 días · Este mes · Mes
+  anterior · Todo — con la pastilla activa DERIVADA de las fechas, "Personalizado"
+  cuando se editan a mano, y un selector de sucursales que admite **selección
+  múltiple real** (`[]` = todas)) reemplaza los tres paneles triplicados a
+  mano de `/ventas`, `/reportes/ventas` y `/reportes/comision-ventas`
+  (cada uno perdió 130-160 líneas) y se extiende a `/reportes/productos`
+  (nuevo filtro, no existía), `/reportes/clientes`, `/reportes/alegra`
+  (isla cliente sobre la página servidor, default "Este mes"),
+  `/ventas/incentivos`, `/productos/laboratorios` y `/dgii/reportes`
+  (selección única en estos cinco: sus backends solo admiten UNA sucursal).
+  El panel principal (`/`) se restyleó a la misma cáscara visual manteniendo
+  Mes/Año (no migra a rango libre: `/api/customers/nuevos` solo admite
+  `mes`/`anio`).
+- **Multi-sucursal real en `/api/ventas`**: nuevo parámetro `sucursales=id1,id2`
+  (una sola sucursal sigue viajando como `sucursalId=`, byte a byte igual que
+  antes). Migración `20260914100000_ventas_unificadas_varias_sucursales.sql`
+  añade `p_sucursal_ids uuid[]` a `resumen_ventas_unificadas`,
+  `desglose_ventas_unificadas` y `panel_ventas_unificadas` — **aplicada en
+  producción el mismo día**, verificada en vivo (dos sucursales reales por
+  separado suman exacto con la llamada multi-sucursal y con el total sin
+  filtro).
+- Filtros persistidos en la URL (`useFiltrosEnUrl`, debounced) en las 8
+  pantallas nuevas/tocadas, con los alias heredados `?period=all`,
+  `?from=&to=`, `?seller=` que ya usaban los enlaces existentes.
+
+### Corregido
+
+- `docs/decisiones.md`, `docs/riesgos.md`: ver entradas del 2026-09-14.
+
 ## [0.164.0] - 2026-09-10
 
 ### Corregido

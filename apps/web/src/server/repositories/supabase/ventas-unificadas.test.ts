@@ -21,7 +21,7 @@ function clienteFalso(proformas: unknown[], alegra: unknown[]) {
     consultadas.push(tabla);
     const datos = tabla === "proformas" ? proformas : alegra;
     const q: Record<string, unknown> = {};
-    for (const m of ["select", "eq", "gte", "lte", "order", "limit", "range"]) q[m] = vi.fn(() => q);
+    for (const m of ["select", "eq", "in", "gte", "lte", "order", "limit", "range"]) q[m] = vi.fn(() => q);
     q.then = (r: (v: unknown) => void) => r({ data: datos, error: null });
     return q;
   });
@@ -349,5 +349,92 @@ describe("panelVentas (resumen y desgloses en una llamada)", () => {
       panelVentas({ businessId: "b1", cliente: c } as never, {}, ["sucursal"]),
     ).rejects.toThrow();
     expect(c.llamadas).toHaveLength(1);
+  });
+});
+
+describe("multi-sucursal (varias sucursales a la vez)", () => {
+  /** Cliente falso que solo sabe responder a `.rpc()`, con la respuesta que se le pase. */
+  function clienteRpcSolo(respuesta: { data: unknown; error: unknown }) {
+    const rpc = vi.fn(async (_fn: string, _args: Record<string, unknown>) => respuesta);
+    return {
+      rpc,
+      from: vi.fn(() => {
+        throw new Error("no debe leer filas por .from()");
+      }),
+    };
+  }
+
+  it("1 sucursal: la llamada es LA DE SIEMPRE — sin la clave p_sucursal_ids", async () => {
+    const c = clienteRpcSolo({
+      data: [{ sistema_total: 0, sistema_cantidad: 0, alegra_total: 0, alegra_cantidad: 0 }],
+      error: null,
+    });
+    await resumenVentas({ businessId: "b1", cliente: c } as never, { sucursalId: "b-1" });
+    const args = c.rpc.mock.calls[0]![1] as Record<string, unknown>;
+    expect(args.p_sucursal_id).toBe("b-1");
+    expect("p_sucursal_ids" in args).toBe(false);
+  });
+
+  it("2+ sucursales: p_sucursal_id va en null y p_sucursal_ids lleva la lista", async () => {
+    const c = clienteRpcSolo({
+      data: [{ sistema_total: 0, sistema_cantidad: 0, alegra_total: 0, alegra_cantidad: 0 }],
+      error: null,
+    });
+    await resumenVentas({ businessId: "b1", cliente: c } as never, {
+      sucursalIds: ["b-2", "b-1"],
+    });
+    const args = c.rpc.mock.calls[0]![1] as Record<string, unknown>;
+    expect(args.p_sucursal_id).toBeNull();
+    expect(args.p_sucursal_ids).toEqual(["b-2", "b-1"]);
+  });
+
+  it("desglose: la misma regla — 2+ ids solo en p_sucursal_ids", async () => {
+    const c = clienteRpcSolo({ data: [], error: null });
+    await desgloseVentas(
+      { businessId: "b1", cliente: c } as never,
+      { sucursalIds: ["b-1", "b-2"] },
+      "vendedor",
+    );
+    const args = c.rpc.mock.calls[0]![1] as Record<string, unknown>;
+    expect(args.p_sucursal_ids).toEqual(["b-1", "b-2"]);
+  });
+
+  it("🔴 2+ sucursales antes de aplicar la migración: mensaje claro, no un total mudo", async () => {
+    // PGRST202 es justo lo que devuelve PostgREST cuando la función no tiene
+    // esta firma (con `p_sucursal_ids`) — el estado exacto de "migración
+    // pendiente".
+    const c = clienteRpcSolo({
+      data: null,
+      error: { code: "PGRST202", message: "no matching function" },
+    });
+    await expect(
+      resumenVentas({ businessId: "b1", cliente: c } as never, { sucursalIds: ["b-1", "b-2"] }),
+    ).rejects.toThrow(/20260914100000_ventas_unificadas_varias_sucursales\.sql/);
+  });
+
+  it("con 0-1 sucursal, el mismo error PGRST202 NO se disfraza de mensaje de migración", async () => {
+    // Con una sola sucursal la llamada es la de siempre: si esto fallara, la
+    // causa real (permiso, función realmente ausente) no es "faltan varias
+    // sucursales" y el mensaje no debe sugerirlo.
+    const c = clienteRpcSolo({
+      data: null,
+      error: { code: "PGRST202", message: "no matching function" },
+    });
+    await expect(
+      resumenVentas({ businessId: "b1", cliente: c } as never, { sucursalId: "b-1" }),
+    ).rejects.not.toThrow(/varias sucursales/);
+  });
+
+  it("listarVentasUnificadas: 2+ sucursales usa .in(), no .eq()", async () => {
+    const c = clienteFalso([{ id: "p-1", branch_id: "b-1" }], [{ id: "a-1", branch_id: "b-2" }]);
+    await listarVentasUnificadas(
+      { businessId: "b1", cliente: c } as never,
+      { sucursalIds: ["b-1", "b-2"] },
+    );
+    const filas = (c.from as ReturnType<typeof vi.fn>).mock.results as {
+      value: Record<string, ReturnType<typeof vi.fn>>;
+    }[];
+    const usoIn = filas.some((r) => (r.value.in as ReturnType<typeof vi.fn>).mock.calls.length > 0);
+    expect(usoIn).toBe(true);
   });
 });

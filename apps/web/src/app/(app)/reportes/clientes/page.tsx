@@ -21,6 +21,7 @@ import {
   TD,
 } from "@/components/ui";
 import { BarChart } from "@/components/ui/bar-chart";
+import { CampoDeFiltro, PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
 import {
   ReportLayout,
@@ -214,104 +215,64 @@ export default function ReporteClientesPage() {
       />
 
       {/* Filtros — KPIs y tabla usan exactamente este mismo conjunto. */}
-      <Card className="screen-only mb-6">
-        <CardContent className="py-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <Label>Desde</Label>
-              <Input
-                type="date"
-                value={filters.from ?? ""}
-                onChange={(e) => set("from", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Hasta</Label>
-              <Input
-                type="date"
-                value={filters.to ?? ""}
-                onChange={(e) => set("to", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Sucursal</Label>
-              <Select
-                value={filters.branchId ?? ""}
-                onChange={(e) => set("branchId", e.target.value)}
-              >
-                <option value="">Todas las sucursales</option>
-                {activeBranches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Cliente</Label>
-              <Input
-                placeholder="Nombre, código, documento…"
-                value={filters.search ?? ""}
-                onChange={(e) => set("search", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Tipo de piel</Label>
-              <Select
-                value={filters.skinType ?? ""}
-                onChange={(e) => set("skinType", e.target.value)}
-              >
-                <option value="">Todos</option>
-                {skinTypeOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Segmento</Label>
-              <Select
-                value={filters.segment ?? ""}
-                onChange={(e) => set("segment", e.target.value)}
-              >
-                <option value="">Todos</option>
-                <option value="vip">VIP</option>
-                {segmentOptions
-                  .filter((t) => t !== "VIP")
-                  .map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Compras mínimas</Label>
-              <Input
-                type="number"
-                min={0}
-                value={filters.minPurchases ?? ""}
-                onChange={(e) => set("minPurchases", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Gasto mínimo (RD$)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={filters.minSpent ?? ""}
-                onChange={(e) => set("minSpent", e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <Button size="sm" variant="ghost" onClick={clearFilters}>
-              Limpiar filtros
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <PanelDeFiltros
+        desde={filters.from ?? ""}
+        hasta={filters.to ?? ""}
+        onRango={(r) => setFilters((f) => ({ ...f, from: r.from || undefined, to: r.to || undefined }))}
+        sucursales={filters.branchId ? [filters.branchId] : []}
+        onSucursales={(ids) => set("branchId", ids[0] ?? "")}
+        opcionesSucursales={activeBranches}
+        multipleSucursales={false}
+        onLimpiar={clearFilters}
+        className="screen-only mb-6"
+      >
+        <CampoDeFiltro etiqueta="Cliente">
+          <Input
+            placeholder="Nombre, código, documento…"
+            value={filters.search ?? ""}
+            onChange={(e) => set("search", e.target.value)}
+          />
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Tipo de piel">
+          <Select value={filters.skinType ?? ""} onChange={(e) => set("skinType", e.target.value)}>
+            <option value="">Todos</option>
+            {skinTypeOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Segmento">
+          <Select value={filters.segment ?? ""} onChange={(e) => set("segment", e.target.value)}>
+            <option value="">Todos</option>
+            <option value="vip">VIP</option>
+            {segmentOptions
+              .filter((t) => t !== "VIP")
+              .map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Compras mínimas">
+          <Input
+            type="number"
+            min={0}
+            value={filters.minPurchases ?? ""}
+            onChange={(e) => set("minPurchases", e.target.value)}
+          />
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Gasto mínimo (RD$)">
+          <Input
+            type="number"
+            min={0}
+            value={filters.minSpent ?? ""}
+            onChange={(e) => set("minSpent", e.target.value)}
+          />
+        </CampoDeFiltro>
+      </PanelDeFiltros>
 
       {error && (
         <Card className="mb-6">

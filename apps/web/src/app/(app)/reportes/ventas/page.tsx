@@ -3,6 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
+import { CampoDeFiltro, PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
+import { codecFiltrosVentas } from "@/features/filtros/filtros-en-url";
+import { useFiltrosEnUrl } from "@/features/filtros/use-filtros-en-url";
+import { nombresSucursales } from "@/features/filtros/sucursales-seleccion";
 import {
   Badge,
   Button,
@@ -73,7 +77,6 @@ import {
   buildSalesReport,
   comprobanteLabel,
   paymentMethodGroup,
-  quickRange,
   saleMethodSummary,
   saleStatusKey,
   COMPROBANTE_LABEL,
@@ -82,7 +85,6 @@ import {
   SALE_STATUS_TONE,
   PAYMENT_GROUP_LABEL,
   type ComprobanteKey,
-  type QuickRangeKey,
   type SaleMethodSummary,
   type SaleStatusKey,
   type SalesReportFilters,
@@ -116,15 +118,6 @@ const COMPARATORS = {
     comprobanteLabel(a).localeCompare(comprobanteLabel(b), "es"),
 } as const;
 
-const QUICK_RANGES: { key: QuickRangeKey; label: string }[] = [
-  { key: "today", label: "Hoy" },
-  { key: "yesterday", label: "Ayer" },
-  { key: "last7", label: "Últimos 7 días" },
-  { key: "thisMonth", label: "Este mes" },
-  { key: "lastMonth", label: "Mes anterior" },
-  { key: "all", label: "Todo" },
-];
-
 const COMPROBANTE_OPTIONS: ComprobanteKey[] = [
   "proforma",
   "b02",
@@ -151,7 +144,7 @@ const STATUS_OPTIONS: SaleStatusKey[] = [
   "partial",
 ];
 
-export default function ReporteVentasPage() {
+function ReporteVentasContent() {
   const currentUser = useCurrentUser();
   const toast = useToast();
   const all = useProformas();
@@ -159,7 +152,13 @@ export default function ReporteVentasPage() {
   const activeBranches = useActiveBranches();
   const products = useProducts();
 
-  const [filters, setFilters] = React.useState<SalesReportFilters>(EMPTY_FILTERS);
+  // Este reporte abre en TODO el histórico (a diferencia de /ventas, que abre
+  // en Hoy): un rango vacío ya es su valor por defecto, así que el codec no
+  // necesita distinguir "recién abierto" de "Todo" explícito.
+  const [filters, setFilters] = useFiltrosEnUrl(
+    codecFiltrosVentas({ rangoPorDefecto: "all" }),
+    () => EMPTY_FILTERS,
+  );
   const [paymentsFor, setPaymentsFor] = React.useState<Proforma | null>(null);
   // Marcada por defecto: el histórico migrado ES la mayor parte de las ventas
   // del negocio (14 965 facturas frente a 0 proformas hoy). Quien quiera ver
@@ -215,18 +214,14 @@ export default function ReporteVentasPage() {
     value: SalesReportFilters[K],
   ) => setFilters((f) => ({ ...f, [key]: value }));
 
-  const applyQuick = (key: QuickRangeKey) => {
-    const { from, to } = quickRange(key);
-    setFilters((f) => ({ ...f, from, to }));
-  };
+  const aplicarRango = (r: { from: string; to: string }) =>
+    setFilters((f) => ({ ...f, from: r.from, to: r.to }));
 
   const clearFilters = () => setFilters(EMPTY_FILTERS);
 
   // ── Exportación ──
   const reportMeta = (): SalesReportMeta => {
-    const branchLabel = filters.branchId
-      ? branchNames.get(filters.branchId) ?? "Sucursal"
-      : "Todas las sucursales";
+    const branchLabel = nombresSucursales(filters.branchIds ?? [], activeBranches);
     const rangeLabel =
       filters.from || filters.to
         ? `${filters.from || "inicio"} a ${filters.to || "hoy"}`
@@ -365,7 +360,7 @@ export default function ReporteVentasPage() {
   const historico = useHistoricoAlegra({
     desde: filters.from || undefined,
     hasta: filters.to || undefined,
-    sucursalId: filters.branchId || undefined,
+    sucursalIds: filters.branchIds,
     cantidadSistema: k.transactions,
     incluir: incluirAlegra,
     filtrosNoAplicables,
@@ -454,10 +449,10 @@ export default function ReporteVentasPage() {
       label: "Fecha",
       value: `${filters.from || "inicio"} → ${filters.to || "hoy"}`,
     });
-  if (filters.branchId)
+  if (filters.branchIds?.length)
     filterChips.push({
       label: "Sucursal",
-      value: branchNames.get(filters.branchId) ?? "Sucursal",
+      value: nombresSucursales(filters.branchIds, activeBranches),
     });
   if (filters.method)
     filterChips.push({ label: "Método", value: SALE_METHOD_LABEL[filters.method] });
@@ -543,163 +538,111 @@ export default function ReporteVentasPage() {
       <ReportFiltersSummary filters={filterChips} />
 
       {/* ── Filtros (interactivos, solo pantalla) ── */}
-      <Card className="mb-6 no-print">
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {QUICK_RANGES.map((q) => (
-              <Button
-                key={q.key}
-                size="sm"
-                variant="outline"
-                onClick={() => applyQuick(q.key)}
-              >
-                {q.label}
-              </Button>
+      <PanelDeFiltros
+        desde={filters.from ?? ""}
+        hasta={filters.to ?? ""}
+        onRango={aplicarRango}
+        sucursales={filters.branchIds ?? []}
+        onSucursales={(ids) => set("branchIds", ids)}
+        opcionesSucursales={activeBranches}
+        onLimpiar={clearFilters}
+        className="mb-6 no-print"
+      >
+        <CampoDeFiltro etiqueta="Método de pago">
+          <Select
+            value={filters.method ?? ""}
+            onChange={(e) => set("method", e.target.value as SaleMethodSummary | "")}
+          >
+            <option value="">Todos</option>
+            {METHOD_OPTIONS.map((m) => (
+              <option key={m} value={m}>
+                {SALE_METHOD_LABEL[m]}
+              </option>
             ))}
-            <Button size="sm" variant="ghost" onClick={clearFilters}>
-              Limpiar filtros
-            </Button>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <Label>Desde</Label>
-              <Input
-                type="date"
-                value={filters.from ?? ""}
-                onChange={(e) => set("from", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Hasta</Label>
-              <Input
-                type="date"
-                value={filters.to ?? ""}
-                onChange={(e) => set("to", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Sucursal / Local</Label>
-              <Select
-                value={filters.branchId ?? ""}
-                onChange={(e) => set("branchId", e.target.value)}
-              >
-                <option value="">Todas las sucursales</option>
-                {activeBranches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Método de pago</Label>
-              <Select
-                value={filters.method ?? ""}
-                onChange={(e) =>
-                  set("method", e.target.value as SaleMethodSummary | "")
-                }
-              >
-                <option value="">Todos</option>
-                {METHOD_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {SALE_METHOD_LABEL[m]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Tipo de comprobante</Label>
-              <Select
-                value={filters.comprobante ?? ""}
-                onChange={(e) =>
-                  set("comprobante", e.target.value as ComprobanteKey | "")
-                }
-              >
-                <option value="">Todos</option>
-                {COMPROBANTE_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {COMPROBANTE_LABEL[c]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Estado</Label>
-              <Select
-                value={filters.status ?? ""}
-                onChange={(e) => set("status", e.target.value as SaleStatusKey | "")}
-              >
-                <option value="">Todos</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {SALE_STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Cajero</Label>
-              <Select
-                value={filters.cashierId ?? ""}
-                onChange={(e) => set("cashierId", e.target.value)}
-              >
-                <option value="">Todos</option>
-                {cashierOptions.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Vendedor</Label>
-              <Select
-                value={filters.sellerId ?? ""}
-                onChange={(e) => set("sellerId", e.target.value)}
-              >
-                <option value="">Todos</option>
-                {sellerOptions.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-                <option value="__none__">No asignado</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Cliente</Label>
-              <Input
-                placeholder="Nombre, teléfono, cédula/RNC…"
-                value={filters.customerQuery ?? ""}
-                onChange={(e) => set("customerQuery", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Producto / servicio</Label>
-              <Input
-                placeholder="Nombre o SKU del producto…"
-                value={filters.productQuery ?? ""}
-                onChange={(e) => set("productQuery", e.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={!!filters.includeProformas}
-                  onChange={(e) => set("includeProformas", e.target.checked)}
-                />
-                Incluir proformas
-              </label>
-            </div>
-            <div className="flex items-end">
-              <CasillaIncluirAlegra checked={incluirAlegra} onChange={setIncluirAlegra} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Tipo de comprobante">
+          <Select
+            value={filters.comprobante ?? ""}
+            onChange={(e) => set("comprobante", e.target.value as ComprobanteKey | "")}
+          >
+            <option value="">Todos</option>
+            {COMPROBANTE_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {COMPROBANTE_LABEL[c]}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Estado">
+          <Select
+            value={filters.status ?? ""}
+            onChange={(e) => set("status", e.target.value as SaleStatusKey | "")}
+          >
+            <option value="">Todos</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {SALE_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Cajero">
+          <Select
+            value={filters.cashierId ?? ""}
+            onChange={(e) => set("cashierId", e.target.value)}
+          >
+            <option value="">Todos</option>
+            {cashierOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Vendedor">
+          <Select
+            value={filters.sellerId ?? ""}
+            onChange={(e) => set("sellerId", e.target.value)}
+          >
+            <option value="">Todos</option>
+            {sellerOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+            <option value="__none__">No asignado</option>
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Cliente">
+          <Input
+            placeholder="Nombre, teléfono, cédula/RNC…"
+            value={filters.customerQuery ?? ""}
+            onChange={(e) => set("customerQuery", e.target.value)}
+          />
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Producto / servicio">
+          <Input
+            placeholder="Nombre o SKU del producto…"
+            value={filters.productQuery ?? ""}
+            onChange={(e) => set("productQuery", e.target.value)}
+          />
+        </CampoDeFiltro>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={!!filters.includeProformas}
+              onChange={(e) => set("includeProformas", e.target.checked)}
+            />
+            Incluir proformas
+          </label>
+        </div>
+        <div className="flex items-end">
+          <CasillaIncluirAlegra checked={incluirAlegra} onChange={setIncluirAlegra} />
+        </div>
+      </PanelDeFiltros>
 
       {/* ── KPIs ── */}
       <div className="mb-6">
@@ -721,7 +664,7 @@ export default function ReporteVentasPage() {
         historicoAviso={historico.leyenda.aviso ? historico.leyenda.texto : null}
         desde={filters.from || undefined}
         hasta={filters.to || undefined}
-        sucursalId={filters.branchId || undefined}
+        sucursalIds={filters.branchIds}
       />
 
       {/* ── Tabla detallada (interactiva, solo pantalla) ── */}
@@ -875,7 +818,7 @@ export default function ReporteVentasPage() {
         <TablaHistoricoAlegra
           desde={filters.from || undefined}
           hasta={filters.to || undefined}
-          sucursalId={filters.branchId || undefined}
+          sucursalIds={filters.branchIds}
           activo={incluirAlegra && filtrosNoAplicables.length === 0}
         />
       </div>
@@ -926,5 +869,17 @@ export default function ReporteVentasPage() {
 
       <toast.Toast />
     </>
+  );
+}
+
+// `ReporteVentasContent` usa `useFiltrosEnUrl` (→ `useSearchParams`), que
+// exige un límite de Suspense — mismo patrón que ya usa `/ventas`.
+export default function ReporteVentasPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando reporte de ventas…</div>}
+    >
+      <ReporteVentasContent />
+    </React.Suspense>
   );
 }

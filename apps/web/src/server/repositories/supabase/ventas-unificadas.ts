@@ -54,6 +54,8 @@ export interface FiltrosVentas {
   hasta?: string;
   clienteId?: string;
   sucursalId?: string;
+  /** Varias sucursales; si trae 2+ ids tiene prioridad sobre `sucursalId`. */
+  sucursalIds?: string[];
   /** `false` para no consultar `alegra_invoices` en absoluto. Por defecto `true`. */
   incluirAlegra?: boolean;
   /** Filas por página. El servidor nunca da más de 200, aunque se pida más. */
@@ -142,6 +144,46 @@ function entero(valor: number | undefined, porDefecto: number, minimo: number): 
   return Number.isFinite(n) ? Math.max(minimo, n) : porDefecto;
 }
 
+/** Las sucursales a filtrar, normalizadas: `sucursalIds` gana sobre `sucursalId`, sin duplicados. */
+function sucursalesDe(filtros: Pick<FiltrosVentas, "sucursalId" | "sucursalIds">): string[] {
+  if (filtros.sucursalIds?.length) return [...new Set(filtros.sucursalIds)];
+  return filtros.sucursalId ? [filtros.sucursalId] : [];
+}
+
+/**
+ * Argumentos de sucursal para las RPC. `p_sucursal_ids` SOLO se incluye con
+ * 2+ ids: PostgREST empareja la función por el CONJUNTO de parámetros con
+ * nombre que recibe, así que mandar esa clave con 0-1 sucursales rompería la
+ * llamada de siempre (`PGRST202`) mientras la migración
+ * `20260914100000_ventas_unificadas_varias_sucursales.sql` no esté aplicada.
+ */
+function argsSucursal(
+  filtros: FiltrosVentas,
+): { p_sucursal_id: string | null } | { p_sucursal_id: null; p_sucursal_ids: string[] } {
+  const ids = sucursalesDe(filtros);
+  return ids.length > 1 ? { p_sucursal_id: null, p_sucursal_ids: ids } : { p_sucursal_id: ids[0] ?? null };
+}
+
+/**
+ * Si el error de una RPC de ventas es "función sin aplicar" (`esFuncionSinAplicar`,
+ * definida más abajo) Y se pidieron 2+ sucursales, la causa casi segura es que
+ * la migración `p_sucursal_ids` todavía no llegó a producción — no una base de
+ * datos rota. Decirlo, en vez de dejar que `failRepo` lance un error genérico
+ * que no apunta a la solución. Con 0-1 sucursal, la llamada es la de siempre y
+ * este caso no aplica.
+ */
+function lanzarSiFaltaMigracionSucursales(
+  error: { code?: string | null; message?: string | null },
+  filtros: FiltrosVentas,
+): void {
+  if (sucursalesDe(filtros).length > 1 && esFuncionSinAplicar(error)) {
+    throw new Error(
+      "Filtrar por varias sucursales necesita la migración " +
+        "20260914100000_ventas_unificadas_varias_sucursales.sql (pendiente de aplicar).",
+    );
+  }
+}
+
 /** Aplica el tope duro de la página: el servidor decide, no quien llama. */
 function limitePagina(filtros: FiltrosVentas): { limite: number; desplazamiento: number } {
   const limite = Math.min(entero(filtros.limite, LIMITE_POR_DEFECTO, 1), TOPE_LISTADO);
@@ -195,7 +237,11 @@ async function proformasDeListado(
   if (filtros.desde) q = q.gte("created_at", filtros.desde);
   if (filtros.hasta) q = q.lt("created_at", finDelDia(filtros.hasta));
   if (filtros.clienteId) q = q.eq("customer_id", filtros.clienteId);
-  if (filtros.sucursalId) q = q.eq("branch_id", filtros.sucursalId);
+  {
+    const sucursales = sucursalesDe(filtros);
+    if (sucursales.length === 1) q = q.eq("branch_id", sucursales[0]!);
+    else if (sucursales.length > 1) q = q.in("branch_id", sucursales);
+  }
   const filas = await fetchHasta(ventana, async (from, to) => {
     const { data, error } = await q.order("created_at", { ascending: false }).order("id").range(from, to);
     if (error) failRepo("ventasUnificadas.listar.proformas", error);
@@ -216,7 +262,11 @@ async function alegraDeListado(
   if (filtros.desde) q = q.gte("date", filtros.desde);
   if (filtros.hasta) q = q.lte("date", filtros.hasta);
   if (filtros.clienteId) q = q.eq("client_id", filtros.clienteId);
-  if (filtros.sucursalId) q = q.eq("branch_id", filtros.sucursalId);
+  {
+    const sucursales = sucursalesDe(filtros);
+    if (sucursales.length === 1) q = q.eq("branch_id", sucursales[0]!);
+    else if (sucursales.length > 1) q = q.in("branch_id", sucursales);
+  }
   const filas = await fetchHasta<FilaFacturaAlegra>(ventana, async (from, to) => {
     const { data, error } = await q.order("date", { ascending: false }).order("id").range(from, to);
     if (error) failRepo("ventasUnificadas.listar.alegra", error);
@@ -309,9 +359,12 @@ export async function resumenVentas(
     p_desde: filtros.desde ?? null,
     p_hasta: filtros.hasta ?? null,
     p_cliente_id: filtros.clienteId ?? null,
-    p_sucursal_id: filtros.sucursalId ?? null,
+    ...argsSucursal(filtros),
   });
-  if (error) failRepo("ventasUnificadas.resumen", error);
+  if (error) {
+    lanzarSiFaltaMigracionSucursales(error, filtros);
+    failRepo("ventasUnificadas.resumen", error);
+  }
 
   return interpretarResumen((data as FilaResumenRpc[] | null)?.[0], incluirAlegra);
 }
@@ -405,10 +458,13 @@ export async function desgloseVentas(
     p_desde: filtros.desde ?? null,
     p_hasta: filtros.hasta ?? null,
     p_cliente_id: filtros.clienteId ?? null,
-    p_sucursal_id: filtros.sucursalId ?? null,
+    ...argsSucursal(filtros),
     p_dimension: dimension,
   });
-  if (error) failRepo("ventasUnificadas.desglose", error);
+  if (error) {
+    lanzarSiFaltaMigracionSucursales(error, filtros);
+    failRepo("ventasUnificadas.desglose", error);
+  }
 
   return interpretarDesglose(data as FilaDesgloseRpc[] | null, incluirAlegra);
 }
@@ -504,13 +560,16 @@ export async function panelVentas(
     p_desde: filtros.desde ?? null,
     p_hasta: filtros.hasta ?? null,
     p_cliente_id: filtros.clienteId ?? null,
-    p_sucursal_id: filtros.sucursalId ?? null,
+    ...argsSucursal(filtros),
     p_dimensiones: [...dimensiones],
     p_con_resumen: conResumen,
   });
 
   if (error) {
     if (!esFuncionSinAplicar(error)) failRepo("ventasUnificadas.panel", error);
+    // El camino separado llama a `resumenVentas`/`desgloseVentas`, que llevan
+    // la misma guarda de "migración pendiente" — no hace falta duplicarla
+    // aquí para el caso de varias sucursales.
     return panelPorSeparado(ctx, filtros, dimensiones, conResumen);
   }
 

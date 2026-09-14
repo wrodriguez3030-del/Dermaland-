@@ -156,7 +156,7 @@ describe("qué filtros del reporte dejan al histórico fuera, uno por uno", () =
       ...EMPTY_FILTERS,
       from: "2026-01-01",
       to: "2026-09-05",
-      branchId: "b-1",
+      branchIds: ["b-1"],
     };
     expect(filtrosDelReporteSinHistorico(f)).toEqual([]);
   });

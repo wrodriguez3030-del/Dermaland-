@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { RowActions } from "@/components/ui/row-actions";
 import { DataPagination, usePagination } from "@/components/ui/data-pagination";
@@ -38,6 +37,9 @@ import { esVentaCompletada } from "@/features/sales/venta-completada";
 import { useCurrentUser } from "@/features/auth/current-user";
 import { EtiquetaOrigen } from "@/features/ventas/etiqueta-origen";
 import { useListadoVentas } from "@/features/ventas/ventas-api";
+import { CampoDeFiltro, PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
+import { codecFiltrosVentas } from "@/features/filtros/filtros-en-url";
+import { useFiltrosEnUrl } from "@/features/filtros/use-filtros-en-url";
 import {
   pinturaEstadoVenta,
   type VentaUnificada,
@@ -56,7 +58,6 @@ import {
   SALE_METHOD_LABEL,
   SALE_STATUS_LABEL,
   type ComprobanteKey,
-  type QuickRangeKey,
   type SaleMethodSummary,
   type SaleStatusKey,
   type SalesReportFilters,
@@ -65,15 +66,6 @@ import type { Proforma } from "@/types";
 import { formatCurrency, formatDate, formatDateTime, formatNumber } from "@/lib/utils/format";
 
 const NO_SELLER = "__none__";
-
-const QUICK_RANGES: { key: QuickRangeKey; label: string }[] = [
-  { key: "today", label: "Hoy" },
-  { key: "yesterday", label: "Ayer" },
-  { key: "last7", label: "Últimos 7 días" },
-  { key: "thisMonth", label: "Este mes" },
-  { key: "lastMonth", label: "Mes anterior" },
-  { key: "all", label: "Todo" },
-];
 
 // Sin "proforma": esta pantalla solo lista documentos fiscales emitidos
 // (`isInvoiceDocument`). Las proformas pendientes viven en /proformas.
@@ -113,25 +105,21 @@ function VentasContent() {
 
   // Por DEFECTO esta pantalla muestra solo las ventas de HOY (operación diaria).
   // El panel/dashboard enlaza con `?period=all` para pedir el histórico
-  // completo; se lee UNA vez al montar — de ahí en adelante manda el panel de
-  // filtros (los pellizcos rápidos hacen exactamente lo mismo, en la propia
-  // pantalla, sin navegar).
-  const params = useSearchParams();
-  const [filters, setFilters] = React.useState<SalesReportFilters>(() => {
-    const inicial: QuickRangeKey = params.get("period") === "all" ? "all" : "today";
-    const { from, to } = quickRange(inicial);
-    return { ...EMPTY_FILTERS, from, to };
-  });
+  // completo (alias heredado del codec); de ahí en adelante manda el panel de
+  // filtros y la URL es un espejo suyo (los pellizcos rápidos hacen
+  // exactamente lo mismo, en la propia pantalla, sin navegar).
+  const [filters, setFilters] = useFiltrosEnUrl(
+    codecFiltrosVentas({ rangoPorDefecto: "today" }),
+    () => ({ ...EMPTY_FILTERS, ...quickRange("today") }),
+  );
 
   const set = <K extends keyof SalesReportFilters>(
     key: K,
     value: SalesReportFilters[K],
   ) => setFilters((f) => ({ ...f, [key]: value }));
 
-  const applyQuick = (key: QuickRangeKey) => {
-    const { from, to } = quickRange(key);
-    setFilters((f) => ({ ...f, from, to }));
-  };
+  const aplicarRango = (r: { from: string; to: string }) =>
+    setFilters((f) => ({ ...f, from: r.from, to: r.to }));
 
   const clearFilters = () => setFilters(EMPTY_FILTERS);
 
@@ -210,7 +198,7 @@ function VentasContent() {
   const historico = useHistoricoAlegra({
     desde: filters.from || undefined,
     hasta: filters.to || undefined,
-    sucursalId: filters.branchId || undefined,
+    sucursalIds: filters.branchIds,
     cantidadSistema: ventasContadas.length,
     incluir: incluirAlegra,
     filtrosNoAplicables,
@@ -219,7 +207,7 @@ function VentasContent() {
     {
       desde: filters.from || undefined,
       hasta: filters.to || undefined,
-      sucursalId: filters.branchId || undefined,
+      sucursalIds: filters.branchIds,
       limite: 200,
     },
     historicoParticipa,
@@ -365,149 +353,105 @@ function VentasContent() {
         <LeyendaHistorico leyenda={historico.leyenda} />
       </div>
 
-      <Card className="mb-4">
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {QUICK_RANGES.map((q) => (
-              <Button key={q.key} size="sm" variant="outline" onClick={() => applyQuick(q.key)}>
-                {q.label}
-              </Button>
+      <PanelDeFiltros
+        desde={filters.from ?? ""}
+        hasta={filters.to ?? ""}
+        onRango={aplicarRango}
+        sucursales={filters.branchIds ?? []}
+        onSucursales={(ids) => set("branchIds", ids)}
+        opcionesSucursales={branches}
+        onLimpiar={clearFilters}
+        className="mb-4"
+      >
+        <CampoDeFiltro etiqueta="Método de pago">
+          <Select
+            aria-label="Método de pago"
+            value={filters.method ?? ""}
+            onChange={(e) => set("method", e.target.value as SaleMethodSummary | "")}
+          >
+            <option value="">Todos</option>
+            {METHOD_OPTIONS.map((m) => (
+              <option key={m} value={m}>
+                {SALE_METHOD_LABEL[m]}
+              </option>
             ))}
-            <Button size="sm" variant="ghost" onClick={clearFilters}>
-              Limpiar filtros
-            </Button>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <Label>Desde</Label>
-              <Input
-                type="date"
-                value={filters.from ?? ""}
-                onChange={(e) => set("from", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Hasta</Label>
-              <Input
-                type="date"
-                value={filters.to ?? ""}
-                onChange={(e) => set("to", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Sucursal / Local</Label>
-              <Select
-                aria-label="Sucursal / Local"
-                value={filters.branchId ?? ""}
-                onChange={(e) => set("branchId", e.target.value)}
-              >
-                <option value="">Todas las sucursales</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Método de pago</Label>
-              <Select
-                aria-label="Método de pago"
-                value={filters.method ?? ""}
-                onChange={(e) => set("method", e.target.value as SaleMethodSummary | "")}
-              >
-                <option value="">Todos</option>
-                {METHOD_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {SALE_METHOD_LABEL[m]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Tipo de comprobante</Label>
-              <Select
-                aria-label="Tipo de comprobante"
-                value={filters.comprobante ?? ""}
-                onChange={(e) => set("comprobante", e.target.value as ComprobanteKey | "")}
-              >
-                <option value="">Todos</option>
-                {COMPROBANTE_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {COMPROBANTE_LABEL[c]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Estado</Label>
-              <Select
-                aria-label="Estado"
-                value={filters.status ?? ""}
-                onChange={(e) => set("status", e.target.value as SaleStatusKey | "")}
-              >
-                <option value="">Todos</option>
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {SALE_STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Cajero</Label>
-              <Select
-                aria-label="Cajero"
-                value={filters.cashierId ?? ""}
-                onChange={(e) => set("cashierId", e.target.value)}
-              >
-                <option value="">Todos</option>
-                {cashierOptions.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <Label>Vendedor</Label>
-              <Select
-                aria-label="Vendedor"
-                value={filters.sellerId ?? ""}
-                onChange={(e) => set("sellerId", e.target.value)}
-              >
-                <option value="">Todos</option>
-                {sellerOptions.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-                <option value={NO_SELLER}>No asignado</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Cliente</Label>
-              <Input
-                placeholder="Nombre, teléfono, cédula/RNC…"
-                value={filters.customerQuery ?? ""}
-                onChange={(e) => set("customerQuery", e.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Producto / servicio</Label>
-              <Input
-                placeholder="Nombre o SKU del producto…"
-                value={filters.productQuery ?? ""}
-                onChange={(e) => set("productQuery", e.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <CasillaIncluirAlegra checked={incluirAlegra} onChange={setIncluirAlegra} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Tipo de comprobante">
+          <Select
+            aria-label="Tipo de comprobante"
+            value={filters.comprobante ?? ""}
+            onChange={(e) => set("comprobante", e.target.value as ComprobanteKey | "")}
+          >
+            <option value="">Todos</option>
+            {COMPROBANTE_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {COMPROBANTE_LABEL[c]}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Estado">
+          <Select
+            aria-label="Estado"
+            value={filters.status ?? ""}
+            onChange={(e) => set("status", e.target.value as SaleStatusKey | "")}
+          >
+            <option value="">Todos</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {SALE_STATUS_LABEL[s]}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Cajero">
+          <Select
+            aria-label="Cajero"
+            value={filters.cashierId ?? ""}
+            onChange={(e) => set("cashierId", e.target.value)}
+          >
+            <option value="">Todos</option>
+            {cashierOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Vendedor">
+          <Select
+            aria-label="Vendedor"
+            value={filters.sellerId ?? ""}
+            onChange={(e) => set("sellerId", e.target.value)}
+          >
+            <option value="">Todos</option>
+            {sellerOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+            <option value={NO_SELLER}>No asignado</option>
+          </Select>
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Cliente">
+          <Input
+            placeholder="Nombre, teléfono, cédula/RNC…"
+            value={filters.customerQuery ?? ""}
+            onChange={(e) => set("customerQuery", e.target.value)}
+          />
+        </CampoDeFiltro>
+        <CampoDeFiltro etiqueta="Producto / servicio">
+          <Input
+            placeholder="Nombre o SKU del producto…"
+            value={filters.productQuery ?? ""}
+            onChange={(e) => set("productQuery", e.target.value)}
+          />
+        </CampoDeFiltro>
+        <div className="flex items-end">
+          <CasillaIncluirAlegra checked={incluirAlegra} onChange={setIncluirAlegra} />
+        </div>
+      </PanelDeFiltros>
 
       {avisoTabla && (
         <p className="mb-3 flex items-start gap-1.5 text-xs font-medium text-amber-700">
@@ -532,7 +476,7 @@ function VentasContent() {
                 {esHoy && (
                   <button
                     type="button"
-                    onClick={() => applyQuick("all")}
+                    onClick={() => aplicarRango(quickRange("all"))}
                     className="mt-2 inline-block font-medium text-[color:var(--brand-accent)] hover:underline"
                   >
                     Ver todo el histórico →
@@ -647,7 +591,7 @@ function VentasContent() {
                     {esHoy && (
                       <button
                         type="button"
-                        onClick={() => applyQuick("all")}
+                        onClick={() => aplicarRango(quickRange("all"))}
                         className="ml-2 font-medium text-[color:var(--brand-accent)] hover:underline"
                       >
                         Ver todo el histórico →

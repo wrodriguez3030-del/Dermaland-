@@ -79,6 +79,14 @@ const querySchema = z.object({
   hasta: z.string().regex(FECHA, "Fecha inválida").optional(),
   clienteId: idDeLaBase.optional(),
   sucursalId: idDeLaBase.optional(),
+  // Lista de sucursales, separadas por comas (mismo patrón que `vista` y
+  // `dimension` arriba). Si viene, GANA sobre `sucursalId` — nunca se aplican
+  // los dos a la vez, ver más abajo.
+  sucursales: z
+    .string()
+    .transform((v) => v.split(",").map((x) => x.trim()).filter(Boolean))
+    .pipe(z.array(idDeLaBase).min(1).max(50))
+    .optional(),
   // Solo el texto literal "false" desactiva Alegra; cualquier otra cosa
   // (incluida su ausencia) deja el valor por defecto `true` de
   // `listarVentasUnificadas`/`resumenVentas`.
@@ -135,6 +143,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     hasta: sp.get("hasta") ?? undefined,
     clienteId: sp.get("clienteId") ?? undefined,
     sucursalId: sp.get("sucursalId") ?? undefined,
+    sucursales: sp.get("sucursales") ?? undefined,
     incluirAlegra: sp.get("incluirAlegra") ?? undefined,
     limite: sp.get("limite") ?? undefined,
     desplazamiento: sp.get("desplazamiento") ?? undefined,
@@ -142,7 +151,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json({ error: "Parámetros de filtro no válidos." }, { status: 400 });
   }
-  const { vista, dimension, ...filtros } = parsed.data;
+  const { vista, dimension, sucursales, ...filtros } = parsed.data;
   // Una dimensión desconocida ya la rechazó zod; la que falta, aquí. En los dos
   // casos es un 400: pedir un desglose sin decir de qué es un error de la
   // petición, no un desglose vacío.
@@ -157,7 +166,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { status: 400 },
     );
   }
-  const filtrosVentas: FiltrosVentas = filtros;
+  // `sucursales` (2+) gana sobre `sucursalId`: nunca se combinan los dos
+  // predicados, o alguien que marque una sucursal Y deje el `sucursalId`
+  // viejo en la URL vería un filtro más estricto de lo que pidió.
+  const filtrosVentas: FiltrosVentas = sucursales
+    ? { ...filtros, sucursalId: undefined, sucursalIds: sucursales }
+    : filtros;
 
   try {
     // 🔴 `sessionToRepoContext`, NO `getRepoContext()`: el portero de arriba ya

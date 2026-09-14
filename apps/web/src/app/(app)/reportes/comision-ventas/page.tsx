@@ -2,8 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
+import { CampoDeFiltro, PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
+import { codecFiltrosComision } from "@/features/filtros/filtros-en-url";
+import { useFiltrosEnUrl } from "@/features/filtros/use-filtros-en-url";
+import { nombresSucursales } from "@/features/filtros/sucursales-seleccion";
 import {
   Badge,
   Button,
@@ -47,10 +50,8 @@ import {
 } from "@/features/billing/permissions";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/format";
 import {
-  quickRange,
   SALE_METHOD_LABEL,
   SALE_STATUS_LABEL,
-  type QuickRangeKey,
   type SaleMethodSummary,
   type SaleStatusKey,
 } from "@/features/sales/sales-report";
@@ -71,15 +72,6 @@ import {
 import { buildCommissionPdfSpec } from "@/features/reports/commission/commission-report-pdf";
 import type { ReportMeta } from "@/lib/reports/excel/types";
 
-const QUICK_RANGES: { key: QuickRangeKey; label: string }[] = [
-  { key: "today", label: "Hoy" },
-  { key: "yesterday", label: "Ayer" },
-  { key: "last7", label: "Últimos 7 días" },
-  { key: "thisMonth", label: "Este mes" },
-  { key: "lastMonth", label: "Mes anterior" },
-  { key: "all", label: "Todo" },
-];
-
 const METHOD_OPTIONS: SaleMethodSummary[] = ["cash", "card", "transfer", "other", "mixed"];
 const STATUS_OPTIONS: SaleStatusKey[] = ["paid", "pending", "cancelled", "returned", "partial"];
 const COMMISSION_STATUS_OPTIONS: CommissionStatus[] = [
@@ -92,7 +84,7 @@ const COMMISSION_STATUS_OPTIONS: CommissionStatus[] = [
 const EMPTY: CommissionFilters = {
   from: "",
   to: "",
-  branchId: "",
+  branchIds: [],
   method: "",
   status: "",
   cashierId: "",
@@ -128,26 +120,16 @@ function ReporteComisionVentasContent() {
   const branches = useBranches();
   const activeBranches = useActiveBranches();
 
-  // Deep-link desde Ventas > Incentivos (flujo único): `?seller=&from=&to=`
-  // abren el reporte ya filtrado por ese vendedor y período. Fuente canónica de
-  // filtros compartida entre ambos módulos (§3/§13).
-  const params = useSearchParams();
-  const initialFilters = React.useMemo<CommissionFilters>(() => {
-    const seller = params.get("seller") ?? "";
-    const from = params.get("from") ?? "";
-    const to = params.get("to") ?? "";
-    if (!seller && !from && !to) return EMPTY;
-    return { ...EMPTY, sellerId: seller, from, to };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const canView = canViewCommissionReport(currentUser.role);
   const canExport = canExportCommissionReport(currentUser.role);
   const canManage = canManageCommission(currentUser.role);
   const exclusions = useCommissionExclusions();
   const exclusionList = React.useMemo(() => excludedComprobantes(exclusions), [exclusions]);
 
-  const [filters, setFilters] = React.useState<CommissionFilters>(initialFilters);
+  // `?seller=&from=&to=` (deep-link desde Ventas > Incentivos) se sigue
+  // honrando como alias heredado del codec — fuente canónica de filtros
+  // compartida entre ambos módulos (§3/§13).
+  const [filters, setFilters] = useFiltrosEnUrl(codecFiltrosComision(), () => EMPTY);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [excludeTarget, setExcludeTarget] = React.useState<CommissionLine | null>(null);
   const [excludeReason, setExcludeReason] = React.useState("");
@@ -207,10 +189,8 @@ function ReporteComisionVentasContent() {
 
   const set = <K extends keyof CommissionFilters>(key: K, value: CommissionFilters[K]) =>
     setFilters((f) => ({ ...f, [key]: value }));
-  const applyQuick = (key: QuickRangeKey) => {
-    const { from, to } = quickRange(key);
-    setFilters((f) => ({ ...f, from, to }));
-  };
+  const aplicarRango = (r: { from: string; to: string }) =>
+    setFilters((f) => ({ ...f, from: r.from, to: r.to }));
   const clearFilters = () => setFilters(EMPTY);
 
   const openExclude = (l: CommissionLine) => {
@@ -291,9 +271,7 @@ function ReporteComisionVentasContent() {
   // ── Metadatos compartidos por Excel y PDF ──
   const rangeLabel =
     filters.from || filters.to ? `${filters.from || "inicio"} a ${filters.to || "hoy"}` : "Todo";
-  const branchLabel = filters.branchId
-    ? branchNames.get(filters.branchId) ?? "Sucursal"
-    : "Todas las sucursales";
+  const branchLabel = nombresSucursales(filters.branchIds ?? [], activeBranches);
   const filtersLabel = React.useMemo(() => {
     const parts: string[] = [];
     if (filters.method) parts.push(`Método: ${SALE_METHOD_LABEL[filters.method]}`);
@@ -381,7 +359,7 @@ function ReporteComisionVentasContent() {
   const filterChips: ReportFilterChip[] = [];
   if (filters.from || filters.to)
     filterChips.push({ label: "Fecha", value: `${filters.from || "inicio"} → ${filters.to || "hoy"}` });
-  if (filters.branchId) filterChips.push({ label: "Sucursal", value: branchLabel });
+  if (filters.branchIds?.length) filterChips.push({ label: "Sucursal", value: branchLabel });
   if (filters.method) filterChips.push({ label: "Método", value: SALE_METHOD_LABEL[filters.method] });
   if (filters.commissionStatus)
     filterChips.push({ label: "Comisión", value: COMMISSION_STATUS_LABEL[filters.commissionStatus] });
@@ -455,134 +433,101 @@ function ReporteComisionVentasContent() {
         <ReportFiltersSummary filters={filterChips} />
 
         {/* ── Filtros ── */}
-        <Card className="mb-6 no-print">
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {QUICK_RANGES.map((q) => (
-                <Button key={q.key} size="sm" variant="outline" onClick={() => applyQuick(q.key)}>
-                  {q.label}
-                </Button>
+        <PanelDeFiltros
+          desde={filters.from ?? ""}
+          hasta={filters.to ?? ""}
+          onRango={aplicarRango}
+          sucursales={filters.branchIds ?? []}
+          onSucursales={(ids) => set("branchIds", ids)}
+          opcionesSucursales={activeBranches}
+          onLimpiar={clearFilters}
+          className="mb-6 no-print"
+        >
+          <CampoDeFiltro etiqueta="Vendedor">
+            <Select value={filters.sellerId ?? ""} onChange={(e) => set("sellerId", e.target.value)}>
+              <option value="">Todos</option>
+              {sellerOptions.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
               ))}
-              <Button size="sm" variant="ghost" onClick={clearFilters}>
-                Limpiar filtros
-              </Button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <Label>Desde</Label>
-                <Input type="date" value={filters.from ?? ""} onChange={(e) => set("from", e.target.value)} />
-              </div>
-              <div>
-                <Label>Hasta</Label>
-                <Input type="date" value={filters.to ?? ""} onChange={(e) => set("to", e.target.value)} />
-              </div>
-              <div>
-                <Label>Sucursal</Label>
-                <Select value={filters.branchId ?? ""} onChange={(e) => set("branchId", e.target.value)}>
-                  <option value="">Todas las sucursales</option>
-                  {activeBranches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Vendedor</Label>
-                <Select value={filters.sellerId ?? ""} onChange={(e) => set("sellerId", e.target.value)}>
-                  <option value="">Todos</option>
-                  {sellerOptions.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                  <option value="__none__">Ventas sin vendedor</option>
-                </Select>
-              </div>
-              <div>
-                <Label>Cajero</Label>
-                <Select value={filters.cashierId ?? ""} onChange={(e) => set("cashierId", e.target.value)}>
-                  <option value="">Todos</option>
-                  {cashierOptions.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Método de pago</Label>
-                <Select
-                  value={filters.method ?? ""}
-                  onChange={(e) => set("method", e.target.value as SaleMethodSummary | "")}
-                >
-                  <option value="">Todos</option>
-                  {METHOD_OPTIONS.map((m) => (
-                    <option key={m} value={m}>
-                      {SALE_METHOD_LABEL[m]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Estado de venta</Label>
-                <Select
-                  value={filters.status ?? ""}
-                  onChange={(e) => set("status", e.target.value as SaleStatusKey | "")}
-                >
-                  <option value="">Todos</option>
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {SALE_STATUS_LABEL[s]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Estado de comisión</Label>
-                <Select
-                  value={filters.commissionStatus ?? ""}
-                  onChange={(e) => set("commissionStatus", e.target.value as CommissionStatus | "")}
-                >
-                  <option value="">Todos</option>
-                  {COMMISSION_STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>
-                      {COMMISSION_STATUS_LABEL[s]}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Regla de comisión</Label>
-                <Select value={filters.ruleId ?? ""} onChange={(e) => set("ruleId", e.target.value)}>
-                  <option value="">Todas</option>
-                  {ruleOptions.map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>Cliente</Label>
-                <Input
-                  placeholder="Nombre, teléfono, cédula/RNC…"
-                  value={filters.customerQuery ?? ""}
-                  onChange={(e) => set("customerQuery", e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Número de comprobante</Label>
-                <Input
-                  placeholder="B0200012923…"
-                  value={filters.comprobanteQuery ?? ""}
-                  onChange={(e) => set("comprobanteQuery", e.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              <option value="__none__">Ventas sin vendedor</option>
+            </Select>
+          </CampoDeFiltro>
+          <CampoDeFiltro etiqueta="Cajero">
+            <Select value={filters.cashierId ?? ""} onChange={(e) => set("cashierId", e.target.value)}>
+              <option value="">Todos</option>
+              {cashierOptions.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </CampoDeFiltro>
+          <CampoDeFiltro etiqueta="Método de pago">
+            <Select
+              value={filters.method ?? ""}
+              onChange={(e) => set("method", e.target.value as SaleMethodSummary | "")}
+            >
+              <option value="">Todos</option>
+              {METHOD_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {SALE_METHOD_LABEL[m]}
+                </option>
+              ))}
+            </Select>
+          </CampoDeFiltro>
+          <CampoDeFiltro etiqueta="Estado de venta">
+            <Select
+              value={filters.status ?? ""}
+              onChange={(e) => set("status", e.target.value as SaleStatusKey | "")}
+            >
+              <option value="">Todos</option>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {SALE_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </Select>
+          </CampoDeFiltro>
+          <CampoDeFiltro etiqueta="Estado de comisión">
+            <Select
+              value={filters.commissionStatus ?? ""}
+              onChange={(e) => set("commissionStatus", e.target.value as CommissionStatus | "")}
+            >
+              <option value="">Todos</option>
+              {COMMISSION_STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {COMMISSION_STATUS_LABEL[s]}
+                </option>
+              ))}
+            </Select>
+          </CampoDeFiltro>
+          <CampoDeFiltro etiqueta="Regla de comisión">
+            <Select value={filters.ruleId ?? ""} onChange={(e) => set("ruleId", e.target.value)}>
+              <option value="">Todas</option>
+              {ruleOptions.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </CampoDeFiltro>
+          <CampoDeFiltro etiqueta="Cliente">
+            <Input
+              placeholder="Nombre, teléfono, cédula/RNC…"
+              value={filters.customerQuery ?? ""}
+              onChange={(e) => set("customerQuery", e.target.value)}
+            />
+          </CampoDeFiltro>
+          <CampoDeFiltro etiqueta="Número de comprobante">
+            <Input
+              placeholder="B0200012923…"
+              value={filters.comprobanteQuery ?? ""}
+              onChange={(e) => set("comprobanteQuery", e.target.value)}
+            />
+          </CampoDeFiltro>
+        </PanelDeFiltros>
 
         {/* ── KPIs ── */}
         <div className="mb-6">

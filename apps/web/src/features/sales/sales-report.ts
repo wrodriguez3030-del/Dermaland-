@@ -188,7 +188,8 @@ export interface SalesReportFilters {
   from?: string;
   /** YYYY-MM-DD inclusivo. Vacío = sin límite superior. */
   to?: string;
-  branchId?: string;
+  /** Sucursales elegidas. `[]` o `undefined` = todas. */
+  branchIds?: string[];
   method?: SaleMethodSummary | "";
   comprobante?: ComprobanteKey | "";
   status?: SaleStatusKey | "";
@@ -211,7 +212,7 @@ export interface SalesReportFilters {
 export const EMPTY_FILTERS: SalesReportFilters = {
   from: "",
   to: "",
-  branchId: "",
+  branchIds: [],
   method: "",
   comprobante: "",
   status: "",
@@ -264,7 +265,7 @@ export function filterSales(
       const d = saleDateKey(p.createdAt);
       if (d && d > f.to) return false;
     }
-    if (f.branchId && p.branchId !== f.branchId) return false;
+    if (f.branchIds?.length && !f.branchIds.includes(p.branchId)) return false;
     if (f.method && saleMethodSummary(p) !== f.method) return false;
     if (f.comprobante && key !== f.comprobante) return false;
     if (f.status && saleStatusKey(p.status) !== f.status) return false;

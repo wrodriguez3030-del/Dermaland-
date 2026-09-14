@@ -86,6 +86,8 @@ export interface FiltrosVentasApi {
   hasta?: string | undefined;
   clienteId?: string | undefined;
   sucursalId?: string | undefined;
+  /** Varias sucursales; si trae 2+ ids tiene prioridad sobre `sucursalId`. */
+  sucursalIds?: string[] | undefined;
   /** `false` deja fuera el histórico migrado. Por defecto entra. */
   incluirAlegra?: boolean | undefined;
   limite?: number | undefined;
@@ -280,7 +282,16 @@ export function consultaVentas(
   if (filtros.desde) p.set("desde", filtros.desde);
   if (filtros.hasta) p.set("hasta", filtros.hasta);
   if (filtros.clienteId) p.set("clienteId", filtros.clienteId);
-  if (filtros.sucursalId) p.set("sucursalId", filtros.sucursalId);
+  // Un solo id → `sucursalId=` (idéntico a hoy); dos o más → `sucursales=`
+  // ordenados (misma razón que `dims` arriba: el orden en que se marcaron no
+  // debe producir una petición distinta a la misma selección).
+  const sucursales = filtros.sucursalIds?.length
+    ? [...new Set(filtros.sucursalIds)].sort()
+    : filtros.sucursalId
+      ? [filtros.sucursalId]
+      : [];
+  if (sucursales.length === 1) p.set("sucursalId", sucursales[0]!);
+  else if (sucursales.length > 1) p.set("sucursales", sucursales.join(","));
   // Solo el literal "false" desactiva Alegra (así lo lee la ruta): se manda
   // únicamente cuando hay que apagarlo, para no depender de cómo se serialice
   // un booleano.

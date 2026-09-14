@@ -199,6 +199,43 @@ describe("GET /api/ventas?vista=desglose", () => {
     expect(desgloseVentas).not.toHaveBeenCalled();
   });
 
+  it("🔴 sucursales= (2+) GANA sobre sucursalId, y no manda los dos a la vez", async () => {
+    const res = await pedir(
+      "vista=desglose&dimension=vendedor" +
+        "&sucursalId=99999999-9999-4999-8999-999999999999" +
+        "&sucursales=11111111-1111-4111-8111-111111111111,22222222-2222-4222-8222-222222222222",
+    );
+    expect(res.status).toBe(200);
+    const filtros = desgloseVentas.mock.calls[0]![1] as Record<string, unknown>;
+    expect(filtros.sucursalIds).toEqual([
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+    ]);
+    expect(filtros.sucursalId).toBeUndefined();
+  });
+
+  it("sucursalId solo (sin sucursales=) llega EXACTAMENTE como hoy", async () => {
+    const res = await pedir(
+      "vista=desglose&dimension=vendedor&sucursalId=11111111-1111-4111-8111-111111111111",
+    );
+    expect(res.status).toBe(200);
+    const filtros = desgloseVentas.mock.calls[0]![1] as Record<string, unknown>;
+    expect(filtros.sucursalId).toBe("11111111-1111-4111-8111-111111111111");
+    expect(filtros.sucursalIds).toBeUndefined();
+  });
+
+  it("una sucursal no-uuid en la lista es un 400, no un filtro que se ignora", async () => {
+    const res = await pedir("vista=desglose&dimension=vendedor&sucursales=no-es-un-uuid");
+    expect(res.status).toBe(400);
+    expect(desgloseVentas).not.toHaveBeenCalled();
+  });
+
+  it("más de 50 sucursales en la lista es un 400", async () => {
+    const muchas = Array.from({ length: 51 }, (_, i) => `${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`).join(",");
+    const res = await pedir(`vista=desglose&dimension=vendedor&sucursales=${muchas}`);
+    expect(res.status).toBe(400);
+  });
+
   it("🔴 la respuesta dice QUÉ FUENTES trae: no todas las dimensiones traen las dos", () => {
     // `vendedor` trae proformas + Alegra; `forma_pago` y `producto`, solo
     // Alegra. Hoy `proformas` está vacía y por eso cualquiera de las tres

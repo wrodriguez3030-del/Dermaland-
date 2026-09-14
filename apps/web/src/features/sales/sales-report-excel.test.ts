@@ -157,7 +157,7 @@ describe("buildSalesWorkbookSpec — paridad con pantalla", () => {
 
 describe("buildSalesWorkbookSpec — respeta filtros", () => {
   it("filtro por sucursal reduce filas y totales igual que pantalla", () => {
-    const filtered = buildSalesReport(ALL, { branchId: "br_2" });
+    const filtered = buildSalesReport(ALL, { branchIds: ["br_2"] });
     const spec = buildSalesWorkbookSpec(filtered, META);
     expect(spec.sheets[1]!.tables[0]!.rows).toHaveLength(1);
     expect(spec.sheets[1]!.tables[0]!.totals!.total).toBe(236);

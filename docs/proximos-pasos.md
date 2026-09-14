@@ -121,6 +121,39 @@ Detalle completo en `docs/estado-actual.md` (entrada `2026-08-06`) y
       respaldo lógico diario restaura completo, pero no vuelve al minuto
       anterior a un borrado.
 
+## Prioridad 4 — panel de filtros, Fase 2 (14/09, backend pendiente)
+
+Fase 1 (`docs/estado-actual.md` 2026-09-14) cubrió el componente compartido y
+las pantallas cuyo backend ya aceptaba fecha/sucursal. Queda:
+
+- [ ] **Backend de `desde`/`hasta` para 8 grupos de pantallas**, hoy sin
+      filtro de fecha porque el repositorio no lo acepta: `/caja/historial` +
+      `/reportes/caja` (`cash.history(ctx, limit)`), CxC (`/historial`,
+      `/promesas`, `/mora`, `/reportes` — `GET /api/receivables/*` sin
+      params), `/inventario/movimientos` + `/reportes/inventario`
+      (`GET /api/movements` solo `productId,limit`), `/inventario/transferencias`
+      (`InventoryTransferRepository.list(ctx)` sin opciones), `/reportes/conteos`
+      + `/conteo-fisico` (`inventoryCount.list(ctx)` sin opciones),
+      `/compras/facturas-proveedores` (ya acepta `branchId`/`status`, falta
+      `from/to`), `/compras/gastos-menores` + `/pagos-gastos` (falta `from/to`),
+      `/compras/pagos-recurrentes` (sin opciones), `/pedidos-web`
+      (`listWebOrders` solo `page,status`), `/admin/auditoria` (`/api/audit`
+      solo `action,limit`).
+- [ ] **4 barras de filtro decorativas** (UI presente, cero `value`/`onChange`
+      — no depende de esta migración de panel, es un bug previo): `/admin/auditoria`
+      (+ fecha hardcodeada `"2026-05-05"`), `/proformas`, buscador de
+      `/inventario/movimientos`, buscador de `/whatsapp/conversaciones`.
+- [ ] **Dashboard (`/`) a rango libre**, una vez `/api/customers/nuevos` acepte
+      `desde/hasta` (hoy solo `mes`/`anio`) — permitiría retirar `MonthFilter`/
+      `YearFilter` y unificar con el resto del sistema.
+- [ ] **`incluirAlegra`** (checkbox de Ventas/Reportes → Ventas) no se persiste
+      en la URL todavía — extensión de una línea al codec cuando haga falta.
+- [ ] Colapso móvil opcional del panel (patrón ya existente en
+      `components/ui/filter-bar.tsx`) si 8-11 campos a 390px resultan
+      demasiado altos en el uso real.
+- [ ] Simetría opcional: `server/services/alegra/queries.ts` (`facturasEnRango`)
+      con `branchId?: string | string[]`, aunque no lo usa ninguna pantalla hoy.
+
 ## Prioridad 4 — mejoras de UX
 
 - [ ] Completar fotos de producto faltantes (emparejar por EAN, no por

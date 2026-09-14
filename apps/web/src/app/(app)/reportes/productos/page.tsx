@@ -33,12 +33,28 @@ import { realMarginPercent, marginAmount } from "@/features/products/pricing";
 import { makePdfMeta } from "@/lib/reports/pdf/meta";
 import { useCurrentUser } from "@/features/auth/current-user";
 import { formatCurrency, formatDateTime, daysUntil } from "@/lib/utils/format";
+import { EMPTY_FILTERS, saleDateKey } from "@/features/sales/sales-report";
+import { useActiveBranches } from "@/features/tenancy/branch-store";
+import { PanelDeFiltros } from "@/features/filtros/panel-de-filtros";
+import { codecFiltrosVentas } from "@/features/filtros/filtros-en-url";
+import { useFiltrosEnUrl } from "@/features/filtros/use-filtros-en-url";
+import { nombresSucursales } from "@/features/filtros/sucursales-seleccion";
 
-export default function ReporteProductosPage() {
+function ReporteProductosContent() {
   const currentUser = useCurrentUser();
   const allDocs = useProformas();
   const products = useProducts();
   const lots = useAllLots();
+  const activeBranches = useActiveBranches();
+
+  // Igual que el resto de reportes: abre en Todo el histórico. Solo se admite
+  // UNA sucursal (`multipleSucursales={false}`): `/api/ventas` acepta varias,
+  // pero `topSistema` de aquí abajo solo sabe comparar UN `branchId`.
+  const [filtros, setFiltros] = useFiltrosEnUrl(
+    codecFiltrosVentas({ rangoPorDefecto: "all" }),
+    () => EMPTY_FILTERS,
+  );
+  const sucursalId = filtros.branchIds?.[0];
 
   const [generatedAt, setGeneratedAt] = React.useState("");
   React.useEffect(() => {
@@ -50,7 +66,11 @@ export default function ReporteProductosPage() {
   // 1 513 productos como si ninguno se hubiera vendido nunca, teniendo 1 248
   // con ventas reales—. El desglose llega calculado de la base, sin traer una
   // sola fila para sumarla, y trae los 200 productos más vendidos.
-  const desgloseProducto = useDesgloseVentas("producto", {});
+  const desgloseProducto = useDesgloseVentas("producto", {
+    desde: filtros.from || undefined,
+    hasta: filtros.to || undefined,
+    sucursalId,
+  });
   const migrados = React.useMemo(
     () =>
       desgloseProducto.tipo === "listo"
@@ -64,11 +84,17 @@ export default function ReporteProductosPage() {
   const historicoCargando = desgloseProducto.tipo === "cargando";
   const historicoFallo = desgloseProducto.tipo === "error" ? desgloseProducto.mensaje : null;
 
-  // Ventas por producto (solo facturas, no proformas).
+  // Ventas por producto (solo facturas, no proformas). Obedece el MISMO rango
+  // y sucursal que el histórico migrado (`desgloseProducto` arriba) — un
+  // filtro que solo acotara una de las dos mitades daría un total que no
+  // cuadra con ninguna de las dos.
   const topSistema = React.useMemo(() => {
     const map = new Map<string, { name: string; qty: number; revenue: number }>();
     for (const p of allDocs) {
       if (!isInvoiceDocument(p) || p.status === "cancelled") continue;
+      if (filtros.from && saleDateKey(p.createdAt) < filtros.from) continue;
+      if (filtros.to && saleDateKey(p.createdAt) > filtros.to) continue;
+      if (sucursalId && p.branchId !== sucursalId) continue;
       for (const it of p.items) {
         const e = map.get(it.productId) ?? { name: it.productName, qty: 0, revenue: 0 };
         e.qty += it.quantity;
@@ -79,7 +105,7 @@ export default function ReporteProductosPage() {
     return [...map.entries()]
       .map(([productId, v]) => ({ productId, ...v }))
       .sort((a, b) => b.revenue - a.revenue);
-  }, [allDocs]);
+  }, [allDocs, filtros.from, filtros.to, sucursalId]);
 
   // Las dos mitades, ordenadas juntas. No se funden por producto: hoy
   // `proformas` está vacía y no hay solape; el día que lo haya, sumarlas aquí
@@ -159,12 +185,16 @@ export default function ReporteProductosPage() {
     };
   };
 
+  const rangeLabel =
+    filtros.from || filtros.to ? `${filtros.from || "inicio"} a ${filtros.to || "hoy"}` : "Todo";
+  const branchLabel = nombresSucursales(filtros.branchIds ?? [], activeBranches);
+
   const excelSpec = () =>
     buildProductsWorkbookSpec(reportInput(), {
       title: "Reporte de productos",
       subtitle: "Más vendidos, catálogo, margen y baja rotación.",
-      rangeLabel: "Todo",
-      branchLabel: "Todas las sucursales",
+      rangeLabel,
+      branchLabel,
       filtersLabel: "Sin filtros adicionales",
       generatedBy: currentUser.fullName,
       generatedAtLabel: formatDateTime(new Date().toISOString()),
@@ -178,8 +208,8 @@ export default function ReporteProductosPage() {
         subtitle: "Catálogo con costo, ITBIS, precio y margen real.",
         reportKind: "Reporte de productos",
         cutLabel: `Fecha de corte: ${formatDateTime(new Date().toISOString())}`,
-        periodLabel: "Todo",
-        branchLabel: "Todas las sucursales",
+        periodLabel: rangeLabel,
+        branchLabel,
         filtersLabel: "Sin filtros adicionales",
         generatedBy: currentUser.fullName,
         generatedAtLabel: formatDateTime(new Date().toISOString()),
@@ -209,6 +239,18 @@ export default function ReporteProductosPage() {
           subtitle="Productos más vendidos e inventario con baja rotación."
           generatedBy={currentUser.fullName}
           generatedAt={generatedAt}
+        />
+
+        <PanelDeFiltros
+          desde={filtros.from ?? ""}
+          hasta={filtros.to ?? ""}
+          onRango={(r) => setFiltros((f) => ({ ...f, from: r.from, to: r.to }))}
+          sucursales={filtros.branchIds ?? []}
+          onSucursales={(ids) => setFiltros((f) => ({ ...f, branchIds: ids }))}
+          opcionesSucursales={activeBranches}
+          multipleSucursales={false}
+          onLimpiar={() => setFiltros(EMPTY_FILTERS)}
+          className="no-print mb-6"
         />
 
         <ReportSummaryCards items={kpiItems} columns={4} />
@@ -303,7 +345,14 @@ export default function ReporteProductosPage() {
           )}
         </ReportSection>
 
-        <ReportSection title="Baja rotación (sin ventas)" tone="warning">
+        <ReportSection
+          title={
+            filtros.from || filtros.to
+              ? "Baja rotación (sin ventas en el período)"
+              : "Baja rotación (sin ventas)"
+          }
+          tone="warning"
+        >
           {/* 🔴 El histórico migrado entra por el desglose, que devuelve los 200
               productos MÁS vendidos, no los 1 248 que tuvieron ventas. Un
               producto que vendió poco en Alegra cae fuera de esa lista y
@@ -346,5 +395,17 @@ export default function ReporteProductosPage() {
         />
       </ReportLayout>
     </>
+  );
+}
+
+// `ReporteProductosContent` usa `useFiltrosEnUrl` (→ `useSearchParams`), que
+// exige un límite de Suspense — mismo patrón que ya usan las otras pantallas.
+export default function ReporteProductosPage() {
+  return (
+    <React.Suspense
+      fallback={<div className="p-6 text-sm opacity-60">Cargando reporte de productos…</div>}
+    >
+      <ReporteProductosContent />
+    </React.Suspense>
   );
 }

@@ -107,7 +107,7 @@ function passesFilters(l: CommissionLine, f: CommissionFilters): boolean {
   const day = saleDateKey(l.date);
   if (f.from && day < f.from) return false;
   if (f.to && day > f.to) return false;
-  if (f.branchId && l.branchId !== f.branchId) return false;
+  if (f.branchIds?.length && !f.branchIds.includes(l.branchId)) return false;
   if (f.method && l.methodGroup !== f.method) return false;
   if (f.sellerId && l.sellerId !== f.sellerId) return false;
   if (f.cashierId && l.cashier !== f.cashierId) {

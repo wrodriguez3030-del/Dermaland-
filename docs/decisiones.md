@@ -5,6 +5,69 @@ decisión, con fecha (YYYY-MM-DD), contexto y consecuencias.
 
 ---
 
+## 2026-09-14 — Panel de filtros unificado: componente compartido, `[]` = todas, DROP antes de CREATE en las RPC
+
+**Archivos:** `apps/web/src/features/filtros/`,
+`apps/web/src/server/repositories/supabase/ventas-unificadas.ts`,
+`apps/web/src/app/api/ventas/route.ts`,
+`supabase/migrations/20260914100000_ventas_unificadas_varias_sucursales.sql`
+
+### El pedido
+
+El dueño mandó una captura del panel de filtros de agendapp (`/facturar/historial`)
+y pidió "usar este modelo de filtro en todo el sistema donde aplique". DermaLand
+tenía el mismo panel **triplicado a mano** en `/ventas`, `/reportes/ventas` y
+`/reportes/comision-ventas` (cada uno con su propio `QUICK_RANGES`, sin resaltar
+el atajo activo, y con selector de UNA sola sucursal).
+
+### Decisiones
+
+1. **`[]` significa "todas las sucursales", nunca "ninguna".** Semántica
+   portada literal de `BranchMultiSelect` de agendapp. Toda la lógica de
+   selección múltiple (`alternarSucursal`, `normalizarSeleccion`) vive en
+   `features/filtros/sucursales-seleccion.ts`, pura y probada aparte del
+   componente visual.
+2. **El chip activo se DERIVA de las fechas** (`detectarAtajo`), nunca se
+   guarda por separado — evita que un `setState` manual deje el chip
+   mostrando algo que ya no es cierto. Sin `hoy` (antes de montar en el
+   cliente) solo "Todo" es decidible; cualquier otro rango se ve como
+   "Personalizado" hasta que el efecto de montaje calcula la fecha real —
+   mismo patrón `mounted` de siempre para `Date.now`.
+3. **Multi-sucursal real solo en las 3 pantallas de ventas** (el resto se
+   deja en selección única): `/api/customers/metrics`, `/api/laboratorios/ventas`
+   y `computeLabSales` agregan por UNA sucursal cada uno — hacer N llamadas y
+   sumar en el navegador sería incorrecto para conteos de "distintos"
+   (`clientes_distintos`) y falso para el top-200 del desglose.
+4. **Wire format `sucursales=id1,id2` (comma list), `sucursalId=` se
+   mantiene.** Con 1 sola sucursal seleccionada el cliente sigue mandando
+   `sucursalId=` — la petición es byte a byte idéntica a antes de este
+   cambio. Con 2+, `sucursales=` gana y `sucursalId` se ignora explícitamente
+   en la ruta (nunca se aplican los dos predicados a la vez).
+5. **`DROP FUNCTION` antes de `CREATE`, nunca `CREATE OR REPLACE` con una
+   firma distinta.** Postgres identifica una función por nombre + tipos de
+   parámetro: añadir `p_sucursal_ids uuid[]` con `create or replace` crearía
+   una SEGUNDA función coexistiendo con la vieja, y PostgREST dejaría de
+   saber cuál llamar (`PGRST203`) incluso para las llamadas de una sola
+   sucursal que hoy funcionan. La migración hace `drop function if exists
+   <firma vieja>` primero, dejando UNA sola firma final.
+6. **La migración se escribió, no se aplicó.** El dueño autorizó "multi +
+   migración, aplicar solo con tu OK" — aplicar es un paso aparte, explícito,
+   con `node scripts/apply-migration.mjs
+   supabase/migrations/20260914100000_ventas_unificadas_varias_sucursales.sql`.
+   Mientras tanto, pedir 2+ sucursales en `/ventas` da un `Error` que NOMBRA
+   el archivo de la migración — nunca un total en RD$0,00 disfrazado de dato
+   real.
+7. **Fase 1 = sin tocar backend salvo lo de arriba.** Las ~15 pantallas cuyo
+   filtro de fecha exigiría cambiar repositorios/rutas (caja/historial, CxC,
+   movimientos, transferencias, conteos, compras, pedidos-web, auditoría)
+   quedan en `docs/proximos-pasos.md` como Fase 2.
+8. **El panel principal (`/`) se queda en Mes/Año**, restyleado a la misma
+   cáscara (`MarcoFiltros`) pero sin adoptar el rango libre: `/api/customers/nuevos`
+   solo admite `mes`/`anio`, y migrar solo esa tarjeta habría dejado un
+   período que no coincide con el resto del panel.
+
+---
+
 ## 2026-09-06 — Las ventas de Alegra se unen AL LEERLAS, no copiando filas
 
 **Archivos:** `apps/web/src/features/ventas/`,
